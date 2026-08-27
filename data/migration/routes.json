@@ -1,0 +1,14 @@
+[
+  {
+    "routeCode": "R01",
+    "routeName": "Downtown Route A"
+  },
+  {
+    "routeCode": "R02",
+    "routeName": "Uptown Route B"
+  },
+  {
+    "routeCode": "R03",
+    "routeName": "Suburban Route C"
+  }
+]

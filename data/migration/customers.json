@@ -1,0 +1,32 @@
+[
+  {
+    "customerCode": "C001",
+    "customerName": "Mart Superstore",
+    "classification": "A",
+    "channel": "Modern Trade"
+  },
+  {
+    "customerCode": "C002",
+    "customerName": "Apex Grocery",
+    "classification": "B",
+    "channel": "General Trade"
+  },
+  {
+    "customerCode": "C003",
+    "customerName": "Corner Store Daily",
+    "classification": "C",
+    "channel": "General Trade"
+  },
+  {
+    "customerCode": "C004",
+    "customerName": "Metro Food Plaza",
+    "classification": "A",
+    "channel": "Modern Trade"
+  },
+  {
+    "customerCode": "C005",
+    "customerName": "Highway Refreshments",
+    "classification": "D",
+    "channel": "QSR"
+  }
+]

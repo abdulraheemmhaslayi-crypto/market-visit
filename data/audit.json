@@ -1,0 +1,58 @@
+[
+  {
+    "logId": "log_1783505095460_4w4r5",
+    "user": "admin@system.local",
+    "action": "Excel Master Import",
+    "entity": "Imported masters. Totals: Inserted: 0, Updated: 21628, Removed: 0",
+    "createdAt": "2026-07-08T10:04:55.461Z"
+  },
+  {
+    "logId": "log_1783499199497_9nbjg",
+    "user": "admin@system.local",
+    "action": "Disable User",
+    "entity": "Disabled supervisor user: John Doe (SUP001)",
+    "createdAt": "2026-07-08T08:26:39.497Z"
+  },
+  {
+    "logId": "log_1783498969445_17dkp",
+    "user": "admin@system.local",
+    "action": "Create User",
+    "entity": "Created supervisor user: Arman khan (SUP005)",
+    "createdAt": "2026-07-08T08:22:49.445Z"
+  },
+  {
+    "logId": "log_1783498919048_tu0pk",
+    "user": "admin@system.local",
+    "action": "Excel Master Import",
+    "entity": "Imported masters. Totals: Inserted: 21627, Updated: 1, Removed: 18",
+    "createdAt": "2026-07-08T08:21:59.048Z"
+  },
+  {
+    "logId": "log_1783498625132_zvwkk",
+    "user": "admin@system.local",
+    "action": "Delete Visit",
+    "entity": "Deleted field visit VISIT-1783338083739 associated with customer ",
+    "createdAt": "2026-07-08T08:17:05.132Z"
+  },
+  {
+    "logId": "log_1783494453748_0qmv6",
+    "user": "admin@system.local",
+    "action": "Excel Master Import",
+    "entity": "Imported masters. Totals: Inserted: 0, Updated: 0, Removed: 0",
+    "createdAt": "2026-07-08T07:07:33.748Z"
+  },
+  {
+    "logId": "log_1783338973753_z4j9j",
+    "user": "john@system.local",
+    "action": "Save Visit Draft",
+    "entity": "Saved draft visit VISIT-1783338939816 for customer ",
+    "createdAt": "2026-07-06T11:56:13.753Z"
+  },
+  {
+    "logId": "log_1783338092183_04plm",
+    "user": "john@system.local",
+    "action": "Save Visit Draft",
+    "entity": "Saved draft visit VISIT-1783338083739 for customer ",
+    "createdAt": "2026-07-06T11:41:32.183Z"
+  }
+]

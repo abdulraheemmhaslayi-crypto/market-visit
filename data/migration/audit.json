@@ -1,0 +1,16 @@
+[
+  {
+    "logId": "log_1783338973753_z4j9j",
+    "user": "john@system.local",
+    "action": "Save Visit Draft",
+    "entity": "Saved draft visit VISIT-1783338939816 for customer ",
+    "createdAt": "2026-07-06T11:56:13.753Z"
+  },
+  {
+    "logId": "log_1783338092183_04plm",
+    "user": "john@system.local",
+    "action": "Save Visit Draft",
+    "entity": "Saved draft visit VISIT-1783338083739 for customer ",
+    "createdAt": "2026-07-06T11:41:32.183Z"
+  }
+]

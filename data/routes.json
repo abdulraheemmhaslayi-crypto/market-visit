@@ -1,0 +1,498 @@
+[
+  {
+    "routeCode": "DIS001",
+    "routeName": "DIS001"
+  },
+  {
+    "routeCode": "TRD100",
+    "routeName": "TRD100"
+  },
+  {
+    "routeCode": "TRD101",
+    "routeName": "TRD101"
+  },
+  {
+    "routeCode": "TRD102",
+    "routeName": "TRD102"
+  },
+  {
+    "routeCode": "TRD103",
+    "routeName": "TRD103"
+  },
+  {
+    "routeCode": "TRD104",
+    "routeName": "TRD104"
+  },
+  {
+    "routeCode": "TRD105",
+    "routeName": "TRD105"
+  },
+  {
+    "routeCode": "TRD106",
+    "routeName": "TRD106"
+  },
+  {
+    "routeCode": "TRD107",
+    "routeName": "TRD107"
+  },
+  {
+    "routeCode": "TRD108",
+    "routeName": "TRD108"
+  },
+  {
+    "routeCode": "TRD109",
+    "routeName": "TRD109"
+  },
+  {
+    "routeCode": "TRD110",
+    "routeName": "TRD110"
+  },
+  {
+    "routeCode": "TRD111",
+    "routeName": "TRD111"
+  },
+  {
+    "routeCode": "MDI451",
+    "routeName": "MDI451"
+  },
+  {
+    "routeCode": "MDI452",
+    "routeName": "MDI452"
+  },
+  {
+    "routeCode": "MTD200",
+    "routeName": "MTD200"
+  },
+  {
+    "routeCode": "MTD201",
+    "routeName": "MTD201"
+  },
+  {
+    "routeCode": "MTD202",
+    "routeName": "MTD202"
+  },
+  {
+    "routeCode": "MTD203",
+    "routeName": "MTD203"
+  },
+  {
+    "routeCode": "MTD204",
+    "routeName": "MTD204"
+  },
+  {
+    "routeCode": "MTD205",
+    "routeName": "MTD205"
+  },
+  {
+    "routeCode": "MTD206",
+    "routeName": "MTD206"
+  },
+  {
+    "routeCode": "MTD207",
+    "routeName": "MTD207"
+  },
+  {
+    "routeCode": "MTD208",
+    "routeName": "MTD208"
+  },
+  {
+    "routeCode": "MTD209",
+    "routeName": "MTD209"
+  },
+  {
+    "routeCode": "MTD210",
+    "routeName": "MTD210"
+  },
+  {
+    "routeCode": "MTD211",
+    "routeName": "MTD211"
+  },
+  {
+    "routeCode": "MTD212",
+    "routeName": "MTD212"
+  },
+  {
+    "routeCode": "MTD213",
+    "routeName": "MTD213"
+  },
+  {
+    "routeCode": "MTD214",
+    "routeName": "MTD214"
+  },
+  {
+    "routeCode": "MTD215",
+    "routeName": "MTD215"
+  },
+  {
+    "routeCode": "TRI300",
+    "routeName": "TRI300"
+  },
+  {
+    "routeCode": "TRI301",
+    "routeName": "TRI301"
+  },
+  {
+    "routeCode": "MTD216",
+    "routeName": "MTD216"
+  },
+  {
+    "routeCode": "TRI302",
+    "routeName": "TRI302"
+  },
+  {
+    "routeCode": "TRI303",
+    "routeName": "TRI303"
+  },
+  {
+    "routeCode": "TRI304",
+    "routeName": "TRI304"
+  },
+  {
+    "routeCode": "TRI305",
+    "routeName": "TRI305"
+  },
+  {
+    "routeCode": "TRI306",
+    "routeName": "TRI306"
+  },
+  {
+    "routeCode": "ISD500",
+    "routeName": "ISD500"
+  },
+  {
+    "routeCode": "ISD501",
+    "routeName": "ISD501"
+  },
+  {
+    "routeCode": "ISD502",
+    "routeName": "ISD502"
+  },
+  {
+    "routeCode": "ISD503",
+    "routeName": "ISD503"
+  },
+  {
+    "routeCode": "ISD504",
+    "routeName": "ISD504"
+  },
+  {
+    "routeCode": "MTD217",
+    "routeName": "MTD217"
+  },
+  {
+    "routeCode": "TRI308",
+    "routeName": "TRI308"
+  },
+  {
+    "routeCode": "TRI309",
+    "routeName": "TRI309"
+  },
+  {
+    "routeCode": "TRI310",
+    "routeName": "TRI310"
+  },
+  {
+    "routeCode": "TRI311",
+    "routeName": "TRI311"
+  },
+  {
+    "routeCode": "MTD218",
+    "routeName": "MTD218"
+  },
+  {
+    "routeCode": "MTD219",
+    "routeName": "MTD219"
+  },
+  {
+    "routeCode": "MTD220",
+    "routeName": "MTD220"
+  },
+  {
+    "routeCode": "TRI312",
+    "routeName": "TRI312"
+  },
+  {
+    "routeCode": "MTD221",
+    "routeName": "MTD221"
+  },
+  {
+    "routeCode": "MTD222",
+    "routeName": "MTD222"
+  },
+  {
+    "routeCode": "MTD223",
+    "routeName": "MTD223"
+  },
+  {
+    "routeCode": "MTD224",
+    "routeName": "MTD224"
+  },
+  {
+    "routeCode": "MTD225",
+    "routeName": "MTD225"
+  },
+  {
+    "routeCode": "MTD226",
+    "routeName": "MTD226"
+  },
+  {
+    "routeCode": "MTD227",
+    "routeName": "MTD227"
+  },
+  {
+    "routeCode": "MTD228",
+    "routeName": "MTD228"
+  },
+  {
+    "routeCode": "MTD229",
+    "routeName": "MTD229"
+  },
+  {
+    "routeCode": "MTD230",
+    "routeName": "MTD230"
+  },
+  {
+    "routeCode": "MTI400",
+    "routeName": "MTI400"
+  },
+  {
+    "routeCode": "MTI401",
+    "routeName": "MTI401"
+  },
+  {
+    "routeCode": "MTI402",
+    "routeName": "MTI402"
+  },
+  {
+    "routeCode": "MTI403",
+    "routeName": "MTI403"
+  },
+  {
+    "routeCode": "MTI404",
+    "routeName": "MTI404"
+  },
+  {
+    "routeCode": "TRD122",
+    "routeName": "TRD122"
+  },
+  {
+    "routeCode": "TRD124",
+    "routeName": "TRD124"
+  },
+  {
+    "routeCode": "TRD142",
+    "routeName": "TRD142"
+  },
+  {
+    "routeCode": "TRD148",
+    "routeName": "TRD148"
+  },
+  {
+    "routeCode": "TRD154",
+    "routeName": "TRD154"
+  },
+  {
+    "routeCode": "TRD112",
+    "routeName": "TRD112"
+  },
+  {
+    "routeCode": "TRD135",
+    "routeName": "TRD135"
+  },
+  {
+    "routeCode": "TRD146",
+    "routeName": "TRD146"
+  },
+  {
+    "routeCode": "TRD149",
+    "routeName": "TRD149"
+  },
+  {
+    "routeCode": "TRD159",
+    "routeName": "TRD159"
+  },
+  {
+    "routeCode": "TRD145",
+    "routeName": "TRD145"
+  },
+  {
+    "routeCode": "TRD143",
+    "routeName": "TRD143"
+  },
+  {
+    "routeCode": "TRD113",
+    "routeName": "TRD113"
+  },
+  {
+    "routeCode": "TRD114",
+    "routeName": "TRD114"
+  },
+  {
+    "routeCode": "TRD115",
+    "routeName": "TRD115"
+  },
+  {
+    "routeCode": "TRD127",
+    "routeName": "TRD127"
+  },
+  {
+    "routeCode": "TRD150",
+    "routeName": "TRD150"
+  },
+  {
+    "routeCode": "TRD134",
+    "routeName": "TRD134"
+  },
+  {
+    "routeCode": "TRD153",
+    "routeName": "TRD153"
+  },
+  {
+    "routeCode": "TRD116",
+    "routeName": "TRD116"
+  },
+  {
+    "routeCode": "TRD128",
+    "routeName": "TRD128"
+  },
+  {
+    "routeCode": "TRD139",
+    "routeName": "TRD139"
+  },
+  {
+    "routeCode": "TRD117",
+    "routeName": "TRD117"
+  },
+  {
+    "routeCode": "TRD129",
+    "routeName": "TRD129"
+  },
+  {
+    "routeCode": "TRD152",
+    "routeName": "TRD152"
+  },
+  {
+    "routeCode": "TRD151",
+    "routeName": "TRD151"
+  },
+  {
+    "routeCode": "TRD118",
+    "routeName": "TRD118"
+  },
+  {
+    "routeCode": "TRD119",
+    "routeName": "TRD119"
+  },
+  {
+    "routeCode": "TRD136",
+    "routeName": "TRD136"
+  },
+  {
+    "routeCode": "TRD137",
+    "routeName": "TRD137"
+  },
+  {
+    "routeCode": "TRD147",
+    "routeName": "TRD147"
+  },
+  {
+    "routeCode": "TRD120",
+    "routeName": "TRD120"
+  },
+  {
+    "routeCode": "TRD121",
+    "routeName": "TRD121"
+  },
+  {
+    "routeCode": "TRD156",
+    "routeName": "TRD156"
+  },
+  {
+    "routeCode": "TRD144",
+    "routeName": "TRD144"
+  },
+  {
+    "routeCode": "TRD140",
+    "routeName": "TRD140"
+  },
+  {
+    "routeCode": "TRD158",
+    "routeName": "TRD158"
+  },
+  {
+    "routeCode": "TRD130",
+    "routeName": "TRD130"
+  },
+  {
+    "routeCode": "TRD131",
+    "routeName": "TRD131"
+  },
+  {
+    "routeCode": "TRD138",
+    "routeName": "TRD138"
+  },
+  {
+    "routeCode": "TRD133",
+    "routeName": "TRD133"
+  },
+  {
+    "routeCode": "TRD141",
+    "routeName": "TRD141"
+  },
+  {
+    "routeCode": "TRD132",
+    "routeName": "TRD132"
+  },
+  {
+    "routeCode": "TRD126",
+    "routeName": "TRD126"
+  },
+  {
+    "routeCode": "TRD123",
+    "routeName": "TRD123"
+  },
+  {
+    "routeCode": "TRD125",
+    "routeName": "TRD125"
+  },
+  {
+    "routeCode": "TRD155",
+    "routeName": "TRD155"
+  },
+  {
+    "routeCode": "TRD161",
+    "routeName": "TRD161"
+  },
+  {
+    "routeCode": "TRD160",
+    "routeName": "TRD160"
+  },
+  {
+    "routeCode": "TRD157",
+    "routeName": "TRD157"
+  },
+  {
+    "routeCode": "MTI405",
+    "routeName": "MTI405"
+  },
+  {
+    "routeCode": "MTI406",
+    "routeName": "MTI406"
+  },
+  {
+    "routeCode": "TDI351",
+    "routeName": "TDI351"
+  },
+  {
+    "routeCode": "TDI352",
+    "routeName": "TDI352"
+  },
+  {
+    "routeCode": "TDI353",
+    "routeName": "TDI353"
+  },
+  {
+    "routeCode": "EXP001",
+    "routeName": "EXP001"
+  }
+]

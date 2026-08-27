@@ -1,0 +1,18 @@
+[
+  {
+    "skuCode": "SKU01",
+    "skuName": "Milk Shake Chocolate 250ml"
+  },
+  {
+    "skuCode": "SKU02",
+    "skuName": "Premium Ice Cream Vanilla 1L"
+  },
+  {
+    "skuCode": "SKU03",
+    "skuName": "Mango Juice Bottle 500ml"
+  },
+  {
+    "skuCode": "SKU04",
+    "skuName": "Frozen Yogurt Cup 150ml"
+  }
+]
