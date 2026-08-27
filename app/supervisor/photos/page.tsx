@@ -138,7 +138,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
         { header: 'Route', key: 'route' },
         { header: 'Channel', key: 'channel' },
         { header: 'Application', key: 'appName' },
-        { header: 'Cloudinary Image URL', key: 'cloudinaryUrl' },
+        { header: 'Image URL', key: 'cloudinaryUrl' },
       ],
       data: photos,
     });
