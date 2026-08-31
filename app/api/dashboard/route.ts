@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { visitRepository } from '@/repositories/visit-repository';
 import { customerRepository } from '@/repositories/customer-repository';
 import pool from '@/lib/db';
 import { getDashboardScope, isFleetRole, isFullAccessRole, isSupervisorRole, isReportAllowed } from '@/lib/roles';
@@ -118,25 +119,8 @@ async function getMasterData(): Promise<MasterCache> {
   return newCache;
 }
 
-// Chunked child query helper for filtered visit IDs
-async function fetchByVisitIds(tableName: string, visitIds: string[]) {
-  if (visitIds.length === 0) return [];
-  const results: any[] = [];
-  const chunkSize = 800;
-  for (let i = 0; i < visitIds.length; i += chunkSize) {
-    const chunk = visitIds.slice(i, i + chunkSize);
-    const placeholders = chunk.map(() => '?').join(',');
-    const [rows]: any = await pool.execute(
-      `SELECT * FROM \`${tableName}\` WHERE \`visitId\` IN (${placeholders})`,
-      chunk
-    );
-    results.push(...rows);
-  }
-  return results;
-}
-
 const cacheStore = new Map<string, { timestamp: number; data: any }>();
-const CACHE_TTL_MS = 8000; // 8 seconds cache for duplicate clicks & rapid tabs
+const CACHE_TTL_MS = 5000; // 5 seconds cache for duplicate clicks & rapid tabs
 
 export async function GET(req: NextRequest) {
   try {
@@ -172,8 +156,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden report for this role' }, { status: 403 });
     }
 
-    // 1. Fetch cached master data
-    const masters = await getMasterData();
+    // 1. Fetch cached master data & raw visits concurrently
+    const [masters, visitsRaw, assets, pskuResults, npdResults, photosRaw] = await Promise.all([
+      getMasterData(),
+      visitRepository.getAllVisits(),
+      pool.execute('SELECT * FROM `VisitAsset`').then(([rows]: any) => rows).catch(() => []),
+      pool.execute('SELECT * FROM `VisitPowerSkuResult`').then(([rows]: any) => rows).catch(() => []),
+      pool.execute('SELECT * FROM `NPDResponse`').then(([rows]: any) => rows).catch(() => []),
+      pool.execute('SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC LIMIT 200').then(([rows]: any) => rows).catch(() => []),
+    ]);
+
     const {
       customers,
       customerMap,
@@ -188,25 +180,24 @@ export async function GET(req: NextRequest) {
       dbUsers,
     } = masters;
 
-    // 2. Query only filtered visits from DB using SQL indices
-    let visitQuery = 'SELECT * FROM `Visit` WHERE `status` = ?';
-    const visitParams: any[] = ['Submitted'];
+    let visits = visitsRaw;
+    if (scope === 'supervisor') {
+      visits = visits.filter((v: any) => v.supervisorId === userSession.id);
+    }
+
+    let filteredVisits = visits.filter((v: any) => v.status === 'Submitted');
 
     if (startDateParam) {
-      visitQuery += ' AND `createdAt` >= ?';
-      visitParams.push(`${startDateParam} 00:00:00`);
+      const start = new Date(startDateParam + 'T00:00:00');
+      filteredVisits = filteredVisits.filter((v: any) => new Date(v.createdAt) >= start);
     }
     if (endDateParam) {
-      visitQuery += ' AND `createdAt` <= ?';
-      visitParams.push(`${endDateParam} 23:59:59`);
+      const end = new Date(endDateParam + 'T23:59:59');
+      filteredVisits = filteredVisits.filter((v: any) => new Date(v.createdAt) <= end);
     }
     if (scope === 'supervisor') {
-      visitQuery += ' AND `supervisorId` = ?';
-      visitParams.push(userSession.id);
+      filteredVisits = filteredVisits.filter((v: any) => v.supervisorId === userSession.id);
     }
-
-    const [dbVisits]: any = await pool.execute(visitQuery, visitParams);
-    let filteredVisits: any[] = dbVisits || [];
 
     // Filter by Manager parameter (if passed)
     if (managerParam) {
@@ -232,16 +223,6 @@ export async function GET(req: NextRequest) {
         return rt === routeCodeParam;
       });
     }
-
-    const visitIds = filteredVisits.map((v: any) => v.visitId);
-
-    // 3. Query child records ONLY for the matched visits in parallel
-    const [assets, pskuResults, npdResults, photosRaw] = await Promise.all([
-      fetchByVisitIds('VisitAsset', visitIds),
-      fetchByVisitIds('VisitPowerSkuResult', visitIds),
-      fetchByVisitIds('NPDResponse', visitIds),
-      fetchByVisitIds('VisitPhoto', visitIds),
-    ]);
 
     const assetMap = new Map<string, any[]>();
     assets.forEach((ast: any) => {

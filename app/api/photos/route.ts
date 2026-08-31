@@ -5,6 +5,8 @@ import { customerRepository } from '@/repositories/customer-repository';
 import pool from '@/lib/db';
 import { getDashboardScope } from '@/lib/roles';
 
+import { MasterCache, getCachedMasterData, setCachedMasterData } from '@/lib/dashboard-cache';
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -30,22 +32,53 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '12', 10)));
 
-    // Fetch visits, customers, users, routes, and photos in parallel
-    const [visitsRaw, customers, dbUsers, photosRaw, routeRows] = await Promise.all([
+    // Fetch visits, cached masters, and photos in parallel
+    const [visitsRaw, photosRaw] = await Promise.all([
       visitRepository.getAllVisits(),
-      customerRepository.getAllCustomers(),
-      pool.execute(`
-        SELECT u.id, u.name, u.role, m.name as managerName 
-        FROM User u 
-        LEFT JOIN Manager m ON u.managerId = m.id
-      `).then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `VisitPhoto`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute(`
-        SELECT r.*, m.name as managerName 
-        FROM Route r 
-        LEFT JOIN Manager m ON r.managerId = m.id
-      `).then(([rows]: any) => rows).catch(() => []),
+      pool.execute('SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC').then(([rows]: any) => rows).catch(() => []),
     ]);
+
+    let cachedMasters = getCachedMasterData();
+    if (!cachedMasters) {
+      const [customers, dbUsers, skuRows, powerSkuRows, routeRows] = await Promise.all([
+        customerRepository.getAllCustomers(),
+        pool.execute(`SELECT u.id, u.name, u.role, m.name as managerName FROM User u LEFT JOIN Manager m ON u.managerId = m.id`).then(([rows]: any) => rows).catch(() => []),
+        pool.execute('SELECT `skuCode`, `skuName`, `type`, `businessVertical` FROM `SKU`').then(([rows]: any) => rows).catch(() => []),
+        pool.execute('SELECT `skuCode`, `skuName`, `channel` FROM `PowerSKU`').then(([rows]: any) => rows).catch(() => []),
+        pool.execute(`SELECT r.*, m.name as managerName FROM Route r LEFT JOIN Manager m ON r.managerId = m.id`).then(([rows]: any) => rows).catch(() => []),
+      ]);
+      const customerMap = new Map(customers.map((c: any) => [c.cust_rt_id, c]));
+      const routeMap = new Map<string, any>(routeRows.map((r: any) => [r.routeCode, r]));
+      const allManagers = Array.from(new Set<string>(routeRows.map((r: any) => (r.managerName || '').trim()).filter(Boolean))).sort() as string[];
+      const allSupervisors = Array.from(new Set<string>(routeRows.map((r: any) => (r.superName || '').trim()).filter(Boolean))).sort() as string[];
+      const managerSupervisorMap: Record<string, string[]> = {};
+      routeRows.forEach((r: any) => {
+        const sup = (r.superName || '').trim();
+        const mgr = (r.managerName || '').trim();
+        if (sup && mgr) {
+          if (!managerSupervisorMap[mgr]) managerSupervisorMap[mgr] = [];
+          if (!managerSupervisorMap[mgr].includes(sup)) managerSupervisorMap[mgr].push(sup);
+        }
+      });
+      cachedMasters = {
+        timestamp: Date.now(),
+        customers,
+        customerMap,
+        uniqueCustomers: [],
+        routeRows,
+        routeMap,
+        allManagers,
+        allSupervisors,
+        managerSupervisorMap,
+        skuMap: new Map(),
+        powerSkuMap: new Map(),
+        dbUsers,
+        userMap: new Map(),
+      };
+      setCachedMasterData(cachedMasters);
+    }
+
+    const { customerMap, routeMap } = cachedMasters;
 
     let visits = visitsRaw;
     if (scope === 'supervisor') {
@@ -56,8 +89,6 @@ export async function GET(req: NextRequest) {
     }
 
     const visitMap = new Map(visits.map((v) => [v.visitId, v]));
-    const customerMap = new Map(customers.map((c) => [c.cust_rt_id, c]));
-    const routeMap = new Map<string, any>(routeRows.map((r: any) => [r.routeCode, r]));
 
     // Dynamic extraction of distinct applications from database
     const dbAppSet = new Set<string>();
