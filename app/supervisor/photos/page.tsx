@@ -7,7 +7,6 @@ import {
   User,
   MapPin,
   Store,
-  X,
   ExternalLink,
   Image as ImageIcon,
   Search,
@@ -21,6 +20,7 @@ import {
   FileCheck,
   Maximize2,
 } from 'lucide-react';
+import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 
@@ -56,7 +56,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
   const [outlets, setOutlets] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<AuditPhoto | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const [pagination, setPagination] = useState({
     totalCount: 0,
@@ -350,7 +350,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
             return (
               <div
                 key={photo.photoId}
-                onClick={() => setSelectedPhoto(photo)}
+                onClick={() => {
+                  const idx = filteredPhotos.findIndex((p) => p.photoId === photo.photoId);
+                  setLightboxIndex(idx !== -1 ? idx : 0);
+                }}
                 className="group relative rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col"
               >
                 {/* Image Frame */}
@@ -454,87 +457,15 @@ export default function SupervisorAuditPhotoGalleryPage() {
         </div>
       )}
 
-      {/* Lightbox Dialog Modal */}
-      {selectedPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity"
-            onClick={() => setSelectedPhoto(null)}
-          />
-
-          <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-10 animate-slide-up flex flex-col md:flex-row max-h-[90vh]">
-            <div className="flex-1 bg-black flex items-center justify-center p-4 min-h-[300px] max-h-[60vh] md:max-h-[90vh]">
-              <img
-                src={selectedPhoto.cloudinaryUrl}
-                alt={selectedPhoto.category}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-              />
-            </div>
-
-            <div className="w-full md:w-80 p-6 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                    {selectedPhoto.category || 'Audit Photo'}
-                  </span>
-                  <button
-                    onClick={() => setSelectedPhoto(null)}
-                    className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Outlet Name</label>
-                    <p className="text-sm font-semibold text-slate-100">{selectedPhoto.outlet}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Route</label>
-                      <p className="text-xs font-mono font-medium text-slate-300">{selectedPhoto.route || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Channel</label>
-                      <p className="text-xs font-medium text-slate-300">{selectedPhoto.channel || 'GT'}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Date & Time</label>
-                    <p className="text-xs font-mono text-slate-300">
-                      {new Date(selectedPhoto.uploadedAt).toLocaleString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Visit Ref ID</label>
-                    <p className="text-[11px] font-mono text-slate-400 break-all">{selectedPhoto.visitId}</p>
-                  </div>
-                </div>
-              </div>
-
-              <a
-                href={selectedPhoto.cloudinaryUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-primary w-full justify-center py-2.5 text-xs"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" /> Open Full HD Image
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Lightbox Dialog Modal with Next/Prev Navigation */}
+      <ImageLightboxModal
+        photos={filteredPhotos}
+        currentIndex={lightboxIndex ?? 0}
+        isOpen={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+        onNavigate={(newIdx) => setLightboxIndex(newIdx)}
+        title="Supervisor Audit Photo Gallery"
+      />
     </div>
   );
 }

@@ -7,14 +7,15 @@ export const ASSET_CATEGORIES: string[] = ['Chillers', 'Freezers', 'Assets'];
 export const CATEGORY_SIZE_MODELS_MAP: Record<string, string[]> = {
   Chillers: ['Double Door', 'Open Chiller', 'Single Door'],
   Chiller: ['Double Door', 'Open Chiller', 'Single Door'],
-  Freezers: ['100', '300', '400', '600', 'VERTICAL'],
-  Freezer: ['100', '300', '400', '600', 'VERTICAL'],
+  Freezers: ['100', '200', '300', '400', '600', 'VERTICAL'],
+  Freezer: ['100', '200', '300', '400', '600', 'VERTICAL'],
   Assets: ['Standard Asset', 'Custom Display Rack', 'Counter Chiller'],
   All: [
     'Double Door',
     'Open Chiller',
     'Single Door',
     '100',
+    '200',
     '300',
     '400',
     '600',

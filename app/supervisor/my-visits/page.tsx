@@ -12,6 +12,7 @@ import {
 import BackHeader from '../components/BackHeader';
 import { Visit, VisitPhoto, NPDResponse, VisitAsset, VisitPowerSkuResult } from '@/types';
 import { isFleetRole } from '@/lib/roles';
+import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 
 export default function MyVisitsPage() {
   const { showToast } = useToast();
@@ -35,6 +36,7 @@ export default function MyVisitsPage() {
     powerSkuResults?: VisitPowerSkuResult[];
     npdResponses: NPDResponse[];
   } | null>(null);
+  const [visitPhotoIndex, setVisitPhotoIndex] = useState<number | null>(null);
 
   const fetchVisits = async () => {
     try {
@@ -303,13 +305,17 @@ export default function MyVisitsPage() {
                   {/* Photo logs */}
                   {reviewData.photos.length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="font-bold text-[14px]" style={{ color: 'var(--text-primary)' }}>Audit Photos</h4>
+                      <h4 className="font-bold text-[14px]" style={{ color: 'var(--text-primary)' }}>Audit Photos ({reviewData.photos.length})</h4>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {reviewData.photos.map((p, i) => (
-                          <div key={i} className="aspect-square rounded-xl overflow-hidden border border-[var(--border-soft)] relative">
+                          <div
+                            key={i}
+                            onClick={() => setVisitPhotoIndex(i)}
+                            className="aspect-square rounded-xl overflow-hidden border border-[var(--border-soft)] relative cursor-pointer group hover:border-accent shadow-xs hover:shadow-md transition-all"
+                          >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={p.cloudinaryUrl} alt="Audit upload" className="h-full w-full object-cover" />
-                            <div className="absolute bottom-0 inset-x-0 p-2 text-white text-[9px] font-mono bg-black/40 backdrop-blur-xs flex items-center justify-between">
+                            <img src={p.cloudinaryUrl} alt="Audit upload" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                            <div className="absolute bottom-0 inset-x-0 p-2 text-white text-[9px] font-mono bg-black/50 backdrop-blur-xs flex items-center justify-between">
                               <span>Photo #{i + 1}</span>
                               <Calendar className="h-3 w-3" />
                             </div>
@@ -351,6 +357,24 @@ export default function MyVisitsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Visit Review Lightbox Modal */}
+      {reviewData && (
+        <ImageLightboxModal
+          photos={reviewData.photos.map((p) => ({
+            ...p,
+            outlet: reviewData.visit.customerCode || 'Visit Attachment',
+            supervisor: reviewData.visit.supervisorId,
+            route: reviewData.visit.routeCode,
+            uploadedAt: p.uploadedAt || reviewData.visit.createdAt,
+          }))}
+          currentIndex={visitPhotoIndex ?? 0}
+          isOpen={visitPhotoIndex !== null}
+          onClose={() => setVisitPhotoIndex(null)}
+          onNavigate={(idx) => setVisitPhotoIndex(idx)}
+          title={`Visit #${reviewData.visit.visitId.slice(-6)} Photos`}
+        />
       )}
     </div>
   );

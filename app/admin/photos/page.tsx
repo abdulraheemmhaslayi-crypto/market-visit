@@ -4,21 +4,23 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Camera,
   Calendar,
-  User,
+  Layers,
   MapPin,
-  Store,
-  X,
-  ExternalLink,
-  Image as ImageIcon,
-  Search,
-  Filter,
-  RefreshCw,
+  User,
   ChevronLeft,
   ChevronRight,
-  AppWindow,
-  CheckCircle2,
+  RefreshCw,
   SlidersHorizontal,
+  ExternalLink,
+  Tag,
+  AppWindow,
+  Download,
+  Store,
+  X,
+  Image as ImageIcon,
+  CheckCircle2,
 } from 'lucide-react';
+import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 
@@ -57,7 +59,7 @@ export default function AuditPhotoGalleryPage() {
   const [outlets, setOutlets] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<AuditPhoto | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const [pagination, setPagination] = useState({
     totalCount: 0,
@@ -434,7 +436,10 @@ export default function AuditPhotoGalleryPage() {
             return (
               <div
                 key={photo.photoId}
-                onClick={() => setSelectedPhoto(photo)}
+                onClick={() => {
+                  const idx = filteredPhotos.findIndex((p) => p.photoId === photo.photoId);
+                  setLightboxIndex(idx !== -1 ? idx : 0);
+                }}
                 className="group relative rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-xl hover:border-accent/50 transition-all duration-300 cursor-pointer flex flex-col"
               >
                 {/* Image Frame */}
@@ -535,90 +540,15 @@ export default function AuditPhotoGalleryPage() {
         </div>
       )}
 
-      {/* Lightbox Metadata Modal */}
-      {selectedPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity"
-            onClick={() => setSelectedPhoto(null)}
-          />
-
-          <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-10 animate-slide-up flex flex-col md:flex-row max-h-[90vh]">
-            {/* Image Box */}
-            <div className="flex-1 bg-black flex items-center justify-center p-4 min-h-[300px] max-h-[60vh] md:max-h-[90vh]">
-              <img
-                src={selectedPhoto.cloudinaryUrl}
-                alt={selectedPhoto.category}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-              />
-            </div>
-
-            {/* Detailed Sidebar Metadata Panel */}
-            <div className="w-full md:w-80 p-6 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col justify-between space-y-6 text-white">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                    {selectedPhoto.category || 'Audit Photo'}
-                  </span>
-                  <button
-                    onClick={() => setSelectedPhoto(null)}
-                    className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Application</label>
-                    <p className="text-sm font-semibold text-sky-400 flex items-center gap-1.5 mt-0.5">
-                      <AppWindow className="h-4 w-4" /> {selectedPhoto.appName}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Outlet Name</label>
-                    <p className="text-sm font-semibold text-white mt-0.5">{selectedPhoto.outlet}</p>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Supervisor & Manager</label>
-                    <p className="text-xs font-medium text-slate-300 mt-0.5">
-                      {selectedPhoto.supervisor} <span className="text-slate-500">({selectedPhoto.manager})</span>
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Route & Channel</label>
-                    <p className="text-xs font-medium text-slate-300 mt-0.5">
-                      {selectedPhoto.route || 'N/A'} • {selectedPhoto.channel}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Captured At</label>
-                    <p className="text-xs font-mono text-slate-300 mt-0.5">
-                      {new Date(selectedPhoto.uploadedAt).toLocaleString('en-US')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-                <span>Visit ID: #{selectedPhoto.visitId.slice(-6)}</span>
-                <a
-                  href={selectedPhoto.cloudinaryUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sky-400 hover:underline flex items-center gap-1"
-                >
-                  Open Original <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Lightbox Metadata Modal with Next/Prev Navigation */}
+      <ImageLightboxModal
+        photos={filteredPhotos}
+        currentIndex={lightboxIndex ?? 0}
+        isOpen={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+        onNavigate={(newIdx) => setLightboxIndex(newIdx)}
+        title="Admin Audit Photo Gallery"
+      />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import { getAllowedReports, isFleetRole } from '@/lib/roles';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
+import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 
 const GCOL: Record<string, string> = {
   A: '#0b7a4c',
@@ -49,6 +50,7 @@ export default function SupervisorDashboard() {
     powerSkuResults?: VisitPowerSkuResult[];
     npdResponses: NPDResponse[];
   } | null>(null);
+  const [visitPhotoIndex, setVisitPhotoIndex] = useState<number | null>(null);
 
   // Analytics Dashboard Data States (Admin match dependency)
   const [rows, setRows] = useState<any[]>([]);
@@ -2172,11 +2174,18 @@ export default function SupervisorDashboard() {
                       <p className="text-[12px] italic text-[var(--text-muted)]">No photos attached.</p>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {reviewData.photos.map(photo => (
-                          <a key={photo.photoId} href={photo.cloudinaryUrl} target="_blank" rel="noreferrer"
-                            className="block rounded-xl overflow-hidden" style={{ aspectRatio: '1', border: '1px solid var(--border)' }}>
-                            <img src={photo.cloudinaryUrl} alt={photo.category} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
-                          </a>
+                        {reviewData.photos.map((photo, i) => (
+                          <div
+                            key={photo.photoId}
+                            onClick={() => setVisitPhotoIndex(i)}
+                            className="block rounded-xl overflow-hidden cursor-pointer group relative shadow-xs hover:shadow-md transition-all"
+                            style={{ aspectRatio: '1', border: '1px solid var(--border)' }}
+                          >
+                            <img src={photo.cloudinaryUrl} alt={photo.category} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                            <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-[9px] font-bold text-white uppercase">
+                              {photo.category || 'Photo'}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -2229,6 +2238,24 @@ export default function SupervisorDashboard() {
         filterChip={reportFilterChip}
         onClearFilter={handleClearReportFilter}
       />
+
+      {/* Visit Review Lightbox Modal */}
+      {reviewData && (
+        <ImageLightboxModal
+          photos={reviewData.photos.map((p) => ({
+            ...p,
+            outlet: reviewData.visit.customerCode || 'Visit Attachment',
+            supervisor: reviewData.visit.supervisorId,
+            route: reviewData.visit.routeCode,
+            uploadedAt: p.uploadedAt || reviewData.visit.createdAt,
+          }))}
+          currentIndex={visitPhotoIndex ?? 0}
+          isOpen={visitPhotoIndex !== null}
+          onClose={() => setVisitPhotoIndex(null)}
+          onNavigate={(idx) => setVisitPhotoIndex(idx)}
+          title={`Visit #${reviewData.visit.visitId.slice(-6)} Attachments`}
+        />
+      )}
     </div>
   );
 }

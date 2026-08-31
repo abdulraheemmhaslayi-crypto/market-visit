@@ -14,6 +14,7 @@ import {
 import { Visit, VisitPhoto, NPDResponse, VisitAsset, VisitPowerSkuResult } from '@/types';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
+import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 
 // ─── Shared table helpers ────────────────────────────────────
 function TH({ children, right }: { children: React.ReactNode; right?: boolean }) {
@@ -98,6 +99,7 @@ export default function VisitLogsPage() {
     powerSkuResults?: VisitPowerSkuResult[];
     npdResponses: NPDResponse[];
   } | null>(null);
+  const [visitPhotoIndex, setVisitPhotoIndex] = useState<number | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
 
   const fetchVisits = async (silent = false) => {
@@ -514,16 +516,18 @@ export default function VisitLogsPage() {
                       <p className="text-[12px] italic" style={{ color: 'var(--text-muted)' }}>No photos attached.</p>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {reviewData.photos.map((photo) => (
-                          <a
+                        {reviewData.photos.map((photo, i) => (
+                          <div
                             key={photo.photoId}
-                            href={photo.cloudinaryUrl}
-                            target="_blank" rel="noreferrer"
-                            className="block rounded-xl overflow-hidden"
+                            onClick={() => setVisitPhotoIndex(i)}
+                            className="block rounded-xl overflow-hidden cursor-pointer group relative shadow-xs hover:shadow-md transition-all"
                             style={{ border: '1px solid var(--border)', aspectRatio: '1' }}
                           >
-                            <img src={photo.cloudinaryUrl} alt={photo.category} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
-                          </a>
+                            <img src={photo.cloudinaryUrl} alt={photo.category} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                            <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-[9px] font-bold text-white uppercase">
+                              {photo.category || 'Photo'}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -578,6 +582,24 @@ export default function VisitLogsPage() {
         confirmText="Delete permanently"
         variant="danger"
       />
+
+      {/* Visit Review Lightbox Modal */}
+      {reviewData && (
+        <ImageLightboxModal
+          photos={reviewData.photos.map((p) => ({
+            ...p,
+            outlet: reviewData.visit.customerCode || 'Visit Attachment',
+            supervisor: reviewData.visit.supervisorId,
+            route: reviewData.visit.routeCode,
+            uploadedAt: p.uploadedAt || reviewData.visit.createdAt,
+          }))}
+          currentIndex={visitPhotoIndex ?? 0}
+          isOpen={visitPhotoIndex !== null}
+          onClose={() => setVisitPhotoIndex(null)}
+          onNavigate={(idx) => setVisitPhotoIndex(idx)}
+          title={`Visit #${reviewData.visit.visitId.slice(-6)} Attachments`}
+        />
+      )}
     </div>
   );
 }

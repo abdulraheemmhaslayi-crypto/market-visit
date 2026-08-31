@@ -186,8 +186,7 @@ export default function DataUsageDashboard({ portalType }: DataUsageDashboardPro
       list = list.filter(
         (u: any) =>
           u.userName.toLowerCase().includes(q) ||
-          u.userRole.toLowerCase().includes(q) ||
-          (u.deviceInfo && u.deviceInfo.toLowerCase().includes(q))
+          u.userRole.toLowerCase().includes(q)
       );
     }
 
@@ -204,7 +203,7 @@ export default function DataUsageDashboard({ portalType }: DataUsageDashboardPro
       return;
     }
 
-    const headers = ['User Name', 'Role', 'Total Data Consumed', 'Downloaded', 'Uploaded', 'Total Requests', 'Days Active', 'Status', 'Device', 'Last Active'];
+    const headers = ['User Name', 'Role', 'Total Data Consumed', 'Downloaded', 'Uploaded', 'Total Requests', 'Days Active', 'Status', 'Last Active'];
     const rows = filteredUsers.map((u: any) => [
       `"${u.userName}"`,
       `"${u.userRole}"`,
@@ -214,7 +213,6 @@ export default function DataUsageDashboard({ portalType }: DataUsageDashboardPro
       u.totalRequests,
       u.daysActive,
       `"${u.status}"`,
-      `"${u.deviceInfo || 'N/A'}"`,
       `"${u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString() : 'N/A'}"`,
     ]);
 
@@ -606,7 +604,6 @@ export default function DataUsageDashboard({ portalType }: DataUsageDashboardPro
                 <th className="py-3 px-4">Requests</th>
                 <th className="py-3 px-4">Quota Progress</th>
                 <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Device / Platform</th>
                 <th className="py-3 px-4">Last Active</th>
               </tr>
             </thead>
@@ -667,9 +664,6 @@ export default function DataUsageDashboard({ portalType }: DataUsageDashboardPro
                             <CheckCircle2 className="h-3 w-3" /> Normal
                           </span>
                         )}
-                      </td>
-                      <td className="py-3.5 px-4 text-xs text-[var(--foreground-muted)] max-w-[150px] truncate" title={user.deviceInfo || ''}>
-                        {user.deviceInfo || 'Chrome / Mobile'}
                       </td>
                       <td className="py-3.5 px-4 text-[11px] text-[var(--foreground-muted)] whitespace-nowrap">
                         {user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today'}
