@@ -445,6 +445,7 @@ export async function GET(req: NextRequest) {
 
       return {
         id: v.visitId,
+        visitId: v.visitId,
         date: visitDate,
         createdAt: visitDate,
         mgr: mgrName,
@@ -459,6 +460,7 @@ export async function GET(req: NextRequest) {
         iceCreamClassification: iceGr,
         cust: custName,
         outletName: custName,
+        rt: routeCode || '',
         route: routeCode || '',
         routeCode: routeCode || '',
         week,
@@ -466,10 +468,13 @@ export async function GET(req: NextRequest) {
         plan: v.planogramCompliance === 1 ? 'Y' : 'N',
         npd,
         psku,
+        ok,
         temp: ok ? 'OK' : 'Breach',
         tempVal: temperature,
+        atype: primaryAsset?.assetType || 'Chiller',
         assetType: primaryAsset?.assetType || 'Chiller',
         sizeModel: primaryAsset?.sizeModel || 'Standard',
+        observation: firstAsset.observation || '',
         allAssets: visitAssets.map((a: any) => ({
           assetType: a.assetType,
           sizeModel: a.sizeModel || 'Standard',
@@ -479,8 +484,10 @@ export async function GET(req: NextRequest) {
           observation: a.observation || '',
           fefoFollowed: a.fefoFollowed === 1 || a.fefoFollowed === true,
         })),
-        fefo: fefo ? 'Y' : 'N',
+        fefo,
+        fefoStr: fefo ? 'Y' : 'N',
         action,
+        visitType: v.visit_type || 'Visit',
         visit_type: v.visit_type || 'Visit',
       };
     });

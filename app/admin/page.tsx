@@ -264,9 +264,17 @@ export default function AdminDashboardPage() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      const catOk = !fAssetCategory || fAssetCategory === 'All' || (r.atype && r.atype.toLowerCase().includes(fAssetCategory.toLowerCase().replace(/s$/, '')));
-      const modelOk = fSizeModels.length === 0 || (r.observation && fSizeModels.some(sm => (r.observation as string).toLowerCase().includes(sm.toLowerCase())));
-      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && (!fRoute || r.rt === fRoute) && catOk && modelOk && fromOk && toOk;
+      const catSearch = (fAssetCategory || '').toLowerCase().replace(/s$/, '');
+      const catOk = !fAssetCategory || fAssetCategory === 'All'
+        || (r.atype && r.atype.toLowerCase().includes(catSearch))
+        || (r.assetType && r.assetType.toLowerCase().includes(catSearch))
+        || (r.allAssets && r.allAssets.some((a: any) => a.assetType && a.assetType.toLowerCase().includes(catSearch)));
+      const modelOk = fSizeModels.length === 0
+        || (r.observation && fSizeModels.some(sm => (r.observation as string).toLowerCase().includes(sm.toLowerCase())))
+        || (r.sizeModel && fSizeModels.includes(r.sizeModel))
+        || (r.allAssets && r.allAssets.some((a: any) => a.sizeModel && fSizeModels.includes(a.sizeModel)));
+      const routeOk = !fRoute || r.rt === fRoute || r.route === fRoute || r.routeCode === fRoute;
+      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && routeOk && catOk && modelOk && fromOk && toOk;
     });
   }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fAssetCategory, fSizeModels, fFrom, fTo]);
 

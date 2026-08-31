@@ -285,7 +285,8 @@ export default function SupervisorDashboard() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && (!fRoute || r.rt === fRoute) && fromOk && toOk;
+      const routeOk = !fRoute || r.rt === fRoute || r.route === fRoute || r.routeCode === fRoute;
+      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && routeOk && fromOk && toOk;
     });
   }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fFrom, fTo]);
 
