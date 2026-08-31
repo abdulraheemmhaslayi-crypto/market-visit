@@ -351,7 +351,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
               <div
                 key={photo.photoId}
                 onClick={() => {
-                  const idx = filteredPhotos.findIndex((p) => p.photoId === photo.photoId);
+                  const idx = photos.findIndex((p) => p.photoId === photo.photoId);
                   setLightboxIndex(idx !== -1 ? idx : 0);
                 }}
                 className="group relative rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col"
@@ -459,7 +459,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
       {/* Lightbox Dialog Modal with Next/Prev Navigation */}
       <ImageLightboxModal
-        photos={filteredPhotos}
+        photos={photos}
         currentIndex={lightboxIndex ?? 0}
         isOpen={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}

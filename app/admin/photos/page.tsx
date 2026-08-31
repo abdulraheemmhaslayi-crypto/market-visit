@@ -19,6 +19,8 @@ import {
   X,
   Image as ImageIcon,
   CheckCircle2,
+  Search,
+  Filter,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
@@ -437,7 +439,7 @@ export default function AuditPhotoGalleryPage() {
               <div
                 key={photo.photoId}
                 onClick={() => {
-                  const idx = filteredPhotos.findIndex((p) => p.photoId === photo.photoId);
+                  const idx = photos.findIndex((p) => p.photoId === photo.photoId);
                   setLightboxIndex(idx !== -1 ? idx : 0);
                 }}
                 className="group relative rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-xl hover:border-accent/50 transition-all duration-300 cursor-pointer flex flex-col"
@@ -542,7 +544,7 @@ export default function AuditPhotoGalleryPage() {
 
       {/* Lightbox Metadata Modal with Next/Prev Navigation */}
       <ImageLightboxModal
-        photos={filteredPhotos}
+        photos={photos}
         currentIndex={lightboxIndex ?? 0}
         isOpen={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}
