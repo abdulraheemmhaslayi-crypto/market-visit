@@ -63,11 +63,11 @@ export default function AdminDashboardPage() {
   // Chart instances
   const chartsRef = useRef<Record<string, any>>({});
 
-  // Fetch real data on mount & poll every 10 seconds
+  // Fetch real data on mount & smooth non-blocking update on date filter changes
   useEffect(() => {
     let active = true;
     async function loadData(silent = false) {
-      if (!silent) setIsLoading(true);
+      if (!silent && rows.length === 0) setIsLoading(true);
       else setIsSyncing(true);
       try {
         const params = new URLSearchParams();
@@ -94,7 +94,10 @@ export default function AdminDashboardPage() {
         }
       }
     }
-    loadData(false);
+
+    const debounceTimer = setTimeout(() => {
+      loadData(rows.length > 0);
+    }, rows.length > 0 ? 300 : 0);
 
     // Refresh gently every 3 minutes only if tab is visible, and on window focus
     const timer = setInterval(() => {
@@ -110,6 +113,7 @@ export default function AdminDashboardPage() {
 
     return () => {
       active = false;
+      clearTimeout(debounceTimer);
       clearInterval(timer);
       window.removeEventListener('focus', handleFocus);
     };
@@ -829,7 +833,7 @@ export default function AdminDashboardPage() {
     if (canvasTrendRef.current) {
       if (chartsRef.current.cTrend) chartsRef.current.cTrend.destroy();
       const wk = countFreq(filtered, (r) => r.week);
-      const weeks = [1, 2, 3, 4, 5, 6, 7, 8];
+      const weeks = [1, 2, 3, 4, 5];
       const trendTotal = filtered.length;
       const trendPct = (w: number) => (trendTotal ? Math.round(((wk[w] || 0) / trendTotal) * 100) : 0);
       chartsRef.current.cTrend = new Chart(canvasTrendRef.current, {

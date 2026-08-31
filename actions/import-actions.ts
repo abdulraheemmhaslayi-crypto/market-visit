@@ -255,6 +255,11 @@ export async function importExcelAction(payload: {
       `Imported/Upserted masters. Totals: Inserted: ${inserted}, Updated: ${updated}, Removed: ${removed}`
     );
 
+    try {
+      const { invalidateDashboardMasterCache } = await import('@/lib/dashboard-cache');
+      invalidateDashboardMasterCache();
+    } catch {}
+
     revalidatePath('/', 'layout');
 
     return {

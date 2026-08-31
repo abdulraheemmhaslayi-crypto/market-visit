@@ -14,6 +14,8 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   AppWindow,
   CheckCircle2,
   SlidersHorizontal,
@@ -416,42 +418,87 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
       {/* Pagination Footer */}
       {pagination.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[var(--border-soft)]">
-          <p className="text-xs text-[var(--text-muted)]">
-            Showing Page <strong>{pagination.currentPage}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalCount} total photos)
-          </p>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-[var(--border-soft)]">
+          <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            <span>
+              Showing <strong className="text-[var(--text-primary)]">{(pagination.currentPage - 1) * pagination.limit + 1}</strong> –{' '}
+              <strong className="text-[var(--text-primary)]">{Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)}</strong> of{' '}
+              <strong className="text-[var(--text-primary)]">{pagination.totalCount.toLocaleString()}</strong> photos
+            </span>
+            <span className="hidden sm:inline px-2 py-0.5 rounded-md bg-[var(--surface-2)] border border-[var(--border-soft)] font-mono text-[11px]">
+              Page {pagination.currentPage} / {pagination.totalPages}
+            </span>
+          </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            <button
+              title="First Page"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="h-8 w-8 flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--border-soft)] disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+
             <button
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--border-soft)] transition-colors flex items-center gap-1 cursor-pointer"
+              className="h-8 px-3 text-xs font-semibold rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--border-soft)] transition-colors flex items-center gap-1 cursor-pointer"
             >
-              <ChevronLeft className="h-3.5 w-3.5" /> Previous
+              <ChevronLeft className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Previous</span>
             </button>
 
+            {/* Smart Windowed Page Pills */}
             <div className="flex items-center gap-1">
-              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((pNum) => (
-                <button
-                  key={pNum}
-                  onClick={() => setCurrentPage(pNum)}
-                  className={`h-8 w-8 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    currentPage === pNum
-                      ? 'bg-accent text-white shadow-sm'
-                      : 'bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:bg-[var(--surface-2)]'
-                  }`}
-                >
-                  {pNum}
-                </button>
-              ))}
+              {((): (number | 'ellipsis')[] => {
+                const total = pagination.totalPages;
+                const cur = pagination.currentPage;
+                if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+                if (cur <= 4) return [1, 2, 3, 4, 5, 'ellipsis', total];
+                if (cur >= total - 3) return [1, 'ellipsis', total - 4, total - 3, total - 2, total - 1, total];
+                return [1, 'ellipsis', cur - 1, cur, cur + 1, 'ellipsis', total];
+              })().map((item, idx) => {
+                if (item === 'ellipsis') {
+                  return (
+                    <span key={`ellipsis-${idx}`} className="px-1 text-xs text-[var(--text-muted)] select-none">
+                      …
+                    </span>
+                  );
+                }
+                const pNum = item as number;
+                const isActive = pagination.currentPage === pNum;
+                return (
+                  <button
+                    key={pNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pNum)}
+                    className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-accent text-white shadow-md shadow-accent/20 scale-105'
+                        : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {pNum}
+                  </button>
+                );
+              })}
             </div>
 
             <button
               onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
               disabled={currentPage >= pagination.totalPages}
-              className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--border-soft)] transition-colors flex items-center gap-1 cursor-pointer"
+              className="h-8 px-3 text-xs font-semibold rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--border-soft)] transition-colors flex items-center gap-1 cursor-pointer"
             >
-              Next <ChevronRight className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Next</span> <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+
+            <button
+              title="Last Page"
+              onClick={() => setCurrentPage(pagination.totalPages)}
+              disabled={currentPage >= pagination.totalPages}
+              className="h-8 w-8 flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--border-soft)] disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              <ChevronsRight className="h-4 w-4" />
             </button>
           </div>
         </div>

@@ -528,7 +528,7 @@ export default function SupervisorReportsPage() {
     if (canvasTrendRef.current) {
       if (chartsRef.current.cTrend) chartsRef.current.cTrend.destroy();
       const wk = countFreq(filtered, (r) => r.week);
-      const weeks = [1, 2, 3, 4, 5, 6, 7, 8];
+      const weeks = [1, 2, 3, 4, 5];
       chartsRef.current.cTrend = new Chart(canvasTrendRef.current, {
         type: "line",
         data: {

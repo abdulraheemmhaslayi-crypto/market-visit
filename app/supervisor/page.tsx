@@ -122,20 +122,28 @@ export default function SupervisorDashboard() {
     }
   };
 
-  const refreshAll = () => {
-    setLoading(true);
-    setIsAnalyticsLoading(true);
+  const refreshAll = (silent: boolean = false) => {
+    if (!silent) {
+      setLoading(true);
+      setIsAnalyticsLoading(true);
+    }
     Promise.all([fetchVisits(), fetchAnalytics()])
       .finally(() => {
         loadDrafts();
-        setLoading(false);
+        if (!silent) {
+          setLoading(false);
+        }
       });
   };
 
   useEffect(() => {
-    if (session?.user) {
-      refreshAll();
-    }
+    if (!session?.user) return;
+    const isFirstLoad = rows.length === 0;
+    const timer = setTimeout(() => {
+      refreshAll(!isFirstLoad);
+    }, isFirstLoad ? 0 : 300);
+
+    return () => clearTimeout(timer);
   }, [session, fFrom, fTo]);
 
   useEffect(() => {
@@ -811,7 +819,7 @@ export default function SupervisorDashboard() {
     if (canvasTrendRef.current) {
       if (chartsRef.current.cTrend) chartsRef.current.cTrend.destroy();
       const wk = countFreq(filtered, (r) => r.week);
-      const weeks = [1, 2, 3, 4, 5, 6, 7, 8];
+      const weeks = [1, 2, 3, 4, 5];
       const trendTotal = filtered.length;
       const trendPct = (w: number) => (trendTotal ? Math.round(((wk[w] || 0) / trendTotal) * 100) : 0);
       chartsRef.current.cTrend = new Chart(canvasTrendRef.current, {
@@ -1606,7 +1614,7 @@ export default function SupervisorDashboard() {
             New Audit
           </button>
           <button
-            onClick={refreshAll}
+            onClick={() => refreshAll(false)}
             className="flex items-center justify-center gap-1.5 px-3 h-9 bg-[#ffffff20] text-white hover:bg-[#ffffff30] rounded-xl text-xs font-bold transition-all border border-[#ffffff30]"
           >
             <RefreshCw className={`h-4 w-4 ${loading || isAnalyticsLoading ? 'animate-spin' : ''}`} />

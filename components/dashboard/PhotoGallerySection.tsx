@@ -13,6 +13,8 @@ import {
   Image as ImageIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Maximize2,
   FileCheck,
 } from 'lucide-react';
@@ -87,6 +89,19 @@ export function PhotoGallerySection({
     const start = (validPage - 1) * pageSize;
     return filteredPhotos.slice(start, start + pageSize);
   }, [filteredPhotos, validPage, pageSize]);
+
+  const paginationItems = useMemo<(number | 'ellipsis')[]>(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (validPage <= 4) {
+      return [1, 2, 3, 4, 5, 'ellipsis', totalPages];
+    }
+    if (validPage >= totalPages - 3) {
+      return [1, 'ellipsis', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, 'ellipsis', validPage - 1, validPage, validPage + 1, 'ellipsis', totalPages];
+  }, [validPage, totalPages]);
 
   const getCategoryColor = (category: string) => {
     const cat = (category || '').toLowerCase();
@@ -209,47 +224,120 @@ export function PhotoGallerySection({
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[var(--border-soft)]">
-              <span className="text-xs font-semibold text-[var(--text-muted)]">
-                Showing Page <strong>{validPage}</strong> of <strong>{totalPages}</strong> ({filteredPhotos.length} total photos)
-              </span>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-4 border-t border-[var(--border-soft)]">
+              {/* Left Details */}
+              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <span>
+                  Showing <strong className="text-[var(--text-primary)]">{(validPage - 1) * pageSize + 1}</strong> –{' '}
+                  <strong className="text-[var(--text-primary)]">{Math.min(validPage * pageSize, filteredPhotos.length)}</strong> of{' '}
+                  <strong className="text-[var(--text-primary)]">{filteredPhotos.length.toLocaleString()}</strong> photos
+                </span>
+                <span className="hidden sm:inline px-2 py-0.5 rounded-md bg-[var(--surface-2)] border border-[var(--border-soft)] font-mono text-[11px]">
+                  Page {validPage} / {totalPages}
+                </span>
+              </div>
 
-              <div className="flex items-center gap-1.5">
+              {/* Center / Right Pagination Nav */}
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                {/* First Page */}
+                <button
+                  type="button"
+                  title="First Page"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={validPage === 1}
+                  className="h-8 w-8 flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-2)] disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </button>
+
+                {/* Prev Page */}
                 <button
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={validPage === 1}
-                  className="h-8 px-3 text-xs font-bold rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1"
+                  className="h-8 px-2.5 sm:px-3 text-xs font-bold rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Previous
+                  <ChevronLeft className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Prev</span>
                 </button>
 
-                {/* Page Number Pills */}
+                {/* Windowed Page Number Pills */}
                 <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
-                    <button
-                      key={pNum}
-                      type="button"
-                      onClick={() => setCurrentPage(pNum)}
-                      className={`h-8 w-8 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
-                        validPage === pNum
-                          ? 'bg-accent text-white shadow-sm'
-                          : 'bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:bg-[var(--surface-2)]'
-                      }`}
-                    >
-                      {pNum}
-                    </button>
-                  ))}
+                  {paginationItems.map((item, idx) => {
+                    if (item === 'ellipsis') {
+                      return (
+                        <span key={`ellipsis-${idx}`} className="px-1.5 text-xs text-[var(--text-muted)] select-none">
+                          …
+                        </span>
+                      );
+                    }
+                    const pNum = item as number;
+                    const isActive = validPage === pNum;
+                    return (
+                      <button
+                        key={pNum}
+                        type="button"
+                        onClick={() => setCurrentPage(pNum)}
+                        className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-accent text-white shadow-md shadow-accent/20 scale-105'
+                            : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        {pNum}
+                      </button>
+                    );
+                  })}
                 </div>
 
+                {/* Next Page */}
                 <button
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={validPage === totalPages}
-                  className="h-8 px-3 text-xs font-bold rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1"
+                  className="h-8 px-2.5 sm:px-3 text-xs font-bold rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1"
                 >
-                  Next <ChevronRight className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Next</span> <ChevronRight className="h-3.5 w-3.5" />
                 </button>
+
+                {/* Last Page */}
+                <button
+                  type="button"
+                  title="Last Page"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={validPage === totalPages}
+                  className="h-8 w-8 flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-2)] disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </button>
+
+                {/* Quick Page Jump for large datasets */}
+                {totalPages > 7 && (
+                  <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] ml-1.5 pl-2 border-l border-[var(--border-soft)]">
+                    <span className="hidden lg:inline text-[11px]">Go to:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      defaultValue={validPage}
+                      key={validPage}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const val = parseInt((e.target as HTMLInputElement).value, 10);
+                          if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                            setCurrentPage(val);
+                          }
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                          setCurrentPage(val);
+                        }
+                      }}
+                      className="w-12 h-8 text-center text-xs font-bold rounded-xl border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-primary)] focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
