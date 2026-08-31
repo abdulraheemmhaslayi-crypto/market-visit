@@ -182,21 +182,24 @@ export const skuRepository = {
     }
 
     const activeSet = new Set(activeKeys.map((k) => k.toUpperCase()));
-    const [dbRows]: any = await pool.execute('SELECT UPPER(CONCAT(`skuCode`, \'_\', `channel`)) as pkey, `id` FROM `PowerSKU`');
-    const toDeleteIds: number[] = (dbRows as any[])
+    const [dbRows]: any = await pool.execute(
+      "SELECT `skuCode`, `channel`, UPPER(CONCAT(`skuCode`, '_', `channel`)) as pkey FROM `PowerSKU`"
+    );
+    const toDeletePairs: { skuCode: string; channel: string }[] = (dbRows as any[])
       .filter((r) => r.pkey && !activeSet.has(r.pkey))
-      .map((r) => r.id);
+      .map((r) => ({ skuCode: r.skuCode, channel: r.channel }));
 
-    if (toDeleteIds.length === 0) return 0;
+    if (toDeletePairs.length === 0) return 0;
 
     let deleted = 0;
-    const chunkSize = 500;
-    for (let i = 0; i < toDeleteIds.length; i += chunkSize) {
-      const chunk = toDeleteIds.slice(i, i + chunkSize);
-      const placeholders = chunk.map(() => '?').join(',');
+    const chunkSize = 200;
+    for (let i = 0; i < toDeletePairs.length; i += chunkSize) {
+      const chunk = toDeletePairs.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => '(`skuCode` = ? AND `channel` = ?)').join(' OR ');
+      const params = chunk.flatMap((p) => [p.skuCode, p.channel]);
       const [res]: any = await pool.execute(
-        `DELETE FROM \`PowerSKU\` WHERE \`id\` IN (${placeholders})`,
-        chunk
+        `DELETE FROM \`PowerSKU\` WHERE ${placeholders}`,
+        params
       );
       deleted += res.affectedRows || 0;
     }
