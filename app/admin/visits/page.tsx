@@ -136,12 +136,20 @@ export default function VisitLogsPage() {
     load();
 
     const interval = setInterval(async () => {
-      if (active) await fetchVisits(true);
-    }, 10000);
+      if (active && typeof document !== 'undefined' && !document.hidden) {
+        await fetchVisits(true);
+      }
+    }, 180000);
+
+    const handleFocus = () => {
+      if (active) fetchVisits(true);
+    };
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       active = false;
       clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 

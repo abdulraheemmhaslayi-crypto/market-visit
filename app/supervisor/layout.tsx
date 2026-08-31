@@ -50,6 +50,7 @@ const navGroups = [
     items: [
       { name: 'Reports', path: '/supervisor/reports', icon: BarChart3 },
       { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
+      { name: 'Data Usage', path: '/supervisor/data-usage', icon: Activity },
     ],
   },
   {
@@ -103,8 +104,11 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
 
     let active = true;
     const loadNoVisitCount = async () => {
+      // Skip fetching if browser tab is in background / minimized
+      if (typeof document !== 'undefined' && document.hidden) return;
+
       try {
-        const res = await fetch('/api/dashboard');
+        const res = await fetch('/api/dashboard/badge-count');
         const data = await res.json();
         if (active && data?.success) {
           setNoVisitCount(Number(data.noVisitCount || 0));
@@ -115,11 +119,17 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
     };
 
     loadNoVisitCount();
-    const timer = window.setInterval(loadNoVisitCount, 15000);
+    // 90 seconds interval instead of 15s, with visibility change listener
+    const timer = window.setInterval(loadNoVisitCount, 90000);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) loadNoVisitCount();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       active = false;
       window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [session?.user]);
 

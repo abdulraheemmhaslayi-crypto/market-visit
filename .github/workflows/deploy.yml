@@ -1,0 +1,52 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Application to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script_stop: true
+
+          script: |
+            set -e
+
+            echo "=========================================="
+            echo "🚀 Starting Deployment"
+            echo "📅 $(date)"
+            echo "=========================================="
+
+            cd /var/www/market-visit
+
+            echo "⬇️ Fetching latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "📦 Installing dependencies..."
+            npm ci
+
+            echo "🔨 Building application..."
+            npm run build
+
+            echo "🔄 Restarting PM2..."
+            pm2 restart market-visit --update-env
+
+            echo "💾 Saving PM2 state..."
+            pm2 save
+
+            echo "=========================================="
+            echo "✅ Deployment Completed"
+            echo "=========================================="

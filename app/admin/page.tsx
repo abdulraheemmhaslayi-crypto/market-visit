@@ -96,13 +96,22 @@ export default function AdminDashboardPage() {
     }
     loadData(false);
 
+    // Refresh gently every 3 minutes only if tab is visible, and on window focus
     const timer = setInterval(() => {
-      loadData(true);
-    }, 10000);
+      if (typeof document !== 'undefined' && !document.hidden) {
+        loadData(true);
+      }
+    }, 180000);
+
+    const handleFocus = () => {
+      if (active) loadData(true);
+    };
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       active = false;
       clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [fFrom, fTo, userRole]);
 

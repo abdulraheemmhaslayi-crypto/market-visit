@@ -48,6 +48,7 @@ const navGroups = [
   {
     label: 'System',
     items: [
+      { name: 'Data Usage Tracker', path: '/admin/data-usage', icon: Activity },
       { name: 'Master Import', path: '/admin/import', icon: FileSpreadsheet },
     ],
   },
@@ -74,6 +75,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Visits Log', path: '/admin/visits', icon: CalendarCheck },
     { name: 'Supervisors List', path: '/admin/supervisors', icon: Users },
     { name: 'Reports & Stats', path: '/admin/reports', icon: FileBarChart2 },
+    { name: 'Data Usage Tracker', path: '/admin/data-usage', icon: Activity },
     { name: 'Import Master Data', path: '/admin/import', icon: FileSpreadsheet },
     { name: 'Toggle Light/Dark Theme', action: 'theme', icon: Moon },
     { name: 'Log Out Session', action: 'logout', icon: LogOut },
@@ -96,8 +98,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     let active = true;
     const loadNoVisitCount = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+
       try {
-        const res = await fetch('/api/dashboard');
+        const res = await fetch('/api/dashboard/badge-count');
         const data = await res.json();
         if (active && data?.success) {
           setNoVisitCount(Number(data.noVisitCount || 0));
@@ -108,11 +112,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     loadNoVisitCount();
-    const timer = window.setInterval(loadNoVisitCount, 15000);
+    const timer = window.setInterval(loadNoVisitCount, 90000);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) loadNoVisitCount();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       active = false;
       window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [session?.user]);
 
