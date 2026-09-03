@@ -26,6 +26,7 @@ import {
   Activity,
   ArrowLeft,
   Camera,
+  AlertTriangle,
 } from 'lucide-react';
 
 const navGroups = [
@@ -34,6 +35,7 @@ const navGroups = [
     items: [
       { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
       { name: 'Visit Logs', path: '/admin/visits', icon: CalendarCheck },
+      { name: 'No Visits', path: '/admin/no-visits', icon: AlertTriangle },
       { name: 'Supervisors', path: '/admin/supervisors', icon: Users },
     ],
   },
@@ -73,6 +75,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { name: 'Audit Photo Gallery', path: '/admin/photos', icon: Camera },
     { name: 'Visits Log', path: '/admin/visits', icon: CalendarCheck },
+    { name: 'No Visits', path: '/admin/no-visits', icon: AlertTriangle },
     { name: 'Supervisors List', path: '/admin/supervisors', icon: Users },
     { name: 'Reports & Stats', path: '/admin/reports', icon: FileBarChart2 },
     { name: 'Data Usage Tracker', path: '/admin/data-usage', icon: Activity },
@@ -267,9 +270,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         style={{ opacity: active ? 1 : 0.6 }}
                       />
                       <span>{item.name}</span>
-                      {(item.path === '/admin' || item.path === '/admin/reports') && (
+                      {item.path === '/admin/no-visits' && noVisitCount > 0 && (
                         <span className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-                          No Visit {noVisitCount}
+                          {noVisitCount}
                         </span>
                       )}
                     </Link>

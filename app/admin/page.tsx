@@ -366,7 +366,6 @@ export default function AdminDashboardPage() {
   const breachesCount = useMemo(() => filtered.filter((r) => !r.ok).length, [filtered]);
   const fefoCount = useMemo(() => filtered.filter((r) => r.fefo).length, [filtered]);
   const noVisitCount = useMemo(() => filtered.filter((r) => r.visitType === 'No Visit').length, [filtered]);
-  const noVisitRows = useMemo(() => filtered.filter((r: any) => r.visitType === 'No Visit'), [filtered]);
   const breachPct = useMemo(
     () => (filtered.length ? ((breachesCount / filtered.length) * 100).toFixed(1) + '% of assets' : '–'),
     [filtered, breachesCount]
@@ -719,26 +718,6 @@ export default function AdminDashboardPage() {
         { header: 'FEFO Compliance (%)', key: 'fefoPct' },
       ],
       data: managerData,
-    });
-  };
-
-  const handleExportNoVisits = () => {
-    exportToExcel({
-      filename: `skipped_no_visits_${new Date().toISOString().slice(0, 10)}`,
-      sheetName: 'No Visits',
-      title: 'Skipped Outlet / No Visit Record Log',
-      filterSummary: activeNote,
-      userRole,
-      columns: [
-        { header: 'Visit Date', key: 'createdAt', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Visit ID', key: 'visitId' },
-        { header: 'Manager', key: 'mgr' },
-        { header: 'Supervisor', key: 'sup' },
-        { header: 'Channel', key: 'ch' },
-        { header: 'Outlet Name', key: 'cust' },
-        { header: 'Reason / Remarks', key: 'action' },
-      ],
-      data: noVisitRows,
     });
   };
 
@@ -1791,7 +1770,7 @@ export default function AdminDashboardPage() {
             </select>
           </div>
 
-          <div className="fld">
+          {/* <div className="fld">
             <label>Asset Category</label>
             <select
               value={fAssetCategory}
@@ -1805,9 +1784,9 @@ export default function AdminDashboardPage() {
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
-          </div>
+          </div> */}
 
-          <div className="fld min-w-[190px]">
+          {/* <div className="fld min-w-[190px]">
             <label>Size / Model</label>
             <MultiSelectDropdown
               placeholder="Select Size/Model"
@@ -1815,11 +1794,11 @@ export default function AdminDashboardPage() {
               selectedValues={fSizeModels}
               onChange={setFSizeModels}
             />
-          </div>
+          </div> */}
 
           <button className="reset" onClick={resetFilters}>Reset</button>
 
-          <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" />
+          {/* <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" /> */}
 
           <div className="live-badge">
             <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
@@ -1868,43 +1847,6 @@ export default function AdminDashboardPage() {
             <div className="delta">assets following FEFO</div>
           </div>
         </div>
-
-        {/* No Visit Details */}
-        {noVisitRows.length > 0 && (
-          <div className="panel" style={{ marginBottom: '12px' }}>
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3>No Visit Details</h3>
-                <div className="psub">Skipped outlet visits with recorded reasons</div>
-              </div>
-              <ExportButton onClick={handleExportNoVisits} label="Export Excel" variant="compact" />
-            </div>
-            <div className="overflow-x-auto" style={{ marginTop: '10px' }}>
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-soft)' }}>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Date</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Supervisor</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Route</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Outlet</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {noVisitRows.map((row: any) => (
-                    <tr key={row.visitId} style={{ borderBottom: '1px solid var(--border-soft)' }}>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-secondary)' }}>{new Date(row.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{row.sup}</td>
-                      <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{row.rt || '—'}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{row.cust || '—'}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-secondary)' }}>{row.reasonCategory || row.reason || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
         {/* Chart Row 1 */}
         <div className="grid">
@@ -2130,7 +2072,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Audit Photo Gallery Section with Pagination */}
-        <PhotoGallerySection
+        {/* <PhotoGallerySection
           photos={photos}
           fFrom={fFrom}
           fTo={fTo}
@@ -2139,7 +2081,7 @@ export default function AdminDashboardPage() {
           fChannel={fChannel}
           fCust={fCust}
           fRoute={fRoute}
-        />
+        /> */}
 
         {/* Footer */}
         <div className="foot">

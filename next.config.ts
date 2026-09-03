@@ -16,6 +16,9 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "http://localhost:3000",
   ],
+  env: {
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",

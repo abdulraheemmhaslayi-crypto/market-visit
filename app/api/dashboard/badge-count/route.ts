@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const role = userSession.role as string | undefined;
     const scope = getDashboardScope(role);
 
-    let query = "SELECT COUNT(*) as count FROM `Visit` WHERE `status` = 'Submitted' AND (`isNoVisit` = 1 OR `isNoVisit` = 'true')";
+    let query = "SELECT COUNT(*) as count FROM `Visit` WHERE `status` = 'Submitted' AND (`visit_type` = 'No Visit' OR `reason_category` IS NOT NULL)";
     const params: any[] = [];
 
     if (scope === 'supervisor') {

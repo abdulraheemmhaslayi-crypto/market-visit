@@ -25,6 +25,7 @@ import {
   ArrowLeft,
   Thermometer,
   Camera,
+  AlertTriangle,
 } from 'lucide-react';
 import { isFleetRole } from '@/lib/roles';
 
@@ -43,6 +44,7 @@ const navGroups = [
     items: [
       { name: 'My Visits', path: '/supervisor', icon: ClipboardList },
       { name: 'New Audit', path: '/supervisor/visit', icon: PlusCircle },
+      { name: 'No Visits', path: '/supervisor/no-visits', icon: AlertTriangle },
     ],
   },
   {
@@ -79,6 +81,7 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
   const supervisorNavActions = [
     { name: 'Dashboard', path: '/supervisor', icon: Home },
     { name: 'My Visits', path: '/supervisor/my-visits', icon: MapPin },
+    { name: 'No Visits', path: '/supervisor/no-visits', icon: AlertTriangle },
     { name: 'New Audit Wizard', path: '/supervisor/visit', icon: Plus },
     { name: 'Reports & Stats', path: '/supervisor/reports', icon: BarChart3 },
     { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
@@ -265,9 +268,9 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
                         style={{ opacity: active ? 1 : 0.6 }}
                       />
                       <span>{item.name}</span>
-                      {!isFleet && (item.path === '/supervisor' || item.path === '/supervisor/reports') && (
+                      {!isFleet && item.path === '/supervisor/no-visits' && noVisitCount > 0 && (
                         <span className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-                          No Visit {noVisitCount}
+                          {noVisitCount}
                         </span>
                       )}
                     </Link>

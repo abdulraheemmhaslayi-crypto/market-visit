@@ -489,6 +489,8 @@ export async function GET(req: NextRequest) {
         action,
         visitType: v.visit_type || 'Visit',
         visit_type: v.visit_type || 'Visit',
+        reasonCategory: v.reason_category || v.reasonCategory || '—',
+        reason: v.reason || v.observation || '—',
       };
     });
 
