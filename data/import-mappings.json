@@ -1,0 +1,66 @@
+{
+  "RouteCode": [
+    "routecode",
+    "routeid",
+    "rtcode",
+    "code",
+    "routeno",
+    "route_code"
+  ],
+  "RouteName": [
+    "routename",
+    "routeid",
+    "rtname",
+    "name",
+    "description",
+    "routedesc",
+    "route_name"
+  ],
+  "CustomerCode": [
+    "customercode",
+    "customerid",
+    "custcode",
+    "custid",
+    "customer_code"
+  ],
+  "CustomerName": [
+    "customername",
+    "customerdesc",
+    "custname",
+    "outletname",
+    "outletdesc",
+    "customer_name"
+  ],
+  "SKUCode": [
+    "skucode",
+    "skuid",
+    "itemcode",
+    "itemid",
+    "materialcode",
+    "materialid",
+    "sku_code"
+  ],
+  "SKUName": [
+    "skuname",
+    "skudesc",
+    "itemname",
+    "itemdesc",
+    "materialname",
+    "materialdesc",
+    "sku_name"
+  ],
+  "Classification": [
+    "classification",
+    "class",
+    "grade",
+    "category",
+    "class_code"
+  ],
+  "Channel": [
+    "channel",
+    "subchannel",
+    "tradechannel",
+    "marketsegment",
+    "sub_channel"
+  ]
+}

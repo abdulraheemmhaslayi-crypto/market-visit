@@ -1,0 +1,13 @@
+[
+  {
+    "id": "user_1",
+    "name": "System Admin",
+    "employeeCode": "ADM001",
+    "email": "admin@system.local",
+    "passwordHash": "$2b$10$xANokfvRXd/XsM009BIC1euSO5eHLed8NrkJzI669T924C6Btn2uW",
+    "mobile": "9876543210",
+    "role": "Admin",
+    "status": "Active",
+    "createdAt": "2026-07-06T07:34:19.190Z"
+  }
+]

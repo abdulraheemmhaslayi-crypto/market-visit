@@ -1,0 +1,2202 @@
+[
+  {
+    "skuCode": "FGICU513",
+    "skuName": "ICE CREAM STRAWBERRY 125ML X 24"
+  },
+  {
+    "skuCode": "FGIBT607",
+    "skuName": "BON BON SPECIAL OFFER  PACK  (TWIN)"
+  },
+  {
+    "skuCode": "FGICO810",
+    "skuName": "ICE CREAM BUTTER SCOTCH CONE 150ML 1X6 FP"
+  },
+  {
+    "skuCode": "FGICO812",
+    "skuName": "ICE CREAM CHOCOLATE CONE 150ML 1X6 FP"
+  },
+  {
+    "skuCode": "FGICO814",
+    "skuName": "ICE CREAM VANILA CONE 150ML 1X6 FP"
+  },
+  {
+    "skuCode": "FGISB951",
+    "skuName": "ICE CREAM ALMOND DELIGHT 100ML - 1X16"
+  },
+  {
+    "skuCode": "FGISB960",
+    "skuName": "CHOCO DISC 75 ML - 1X6 (1FP + 1FP FREE)"
+  },
+  {
+    "skuCode": "FGISB961",
+    "skuName": "CHOCO DISC 75 ML - 1X16 (1CTN + 1CTN FREE)"
+  },
+  {
+    "skuCode": "FGDYF154",
+    "skuName": "YOGHURT 4 K.G"
+  },
+  {
+    "skuCode": "FGDYC101",
+    "skuName": "YOGHURT FC 150GMX12"
+  },
+  {
+    "skuCode": "FGDYC126",
+    "skuName": "YOGHURT 170GM X 12 (FC)"
+  },
+  {
+    "skuCode": "FGDYC127",
+    "skuName": "YOGHURT LF 170GMX12"
+  },
+  {
+    "skuCode": "FGDYF151",
+    "skuName": "YOGHURT 1 KG."
+  },
+  {
+    "skuCode": "FGDYC113",
+    "skuName": "YOGHURT FF 170GM 5+1"
+  },
+  {
+    "skuCode": "FGDYF152",
+    "skuName": "YOGHURT 1KG LOW FAT"
+  },
+  {
+    "skuCode": "FGDYC114",
+    "skuName": "YOGHURT LF 170GM 5+1"
+  },
+  {
+    "skuCode": "FGDYC118",
+    "skuName": "FRESH YOGHURT NEW TASTE 170 GM 5+1"
+  },
+  {
+    "skuCode": "FGDYC111",
+    "skuName": "YOGHURT FC 170GMX6"
+  },
+  {
+    "skuCode": "FGDYC112",
+    "skuName": "YOGHURT LF 170GMX6"
+  },
+  {
+    "skuCode": "FGDYF153",
+    "skuName": "YOGHURT 2 K.G"
+  },
+  {
+    "skuCode": "FGDYH178",
+    "skuName": "HALA YOGHURT 2 KG"
+  },
+  {
+    "skuCode": "FGDYH177",
+    "skuName": "HALA YOGHURT 1KG"
+  },
+  {
+    "skuCode": "FGDYH176",
+    "skuName": "HALA YOGHURT 165 X 6"
+  },
+  {
+    "skuCode": "FGDYF155",
+    "skuName": "YOGHURT 10 KG FAMILY PACK"
+  },
+  {
+    "skuCode": "FGDYC115",
+    "skuName": "FRESH YOGHURT NEW TASTE170GMX6"
+  },
+  {
+    "skuCode": "FGDYF156",
+    "skuName": "FRESH YOGHURT NEW TASTE 1 KG"
+  },
+  {
+    "skuCode": "FGDYF157",
+    "skuName": "FRESH YOGHURT NEW TASTE 2 KG"
+  },
+  {
+    "skuCode": "FGDYF158",
+    "skuName": "YOGHURT 2 KG X 5"
+  },
+  {
+    "skuCode": "FGDFY186",
+    "skuName": "MANGO FRUIT YOGHURT 110 X 6"
+  },
+  {
+    "skuCode": "FGDFY187",
+    "skuName": "STRAWBERRY FRUIT YOGHURT 110 X 6"
+  },
+  {
+    "skuCode": "FGDFY189",
+    "skuName": "PEACH & APRICOT FRUIT YOGHURT 110 X 6"
+  },
+  {
+    "skuCode": "FGDFY188",
+    "skuName": "CHERRY 1X6 FRUIT YOGHURT110 ML"
+  },
+  {
+    "skuCode": "FGDLS201",
+    "skuName": "LABAN SHARAB 200 MLX12"
+  },
+  {
+    "skuCode": "FGDLS205",
+    "skuName": "LABAN SHARAB MINT 200ML X 6"
+  },
+  {
+    "skuCode": "FGDLS202",
+    "skuName": "LABAN SHARAB 225 MLX12"
+  },
+  {
+    "skuCode": "FGDLS203",
+    "skuName": "LABAN SHARAB MINT 225 MLX12"
+  },
+  {
+    "skuCode": "FGDLS204",
+    "skuName": "LABAN SHARAB ZEERA 225 MLX12"
+  },
+  {
+    "skuCode": "FGDLS206",
+    "skuName": "LABAN SHARAB 225 ML X 20"
+  },
+  {
+    "skuCode": "FGDLA228",
+    "skuName": "LABAN AIRAN 200ML X 6"
+  },
+  {
+    "skuCode": "FGDLA229",
+    "skuName": "LABAN AIRAN 2LTR"
+  },
+  {
+    "skuCode": "FGDLA230",
+    "skuName": "LABAN AIRAN MANGO 180ML X 6"
+  },
+  {
+    "skuCode": "FGDLA234",
+    "skuName": "LABAN AIRAN 180 ML X6"
+  },
+  {
+    "skuCode": "FGDLB251",
+    "skuName": "LABNEH FC 225 GM"
+  },
+  {
+    "skuCode": "FGDLB253",
+    "skuName": "LABNEH FC 450 GM"
+  },
+  {
+    "skuCode": "FGDLB252",
+    "skuName": "LABNEH FC 4 KG"
+  },
+  {
+    "skuCode": "FGDTL255",
+    "skuName": "TURKISH LABNEH 200GM"
+  },
+  {
+    "skuCode": "FGDTL256",
+    "skuName": "TURKISH LABNEH 500GM"
+  },
+  {
+    "skuCode": "FGDFC267",
+    "skuName": "WHITE FETA CHEESE 250GM"
+  },
+  {
+    "skuCode": "FGDFC268",
+    "skuName": "WHITE FETA CHEESE 500GM"
+  },
+  {
+    "skuCode": "FGDMC266",
+    "skuName": "SHREDDED MOZARRELA 200GM"
+  },
+  {
+    "skuCode": "FGJFP458",
+    "skuName": "JUICE 1.75 LTR - ORANGE"
+  },
+  {
+    "skuCode": "FGJSS406",
+    "skuName": "JUICE 250ML - MANGO"
+  },
+  {
+    "skuCode": "FGJSS408",
+    "skuName": "JUICE 250ML - APPLE"
+  },
+  {
+    "skuCode": "FGJSS405",
+    "skuName": "JUICE 200ML - ORANGE"
+  },
+  {
+    "skuCode": "FGJSS402",
+    "skuName": "JUICE 200ML - LEMON"
+  },
+  {
+    "skuCode": "FGJGT492",
+    "skuName": "DANDY JUICE GABLE TOP 1 LITER (MANGO)"
+  },
+  {
+    "skuCode": "FGJGT491",
+    "skuName": "DANDY JUICE GABLE TOP 1 LITER (ORANGE)"
+  },
+  {
+    "skuCode": "FGDLU212",
+    "skuName": "DANDY UP 1 LTR"
+  },
+  {
+    "skuCode": "FGDLU211",
+    "skuName": "DANDY UP"
+  },
+  {
+    "skuCode": "FGDLF216",
+    "skuName": "FRESH LABAN GABLE TOP 1 LITER"
+  },
+  {
+    "skuCode": "FGDLA233",
+    "skuName": "LABAN AIRAN GABLE TOP 1 LITER"
+  },
+  {
+    "skuCode": "FGJGT493",
+    "skuName": "DANDY JUICE GABLE TOP 1 LITER (APPLE)"
+  },
+  {
+    "skuCode": "FGJLL427",
+    "skuName": "MANGO DRINK 1000 ML X 12"
+  },
+  {
+    "skuCode": "FGJLL426",
+    "skuName": "MANGO DRINK 500 ML X 24"
+  },
+  {
+    "skuCode": "FGJLL425",
+    "skuName": "MANGO DRINKS 200 ML"
+  },
+  {
+    "skuCode": "FGJGT495",
+    "skuName": "POMEGRANATE NECT 1 L GABLE TOP"
+  },
+  {
+    "skuCode": "FGJGT496",
+    "skuName": "MIXED BERRY NECT 1 L GABLE TOP"
+  },
+  {
+    "skuCode": "FGJGT497",
+    "skuName": "ORANGE CARROT NEC 1 L GABLETOP"
+  },
+  {
+    "skuCode": "FGJGT494",
+    "skuName": "DANDY JUICE GABLE TOP 1 LITER (MIX FRUITS)"
+  },
+  {
+    "skuCode": "FGJSS413",
+    "skuName": "MANGO NECTAR 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS411",
+    "skuName": "ORANGE JUICE 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS412",
+    "skuName": "APPLE JUICE 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS414",
+    "skuName": "MIXED FRUIT 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS415",
+    "skuName": "POMEGRANATE 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS416",
+    "skuName": "ORANGE & CARROT 200 ML PET BOT"
+  },
+  {
+    "skuCode": "FGJSS417",
+    "skuName": "MIXED BERRY 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJLL430",
+    "skuName": "APPLE DRINK 1 LTR X 12"
+  },
+  {
+    "skuCode": "FGJLL429",
+    "skuName": "APPLE DRINK 500 ML X 24"
+  },
+  {
+    "skuCode": "FGJLL428",
+    "skuName": "APPLE DRINK 200 ML X 30"
+  },
+  {
+    "skuCode": "FGDLF217",
+    "skuName": "FRESH LABAN 180 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGDLA235",
+    "skuName": "LABAN AIRAN 2 LTR HDPE BOTTLE"
+  },
+  {
+    "skuCode": "FGDLF218",
+    "skuName": "FRESH LABAN 2 LTR HDPE BOTTLE"
+  },
+  {
+    "skuCode": "FGDLF219",
+    "skuName": "FRESH LABAN 1 LTR PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJFP467",
+    "skuName": "MANGO JUICE 1.5 LTR PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJFP468",
+    "skuName": "ORANGE JUICE 1.5LTR PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJFP469",
+    "skuName": "APPLE JUICE 1.5 LTR PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJFP470",
+    "skuName": "POMEGRANATE 1.5 LTR PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJFP472",
+    "skuName": "MIXED BERRY 1.5 LTR PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJFP473",
+    "skuName": "ORANGE CARROT1.5LTR PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJFP471",
+    "skuName": "MIXED FRUIT 1.5 LTR PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJSS418",
+    "skuName": "MANGO JUICE 300 ML PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJSS419",
+    "skuName": "ORANGE JUICE 300 ML PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJSS420",
+    "skuName": "APPLE JUICE 300 ML PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJSS421",
+    "skuName": "POMEGRANATE 300 ML PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJSS422",
+    "skuName": "MIXED BERRY 300 ML PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJSS423",
+    "skuName": "ORANGE CARROT 300ML PET BOTTEL"
+  },
+  {
+    "skuCode": "FGJSS424",
+    "skuName": "MIXED FRUIT 300 ML PET BOTTEL"
+  },
+  {
+    "skuCode": "FGDLA237",
+    "skuName": "LABAN MANGO 180 ML X 1"
+  },
+  {
+    "skuCode": "FGDLA236",
+    "skuName": "LABAN STRAWBERRY 180 ML X 1"
+  },
+  {
+    "skuCode": "FGJFP474",
+    "skuName": "LEMON & MINT JUICE 1.5 LTR PET"
+  },
+  {
+    "skuCode": "FGJSS425",
+    "skuName": "LEMON & MINT 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGCRM1050",
+    "skuName": "BREAKFAST CREAM 100 ML"
+  },
+  {
+    "skuCode": "FGJMP466",
+    "skuName": "JUICES ASSORTED 1.5 LTR X 2"
+  },
+  {
+    "skuCode": "FGJSS426",
+    "skuName": "LEMON & MINT 300ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGIBT603",
+    "skuName": "BON BON HAZELNUT 238 ML X 1"
+  },
+  {
+    "skuCode": "FGISB958",
+    "skuName": "CHOCO DISC 75 ML X16"
+  },
+  {
+    "skuCode": "FGIBT604",
+    "skuName": "BON BON PEANUT 238 ML X 1"
+  },
+  {
+    "skuCode": "FGIBT605",
+    "skuName": "BON BON PISTACHIO17MLX14 238MX"
+  },
+  {
+    "skuCode": "FGIBT606",
+    "skuName": "ICE CREAM BON BON COCONUT 238 ML X 1"
+  },
+  {
+    "skuCode": "FGDLA238",
+    "skuName": "LABAN AIRAN 1 LTR - PET BOTTLE"
+  },
+  {
+    "skuCode": "FGICD701",
+    "skuName": "DESIRE - VANILLA 125ML"
+  },
+  {
+    "skuCode": "FGIFD751",
+    "skuName": "DESIRE - VANILLA 500ML"
+  },
+  {
+    "skuCode": "FGIFD752",
+    "skuName": "DESIRE - VANILLA 1 LTR"
+  },
+  {
+    "skuCode": "FGICD702",
+    "skuName": "DESIRE - COOKIES & CREAM 125 ML"
+  },
+  {
+    "skuCode": "FGIFD753",
+    "skuName": "DESIRE - COOKIES & CREAM 500 ML"
+  },
+  {
+    "skuCode": "FGIFD754",
+    "skuName": "DESIRE - COOKIES & CREAM 1 LTR"
+  },
+  {
+    "skuCode": "FGICD703",
+    "skuName": "DESIRE - DOUBLE CHOCLATE 125 ML"
+  },
+  {
+    "skuCode": "FGIFD755",
+    "skuName": "DESIRE - DOUBLE CHOCLATE 500 ML"
+  },
+  {
+    "skuCode": "FGIFD756",
+    "skuName": "DESIRE - DOUBLE CHOCLATE 1 LTR"
+  },
+  {
+    "skuCode": "FGICD704",
+    "skuName": "DESIRE - PRALINES AND CREAM 125 ML"
+  },
+  {
+    "skuCode": "FGIFD757",
+    "skuName": "DESIRE - PRALINES AND CREAM 500 ML"
+  },
+  {
+    "skuCode": "FGIFD758",
+    "skuName": "DESIRE - PRALINES AND CREAM 1 LTR"
+  },
+  {
+    "skuCode": "FGICD705",
+    "skuName": "DESIRE - TIRAMISU 125 ML"
+  },
+  {
+    "skuCode": "FGIFD759",
+    "skuName": "DESIRE - TIRAMISU 500 ML"
+  },
+  {
+    "skuCode": "FGIFD760",
+    "skuName": "DESIRE - TIRAMISU 1 LTR"
+  },
+  {
+    "skuCode": "FGICD706",
+    "skuName": "DESIRE - STRAWBERRY CHEESE CAKE 125 ML"
+  },
+  {
+    "skuCode": "FGIFD761",
+    "skuName": "DESIRE - STRAWBERRY CHEESE CAKE 500 ML"
+  },
+  {
+    "skuCode": "FGIFD762",
+    "skuName": "DESIRE - STRAWBERRY CHEESE CAKE 1 LTR"
+  },
+  {
+    "skuCode": "FGISD726",
+    "skuName": "DESIRE - BELIGIUM CHOCLTAE STICK (65 ML)"
+  },
+  {
+    "skuCode": "FGISD727",
+    "skuName": "DESIRE - ALMOND STICK (65 ML)"
+  },
+  {
+    "skuCode": "FGISD728",
+    "skuName": "DESIRE - CHOCLATE HAZELNUT (65 ML)"
+  },
+  {
+    "skuCode": "FGISD729",
+    "skuName": "DESIRE - TRIPLE CHOCLATE (65 ML)"
+  },
+  {
+    "skuCode": "FGDFM279",
+    "skuName": "STRAWBERRY FLAVOURED MILK 180 ML"
+  },
+  {
+    "skuCode": "FGDFM280",
+    "skuName": "CHOCOLATE FLAVOURED MILK 180 ML"
+  },
+  {
+    "skuCode": "FGJGT498",
+    "skuName": "LEMON & MINT 1 LTR GABLE TOP"
+  },
+  {
+    "skuCode": "FGIFP552",
+    "skuName": "ICE CREAM MALAI KULFI 1 LTR 1X16"
+  },
+  {
+    "skuCode": "FGIFP553",
+    "skuName": "ICE CREAM MALAI KULFI 500 ML 1X18"
+  },
+  {
+    "skuCode": "FGIFP554",
+    "skuName": "ICE CREAM CHOCO CHIPS 500 ML 1X18"
+  },
+  {
+    "skuCode": "FGICO813",
+    "skuName": "ICE CREAM VANILA CONE 150ML 1X20"
+  },
+  {
+    "skuCode": "FGICO809",
+    "skuName": "ICE CREAM BUTTER SCOTCH CONE 150ML 1X20"
+  },
+  {
+    "skuCode": "FGICO811",
+    "skuName": "ICE CREAM CHOCOLATE CONE 150ML 1X20"
+  },
+  {
+    "skuCode": "FGISW943",
+    "skuName": "ICE CREAM SANDWITCH 100ML-1X24 2CTN+1CTN FREE"
+  },
+  {
+    "skuCode": "FGSLB962",
+    "skuName": "ICE CREAM CRUNCH 85ML-1X20 1CTN+1CTN FREE"
+  },
+  {
+    "skuCode": "FGIND776",
+    "skuName": "DESIRE-DOUBLE CHOCOLATE 120 ML CONE 1X20"
+  },
+  {
+    "skuCode": "FGIND777",
+    "skuName": "DESIRE-PARALINES & CREAM 120 ML CONE 1X20"
+  },
+  {
+    "skuCode": "FGISW944",
+    "skuName": "ICE CREAM SANDWICH FAMILY PACKS TWIN PACK"
+  },
+  {
+    "skuCode": "FGISB963",
+    "skuName": "ICE CREAM CRUNCH FAMILY PACKS TWIN PACK"
+  },
+  {
+    "skuCode": "FGIBT609",
+    "skuName": "ICE CREAM BON BON CLASSIC + BON BON CLASSIC"
+  },
+  {
+    "skuCode": "FGIBT610",
+    "skuName": "ICE CREAM BON BON CLASSIC+BON BON PISTACHIO"
+  },
+  {
+    "skuCode": "FGIBT611",
+    "skuName": "ICE CREAM BON BON CLASSIC + BON BON COCONUT"
+  },
+  {
+    "skuCode": "FGIBT612",
+    "skuName": "ICE CREAM BON BON CLASSIC + BON BON CARAMEL"
+  },
+  {
+    "skuCode": "FGIBT613",
+    "skuName": "ICE CREAM BON BON CLASSIC + BON BON HAZELNUT"
+  },
+  {
+    "skuCode": "FGIBT614",
+    "skuName": "ICE CREAM BON BON CLASSIC + BON BON PEANUT"
+  },
+  {
+    "skuCode": "FGJFR352",
+    "skuName": "FRUTTI CUP 225 ML - ORANGE"
+  },
+  {
+    "skuCode": "FGJFR351",
+    "skuName": "FRUTTI CUP 225 ML - FLAMTU"
+  },
+  {
+    "skuCode": "FGJFR353",
+    "skuName": "FRUTTI CUP 225 ML - STRAWBERY"
+  },
+  {
+    "skuCode": "FGJFR354",
+    "skuName": "FRUTTI CUP 225ML X 24 - ASSORTED"
+  },
+  {
+    "skuCode": "FGJFR302",
+    "skuName": "FRUTTI CUP 180 X 12 ) - ORANGE"
+  },
+  {
+    "skuCode": "FGJFR303",
+    "skuName": "FRUTTI CUP 180ML X 12 - STRAWBERY"
+  },
+  {
+    "skuCode": "FGJFR301",
+    "skuName": "FRUTTI CUP 180ML X 12 - FLAMTU"
+  },
+  {
+    "skuCode": "FGIFP536",
+    "skuName": "ICE CREAM MANGO TANGO 4 LTR"
+  },
+  {
+    "skuCode": "FGIFP541",
+    "skuName": "ICE CREAM ROYAL CHOCOLATE 4 LTR"
+  },
+  {
+    "skuCode": "FGIFP545",
+    "skuName": "ICE CREAM SCOTCH VANILLA 4 LTR"
+  },
+  {
+    "skuCode": "FGIFP549",
+    "skuName": "ICE CREAM STRAWBERRY ORIGINAL 4 LTR"
+  },
+  {
+    "skuCode": "FGIFP537",
+    "skuName": "ICE CREAM PISTACHIO 4 LTR"
+  },
+  {
+    "skuCode": "FGIFP535",
+    "skuName": "ICE CREAM MANGO TANGO 2 LTR"
+  },
+  {
+    "skuCode": "FGIFP540",
+    "skuName": "ICE CREAM ROYAL CHOCOLATE 2 LTR"
+  },
+  {
+    "skuCode": "FGIFP544",
+    "skuName": "ICE CREAM SCOTCH VANILLA 2 LTR"
+  },
+  {
+    "skuCode": "FGIFP548",
+    "skuName": "ICE CREAM STRAWBERRY ORIGINAL 2 LTR"
+  },
+  {
+    "skuCode": "FGIFP527",
+    "skuName": "ICE CREAM BUTTER SCOTCH 2 LTR"
+  },
+  {
+    "skuCode": "FGIFP533",
+    "skuName": "ICE CREAM MANGO TANGO 1 LTR"
+  },
+  {
+    "skuCode": "FGIFP538",
+    "skuName": "ICE CREAM ROYAL CHOCOLATE 1 LTR"
+  },
+  {
+    "skuCode": "FGIFP542",
+    "skuName": "ICE CREAM SCOTCH VANILLA 1 LTR"
+  },
+  {
+    "skuCode": "FGIFP546",
+    "skuName": "ICE CREAM STRAWBERRY ORIGINAL 1 LTR"
+  },
+  {
+    "skuCode": "FGIFP526",
+    "skuName": "ICE CREAM BUTTER SCOTCH 1 LTR"
+  },
+  {
+    "skuCode": "FGIFP534",
+    "skuName": "ICE CREAM MANGO TANGO 1/2 LTR"
+  },
+  {
+    "skuCode": "FGIFP539",
+    "skuName": "ICE CREAM ROYAL CHOCOLATE 1/2 LTR"
+  },
+  {
+    "skuCode": "FGIFP543",
+    "skuName": "ICE CREAM SCOTCH VANILLA 1/2 LTR"
+  },
+  {
+    "skuCode": "FGIFP547",
+    "skuName": "ICE CREAM STRAWBERRY ORIGINAL 1/2 LTR"
+  },
+  {
+    "skuCode": "FGICU503",
+    "skuName": "ICE CREAM MANGO TANGO 80ML X 12"
+  },
+  {
+    "skuCode": "FGICU505",
+    "skuName": "ICE CREAM ROYAL CHOCOLATE 80ML X 12"
+  },
+  {
+    "skuCode": "FGICU502",
+    "skuName": "ICE CREAM MANGO TANGO 125ML X 12"
+  },
+  {
+    "skuCode": "FGICU504",
+    "skuName": "ICE CREAM ROYAL CHOCLATE 125ML X 12"
+  },
+  {
+    "skuCode": "FGICU506",
+    "skuName": "ICE CREAM SCOTCH VANILA 125ML X 12"
+  },
+  {
+    "skuCode": "FGICU507",
+    "skuName": "ICE CREAM STRAWBERRY 125ML X 12"
+  },
+  {
+    "skuCode": "FGICU516",
+    "skuName": "ICE CREAM CHOCO VANILLA 125ML 1X27"
+  },
+  {
+    "skuCode": "FGICU509",
+    "skuName": "ICE CREAM VANILA CUP 80ML X 12"
+  },
+  {
+    "skuCode": "FGICU508",
+    "skuName": "ICE CREAM STRAWBERY CUP 80ML X 12"
+  },
+  {
+    "skuCode": "FGILO630",
+    "skuName": "ICE CREAM DISCOVERY STRAWBERRY 60ML - 1X24"
+  },
+  {
+    "skuCode": "FGILO626",
+    "skuName": "ICE CREAM DISCOVERY KULFI 55ML - 1X20"
+  },
+  {
+    "skuCode": "FGIFP532",
+    "skuName": "ICE CREAM KULFI 1 LTR"
+  },
+  {
+    "skuCode": "FGIST901",
+    "skuName": "TRIO - 90 ML X 20"
+  },
+  {
+    "skuCode": "FGIST904",
+    "skuName": "STACK UP - 80 ML X 20"
+  },
+  {
+    "skuCode": "FGISW941",
+    "skuName": "ICE CREAM SANDWITCH 100MLX24"
+  },
+  {
+    "skuCode": "FGISB959",
+    "skuName": "MANGO DUO - 70 ML X 20"
+  },
+  {
+    "skuCode": "FGISB953",
+    "skuName": "ICE CREAM RASPBERRY DUO 70ML - 1X20"
+  },
+  {
+    "skuCode": "FGSLB952",
+    "skuName": "CRUNCH 85 ML-1X 20"
+  },
+  {
+    "skuCode": "FGIST905",
+    "skuName": "ALMOND DELIGHT 100 ML X 16"
+  },
+  {
+    "skuCode": "FGIST902",
+    "skuName": "50 : 50 - 100 ML X 16"
+  },
+  {
+    "skuCode": "FGIST903",
+    "skuName": "PEANUT DELIGHT - 100 ML X 16"
+  },
+  {
+    "skuCode": "FGIBT601",
+    "skuName": "BON BON 17MLX14  238 ML X 1"
+  },
+  {
+    "skuCode": "FGIST906",
+    "skuName": "ALMOND DELIGHT 100 ML X 6 PCS"
+  },
+  {
+    "skuCode": "FGIST911",
+    "skuName": "PEANUT DELIGHT 100 ML X 6"
+  },
+  {
+    "skuCode": "FGIST909",
+    "skuName": "ICE CREAM 50:50 NUS NUS 100MLX6"
+  },
+  {
+    "skuCode": "FGIST912",
+    "skuName": "CHOCOBAR PLAIN 60 ML X 24"
+  },
+  {
+    "skuCode": "FGISW942",
+    "skuName": "SANDWICH FAMILY PACK 100 ML X6"
+  },
+  {
+    "skuCode": "FGISB955",
+    "skuName": "RASPBERRY DUO 70 ML X 5 FAMILY"
+  },
+  {
+    "skuCode": "FGISB956",
+    "skuName": "MANGO DUO 70 ML X 5 FAMILY PACK"
+  },
+  {
+    "skuCode": "FGISB957",
+    "skuName": "CRUNCH 85 ML X6 FAMILY PACK"
+  },
+  {
+    "skuCode": "FGIBT602",
+    "skuName": "BON BON CARAMEL 238 ML X 1"
+  },
+  {
+    "skuCode": "FGICB602",
+    "skuName": "ICE CREAM CHOCOBAR NUTS 85ML - 1X16"
+  },
+  {
+    "skuCode": "FGICB601",
+    "skuName": "ICE CREAM CHOCOBAR NUTS 85ML - 1X6"
+  },
+  {
+    "skuCode": "FGICB604",
+    "skuName": "ICE CREAM CHOCOBAR PLAIN 70ML"
+  },
+  {
+    "skuCode": "FGIDU651",
+    "skuName": "ICE CRAM MANGO DUET 85ML - 1X16"
+  },
+  {
+    "skuCode": "FGIDU652",
+    "skuName": "ICE CREAM RASPBERY DUET 85ML - 1X16"
+  },
+  {
+    "skuCode": "FGIFS852",
+    "skuName": "ICECREAM FUNDAE SUNDAE CUP 170ML"
+  },
+  {
+    "skuCode": "FGIPU875",
+    "skuName": "ICE CREAM PUSH UP 85ML VANILLA-RASPBERRY"
+  },
+  {
+    "skuCode": "FGISQ827",
+    "skuName": "ICE CREAM SQUEEZEUP 115ML - ORANGE"
+  },
+  {
+    "skuCode": "FGISQ826",
+    "skuName": "ICE CREAM SQUEEZEUP 115ML - COLA"
+  },
+  {
+    "skuCode": "FGISQ828",
+    "skuName": "ICE CREAM SQUEEZEUP 115ML - RASPBERRY"
+  },
+  {
+    "skuCode": "FGIFS851",
+    "skuName": "ICE CREAM FUNDAE SUNDAE CUP 170MLX6 (FP)"
+  },
+  {
+    "skuCode": "FGIPU876",
+    "skuName": "ICE CREAM PUSH UP 85MLX6 VANILA-RASPBERRY (FP)"
+  },
+  {
+    "skuCode": "FGISQ831",
+    "skuName": "ICE CREAM SQUEEZEUP 115MLX12 - RASPBERRY (FP)"
+  },
+  {
+    "skuCode": "FGISQ829",
+    "skuName": "ICE CREAM SQUEEZEUP 115MLX12 - COLA (FP)"
+  },
+  {
+    "skuCode": "FGIST908",
+    "skuName": "ICE CREAM CHOCOBAR PLAIN 60 ML X 24"
+  },
+  {
+    "skuCode": "FGICO808",
+    "skuName": "ICE CREAM VANILA CONE 120ML 1X6"
+  },
+  {
+    "skuCode": "FGICO807",
+    "skuName": "ICE CREAM VANILA CONE 120MLX20"
+  },
+  {
+    "skuCode": "FGICO802",
+    "skuName": "ICE CREAM BUTTER SCOTCH CONE 120ML 1X6"
+  },
+  {
+    "skuCode": "FGICO806",
+    "skuName": "ICE CREAM VANILA CONE 110ML 1X20"
+  },
+  {
+    "skuCode": "FGICO805",
+    "skuName": "ICE CREAM CHOCOLATE CONE 120ML 1X6"
+  },
+  {
+    "skuCode": "FGICO804",
+    "skuName": "ICE CREAM CHOCOLATE CONE 120MLX20"
+  },
+  {
+    "skuCode": "FGICO801",
+    "skuName": "ICE CREAM BUTTER SCOTCH CONE 120ML 1X20"
+  },
+  {
+    "skuCode": "FGICO803",
+    "skuName": "ICE CREAM CHOCOLATE CONE 110ML 1X20"
+  },
+  {
+    "skuCode": "FGISB954",
+    "skuName": "ICE CREAM MANGO DUO 70ML - 1X20"
+  },
+  {
+    "skuCode": "FGDFY190",
+    "skuName": "MANGO FRUIT YOGHURT 110GM 5+1"
+  },
+  {
+    "skuCode": "FGDFY191",
+    "skuName": "STRAWBERRY FRUIT YOGHURT 110GM 5+1"
+  },
+  {
+    "skuCode": "FGIBT608",
+    "skuName": "ICE CREAM BON BON SPECIAL OFFER PACK (4+1 FREE)"
+  },
+  {
+    "skuCode": "FGIFD763",
+    "skuName": "DESIRE VANILLA + PARALINES & CREAM 500 ML"
+  },
+  {
+    "skuCode": "FGIFD764",
+    "skuName": "DESIRE VANILLA + VANILLA 500 ML"
+  },
+  {
+    "skuCode": "FGIFD765",
+    "skuName": "DESIRE PARALINES + PARALINES & CREAM 500 ML"
+  },
+  {
+    "skuCode": "FGDYC119",
+    "skuName": "YOGHURT 165GM X 12 (FC)"
+  },
+  {
+    "skuCode": "FGDFY193",
+    "skuName": "CHERRY FRUIT YOGHURT 110GM 5+1"
+  },
+  {
+    "skuCode": "FGISD732",
+    "skuName": "DESIRE STICK - TRIPLE CHOCLATE + ALMOND TWIN PCK"
+  },
+  {
+    "skuCode": "FGDFY192",
+    "skuName": "PEACH & APRICOT FRUIT YOGHURT 110GM 5+1"
+  },
+  {
+    "skuCode": "FGISD731",
+    "skuName": "DESIRE STICK - CHOCLATE HAZELNUT + ALMOND TWIN PCK"
+  },
+  {
+    "skuCode": "FGICU517",
+    "skuName": "ICE CREAM MANGO TANGO 125ML 1X27"
+  },
+  {
+    "skuCode": "FGICU518",
+    "skuName": "ICE CREAM ROYAL CHOCLATE 125ML 1X27"
+  },
+  {
+    "skuCode": "FGICU520",
+    "skuName": "ICE CREAM STRAWBERRY 125ML 1X27"
+  },
+  {
+    "skuCode": "FGICU519",
+    "skuName": "ICE CREAM SCOTCH VANILLA 125ML 1X27"
+  },
+  {
+    "skuCode": "FGISD739",
+    "skuName": "DESIRE BELIGIUM CHOCLATE + HAZELNUT STICK 1+1 CTN"
+  },
+  {
+    "skuCode": "FGISD740",
+    "skuName": "DESIRE TRIPLE CHOCO + TRIPLE CHOCO STICK  1+1 CTN"
+  },
+  {
+    "skuCode": "FGICU525",
+    "skuName": "ICE CREAM  MT+RC+SV+STB+CV125ML 1X27(5+1 CTN FREE)"
+  },
+  {
+    "skuCode": "FGICU521",
+    "skuName": "ICE CREAM MANGO TANGO 80ML 1X504"
+  },
+  {
+    "skuCode": "FGICU523",
+    "skuName": "ICE CREAM VANILLA CUP 80ML 1X504"
+  },
+  {
+    "skuCode": "FGICU522",
+    "skuName": "ICE CREAM ROYAL CHOCOLATE 80ML 1X504"
+  },
+  {
+    "skuCode": "FGICU524",
+    "skuName": "ICE CREAM STRAWBERRY CUP 80ML 1X504"
+  },
+  {
+    "skuCode": "FGICU526",
+    "skuName": "ICE CREAM MT+RC+SV+STB+SV125M 1X27(5+1 CTN)"
+  },
+  {
+    "skuCode": "FGJGT500",
+    "skuName": "HALA JUICE GABLE TOP 1 LTR - ORANGE"
+  },
+  {
+    "skuCode": "FGJGT501",
+    "skuName": "HALA JUICE GABLE TOP 1 LTR - APPLE"
+  },
+  {
+    "skuCode": "FGJGT503",
+    "skuName": "HALA JUICE GABLE TOP 1 LTR - MIXED BERRY"
+  },
+  {
+    "skuCode": "FGJGT505",
+    "skuName": "HALA JUICE GABLE TOP 1 LTR - MIXED FRUIT"
+  },
+  {
+    "skuCode": "FGJGT499",
+    "skuName": "HALA JUICE GABLE TOP 1 LTR - MANGO"
+  },
+  {
+    "skuCode": "FGJGT504",
+    "skuName": "HALA JUICE GABLE TOP 1 LTR - ORANGE & CARROT"
+  },
+  {
+    "skuCode": "FGJGT506",
+    "skuName": "HALA JUICE GABLE TOP 1 LTR - LEMON & MINT"
+  },
+  {
+    "skuCode": "FGDLS208",
+    "skuName": "SPICE BUTTER MILK 225 ML"
+  },
+  {
+    "skuCode": "FGJGT502",
+    "skuName": "HALA JUICE GABLE TOP 1 LTR - POMEGRANATE"
+  },
+  {
+    "skuCode": "FGIBT615",
+    "skuName": "BON BON STRAWBERRY 238ML"
+  },
+  {
+    "skuCode": "FGJSS430",
+    "skuName": "KIWI & LIME 1.5 LTR PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS429",
+    "skuName": "KIWI & LIME 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS427",
+    "skuName": "GUAVA 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS428",
+    "skuName": "GUAVA 1.5 LTR PET BOTTLE"
+  },
+  {
+    "skuCode": "FGDFY199",
+    "skuName": "YOGHURT VITALIS 160 GRM  5+1 PROMO PACK"
+  },
+  {
+    "skuCode": "FGDFY198",
+    "skuName": "YOGHURT VITALIS 160 GRM"
+  },
+  {
+    "skuCode": "FGIST917",
+    "skuName": "ICE CREAM SWIRLY 80 ML"
+  },
+  {
+    "skuCode": "FGJFP451",
+    "skuName": "JUICE  1 LTR - APPLE (PET)"
+  },
+  {
+    "skuCode": "FGJFP452",
+    "skuName": "JUICE  1 LTR - MANGO (PET)"
+  },
+  {
+    "skuCode": "FGJFP453",
+    "skuName": "JUICE  1 LTR - ORANGE (PET)"
+  },
+  {
+    "skuCode": "FGJFP459",
+    "skuName": "JUICE 1LTR - MIXED FRUIT (PET)"
+  },
+  {
+    "skuCode": "FGJFP476",
+    "skuName": "JUICE  1 LTR - MIXED  BERRY (PET)"
+  },
+  {
+    "skuCode": "FGICU527",
+    "skuName": "ICE CREAM MT+RC+SV+STB+RC+SV 125ML(5+1CTN*27)"
+  },
+  {
+    "skuCode": "FGJFP475",
+    "skuName": "JUICE  1 LTR - POMEGRANATE (PET)"
+  },
+  {
+    "skuCode": "FGJFP477",
+    "skuName": "JUICE  1 LTR - ORANGE  & CARROT (PET)"
+  },
+  {
+    "skuCode": "FGJFP480",
+    "skuName": "LEMON & MINT JUICE 1 LTR PET"
+  },
+  {
+    "skuCode": "FGJFP478",
+    "skuName": "JUICE 1LTR - GUAVA  (PET)"
+  },
+  {
+    "skuCode": "FGDFM281",
+    "skuName": "STRAWBERRY FLAVOURED MILK 180 ML( 5+1)  FREE"
+  },
+  {
+    "skuCode": "FGDFM282",
+    "skuName": "CHOCOLATE FLAVOURED MILK 180 ML(5+1) FREE"
+  },
+  {
+    "skuCode": "FGICD708",
+    "skuName": "DESIRE RED VELVET 500ML"
+  },
+  {
+    "skuCode": "FGICD709",
+    "skuName": "DESIRE RED VELVET 1LTR"
+  },
+  {
+    "skuCode": "FGDFY197",
+    "skuName": "PINE APPLE FLAVOUR YOGHURT (120 ML)"
+  },
+  {
+    "skuCode": "FGDFY196",
+    "skuName": "COCONUT FLAVOUR YOGHURT (120 ML)"
+  },
+  {
+    "skuCode": "FGICD707",
+    "skuName": "DESIRE RED VELVET 125ML"
+  },
+  {
+    "skuCode": "FGSLBP52",
+    "skuName": "CRUNCH 85ML - 1X20"
+  },
+  {
+    "skuCode": "FGDFY194",
+    "skuName": "FLAVOURED YOGHURT 120GM-STRAWBERRY"
+  },
+  {
+    "skuCode": "FGDFY195",
+    "skuName": "FLAVOURED YOGHURT 120GM-MANGO"
+  },
+  {
+    "skuCode": "FGDLS209",
+    "skuName": "LABAN VITALIS 180 ML"
+  },
+  {
+    "skuCode": "FGJFR355",
+    "skuName": "FRUTTI LICHI 225 ML"
+  },
+  {
+    "skuCode": "FGJFP479",
+    "skuName": "KIWI & LIME DRINK 1 LTR"
+  },
+  {
+    "skuCode": "FGIFD766",
+    "skuName": "DESIRE - VANILLA 4 LTR"
+  },
+  {
+    "skuCode": "FGICB606",
+    "skuName": "ICE CREAM CHOCOBAR NUTS 85ML (1X16) 3+1 CTN"
+  },
+  {
+    "skuCode": "FGISB964",
+    "skuName": "CRUNCH 85ML (1X20) 2+1 CTN"
+  },
+  {
+    "skuCode": "FGIST918",
+    "skuName": "ICE CREAM TRIO 90ML (1X20) 5+1 CTN"
+  },
+  {
+    "skuCode": "FGDYC121",
+    "skuName": "YOGHURT LF 170GMX6 -SLEEVES"
+  },
+  {
+    "skuCode": "FGDYC122",
+    "skuName": "FRESH YOGHURT NEW TASTE170GMX6 -SLEEVES"
+  },
+  {
+    "skuCode": "FGDYC120",
+    "skuName": "YOGHURT FC 170GMX6 -SLEEVES"
+  },
+  {
+    "skuCode": "FGIST907",
+    "skuName": "ICE CREAM PEANUT DELIGHT 100 ML X 6"
+  },
+  {
+    "skuCode": "FGICO821",
+    "skuName": "ICE CREAM VANILA CONE 110ML 1X6 FP"
+  },
+  {
+    "skuCode": "FGICO820",
+    "skuName": "ICE CREAM CHOCOLATE CONE 110ML 1X6 FP"
+  },
+  {
+    "skuCode": "FGDLB257",
+    "skuName": "TURKISH LABNEH FC 1 KG"
+  },
+  {
+    "skuCode": "FGDLB258",
+    "skuName": "TURKISH LABNEH FC 2 KG"
+  },
+  {
+    "skuCode": "FGDLB259",
+    "skuName": "TURKISH LABNEH FC 225 GM"
+  },
+  {
+    "skuCode": "FGDLB260",
+    "skuName": "TURKISH LABNEH FC 450 GM"
+  },
+  {
+    "skuCode": "FGJFR304",
+    "skuName": "FRUTTI ORANGE 1 LTR PET"
+  },
+  {
+    "skuCode": "FGJFR305",
+    "skuName": "FRUTTI STRAWBERRY 1 LTR PET"
+  },
+  {
+    "skuCode": "FGJFR306",
+    "skuName": "FRUTTI FLAMTU 1 LTR PET"
+  },
+  {
+    "skuCode": "FGICO817",
+    "skuName": "ICE CREAM CHOCOLATE CONES 110ML (1X20) 10+1"
+  },
+  {
+    "skuCode": "FGICO816",
+    "skuName": "ICE CREAM VANILLA CONES 110ML (1X20) 10+1"
+  },
+  {
+    "skuCode": "FGJFP481",
+    "skuName": "ORANGE PINEAPPLE JUICE 1 LTR PET"
+  },
+  {
+    "skuCode": "FGJFP482",
+    "skuName": "ORANGE PINEAPPLE JUICE 1.5 LTR PET"
+  },
+  {
+    "skuCode": "FGJSS431",
+    "skuName": "ORANGE PINEAPPLE JUICE 200ML PET"
+  },
+  {
+    "skuCode": "FGJFR307",
+    "skuName": "FRUTTI ORANGE 1LTR PET (1X3)"
+  },
+  {
+    "skuCode": "FGJFR308",
+    "skuName": "FRUTTI STRAWBERRY 1LTR PET (1X3)"
+  },
+  {
+    "skuCode": "FGJFR309",
+    "skuName": "FRUTTI FLAMTU 1LTR PET (1X3)"
+  },
+  {
+    "skuCode": "FGJFR313",
+    "skuName": "FRUTTI ASSORTED 1LTR PET (1X3)"
+  },
+  {
+    "skuCode": "FGDLA241",
+    "skuName": "LABAN PEACH APRICOT 180ML X 1"
+  },
+  {
+    "skuCode": "FGIFP555",
+    "skuName": "ICE CREAM RC 1/2 + SV 1/2 + SO 1/2 LTR"
+  },
+  {
+    "skuCode": "FGDLF221",
+    "skuName": "FRESH LABAN LOW FAT 180ML X 1"
+  },
+  {
+    "skuCode": "FGICO819",
+    "skuName": "ICE CREAM BUTTER SCOTCH CONE 110ML 1X6 FP"
+  },
+  {
+    "skuCode": "FGISW945",
+    "skuName": "ICE CREAM CHOCO VANILLA SANDWICH 100ML 1X24"
+  },
+  {
+    "skuCode": "FGICU529",
+    "skuName": "ICE CREAM ROYAL CHOCOLATE 80ML 1X48"
+  },
+  {
+    "skuCode": "FGICU530",
+    "skuName": "ICE CREAM VANILA CUP 80ML 1X48"
+  },
+  {
+    "skuCode": "FGICO818",
+    "skuName": "ICE CREAM BUTTER SCOTCH CONE 110ML 1X20"
+  },
+  {
+    "skuCode": "FGISW946",
+    "skuName": "ICE CREAM CHOCO VANILLA SANDWICH 100ML (1X6) FP"
+  },
+  {
+    "skuCode": "FGICU528",
+    "skuName": "ICE CREAM MANGO TANGO 80ML 1X48"
+  },
+  {
+    "skuCode": "FGIPF001",
+    "skuName": "DANDY PREMIUM VANILLA 1 LTR"
+  },
+  {
+    "skuCode": "FGIPF002",
+    "skuName": "DANDY PREMIUM VANILLA 500 ML"
+  },
+  {
+    "skuCode": "FGIPF003",
+    "skuName": "DANDY PREMIUM PARALINES & CREAM 1 LTR"
+  },
+  {
+    "skuCode": "FGIPF004",
+    "skuName": "DANDY PREMIUM PARALINES & CREAM 500 ML"
+  },
+  {
+    "skuCode": "FGIPF005",
+    "skuName": "DANDY PREMIUM DOUBLE CHOCOLATE 1 LTR"
+  },
+  {
+    "skuCode": "FGIPF006",
+    "skuName": "DANDY PREMIUM DOUBLE CHOCOLATE 500 ML"
+  },
+  {
+    "skuCode": "FGIPF011",
+    "skuName": "DANDY PREMIUM RED VELVET 500ML"
+  },
+  {
+    "skuCode": "FGIPF012",
+    "skuName": "DANDY PREMIUM RED VELVET 1LTR"
+  },
+  {
+    "skuCode": "FGIPF013",
+    "skuName": "DANDY PREMIUM TIRAMISU 1 LTR"
+  },
+  {
+    "skuCode": "FGIPF016",
+    "skuName": "DANDY PREMIUM PISTACHIO 1LTR"
+  },
+  {
+    "skuCode": "FGIPF015",
+    "skuName": "DANDY PREMIUM PISTACHIO 500 ML"
+  },
+  {
+    "skuCode": "FGIPF014",
+    "skuName": "DANDY PREMIUM TIRAMISU 500 ML"
+  },
+  {
+    "skuCode": "FGDLA242",
+    "skuName": "LABAN AIRAN 180ML PET"
+  },
+  {
+    "skuCode": "FGDYC123",
+    "skuName": "YOGHURT 170GM X 6 (FC) - INST"
+  },
+  {
+    "skuCode": "FGDYC124",
+    "skuName": "YOGHURT 165GM X 6 (FC)"
+  },
+  {
+    "skuCode": "FGICU128",
+    "skuName": "ICE CREAM PISTACHIO 110ML CUP 1X27"
+  },
+  {
+    "skuCode": "FGIPF009",
+    "skuName": "DANDY PREMIUM COOKIES & CREAM 1 LTR"
+  },
+  {
+    "skuCode": "FGIPF010",
+    "skuName": "DANDY PREMIUM COOKIES & CREAM 500 ML"
+  },
+  {
+    "skuCode": "FGJFP483",
+    "skuName": "TROPICAL ORANGE 50% NECTAR 1 LTR"
+  },
+  {
+    "skuCode": "FGJFP484",
+    "skuName": "TROPICAL ORANGE 50% NECTAR 1.5 LTR"
+  },
+  {
+    "skuCode": "FGJSS432",
+    "skuName": "TROPICAL ORANGE 50% NECTAR 200 ML"
+  },
+  {
+    "skuCode": "FGDLS210",
+    "skuName": "LABAN SHARAB SWEET - LASSI 225ML X 12"
+  },
+  {
+    "skuCode": "FGIPS017",
+    "skuName": "DANDY PREMIUM ALMOND STICK 65ML 1X12"
+  },
+  {
+    "skuCode": "FGIPS019",
+    "skuName": "DANDY PREMIUM BELGIAN CHOCOLATE STICK 65ML 1X12"
+  },
+  {
+    "skuCode": "FGIPS018",
+    "skuName": "DANDY PREMIUM ALMOND STICK 65ML FP 1X6"
+  },
+  {
+    "skuCode": "FGIPS020",
+    "skuName": "DANDY PREMIUM BELGIAN CHOCOLATE STICK 65ML FP 1X6"
+  },
+  {
+    "skuCode": "FGIPS021",
+    "skuName": "DANDY PREMIUM CHOCO HAZELNUT STICK 65ML 1X12"
+  },
+  {
+    "skuCode": "FGIPS022",
+    "skuName": "DANDY PREMIUM CHOCO HAZELNUT STICK 65ML FP 1X6"
+  },
+  {
+    "skuCode": "FGIPS023",
+    "skuName": "DANDY PREMIUM TRIPPLE CHOCOLATEÂ  STICK 65MLÂ 1X12"
+  },
+  {
+    "skuCode": "FGIPS024",
+    "skuName": "DANDY PREMIUM TRIPPLE CHOCOLATEÂ  STICK 65ML FP 1X6"
+  },
+  {
+    "skuCode": "FGIPC031",
+    "skuName": "DANDY PREMIUM PISTACHIO 125ML X 12"
+  },
+  {
+    "skuCode": "FGJFR314",
+    "skuName": "FRUTTI LEMON 225ML X 12"
+  },
+  {
+    "skuCode": "FGIPC027",
+    "skuName": "DANDY PREMIUM DOUBLE CHOCOLATE 125ML X 12"
+  },
+  {
+    "skuCode": "FGIPC029",
+    "skuName": "DANDY PREMIUM TIRAMISU 125ML X 12"
+  },
+  {
+    "skuCode": "FGIPC030",
+    "skuName": "DANDY PREMIUM RED VELVET 125ML X 12"
+  },
+  {
+    "skuCode": "FGIPC026",
+    "skuName": "DANDY PREMIUM COOKIES & CREAM 125ML X 12"
+  },
+  {
+    "skuCode": "FGIPC025",
+    "skuName": "DANDY PREMIUM VANILLA 125ML X 12"
+  },
+  {
+    "skuCode": "FGIPC028",
+    "skuName": "DANDY PREMIUM PRALINES & CREAM 125ML X 12"
+  },
+  {
+    "skuCode": "FGICU533",
+    "skuName": "ICE CREAM VANILA CUP 80ML 1X48"
+  },
+  {
+    "skuCode": "FGICU532",
+    "skuName": "ICE CREAM STRAWBERY CUP 80ML 1X48"
+  },
+  {
+    "skuCode": "FGIPF034",
+    "skuName": "Dandy Premium Vanilla + Vanilla 500ML Twin Pack"
+  },
+  {
+    "skuCode": "FGJFP487",
+    "skuName": "JUICE 1 LTR MANGO+LEMON & MINT+MIXED BERRY"
+  },
+  {
+    "skuCode": "FGJFP489",
+    "skuName": "100% MIXED FRUIT JUICE 1.5 LTR PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS433",
+    "skuName": "100% MIXED FRUIT JUICE 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJFP488",
+    "skuName": "100% MIXED FRUIT JUICE 1 LTR PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJFP490",
+    "skuName": "100% RED GRAPE JUICE 1 LTR PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJFP491",
+    "skuName": "100% RED GRAPE JUICE 1.5 LTR PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJSS434",
+    "skuName": "100% RED GRAPE JUICE 200 ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGDGH296",
+    "skuName": "GHEE 500 ML"
+  },
+  {
+    "skuCode": "FGDGH297",
+    "skuName": "GHEE 1 LTR"
+  },
+  {
+    "skuCode": "FGDBT290",
+    "skuName": "UNSALTED BUTTER 100 GM"
+  },
+  {
+    "skuCode": "FGDBT291",
+    "skuName": "UNSALTED BUTTER 200 GM"
+  },
+  {
+    "skuCode": "FGDBT292",
+    "skuName": "SALTED BUTTER 100 GM"
+  },
+  {
+    "skuCode": "FGDBT293",
+    "skuName": "SALTED BUTTER 200 GM"
+  },
+  {
+    "skuCode": "FGDPN269",
+    "skuName": "MALAI PANEER ORGANIC 100 GM"
+  },
+  {
+    "skuCode": "FGDPN270",
+    "skuName": "MALAI PANEER ORGANIC 200 GM"
+  },
+  {
+    "skuCode": "FGDPN271",
+    "skuName": "MALAI PANEER ORGANIC 400 GM"
+  },
+  {
+    "skuCode": "FGIPC040",
+    "skuName": "Dandy Premium - Butter Scotch 125ML"
+  },
+  {
+    "skuCode": "FGIPC042",
+    "skuName": "Dandy Premium - Cotton Candy 125ML"
+  },
+  {
+    "skuCode": "FGIPF019",
+    "skuName": "Dandy Premium - Caramel Ribbon 500ML"
+  },
+  {
+    "skuCode": "FGIPF020",
+    "skuName": "Dandy Premium - Caramel Ribbon 1LTR"
+  },
+  {
+    "skuCode": "FGIPF026",
+    "skuName": "Dandy Premium - Cotton Candy 1LTR"
+  },
+  {
+    "skuCode": "FGIPS037",
+    "skuName": "Dandy Premium - Pistachio Stick 65ML"
+  },
+  {
+    "skuCode": "FGIPC039",
+    "skuName": "Dandy Premium - Caramel Ribbon 125ML"
+  },
+  {
+    "skuCode": "FGIPF021",
+    "skuName": "Dandy Premium - Butter Scotch 500ML"
+  },
+  {
+    "skuCode": "FGIPF022",
+    "skuName": "Dandy Premium - Butter Scotch 1LTR"
+  },
+  {
+    "skuCode": "FGIPF025",
+    "skuName": "Dandy Premium - Cotton Candy 500ML"
+  },
+  {
+    "skuCode": "FGIPC038",
+    "skuName": "Dandy Premium - Mocha Almond Fudge Ice Cream 125ML"
+  },
+  {
+    "skuCode": "FGIPF017",
+    "skuName": "Dandy Premium - Mocha Almond Fudge Ice Cream 500ML"
+  },
+  {
+    "skuCode": "FGIPF018",
+    "skuName": "Dandy Premium - Mocha Almond Fudge Ice Cream  1LTR"
+  },
+  {
+    "skuCode": "FGIPN033",
+    "skuName": "DANDY PREMIUM ICE CREAM MINI CONES 110ML (1X6) FP"
+  },
+  {
+    "skuCode": "FGIPS032",
+    "skuName": "DANDY PREMIUM ICE CREAM MINI STICKS 80ML (1X6) FP"
+  },
+  {
+    "skuCode": "FGJFP485",
+    "skuName": "JUICE 1 LTR MANGO+APPLE+TROPICAL ORANGE"
+  },
+  {
+    "skuCode": "FGJFP486",
+    "skuName": "JUICE 1 LTR ORANGE+KIWI & LIME+MIXED FRUIT"
+  },
+  {
+    "skuCode": "FGIPC041",
+    "skuName": "DANDY PREMIUM - CHOCO CHIPS 125ML"
+  },
+  {
+    "skuCode": "FGIPF043",
+    "skuName": "DANDY PREMIUM - CHOCO CHIPS 500ML"
+  },
+  {
+    "skuCode": "FGIPF044",
+    "skuName": "DANDY PREMIUM - CHOCO CHIPS 1LTR"
+  },
+  {
+    "skuCode": "FGJFR326",
+    "skuName": "FRUTTI CUP 200ML X 12 - ORANGE"
+  },
+  {
+    "skuCode": "FGFYF160",
+    "skuName": "FROZEN YOGHURT PLAIN 500 ML"
+  },
+  {
+    "skuCode": "FGFYF162",
+    "skuName": "FROZEN YOGHURT PLAIN 1 LTR"
+  },
+  {
+    "skuCode": "FGFYF163",
+    "skuName": "MANGO FROZEN YOGHURT PLAIN 500 ML"
+  },
+  {
+    "skuCode": "FGFYF164",
+    "skuName": "MANGO FROZEN YOGHURT PLAIN 1 LTR"
+  },
+  {
+    "skuCode": "FGFYF167",
+    "skuName": "CHERRY FROZEN YOGHURT PLAIN 500 ML"
+  },
+  {
+    "skuCode": "FGFYF168",
+    "skuName": "CHERRY FROZEN YOGHURT PLAIN 1 LTR"
+  },
+  {
+    "skuCode": "FGFYF169",
+    "skuName": "PEACH APRICOT FROZEN YOGHURT PLAIN 500 ML"
+  },
+  {
+    "skuCode": "FGFYF170",
+    "skuName": "PEACH APRICOT FROZEN YOGHURT PLAIN 1 LTR"
+  },
+  {
+    "skuCode": "FGFYF165",
+    "skuName": "STRAWBERRY FROZEN YOGHURT PLAIN 500 ML"
+  },
+  {
+    "skuCode": "FGFYF166",
+    "skuName": "STRAWBERRY FROZEN YOGHURT PLAIN 1 LTR"
+  },
+  {
+    "skuCode": "FGDLF222",
+    "skuName": "LABAN VITAMIN A & D3 ENRICHED 180 ML"
+  },
+  {
+    "skuCode": "FGDYC125",
+    "skuName": "YOGHURT FF VITAMIN A & D3 ENRICHED 170 GM X 6"
+  },
+  {
+    "skuCode": "FGDYF159",
+    "skuName": "YOGHURT FF VITAMIN A & D3 ENRICHED 1 KG"
+  },
+  {
+    "skuCode": "FGDYF161",
+    "skuName": "YOGHURT FF VITAMIN A & D3 ENRICHED 2 KG"
+  },
+  {
+    "skuCode": "FGDLS213",
+    "skuName": "SWEET LASSI 1LTR PET BOTTLE"
+  },
+  {
+    "skuCode": "FGICO823",
+    "skuName": "ICE CREAM CONES 110 ML ASSORTED 1X6 FP TWIN PACKS"
+  },
+  {
+    "skuCode": "FGDFY200",
+    "skuName": "FLAVOURED YOGHURT STRAWBERRY (5+1)"
+  },
+  {
+    "skuCode": "FGICO832",
+    "skuName": "ICE CREAM CONES 110 ML Bscotch 1X6 FP TWIN PACKS"
+  },
+  {
+    "skuCode": "FGICO824",
+    "skuName": "ICE CREAM CONES 110 ML Vanilla 1X6 FP TWIN PACKS"
+  },
+  {
+    "skuCode": "FGICO825",
+    "skuName": "ICE CREAM CONES 110 ML Choco 1X6 FP TWIN PACKS"
+  },
+  {
+    "skuCode": "FGIPF008",
+    "skuName": "DANDY PREMIUM STRAWBERRY & CHEESECAKE 500 ML"
+  },
+  {
+    "skuCode": "FGIPF007",
+    "skuName": "DANDY PREMIUM STRAWBERRY & CHEESECAKE 1 LTR"
+  },
+  {
+    "skuCode": "FGIFP556",
+    "skuName": "DANDY FRUIT SALAD 1 LTR X 1"
+  },
+  {
+    "skuCode": "FGIFP557",
+    "skuName": "DANDY FRUIT SALAD 500 ML X 1"
+  },
+  {
+    "skuCode": "FGIPF047",
+    "skuName": "DANDY PREMIUM FRUIT N CREAM 1 LTR X 1"
+  },
+  {
+    "skuCode": "FGIPF048",
+    "skuName": "DANDY PREMIUM FRUIT N CREAM 500 ML X 1"
+  },
+  {
+    "skuCode": "FGJFP440",
+    "skuName": "WATERMELON DRINK 1 LTR"
+  },
+  {
+    "skuCode": "FGJFP441",
+    "skuName": "WATERMELON DRINK 1.5 LTR"
+  },
+  {
+    "skuCode": "FGJSS439",
+    "skuName": "WATERMELON DRINK 200 ML"
+  },
+  {
+    "skuCode": "FGFYC104",
+    "skuName": "STRAWBERRY FROZEN YOGHURT PLAIN 125 ML"
+  },
+  {
+    "skuCode": "FGFYC105",
+    "skuName": "CHERRY FROZEN YOGHURT PLAIN 125 ML"
+  },
+  {
+    "skuCode": "FGIPF045",
+    "skuName": "DANDY PREMIUM VERY BERRY STRAWBERRY 500ML X 1"
+  },
+  {
+    "skuCode": "FGIPF046",
+    "skuName": "DANDY PREMIUM VERY BERRY STRAWBERRY 1LTR X 1"
+  },
+  {
+    "skuCode": "FGIPF049",
+    "skuName": "DANDY PREMIUM - PISTACHIO STICK 65ML X 6"
+  },
+  {
+    "skuCode": "FGIPF050",
+    "skuName": "DANDY PREMIUM VANILLA + BUTTER SCOT 500ML TWIN PCK"
+  },
+  {
+    "skuCode": "FGIPF051",
+    "skuName": "DANDY PREMIUM VANILLA + COOKIES&CRM 500ML TWIN PCK"
+  },
+  {
+    "skuCode": "FGIPF052",
+    "skuName": "DANDY PREMIUM VANILLA + PISTACHIO 500ML TWIN PCK"
+  },
+  {
+    "skuCode": "FGJSS442",
+    "skuName": "LYCHEE DRINK 200ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJFP447",
+    "skuName": "LYCHEE DRINK 1 LTR PET"
+  },
+  {
+    "skuCode": "FGJFP448",
+    "skuName": "LYCHEE DRINK 1.5 LTR PET"
+  },
+  {
+    "skuCode": "FGJFR356",
+    "skuName": "FRUTTI MANGO 225ML X 12"
+  },
+  {
+    "skuCode": "FGICO836",
+    "skuName": "ICE CREAM COOKIES &CREAM CONE 110ML1X5FP"
+  },
+  {
+    "skuCode": "FGICO835",
+    "skuName": "ICE CREAM COOKIES & CREAM CONE 110ML"
+  },
+  {
+    "skuCode": "FGICO834",
+    "skuName": "ICE CREAM COTTON CANDY CONE 110ML 1X5 FP"
+  },
+  {
+    "skuCode": "FGICU558",
+    "skuName": "ICE CREAM COTTON CANDY CUP 125 ML"
+  },
+  {
+    "skuCode": "FGIST919",
+    "skuName": "PEANUT DELIGHT MINI STICK 50ML1X6 FP"
+  },
+  {
+    "skuCode": "FGIST920",
+    "skuName": "ALMOND DELIGHT MINI STICK 50ML1X6 FP"
+  },
+  {
+    "skuCode": "FGICO833",
+    "skuName": "ICE CREAM COTTON CANDY CONE 110 ML"
+  },
+  {
+    "skuCode": "FGIFP559",
+    "skuName": "ICE CREAM BUTTERSCOTCH TUB 500 ML"
+  },
+  {
+    "skuCode": "FGIFP560",
+    "skuName": "ICE CREAM BUTTERSCOTCH TUB 1 LTR"
+  },
+  {
+    "skuCode": "FGIFP561",
+    "skuName": "ICE CREAM BUTTERSCOTCH TUB 2 LTR"
+  },
+  {
+    "skuCode": "FGCSD358",
+    "skuName": "DANDY FIZZ MIXED BERRIES 330 ML X 6 PCS"
+  },
+  {
+    "skuCode": "FGCSD359",
+    "skuName": "DANDY FIZZ ORANGE 330 ML X 6 PCS"
+  },
+  {
+    "skuCode": "NPD1Powder",
+    "skuName": "Milk Powder 400g"
+  },
+  {
+    "skuCode": "NPD2Powder",
+    "skuName": "Milk Powder 900g"
+  },
+  {
+    "skuCode": "NPD3FIZZ",
+    "skuName": "Dandy Cola"
+  },
+  {
+    "skuCode": "NPD3Powder",
+    "skuName": "Milk Powder 2.25Kg"
+  },
+  {
+    "skuCode": "NPD4FIZZ",
+    "skuName": "Dandy Fizz Lemon"
+  },
+  {
+    "skuCode": "NPD5FIZZ",
+    "skuName": "Dandy Cola Zero Sugar"
+  },
+  {
+    "skuCode": "NPD6FIZZ",
+    "skuName": "Dandy Fizz Lemon Zero Sugar"
+  },
+  {
+    "skuCode": "FGJSS449",
+    "skuName": "APPLE NECTAR 200 ML"
+  },
+  {
+    "skuCode": "FGJFP391",
+    "skuName": "APPLE NECTAR 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP392",
+    "skuName": "MIXED MANGO DRINK 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP393",
+    "skuName": "ORANGE NECTAR 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP394",
+    "skuName": "PINK GUAVA DRINK 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP397",
+    "skuName": "ORANGE NECTAR 900 ML"
+  },
+  {
+    "skuCode": "FGJSS444",
+    "skuName": "ORANGE NECTAR 200 ML"
+  },
+  {
+    "skuCode": "FGJSS450",
+    "skuName": "MIXED MANGO DRINK 200 ML"
+  },
+  {
+    "skuCode": "FGJSS443",
+    "skuName": "PINK GUAVA DRINK 200 ML"
+  },
+  {
+    "skuCode": "FGJFR310",
+    "skuName": "FRUTTI ORANGE 200ML PET BOTTLE"
+  },
+  {
+    "skuCode": "FGJFP328",
+    "skuName": "APPLE JUICE 1.35 LTR 100%"
+  },
+  {
+    "skuCode": "FGJFP329",
+    "skuName": "GUAVA NECTAR 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP330",
+    "skuName": "KIWI & LIME DRINK 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP332",
+    "skuName": "LYCHEE DRINK 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP333",
+    "skuName": "MANGO NECTAR 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP337",
+    "skuName": "ORANGE & CARROT NECTAR 1.35 LTR"
+  },
+  {
+    "skuCode": "FGDLS214",
+    "skuName": "DANDY MANGO LASSI 200 ML x 12 PCS"
+  },
+  {
+    "skuCode": "FGJFP342",
+    "skuName": "GUAVA NECTAR 900 ML"
+  },
+  {
+    "skuCode": "FGJFP336",
+    "skuName": "MIXED FRUIT NECTAR 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP340",
+    "skuName": "WATERMELON DRINK 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP339",
+    "skuName": "POMEGRANATE NECTAR 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP331",
+    "skuName": "LEMON & MINT DRINK 1.35 LTR"
+  },
+  {
+    "skuCode": "FGJFP343",
+    "skuName": "KIWI & LIME DRINK 900 ML"
+  },
+  {
+    "skuCode": "FGIST925",
+    "skuName": "ICE CREAM STACK UP 80ML FP 1X5"
+  },
+  {
+    "skuCode": "FGJFP345",
+    "skuName": "MANGO NECTAR 900 ML"
+  },
+  {
+    "skuCode": "FGJFP344",
+    "skuName": "LEMON & MINT DRINK 900 ML"
+  },
+  {
+    "skuCode": "FGIBT616",
+    "skuName": "BON BON CARAMEL & CINNAMON BISCUIT"
+  },
+  {
+    "skuCode": "FGIBT624",
+    "skuName": "BON BON COFFEE & CARDAMOM"
+  },
+  {
+    "skuCode": "FGJFP334",
+    "skuName": "MIXED BERRY NECTAR 1.35 LTR"
+  },
+  {
+    "skuCode": "FGUHJ710",
+    "skuName": "DANDY ORANGE DRINK UHT 200 ML x 24"
+  },
+  {
+    "skuCode": "FGUHJ711",
+    "skuName": "DANDY MANGO DRINK UHT 200 ML x 24"
+  },
+  {
+    "skuCode": "FGUTP745",
+    "skuName": "DANDY TOMATO PASTE UHT 135 GM x 48"
+  },
+  {
+    "skuCode": "FGISW947",
+    "skuName": "ICE CREAM SANDWICH 100MLX6 OFFER"
+  },
+  {
+    "skuCode": "FGICO837",
+    "skuName": "ICE CREAM COTTON CANDY CONE 110MLX5 OFFER"
+  },
+  {
+    "skuCode": "FGIST926",
+    "skuName": "ICE CREAM 50:50 NUS NUS 100MLX6 OFFER"
+  },
+  {
+    "skuCode": "FGIBT625",
+    "skuName": "BON BON SAFFRON & ROSE"
+  },
+  {
+    "skuCode": "FGJFP341",
+    "skuName": "APPLE JUICE 900 ML 100%"
+  },
+  {
+    "skuCode": "FGJFP350",
+    "skuName": "PINK GUAVA 1.35 LTR SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGJFP385",
+    "skuName": "WATERMELON DRINK 1.35 LTR SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGJFP349",
+    "skuName": "APPLE NECTAR 1.35 LTR SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGJFP383",
+    "skuName": "MIXED MANGO 1.35 LTR SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGJFP384",
+    "skuName": "ORANGE NECTAR 1.35 LTR SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGJFP386",
+    "skuName": "KIWI & LIME DRINK 1.35 LTR SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGJFP387",
+    "skuName": "LEMON & MINT DRINK 1.35 LTR SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGFYF171",
+    "skuName": "NEW TASTE YOGHURT 2KG SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGJFP347",
+    "skuName": "MIXED FRUIT NECTAR 900 ML"
+  },
+  {
+    "skuCode": "FGIFP562",
+    "skuName": "ICE CREAM MANGO TANGO 1.5L + 500ML"
+  },
+  {
+    "skuCode": "FGIFP563",
+    "skuName": "ICE CREAM ROYAL CHOCOLATE 1.5L + 500ML"
+  },
+  {
+    "skuCode": "FGIFP564",
+    "skuName": "ICE CREAM SCOTCH VANILLA 1.5L + 500ML"
+  },
+  {
+    "skuCode": "FGIFP565",
+    "skuName": "ICE CREAM STRAWBERRY ORIGINAL 1.5L + 500ML"
+  },
+  {
+    "skuCode": "FGDLA243",
+    "skuName": "LABAN AIRAN 2LTR SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGDLB262",
+    "skuName": "TURKISH LABNEH 1KG SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGDLF223",
+    "skuName": "FRESH LABAN 2LTR SPECIAL OFFER"
+  },
+  {
+    "skuCode": "FGDYC129",
+    "skuName": "New Taste Yoghurt 170g 5+1 Special Offer"
+  },
+  {
+    "skuCode": "FGJFP346",
+    "skuName": "MIXED FRUIT JUICE 900 ML 100%"
+  },
+  {
+    "skuCode": "FGIST915",
+    "skuName": "ICE CREAM MINI VINNI 85ML  - 1 X 6"
+  },
+  {
+    "skuCode": "FGJFP338",
+    "skuName": "ORANGE JUICE 1.35 LTR 100%"
+  },
+  {
+    "skuCode": "FGJFP348",
+    "skuName": "ORANGE JUICE 900 ML 100%"
+  },
+  {
+    "skuCode": "FGJFP335",
+    "skuName": "MIXED FRUIT JUICE 1.35 LTR 100%"
+  },
+  {
+    "skuCode": "FGIST921",
+    "skuName": "Lemon & Mint Sorbet 60ML"
+  },
+  {
+    "skuCode": "FGIST922",
+    "skuName": "Pink Guava Sorbet 60ML"
+  },
+  {
+    "skuCode": "FGIST923",
+    "skuName": "Mango Sorbet 60ML"
+  },
+  {
+    "skuCode": "FGIST924",
+    "skuName": "MALAI KULFI 65ML X 5"
+  },
+  {
+    "skuCode": "FGIST927",
+    "skuName": "MALAI KULFI 65ML X 20"
+  },
+  {
+    "skuCode": "FGIFP566",
+    "skuName": "DANDY ICE CREAM 1LTR CARAMEL TOFFEE"
+  },
+  {
+    "skuCode": "FGICU686",
+    "skuName": "ICE CREAM CUP 80ML X 10 FP"
+  },
+  {
+    "skuCode": "FGDLS244",
+    "skuName": "ROSE LASSI PET BOTTLE 200 ML"
+  },
+  {
+    "skuCode": "FGIST931",
+    "skuName": "LEMON & MINT SORBET 60ML  1X20"
+  },
+  {
+    "skuCode": "FGIST932",
+    "skuName": "PINK GUAVA SORBET 60ML  1X20"
+  },
+  {
+    "skuCode": "FGIST933",
+    "skuName": "MANGO SORBET 60ML  1X20"
+  },
+  {
+    "skuCode": "FGDLS215",
+    "skuName": "MANGO LASSI PET BOTTLE 200 ML"
+  },
+  {
+    "skuCode": "FGDLS225",
+    "skuName": "SWEET LASSI PET BOTTLE 200 ML"
+  },
+  {
+    "skuCode": "FGJFR357",
+    "skuName": "FRUTTI MANGO 225ML X 12"
+  },
+  {
+    "skuCode": "FGJFP395",
+    "skuName": "APPLE NECTAR 900 ML"
+  },
+  {
+    "skuCode": "FGIST914",
+    "skuName": "ICE CREAM MINI VINNI 85ML  - 1 X 18"
+  },
+  {
+    "skuCode": "FGJFP396",
+    "skuName": "MIXED MANGO DRINK 900 ML"
+  },
+  {
+    "skuCode": "FGJFP398",
+    "skuName": "PINK GUAVA DRINK 900 ML"
+  },
+  {
+    "skuCode": "FGJLL436",
+    "skuName": "UHT MANGO DRINK 200ML X 6"
+  },
+  {
+    "skuCode": "FGJLL435",
+    "skuName": "UHT ORANGE DRINK 200ML X 6"
+  }
+]

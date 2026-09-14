@@ -1,0 +1,32 @@
+[
+  {
+    "id": "C001_R01",
+    "customerCode": "C001",
+    "routeCode": "R01"
+  },
+  {
+    "id": "C002_R01",
+    "customerCode": "C002",
+    "routeCode": "R01"
+  },
+  {
+    "id": "C003_R02",
+    "customerCode": "C003",
+    "routeCode": "R02"
+  },
+  {
+    "id": "C004_R02",
+    "customerCode": "C004",
+    "routeCode": "R02"
+  },
+  {
+    "id": "C005_R03",
+    "customerCode": "C005",
+    "routeCode": "R03"
+  },
+  {
+    "id": "C001_R03",
+    "customerCode": "C001",
+    "routeCode": "R03"
+  }
+]

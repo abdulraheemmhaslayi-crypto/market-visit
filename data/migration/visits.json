@@ -1,0 +1,38 @@
+[
+  {
+    "visitId": "VISIT-1783338083739",
+    "supervisorId": "SUP001",
+    "routeCode": "R02",
+    "customerCode": "",
+    "assetType": "Chiller",
+    "temperature": 0,
+    "tempInRange": true,
+    "actionRequired": "None",
+    "observation": "",
+    "latitude": 0,
+    "longitude": 0,
+    "accuracy": 0,
+    "status": "Draft",
+    "createdBy": "john@system.local",
+    "createdAt": "2026-07-06T11:41:32.178Z",
+    "updatedAt": "2026-07-06T11:41:32.178Z"
+  },
+  {
+    "visitId": "VISIT-1783338939816",
+    "supervisorId": "SUP001",
+    "routeCode": "R01",
+    "customerCode": "",
+    "assetType": "Chiller",
+    "temperature": 0,
+    "tempInRange": true,
+    "actionRequired": "None",
+    "observation": "",
+    "latitude": 0,
+    "longitude": 0,
+    "accuracy": 0,
+    "status": "Draft",
+    "createdBy": "john@system.local",
+    "createdAt": "2026-07-06T11:56:13.751Z",
+    "updatedAt": "2026-07-06T11:56:13.751Z"
+  }
+]
