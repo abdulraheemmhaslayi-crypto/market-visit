@@ -397,6 +397,7 @@ export async function GET(req: NextRequest) {
       if (visitAssets.length > 0) {
         visitAssets.forEach((ast: any) => {
           const isTempOk = ast.tempInRange === 1 || ast.tempInRange === true;
+          const formattedTemp = formatTempContext(ast.assetType, ast.temperature);
           reportRows['cold-chain'].push({
             date: visitDate,
             visitId: v.visitId,
@@ -410,15 +411,23 @@ export async function GET(req: NextRequest) {
             class: gr,
             assetType: ast.assetType,
             sizeModel: ast.sizeModel || 'Standard',
-            temperature: formatTempContext(ast.assetType, ast.temperature),
+            temperature: formattedTemp,
+            assetTemp: formattedTemp,
+            formattedTemperature: formattedTemp,
             tempOk: isTempOk ? 'OK' : 'Breach',
+            tempStatus: isTempOk ? 'In Range' : 'Breach',
+            tempInRange: isTempOk,
             tempRaw: ast.temperature ?? 0,
             fefo: (ast.fefoFollowed === 1 || ast.fefoFollowed === true) ? 'Compliant' : 'Non-Compliant',
             actionRequired: ast.actionRequired || 'None',
             observation: ast.observation || '—',
+            actionRemarks: ast.actionRequired && ast.actionRequired !== 'None'
+              ? `${ast.actionRequired}${ast.observation && ast.observation !== '—' ? ` - ${ast.observation}` : ''}`
+              : (ast.observation || '—'),
           });
         });
       } else {
+        const formattedTemp = formatTempContext(firstAsset.assetType, firstAsset.temperature);
         reportRows['cold-chain'].push({
           date: visitDate,
           visitId: v.visitId,
@@ -432,12 +441,19 @@ export async function GET(req: NextRequest) {
           class: gr,
           assetType: firstAsset.assetType,
           sizeModel: (firstAsset as any).sizeModel || 'Standard',
-          temperature: formatTempContext(firstAsset.assetType, firstAsset.temperature),
+          temperature: formattedTemp,
+          assetTemp: formattedTemp,
+          formattedTemperature: formattedTemp,
           tempOk: ok ? 'OK' : 'Breach',
+          tempStatus: ok ? 'In Range' : 'Breach',
+          tempInRange: ok,
           tempRaw: firstAsset.temperature ?? 0,
           fefo: fefo ? 'Compliant' : 'Non-Compliant',
           actionRequired: firstAsset.actionRequired || 'None',
           observation: firstAsset.observation || '—',
+          actionRemarks: firstAsset.actionRequired && firstAsset.actionRequired !== 'None'
+            ? `${firstAsset.actionRequired}${firstAsset.observation && firstAsset.observation !== '—' ? ` - ${firstAsset.observation}` : ''}`
+            : (firstAsset.observation || '—'),
         });
       }
 

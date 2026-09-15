@@ -997,17 +997,25 @@ export default function AdminDashboardPage() {
       let breachCount = 0;
       let tempTotal = 0;
 
+      const isColdChainOk = (r: any) => {
+        if (r.tempInRange !== undefined && r.tempInRange !== null) return r.tempInRange === true || r.tempInRange === 1;
+        if (r.tempStatus) return r.tempStatus === 'In Range' || r.tempStatus === 'OK';
+        if (r.tempOk) return r.tempOk === 'OK';
+        if (r.ok !== undefined && r.ok !== null) return r.ok === true || r.ok === 1;
+        return false;
+      };
+
       const coldChainReportRows = reportRows['cold-chain'] || [];
       if (coldChainReportRows.length > 0) {
         tempTotal = coldChainReportRows.length;
         coldChainReportRows.forEach((r: any) => {
-          if (r.tempInRange === true || r.tempInRange === 1) okCount++;
+          if (isColdChainOk(r)) okCount++;
           else breachCount++;
         });
       } else if (filtered && filtered.length > 0) {
         tempTotal = filtered.length;
         filtered.forEach((r: any) => {
-          if (r.ok === true || r.ok === 1) okCount++;
+          if (isColdChainOk(r)) okCount++;
           else breachCount++;
         });
       }
@@ -1065,7 +1073,7 @@ export default function AdminDashboardPage() {
               
               if (coldChainReportRows.length > 0) {
                 const matched = coldChainReportRows.filter((r: any) =>
-                  isWithinRange ? (r.tempInRange === true || r.tempInRange === 1) : (r.tempInRange === false || r.tempInRange === 0)
+                  isWithinRange ? isColdChainOk(r) : !isColdChainOk(r)
                 );
                 setReportModalType('cold-chain');
                 setReportModalSource('cold-chain');
@@ -1074,7 +1082,7 @@ export default function AdminDashboardPage() {
                 setReportFilterChip({ key: 'segment', value: label, label: `Status: ${label}` });
                 setReportModalOpen(true);
               } else {
-                handleChartClick(`Cold Chain Status · ${label}`, (r) => (isWithinRange ? r.ok === true : r.ok === false));
+                handleChartClick(`Cold Chain Status · ${label}`, (r) => (isWithinRange ? isColdChainOk(r) : !isColdChainOk(r)));
               }
             }
           },

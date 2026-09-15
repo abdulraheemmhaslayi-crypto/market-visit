@@ -69,6 +69,7 @@ export default function SupervisorDashboard() {
   const [fRoute, setFRoute] = useState('');
   const [fSku, setFSku] = useState('');
   const [fVertical, setFVertical] = useState('');
+  const [fAssetType, setFAssetType] = useState('');
   const [masters, setMasters] = useState<any>(null);
 
   // Canvas Refs for Charts
@@ -241,7 +242,114 @@ export default function SupervisorDashboard() {
     setFVertical('');
     setFMgr('');
     setFSuper('');
+    setFAssetType('');
   };
+
+  const isColdChainOk = (r: any) => {
+    if (r.tempInRange !== undefined && r.tempInRange !== null) return r.tempInRange === true || r.tempInRange === 1;
+    if (r.tempStatus) return r.tempStatus === 'In Range' || r.tempStatus === 'OK';
+    if (r.tempOk) return r.tempOk === 'OK';
+    if (r.ok !== undefined && r.ok !== null) return r.ok === true || r.ok === 1;
+    return false;
+  };
+
+  // Filtered Cold Chain Rows for Fleet / Cold Chain Status chart & reports
+  const filteredColdChainRows = useMemo(() => {
+    const rawRows = (reportRows['cold-chain'] && reportRows['cold-chain'].length > 0)
+      ? reportRows['cold-chain']
+      : rows.map((r: any) => ({
+          date: r.createdAt || r.date,
+          visitId: r.visitId,
+          channel: r.ch || r.channel,
+          manager: r.mgr || r.manager,
+          supervisor: r.sup || r.supervisor,
+          routeCode: r.rt || r.route || r.routeCode || '',
+          outletCode: r.outletCode || '',
+          outletName: r.cust || r.outletName || '',
+          classification: r.gr || r.classification || '',
+          class: r.gr || r.class || '',
+          assetType: r.atype || r.assetType || 'Chiller',
+          sizeModel: r.sizeModel || 'Standard',
+          temperature: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
+          assetTemp: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
+          formattedTemperature: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
+          tempOk: r.ok ? 'OK' : 'Breach',
+          tempStatus: r.ok ? 'In Range' : 'Breach',
+          tempInRange: r.ok === true || r.ok === 1,
+          tempRaw: r.tempVal ?? 0,
+          actionRequired: r.action || 'None',
+          observation: r.observation || '—',
+          actionRemarks: r.action || r.observation || '—',
+        }));
+
+    return rawRows.filter((r: any) => {
+      const rowDate = new Date(r.date);
+      const from = normalizeDate(fFrom);
+      const to = normalizeDate(fTo);
+      const fromOk = !from || rowDate >= from;
+      const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
+      const superOk = !fSuper || (r.supervisor || '').toUpperCase() === fSuper.toUpperCase();
+      const routeOk = !fRoute || (r.routeCode || '').toUpperCase() === fRoute.toUpperCase();
+      const assetOk = !fAssetType || (r.assetType || '').toUpperCase() === fAssetType.toUpperCase();
+      return fromOk && toOk && superOk && routeOk && assetOk;
+    });
+  }, [reportRows, rows, fFrom, fTo, fSuper, fRoute, fAssetType]);
+
+  const fleetSupervisorOptions = useMemo<string[]>(() => {
+    const set = new Set<string>();
+    if (masters?.supervisors) {
+      masters.supervisors.forEach((s: string) => {
+        const name = (s || '').trim();
+        if (name && name.toUpperCase() !== 'UNASSIGNED' && name.toUpperCase() !== 'CLOSED' && name.toUpperCase() !== 'INTERNAL' && name.toUpperCase() !== 'SAMRA') {
+          set.add(name);
+        }
+      });
+    }
+    (reportRows['cold-chain'] || []).forEach((r: any) => {
+      const name = (r.supervisor || '').trim();
+      if (name && name.toUpperCase() !== 'UNASSIGNED' && name.toUpperCase() !== 'CLOSED' && name.toUpperCase() !== 'INTERNAL' && name.toUpperCase() !== 'SAMRA') {
+        set.add(name);
+      }
+    });
+    rows.forEach((r: any) => {
+      const name = (r.sup || r.supervisor || '').trim();
+      if (name && name.toUpperCase() !== 'UNASSIGNED' && name.toUpperCase() !== 'CLOSED' && name.toUpperCase() !== 'INTERNAL' && name.toUpperCase() !== 'SAMRA') {
+        set.add(name);
+      }
+    });
+    return Array.from(set).sort();
+  }, [masters, reportRows, rows]);
+
+  const fleetRouteOptions = useMemo<string[]>(() => {
+    const set = new Set<string>();
+    if (masters?.routes) {
+      masters.routes.forEach((r: any) => {
+        if (!fSuper || (r.superName || '').toUpperCase() === fSuper.toUpperCase()) {
+          if (r.routeCode) set.add(r.routeCode);
+        }
+      });
+    }
+    (reportRows['cold-chain'] || []).forEach((r: any) => {
+      if (!fSuper || (r.supervisor || '').toUpperCase() === fSuper.toUpperCase()) {
+        if (r.routeCode) set.add(r.routeCode);
+      }
+    });
+    rows.forEach((r: any) => {
+      if (!fSuper || (r.sup || r.supervisor || '').toUpperCase() === fSuper.toUpperCase()) {
+        const rt = r.rt || r.route || r.routeCode;
+        if (rt) set.add(rt);
+      }
+    });
+    return Array.from(set).sort();
+  }, [masters, reportRows, rows, fSuper]);
+
+  const fleetAssetTypeOptions = useMemo<string[]>(() => {
+    const set = new Set<string>(['Chiller', 'Freezer']);
+    (reportRows['cold-chain'] || []).forEach((r: any) => {
+      if (r.assetType) set.add(r.assetType);
+    });
+    return Array.from(set).sort();
+  }, [reportRows]);
 
   // NPD Product report-level filter options (SKU-response granularity, not available on visit-level `rows`)
   const npdRouteOptions = useMemo(
@@ -362,11 +470,13 @@ export default function SupervisorDashboard() {
       setReportFilterChip(null);
       return;
     }
+    if (reportModalSource === 'cold-chain') {
+      setReportModalRows(filteredColdChainRows);
+      setReportFilterChip(null);
+      return;
+    }
     const visitLookup = new Map(filtered.map((row) => [row.visitId, row]));
     const matched = (reportRows[reportModalSource] || []).filter((row: any) => {
-      if (reportModalSource === 'cold-chain') {
-        return true;
-      }
       const visit = visitLookup.get(row.visitId);
       return visit ? true : false;
     });
@@ -519,41 +629,27 @@ export default function SupervisorDashboard() {
   };
 
   const handleExportColdChainChart = () => {
-    const coldChainReportRows = reportRows['cold-chain'] || [];
-    const coldChainData = coldChainReportRows.length > 0
-      ? coldChainReportRows
-      : filtered.map((r) => ({
-          date: r.createdAt,
-          visitId: r.visitId,
-          channel: r.ch,
-          manager: r.mgr,
-          supervisor: r.sup,
-          outletName: r.cust,
-          classification: r.gr,
-          assetType: r.atype,
-          temperature: r.temp,
-          tempStatus: r.ok ? 'In Range' : 'Breach',
-          actionRemarks: r.action || '—',
-        }));
+    const coldChainData = filteredColdChainRows;
 
     exportToExcel({
-      filename: `supervisor_cold_chain_${new Date().toISOString().slice(0, 10)}`,
+      filename: `cold_chain_status_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Cold Chain Status',
       title: 'Asset Temperature & Cold Chain Inspection Status',
-      filterSummary: activeNote,
+      filterSummary: `Date: ${fFrom || 'All'} to ${fTo || 'All'}, Supervisor: ${fSuper || 'All'}, Route: ${fRoute || 'All'}, Asset Type: ${fAssetType || 'All'}`,
       userRole: userRole || 'Supervisor',
       columns: [
         { header: 'Inspection Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
         { header: 'Visit ID', key: 'visitId' },
         { header: 'Manager', key: 'manager' },
         { header: 'Supervisor', key: 'supervisor' },
+        { header: 'Route Code', key: 'routeCode' },
         { header: 'Channel', key: 'channel' },
         { header: 'Outlet Name', key: 'outletName' },
         { header: 'Classification', key: 'classification' },
         { header: 'Asset Type', key: 'assetType' },
         { header: 'Asset Temp', key: 'assetTemp', formatter: (val: any, row: any) => val || (row.temperature !== undefined ? `${row.temperature}°C` : '—') },
-        { header: 'Temp Status', key: 'tempStatus', formatter: (val: any, row: any) => val || (row.tempInRange ? 'In Range' : 'Breach') },
-        { header: 'Action Required / Remarks', key: 'actionRemarks', formatter: (val: any, row: any) => val || row.actionRequired || '—' },
+        { header: 'Temp Status', key: 'tempStatus', formatter: (val: any, row: any) => val || (isColdChainOk(row) ? 'In Range' : 'Breach') },
+        { header: 'Action / Remarks', key: 'actionRemarks' },
       ],
       data: coldChainData,
     });
@@ -898,22 +994,13 @@ export default function SupervisorDashboard() {
       
       let okCount = 0;
       let breachCount = 0;
-      let tempTotal = 0;
+      const targetRows = filteredColdChainRows;
+      const tempTotal = targetRows.length;
 
-      const coldChainReportRows = reportRows['cold-chain'] || [];
-      if (coldChainReportRows.length > 0) {
-        tempTotal = coldChainReportRows.length;
-        coldChainReportRows.forEach((r: any) => {
-          if (r.tempInRange === true || r.tempInRange === 1) okCount++;
-          else breachCount++;
-        });
-      } else if (filtered && filtered.length > 0) {
-        tempTotal = filtered.length;
-        filtered.forEach((r: any) => {
-          if (r.ok === true || r.ok === 1) okCount++;
-          else breachCount++;
-        });
-      }
+      targetRows.forEach((r: any) => {
+        if (isColdChainOk(r)) okCount++;
+        else breachCount++;
+      });
 
       const tempPct = (count: number) => (tempTotal ? Math.round((count / tempTotal) * 100) : 0);
 
@@ -959,26 +1046,29 @@ export default function SupervisorDashboard() {
                 },
               },
             },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw}%` } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const count = ctx.dataIndex === 0 ? okCount : breachCount;
+                  return `${ctx.label}: ${ctx.raw}% (${count} of ${tempTotal} assets)`;
+                },
+              },
+            },
           },
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? '') as string;
               const isWithinRange = label === 'Within range';
               
-              if (coldChainReportRows.length > 0) {
-                const matched = coldChainReportRows.filter((r: any) =>
-                  isWithinRange ? (r.tempInRange === true || r.tempInRange === 1) : (r.tempInRange === false || r.tempInRange === 0)
-                );
-                setReportModalType('cold-chain');
-                setReportModalSource('cold-chain');
-                setReportModalTitle(`Cold Chain Status · ${label}`);
-                setReportModalRows(matched);
-                setReportFilterChip({ key: 'segment', value: label, label: `Status: ${label}` });
-                setReportModalOpen(true);
-              } else {
-                handleChartClick(`Cold Chain Status · ${label}`, (r) => (isWithinRange ? r.ok === true : r.ok === false));
-              }
+              const matched = targetRows.filter((r: any) =>
+                isWithinRange ? isColdChainOk(r) : !isColdChainOk(r)
+              );
+              setReportModalType('cold-chain');
+              setReportModalSource('cold-chain');
+              setReportModalTitle(`Cold Chain Status · ${label}`);
+              setReportModalRows(matched);
+              setReportFilterChip({ key: 'segment', value: label, label: `Status: ${label}` });
+              setReportModalOpen(true);
             }
           },
           onHover: (e, el, chart) => {
@@ -1231,7 +1321,7 @@ export default function SupervisorDashboard() {
         },
       });
     }
-  }, [filtered, filteredForClassCharts, filteredNpdRows, isAnalyticsLoading, theme]);
+  }, [filtered, filteredForClassCharts, filteredNpdRows, filteredColdChainRows, isAnalyticsLoading, theme]);
 
   if (isAnalyticsLoading) {
     return (
@@ -1242,19 +1332,193 @@ export default function SupervisorDashboard() {
   }
 
   if (isFleetRole(userRole)) {
+    const fleetTotalAssets = filteredColdChainRows.length;
+    const fleetInRangeCount = filteredColdChainRows.filter((r: any) => isColdChainOk(r)).length;
+    const fleetBreachCount = fleetTotalAssets - fleetInRangeCount;
+    const fleetCompliancePct = fleetTotalAssets ? Math.round((fleetInRangeCount / fleetTotalAssets) * 100) : 100;
+
+    const handleOpenAllFleetRecords = () => {
+      setReportModalType('cold-chain');
+      setReportModalSource('cold-chain');
+      setReportModalTitle('Cold Chain Status · All Assets');
+      setReportModalRows(filteredColdChainRows);
+      setReportFilterChip(null);
+      setReportModalOpen(true);
+    };
+
     return (
-      <div className="max-w-3xl mx-auto space-y-4 animate-fade-in">
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-700">
-          Fleet / Maintenance view: only the Cold Chain Status module is available on this account.
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>Cold Chain Status</h3>
+      <div className="max-w-5xl mx-auto space-y-4 animate-fade-in pb-12">
+        {/* Top Header Banner */}
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/80 dark:bg-blue-950/30 dark:border-blue-800/50 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 text-[10px] font-extrabold rounded-full bg-blue-600 text-white tracking-wider uppercase">
+                Fleet / Maintenance
+              </span>
+              <span className="text-[11px] text-[var(--text-secondary)] font-medium">
+                Live Cold Chain Monitoring
+              </span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-extrabold text-[var(--text-primary)] mt-1.5">
+              Cold Chain & Asset Temperature Compliance
+            </h2>
           </div>
-          <div style={{ height: '280px' }}>
-            <canvas ref={canvasTempRef}></canvas>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <button
+              onClick={() => refreshAll(false)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] text-xs font-bold hover:bg-[var(--surface-2)] shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading || isAnalyticsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              onClick={handleOpenAllFleetRecords}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[var(--accent)] text-white text-xs font-bold hover:opacity-90 shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              View Full Table
+            </button>
           </div>
         </div>
+
+        {/* Filters Bar: From, To, Supervisor, Route, Asset Type */}
+        <div className="card p-4 sm:p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">
+              Filters & Slicers
+            </div>
+            {(fFrom || fTo || fSuper || fRoute || fAssetType) && (
+              <button
+                onClick={resetFilters}
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer transition-colors"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">From</label>
+              <input
+                type="date"
+                value={fFrom}
+                onChange={(e) => setFFrom(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">To</label>
+              <input
+                type="date"
+                value={fTo}
+                onChange={(e) => setFTo(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">Supervisor</label>
+              <select
+                value={fSuper}
+                onChange={(e) => {
+                  setFSuper(e.target.value);
+                  setFRoute('');
+                }}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              >
+                <option value="">All Supervisors</option>
+                {fleetSupervisorOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">Route</label>
+              <select
+                value={fRoute}
+                onChange={(e) => setFRoute(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              >
+                <option value="">All Routes</option>
+                {fleetRouteOptions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">Asset Type</label>
+              <select
+                value={fAssetType}
+                onChange={(e) => setFAssetType(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              >
+                <option value="">All Asset Types</option>
+                {fleetAssetTypeOptions.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick KPI Summary Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-blue-500">
+            <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Assets Checked</span>
+            <span className="text-2xl font-extrabold text-[var(--text-primary)] mt-1">{fleetTotalAssets}</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-medium">total inspected</span>
+          </div>
+
+          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-emerald-500">
+            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Within Range (OK)</span>
+            <span className="text-2xl font-extrabold text-emerald-600 mt-1">{fleetInRangeCount}</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-medium">temp compliant</span>
+          </div>
+
+          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-rose-500">
+            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Breach (Out of Range)</span>
+            <span className="text-2xl font-extrabold text-rose-600 mt-1">{fleetBreachCount}</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-medium">violations detected</span>
+          </div>
+
+          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-indigo-500">
+            <span className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-wider">Compliance Rate</span>
+            <span className="text-2xl font-extrabold text-[var(--accent)] mt-1">{fleetCompliancePct}%</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-medium">overall compliance</span>
+          </div>
+        </div>
+
+        {/* Cold Chain Doughnut Chart Card */}
+        <div className="card p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+            <div>
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Cold Chain Status</h3>
+              <p className="text-[11px] text-[var(--text-secondary)]">Click on doughnut segments to drill down into asset records</p>
+            </div>
+            <button
+              onClick={handleExportColdChainChart}
+              className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold hover:bg-[var(--surface-2)] text-[var(--text-primary)] transition-all cursor-pointer"
+            >
+              Export to Excel
+            </button>
+          </div>
+
+          {fleetTotalAssets === 0 ? (
+            <div className="h-[280px] flex flex-col items-center justify-center text-center p-6 text-[var(--text-secondary)]">
+              <Thermometer className="h-10 w-10 text-[var(--text-muted)] mb-2 opacity-50" />
+              <p className="text-sm font-semibold text-[var(--text-primary)]">No cold chain records found for the selected filters.</p>
+              <p className="text-xs text-[var(--text-muted)] mt-1">Try broadening your date range or clearing filters.</p>
+            </div>
+          ) : (
+            <div style={{ height: '300px', position: 'relative' }}>
+              <canvas ref={canvasTempRef}></canvas>
+            </div>
+          )}
+        </div>
+
         <DrilldownReportModal
           isOpen={reportModalOpen}
           onClose={() => setReportModalOpen(false)}
