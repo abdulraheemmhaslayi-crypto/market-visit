@@ -592,26 +592,52 @@ export default function SupervisorReportsPage() {
       const trendTotal = filtered.length;
 
       chartsRef.current.cTrend = new Chart(canvasTrendRef.current, {
-        type: "line",
+        type: "bar",
         data: {
           labels: sortedDates.map((d) => formatDateShort(d)),
           datasets: [
             {
               label: "Visits",
               data: sortedDates.map((d) => dateCounts[d] || 0),
-              borderColor: BLUE,
-              backgroundColor: "rgba(79,70,229,.12)",
-              fill: true,
-              tension: 0.35,
-              pointRadius: sortedDates.length > 25 ? 2 : 3.5,
-              pointHoverRadius: 6,
-              pointBackgroundColor: BLUE,
-              borderWidth: 2.5,
+              backgroundColor: BLUE,
+              hoverBackgroundColor: "#4338ca",
+              borderRadius: 6,
             },
           ],
         },
+        plugins: [
+          {
+            id: "trendBarValueLabels",
+            afterDatasetsDraw(chart: any) {
+              const { ctx } = chart;
+              const dataset = chart.data.datasets[0];
+              if (!dataset || !dataset.data) return;
+              const meta = chart.getDatasetMeta(0);
+              if (!meta || !meta.data) return;
+
+              const fontSize = sortedDates.length > 25 ? 9 : (sortedDates.length > 15 ? 10 : 11);
+              meta.data.forEach((bar: any, index: number) => {
+                const value = dataset.data[index];
+                if (typeof value !== "number" || value <= 0) return;
+                const label = `${value}`;
+                ctx.save();
+                ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "bottom";
+                ctx.fillStyle = theme === "dark" ? "#f1f5f9" : "#0f172a";
+                ctx.shadowColor = theme === "dark" ? "rgba(0, 0, 0, 0.6)" : "rgba(255, 255, 255, 0.9)";
+                ctx.shadowBlur = 4;
+                ctx.fillText(label, bar.x, bar.y - 4);
+                ctx.restore();
+              });
+            },
+          },
+        ],
         options: {
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 20 },
+          },
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -648,12 +674,12 @@ export default function SupervisorReportsPage() {
                 maxRotation: 45,
                 minRotation: 0,
                 autoSkip: true,
-                maxTicksLimit: 12,
+                maxTicksLimit: 14,
               },
             },
             y: {
               beginAtZero: true,
-              grace: "10%",
+              grace: "15%",
               grid: { color: gridColor },
               ticks: {
                 color: textColor,
@@ -724,6 +750,33 @@ export default function SupervisorReportsPage() {
             },
           ],
         },
+        plugins: [
+          {
+            id: "superScorecardLabels",
+            afterDatasetsDraw(chart: any) {
+              const { ctx } = chart;
+              const dataset = chart.data.datasets[0];
+              if (!dataset || !dataset.data) return;
+              const meta = chart.getDatasetMeta(0);
+              if (!meta || !meta.data) return;
+
+              meta.data.forEach((bar: any, index: number) => {
+                const value = dataset.data[index];
+                if (typeof value !== "number" || value <= 0) return;
+                const label = `${value}`;
+                ctx.save();
+                ctx.font = "700 11px Inter, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "bottom";
+                ctx.fillStyle = theme === "dark" ? "#f1f5f9" : "#0f172a";
+                ctx.shadowColor = theme === "dark" ? "rgba(0, 0, 0, 0.6)" : "rgba(255, 255, 255, 0.9)";
+                ctx.shadowBlur = 4;
+                ctx.fillText(label, bar.x, bar.y - 4);
+                ctx.restore();
+              });
+            },
+          },
+        ],
         options: {
           maintainAspectRatio: false,
           layout: {
@@ -932,7 +985,7 @@ export default function SupervisorReportsPage() {
       });
 
       const allGrades = ["A", "B", "C", "D", "E", "-"];
-      const gradeLabels = ["A", "B", "C", "D", "E", "Not Classified"];
+      const gradeLabels: (string | string[])[] = ["A", "B", "C", "D", "E", ["Not", "Classified"]];
 
       const stats: Record<string, { total: number; visited: number; unvisited: number; coveragePct: number }> = {};
       allGrades.forEach((g) => {
@@ -958,6 +1011,9 @@ export default function SupervisorReportsPage() {
         stats[g] = { total, visited, unvisited, coveragePct };
       });
 
+      const maxTotal = Math.max(...allGrades.map((g) => stats[g]?.total || 0), 10);
+      const yMax = Math.ceil((maxTotal * 1.25) / 50) * 50;
+
       chartsRef.current.cClassDairy = new Chart(canvasClassDairyRef.current, {
         type: "bar",
         data: {
@@ -968,16 +1024,22 @@ export default function SupervisorReportsPage() {
               data: allGrades.map((g) => stats[g].visited),
               backgroundColor: "#10b981",
               hoverBackgroundColor: "#059669",
-              borderRadius: 4,
+              borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 4, bottomRight: 4 },
+              borderSkipped: false,
               stack: "dairyStack",
+              barPercentage: 0.62,
+              categoryPercentage: 0.8,
             },
             {
               label: "Unvisited Outlets",
               data: allGrades.map((g) => stats[g].unvisited),
               backgroundColor: theme === "dark" ? "#334155" : "#cbd5e1",
               hoverBackgroundColor: theme === "dark" ? "#475569" : "#94a3b8",
-              borderRadius: 4,
+              borderRadius: { topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0 },
+              borderSkipped: false,
               stack: "dairyStack",
+              barPercentage: 0.62,
+              categoryPercentage: 0.8,
             },
           ],
         },
@@ -1000,17 +1062,21 @@ export default function SupervisorReportsPage() {
                 if (!topBar) return;
 
                 ctx.save();
-                ctx.font = "700 11px Inter, sans-serif";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "bottom";
-                ctx.fillStyle = theme === "dark" ? "#f1f5f9" : "#0f172a";
-                ctx.shadowColor =
-                  theme === "dark"
-                    ? "rgba(0, 0, 0, 0.6)"
-                    : "rgba(255, 255, 255, 0.9)";
-                ctx.shadowBlur = 3;
-                const text = `${s.visited}/${s.total} (${s.coveragePct}%)`;
-                ctx.fillText(text, topBar.x, topBar.y - 4);
+
+                // Line 1: Coverage %
+                ctx.font = "700 11px Inter, sans-serif";
+                ctx.fillStyle = s.coveragePct >= 50
+                  ? (theme === "dark" ? "#34d399" : "#059669")
+                  : (theme === "dark" ? "#fbbf24" : "#d97706");
+                ctx.fillText(`${s.coveragePct}%`, topBar.x, topBar.y - 14);
+
+                // Line 2: Ratio (visited/total)
+                ctx.font = "600 9.5px Inter, sans-serif";
+                ctx.fillStyle = theme === "dark" ? "#94a3b8" : "#64748b";
+                ctx.fillText(`${s.visited}/${s.total}`, topBar.x, topBar.y - 2);
+
                 ctx.restore();
               });
             },
@@ -1019,7 +1085,7 @@ export default function SupervisorReportsPage() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 22 },
+            padding: { top: 20, bottom: 4, left: 4, right: 6 },
           },
           plugins: {
             legend: {
@@ -1029,31 +1095,42 @@ export default function SupervisorReportsPage() {
               labels: {
                 color: textColor,
                 font: { family: "Inter, sans-serif", size: 11, weight: "bold" },
-                boxWidth: 10,
-                boxHeight: 10,
+                boxWidth: 8,
+                boxHeight: 8,
                 usePointStyle: true,
                 pointStyle: "circle",
                 padding: 10,
               },
             },
             tooltip: {
+              backgroundColor: theme === "dark" ? "#1e293b" : "#0f172a",
+              titleColor: "#ffffff",
+              bodyColor: "#e2e8f0",
+              borderColor: theme === "dark" ? "#334155" : "#475569",
+              borderWidth: 1,
+              padding: 10,
               callbacks: {
-                title: (items: any[]) =>
-                  `Classification · Dairy: ${items[0]?.label || ""}`,
+                title: (items: any[]) => {
+                  const raw = items[0]?.label;
+                  const label = Array.isArray(raw) ? raw.join(" ") : String(raw || "");
+                  return `Classification · Dairy: ${label === "Not Classified" ? "Not Classified" : `Class ${label}`}`;
+                },
                 label: (ctx: any) => {
                   const g = allGrades[ctx.dataIndex];
                   const s = stats[g];
+                  if (!s) return "";
                   if (ctx.datasetIndex === 0) {
-                    return ` Visited Outlets: ${s.visited} (${s.coveragePct}% coverage)`;
+                    return ` Visited Outlets: ${s.visited.toLocaleString()} (${s.coveragePct}% coverage)`;
                   }
-                  return ` Unvisited Outlets: ${s.unvisited}`;
+                  return ` Unvisited Outlets: ${s.unvisited.toLocaleString()}`;
                 },
                 afterBody: (items: any[]) => {
                   const g = allGrades[items[0]?.dataIndex];
                   const s = stats[g];
+                  if (!s) return [];
                   return [
                     "───────────────────────",
-                    ` Total Outlets: ${s.total}`,
+                    ` Total Outlets: ${s.total.toLocaleString()}`,
                     ` Outlet Visit Coverage: ${s.coveragePct}% (${s.visited}/${s.total})`,
                   ];
                 },
@@ -1062,7 +1139,8 @@ export default function SupervisorReportsPage() {
           },
           onClick: (e, el, chart) => {
             if (el.length > 0) {
-              const label = (chart.data.labels?.[el[0].index] ?? "") as string;
+              const rawLabel = chart.data.labels?.[el[0].index];
+              const label = Array.isArray(rawLabel) ? rawLabel.join(" ") : String(rawLabel ?? "");
               const gradeValue = label === "Not Classified" ? "-" : label;
               handleClassChartClick(
                 `Visits for Classification Grade ${label} · Dairy`,
@@ -1077,15 +1155,25 @@ export default function SupervisorReportsPage() {
           scales: {
             x: {
               stacked: true,
-              grid: { color: gridColor },
-              ticks: { color: textColor },
+              grid: { display: false },
+              ticks: {
+                color: textColor,
+                maxRotation: 0,
+                minRotation: 0,
+                autoSkip: false,
+                font: { family: "Inter, sans-serif", size: 11, weight: "bold" },
+              },
             },
             y: {
               stacked: true,
               beginAtZero: true,
-              grace: "15%",
+              suggestedMax: yMax,
               grid: { color: gridColor },
-              ticks: { color: textColor, precision: 0 },
+              ticks: {
+                color: textColor,
+                precision: 0,
+                font: { family: "Inter, sans-serif", size: 10 },
+              },
             },
           },
         },
@@ -1478,7 +1566,7 @@ export default function SupervisorReportsPage() {
             />
           </div>
 
-          <div className="fld">
+          {/* <div className="fld">
             <label>Channel</label>
             <select
               value={fChannel}
@@ -1492,9 +1580,8 @@ export default function SupervisorReportsPage() {
               <option value="TT">TT</option>
               <option value="MT">MT</option>
               <option value="INST">INST</option>
-              {/* <option value="EXPORT">EXPORT</option> */}
             </select>
-          </div>
+          </div> */}
 
           <div className="fld">
             <label>Classification</label>
@@ -1612,7 +1699,7 @@ export default function SupervisorReportsPage() {
         </div>
 
         {/* Chart Row 1 */}
-        <div className="grid">
+        <div style={{ marginBottom: "16px" }}>
           <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -1629,7 +1716,7 @@ export default function SupervisorReportsPage() {
               <canvas ref={canvasTrendRef}></canvas>
             </div>
           </div>
-          <div className="panel">
+          {/* <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Visits by Channel</h3>
@@ -1644,7 +1731,7 @@ export default function SupervisorReportsPage() {
             <div className="chart-sm">
               <canvas ref={canvasChannelRef}></canvas>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Chart Row 2 */}
@@ -1675,7 +1762,7 @@ export default function SupervisorReportsPage() {
         </div>
 
         {/* Chart Row 3 */}
-        <div className="grid3">
+        <div className="grid" style={{ gridTemplateColumns: "minmax(280px, 1fr) minmax(360px, 1.5fr)" }}>
           {/* <div className="panel">
             <h3>NPD Availability</h3>
             <div className="psub">New-product presence</div>
@@ -1686,14 +1773,14 @@ export default function SupervisorReportsPage() {
           <div className="panel">
             <h3>Power SKU Availability</h3>
             <div className="psub">Focus SKU presence</div>
-            <div className="chart-sm">
+            <div style={{ position: "relative", height: "210px" }}>
               <canvas ref={canvasPskuRef}></canvas>
             </div>
           </div>
           <div className="panel">
             <h3>Outlets by Classification · Dairy</h3>
             <div className="psub">Outlet visit coverage (Visited vs Unvisited by Class)</div>
-            <div className="chart-sm">
+            <div style={{ position: "relative", height: "210px" }}>
               <canvas ref={canvasClassDairyRef}></canvas>
             </div>
           </div>
