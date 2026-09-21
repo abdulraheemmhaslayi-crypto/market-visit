@@ -46,7 +46,7 @@ async function getMasterData(): Promise<MasterCache> {
 
   const isExcluded = (name: string) => {
     const n = (name || '').toUpperCase().trim();
-    return n === 'CLOSED' || n === 'INTERNAL' || n === '';
+    return n === 'CLOSED' || n === 'INTERNAL' || n === '' || n === 'EXP MANAGER' || n === 'INST MANAGER';
   };
 
   const allManagers = Array.from(
@@ -472,10 +472,13 @@ export async function GET(req: NextRequest) {
         channel: ch,
         gr,
         classification: gr,
-        dairyClassification: dairyGr,
+        dairyGr: dairyGr || gr || '-',
+        dairyClassification: dairyGr || gr || '-',
         iceCreamClassification: iceGr,
         cust: custName,
         outletName: custName,
+        cust_rt_id: v.cust_rt_id || '',
+        outletCode: customerCode || '',
         rt: routeCode || '',
         route: routeCode || '',
         routeCode: routeCode || '',
@@ -675,6 +678,22 @@ export async function GET(req: NextRequest) {
           managerName: (r.managerName || '').trim(),
         })),
         customers: uniqueCustomers,
+        dairyOutlets: customers.map((c: any) => {
+          const rInfo = routeMap.get(c.routeCode);
+          const mgrName = rInfo ? (rInfo.managerName || '').trim() : '';
+          const supName = rInfo ? (rInfo.superName || '').trim() : '';
+          const dairyGr = (c.dairyClassification || c.classification || '-').trim();
+          return {
+            id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
+            code: c.customerCode,
+            name: c.customerName,
+            route: c.routeCode,
+            channel: c.channel || 'General Trade',
+            manager: mgrName,
+            supervisor: supName,
+            dairyGr: dairyGr || '-',
+          };
+        }),
       },
       totalVisits,
       noVisitCount,

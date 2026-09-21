@@ -28,8 +28,8 @@ const SUPERVISOR_TO_MANAGER: Record<string, string> = {
   JAVED: "ADNAN",
   ASAD: "ADNAN",
   KISHAN: "ADNAN",
-  WASIM: "INST MANAGER",
-  SAMRA: "EXP MANAGER",
+  // WASIM: "INST MANAGER",
+  // SAMRA: "EXP MANAGER",
 };
 
 const GCOL: Record<string, string> = {
@@ -272,6 +272,8 @@ export default function SupervisorReportsPage() {
       { v: number; o: Set<string>; b: number; f: number }
     > = {};
     filtered.forEach((r) => {
+      // Exclude EXP Manager and INST Manager
+      if (r.mgr === "EXP MANAGER" || r.mgr === "INST MANAGER") return;
       if (!mgrs[r.mgr]) {
         mgrs[r.mgr] = { v: 0, o: new Set(), b: 0, f: 0 };
       }
@@ -331,11 +333,11 @@ export default function SupervisorReportsPage() {
           key: "ok",
           formatter: (val) => (val ? "OK / In Range" : "Temp Breach"),
         },
-        {
-          header: "FEFO Compliance",
-          key: "fefo",
-          formatter: (val) => (val ? "Compliant" : "Non-Compliant"),
-        },
+        // {
+        //   header: "FEFO Compliance",
+        //   key: "fefo",
+        //   formatter: (val) => (val ? "Compliant" : "Non-Compliant"),
+        // },
         { header: "Visit Type", key: "visitType" },
         { header: "Action Required", key: "action" },
       ],
@@ -381,11 +383,11 @@ export default function SupervisorReportsPage() {
           value: breachesCount,
           details: `${breachPct} temperature breach rate`,
         },
-        {
-          metric: "FEFO Compliance Rate",
-          value: fefoPct,
-          details: "Assets following FEFO principles",
-        },
+        // {
+        //   metric: "FEFO Compliance Rate",
+        //   value: fefoPct,
+        //   details: "Assets following FEFO principles",
+        // },
       ],
     });
   };
@@ -495,7 +497,7 @@ export default function SupervisorReportsPage() {
         { header: "Total Visits", key: "visits" },
         { header: "Unique Outlets Covered", key: "outlets" },
         { header: "Temp Breaches", key: "tempBreaches" },
-        { header: "FEFO Compliance (%)", key: "fefoPct" },
+        // { header: "FEFO Compliance (%)", key: "fefoPct" },
       ],
       data: managerData,
     });
@@ -524,50 +526,139 @@ export default function SupervisorReportsPage() {
       return m;
     };
 
-    // 1. Trend Line Chart
+    // 1. Trend Line Chart (Date-wise Daily Trend)
     if (canvasTrendRef.current) {
       if (chartsRef.current.cTrend) chartsRef.current.cTrend.destroy();
-      const wk = countFreq(filtered, (r) => r.week);
-      const weeks = [1, 2, 3, 4, 5];
+
+      const getDateKey = (r: any) => {
+        const raw = r.createdAt || r.date;
+        if (!raw) return "";
+        if (raw instanceof Date) return raw.toISOString().split("T")[0];
+        return String(raw).split("T")[0];
+      };
+
+      const dateCounts: Record<string, number> = {};
+      filtered.forEach((r) => {
+        const d = getDateKey(r);
+        if (d && d !== "—") {
+          dateCounts[d] = (dateCounts[d] || 0) + 1;
+        }
+      });
+
+      // Build sorted date sequence
+      let sortedDates: string[] = [];
+      if (fFrom && fTo && fFrom <= fTo) {
+        const curr = new Date(fFrom + "T00:00:00");
+        const end = new Date(fTo + "T00:00:00");
+        const diffDays = Math.round((end.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 90) {
+          while (curr <= end) {
+            sortedDates.push(curr.toISOString().split("T")[0]);
+            curr.setDate(curr.getDate() + 1);
+          }
+        } else {
+          sortedDates = Object.keys(dateCounts).sort();
+        }
+      } else {
+        sortedDates = Object.keys(dateCounts).sort();
+      }
+
+      if (sortedDates.length === 0) {
+        sortedDates = [new Date().toISOString().split("T")[0]];
+      }
+
+      const formatDateShort = (dStr: string) => {
+        try {
+          const parts = dStr.split("-");
+          if (parts.length === 3) {
+            const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+          }
+        } catch (e) {}
+        return dStr;
+      };
+
+      const formatDateFull = (dStr: string) => {
+        try {
+          const parts = dStr.split("-");
+          if (parts.length === 3) {
+            const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+          }
+        } catch (e) {}
+        return dStr;
+      };
+
+      const trendTotal = filtered.length;
+
       chartsRef.current.cTrend = new Chart(canvasTrendRef.current, {
         type: "line",
         data: {
-          labels: weeks.map((w) => "W" + w),
+          labels: sortedDates.map((d) => formatDateShort(d)),
           datasets: [
             {
               label: "Visits",
-              data: weeks.map((w) => wk[w] || 0),
+              data: sortedDates.map((d) => dateCounts[d] || 0),
               borderColor: BLUE,
               backgroundColor: "rgba(79,70,229,.12)",
               fill: true,
               tension: 0.35,
-              pointRadius: 3,
+              pointRadius: sortedDates.length > 25 ? 2 : 3.5,
+              pointHoverRadius: 6,
+              pointBackgroundColor: BLUE,
               borderWidth: 2.5,
             },
           ],
         },
         options: {
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => {
+                  const idx = items[0]?.dataIndex;
+                  const dateStr = sortedDates[idx];
+                  return dateStr ? formatDateFull(dateStr) : items[0]?.label || "";
+                },
+                label: (ctx) => {
+                  const count = (ctx.raw as number) || 0;
+                  const pct = trendTotal ? Math.round((count / trendTotal) * 100) : 0;
+                  return ` Visits: ${count} (${pct}% of period total)`;
+                },
+              },
+            },
+          },
           onClick: (e, el, chart) => {
             if (el.length > 0) {
-              const label = (chart.data.labels?.[el[0].index] ?? "") as string;
-              const weekNum = parseInt(label.replace("W", ""), 10);
-              handleChartClick(
-                `Visits for Week ${weekNum}`,
-                (r) => r.week === weekNum,
-              );
+              const idx = el[0].index;
+              const dateStr = sortedDates[idx];
+              const dateLabel = formatDateShort(dateStr);
+              handleChartClick(`Visits for ${dateLabel}`, (r) => getDateKey(r) === dateStr);
             }
           },
           onHover: (e, el, chart) => {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: {
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                maxRotation: 45,
+                minRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: 12,
+              },
+            },
             y: {
               beginAtZero: true,
+              grace: "10%",
               grid: { color: gridColor },
-              ticks: { color: textColor },
+              ticks: {
+                color: textColor,
+                precision: 0,
+              },
             },
           },
         },
@@ -705,6 +796,7 @@ export default function SupervisorReportsPage() {
     }
 
     // 5. NPD Availability Bar Chart
+    /*
     if (canvasNpdRef.current) {
       if (chartsRef.current.cNpd) chartsRef.current.cNpd.destroy();
       const npd = countFreq(filtered, (r) => r.npd);
@@ -752,6 +844,7 @@ export default function SupervisorReportsPage() {
         },
       });
     }
+    */
 
     // 6. Focus SKU Availability Bar Chart
     if (canvasPskuRef.current) {
@@ -802,32 +895,171 @@ export default function SupervisorReportsPage() {
       });
     }
 
-    // 7. Classification Bar Charts (Dairy & Ice Cream)
+    // 7. Classification Bar Charts (Dairy & Ice Cream) - Stacked Visited vs Unvisited Outlets
     if (canvasClassDairyRef.current) {
       if (chartsRef.current.cClassDairy)
         chartsRef.current.cClassDairy.destroy();
-      const dairyRows = filteredForClassCharts.filter((r) => r.dairyGr);
-      const cld = countFreq(dairyRows, (r) => r.dairyGr);
+
+      // Master outlets matching active upstream filters
+      const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
+        const mgrOk = !fMgr || (o.manager || "").toUpperCase() === fMgr.toUpperCase();
+        const supOk = !fSuper || (o.supervisor || "").toUpperCase() === fSuper.toUpperCase();
+        const chOk = !fChannel || (o.channel || "").toLowerCase() === fChannel.toLowerCase();
+        const custOk = !fCust || o.name === fCust || o.code === fCust;
+        return mgrOk && supOk && chOk && custOk;
+      });
+
+      // Filtered visits during the selected period
+      const visitedOutletKeys = new Set<string>();
+      const visitedByGrade: Record<string, Set<string>> = {
+        A: new Set(),
+        B: new Set(),
+        C: new Set(),
+        D: new Set(),
+        E: new Set(),
+        "-": new Set(),
+      };
+
+      filteredForClassCharts.forEach((r: any) => {
+        const key = r.outletCode || r.cust_rt_id || r.cust || r.outletName;
+        if (key) {
+          visitedOutletKeys.add(key);
+          const gr = r.dairyGr || r.gr || "-";
+          const normalizedGr = ["A", "B", "C", "D", "E"].includes(gr) ? gr : "-";
+          if (!visitedByGrade[normalizedGr]) visitedByGrade[normalizedGr] = new Set();
+          visitedByGrade[normalizedGr].add(key);
+        }
+      });
+
       const allGrades = ["A", "B", "C", "D", "E", "-"];
       const gradeLabels = ["A", "B", "C", "D", "E", "Not Classified"];
+
+      const stats: Record<string, { total: number; visited: number; unvisited: number; coveragePct: number }> = {};
+      allGrades.forEach((g) => {
+        const outletsInGrade = masterOutlets.filter((o: any) => {
+          const ogr = ["A", "B", "C", "D", "E"].includes(o.dairyGr) ? o.dairyGr : "-";
+          return ogr === g;
+        });
+
+        const masterTotal = outletsInGrade.length;
+        const visitedMasterCount = outletsInGrade.filter(
+          (o: any) =>
+            visitedOutletKeys.has(o.code) ||
+            visitedOutletKeys.has(o.name) ||
+            visitedOutletKeys.has(o.id),
+        ).length;
+        const visitedRowsCount = (visitedByGrade[g] || new Set()).size;
+
+        const visited = Math.max(visitedMasterCount, visitedRowsCount);
+        const total = Math.max(masterTotal, visited);
+        const unvisited = Math.max(0, total - visited);
+        const coveragePct = total > 0 ? Math.round((visited / total) * 100) : 0;
+
+        stats[g] = { total, visited, unvisited, coveragePct };
+      });
+
       chartsRef.current.cClassDairy = new Chart(canvasClassDairyRef.current, {
         type: "bar",
         data: {
           labels: gradeLabels,
           datasets: [
             {
-              label: "Visits",
-              data: allGrades.map((g) => cld[g] || 0),
-              backgroundColor: allGrades.map((g) =>
-                g === "-" ? "#9aa9b4" : GCOL[g],
-              ),
-              borderRadius: 6,
+              label: "Visited Outlets",
+              data: allGrades.map((g) => stats[g].visited),
+              backgroundColor: "#10b981",
+              hoverBackgroundColor: "#059669",
+              borderRadius: 4,
+              stack: "dairyStack",
+            },
+            {
+              label: "Unvisited Outlets",
+              data: allGrades.map((g) => stats[g].unvisited),
+              backgroundColor: theme === "dark" ? "#334155" : "#cbd5e1",
+              hoverBackgroundColor: theme === "dark" ? "#475569" : "#94a3b8",
+              borderRadius: 4,
+              stack: "dairyStack",
             },
           ],
         },
+        plugins: [
+          {
+            id: "dairyStackedBarLabels",
+            afterDatasetsDraw(chart: any) {
+              const { ctx } = chart;
+              const meta0 = chart.getDatasetMeta(0);
+              const meta1 = chart.getDatasetMeta(1);
+              if (!meta0 || !meta1) return;
+
+              allGrades.forEach((g, i) => {
+                const s = stats[g];
+                if (!s || s.total === 0) return;
+
+                const bar0 = meta0.data[i];
+                const bar1 = meta1.data[i];
+                const topBar = s.unvisited > 0 && bar1 ? bar1 : bar0;
+                if (!topBar) return;
+
+                ctx.save();
+                ctx.font = "700 11px Inter, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "bottom";
+                ctx.fillStyle = theme === "dark" ? "#f1f5f9" : "#0f172a";
+                ctx.shadowColor =
+                  theme === "dark"
+                    ? "rgba(0, 0, 0, 0.6)"
+                    : "rgba(255, 255, 255, 0.9)";
+                ctx.shadowBlur = 3;
+                const text = `${s.visited}/${s.total} (${s.coveragePct}%)`;
+                ctx.fillText(text, topBar.x, topBar.y - 4);
+                ctx.restore();
+              });
+            },
+          },
+        ],
         options: {
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          layout: {
+            padding: { top: 22 },
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: "top",
+              align: "end",
+              labels: {
+                color: textColor,
+                font: { family: "Inter, sans-serif", size: 11, weight: "bold" },
+                boxWidth: 10,
+                boxHeight: 10,
+                usePointStyle: true,
+                pointStyle: "circle",
+                padding: 10,
+              },
+            },
+            tooltip: {
+              callbacks: {
+                title: (items: any[]) =>
+                  `Classification · Dairy: ${items[0]?.label || ""}`,
+                label: (ctx: any) => {
+                  const g = allGrades[ctx.dataIndex];
+                  const s = stats[g];
+                  if (ctx.datasetIndex === 0) {
+                    return ` Visited Outlets: ${s.visited} (${s.coveragePct}% coverage)`;
+                  }
+                  return ` Unvisited Outlets: ${s.unvisited}`;
+                },
+                afterBody: (items: any[]) => {
+                  const g = allGrades[items[0]?.dataIndex];
+                  const s = stats[g];
+                  return [
+                    "───────────────────────",
+                    ` Total Outlets: ${s.total}`,
+                    ` Outlet Visit Coverage: ${s.coveragePct}% (${s.visited}/${s.total})`,
+                  ];
+                },
+              },
+            },
+          },
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? "") as string;
@@ -843,17 +1075,24 @@ export default function SupervisorReportsPage() {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
-            y: {
-              beginAtZero: true,
+            x: {
+              stacked: true,
               grid: { color: gridColor },
               ticks: { color: textColor },
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              grace: "15%",
+              grid: { color: gridColor },
+              ticks: { color: textColor, precision: 0 },
             },
           },
         },
       });
     }
 
+    /*
     if (canvasClassIceRef.current) {
       if (chartsRef.current.cClassIce) chartsRef.current.cClassIce.destroy();
       const iceRows = filteredForClassCharts.filter((r) => r.iceGr);
@@ -903,7 +1142,8 @@ export default function SupervisorReportsPage() {
         },
       });
     }
-  }, [filtered, filteredForClassCharts, isLoading, theme]);
+    */
+  }, [filtered, filteredForClassCharts, isLoading, theme, masters, fMgr, fSuper, fChannel, fCust]);
 
   if (isLoading) {
     return (
@@ -1364,11 +1604,11 @@ export default function SupervisorReportsPage() {
             <div className="val">{breachesCount}</div>
             <div className="delta">{breachPct}</div>
           </div>
-          <div className="kpi g">
+          {/* <div className="kpi g">
             <div className="lbl">FEFO Compliance</div>
             <div className="val">{fefoPct}</div>
             <div className="delta">assets following FEFO</div>
-          </div>
+          </div> */}
         </div>
 
         {/* Chart Row 1 */}
@@ -1377,7 +1617,7 @@ export default function SupervisorReportsPage() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Visits Over Time</h3>
-                <div className="psub">Weekly visits (filtered)</div>
+                <div className="psub">Daily visits (filtered)</div>
               </div>
               <ExportButton
                 onClick={handleExportTrendChart}
@@ -1436,13 +1676,13 @@ export default function SupervisorReportsPage() {
 
         {/* Chart Row 3 */}
         <div className="grid3">
-          <div className="panel">
+          {/* <div className="panel">
             <h3>NPD Availability</h3>
             <div className="psub">New-product presence</div>
             <div className="chart-sm">
               <canvas ref={canvasNpdRef}></canvas>
             </div>
-          </div>
+          </div> */}
           <div className="panel">
             <h3>Power SKU Availability</h3>
             <div className="psub">Focus SKU presence</div>
@@ -1452,18 +1692,18 @@ export default function SupervisorReportsPage() {
           </div>
           <div className="panel">
             <h3>Outlets by Classification · Dairy</h3>
-            <div className="psub">Visit distribution A–E (Dairy)</div>
+            <div className="psub">Outlet visit coverage (Visited vs Unvisited by Class)</div>
             <div className="chart-sm">
               <canvas ref={canvasClassDairyRef}></canvas>
             </div>
           </div>
-          <div className="panel">
+          {/* <div className="panel">
             <h3>Outlets by Classification · Ice Cream</h3>
             <div className="psub">Visit distribution A–E (Ice Cream)</div>
             <div className="chart-sm">
               <canvas ref={canvasClassIceRef}></canvas>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Manager Table */}
@@ -1489,7 +1729,7 @@ export default function SupervisorReportsPage() {
                   <th>Visits</th>
                   <th>Outlets</th>
                   <th>Temp Breach</th>
-                  <th>FEFO %</th>
+                  {/* <th>FEFO %</th> */}
                 </tr>
               </thead>
               <tbody>
@@ -1506,13 +1746,13 @@ export default function SupervisorReportsPage() {
                           <span className="pill g">0</span>
                         )}
                       </td>
-                      <td>{x.v ? Math.round((x.f / x.v) * 100) : 0}%</td>
+                      {/* <td>{x.v ? Math.round((x.f / x.v) * 100) : 0}%</td> */}
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={4}
                       style={{
                         textAlign: "center",
                         color: "#5a7085",
