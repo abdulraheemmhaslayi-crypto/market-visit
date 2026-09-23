@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const visitPhotoSchema = z.object({
   photoId: z.string(),
   category: z.enum(['Dairy', 'Beverages', 'Ice Cream', 'Vegetables'] as const),
-  cloudinaryUrl: z.string().url({ message: 'Invalid photo URL' }),
+  cloudinaryUrl: z.string().min(1, { message: 'Photo URL is required' }),
   publicId: z.string(),
   uploadedAt: z.string(),
 });

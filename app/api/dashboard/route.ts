@@ -9,17 +9,118 @@ let dashboardSchemaChecked = false;
 async function ensureDashboardSchema() {
   if (dashboardSchemaChecked) return;
   try {
-    await pool.execute(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Manager' and xtype='U') CREATE TABLE \`Manager\` (\`id\` VARCHAR(191) PRIMARY KEY, \`name\` VARCHAR(191) UNIQUE NOT NULL);`);
-    await pool.execute(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='PowerSKU' and xtype='U') CREATE TABLE \`PowerSKU\` (\`skuCode\` VARCHAR(191) NOT NULL, \`skuName\` VARCHAR(191) NOT NULL, \`channel\` VARCHAR(191) NOT NULL, PRIMARY KEY (\`skuCode\`, \`channel\`));`);
-    await pool.execute(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='VisitAsset' and xtype='U') CREATE TABLE \`VisitAsset\` (\`assetId\` VARCHAR(191) PRIMARY KEY, \`visitId\` VARCHAR(191) NOT NULL, \`assetType\` VARCHAR(50) NOT NULL, \`temperature\` DOUBLE NULL, \`tempInRange\` TINYINT(1) NULL, \`actionRequired\` VARCHAR(50) NULL, \`observation\` TEXT NULL, \`isFirstInFlow\` TINYINT(1) NULL DEFAULT 0, \`fefoFollowed\` TINYINT(1) NULL DEFAULT 0);`);
-    await pool.execute(`IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='idx_asset_visit' AND object_id = OBJECT_ID('VisitAsset')) CREATE INDEX \`idx_asset_visit\` ON \`VisitAsset\` (\`visitId\`);`);
-    await pool.execute(`IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='VisitPowerSkuResult' and xtype='U') CREATE TABLE \`VisitPowerSkuResult\` (\`visitId\` VARCHAR(191) NOT NULL, \`skuCode\` VARCHAR(191) NOT NULL, \`status\` VARCHAR(50) NOT NULL, PRIMARY KEY (\`visitId\`, \`skuCode\`));`);
+    await pool.execute(`CREATE TABLE IF NOT EXISTS \`Manager\` (\`id\` VARCHAR(191) PRIMARY KEY, \`name\` VARCHAR(191) UNIQUE NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
+    await pool.execute(`CREATE TABLE IF NOT EXISTS \`PowerSKU\` (\`skuCode\` VARCHAR(191) NOT NULL, \`skuName\` VARCHAR(191) NOT NULL, \`channel\` VARCHAR(191) NOT NULL, PRIMARY KEY (\`skuCode\`, \`channel\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
+    await pool.execute(`CREATE TABLE IF NOT EXISTS \`VisitAsset\` (\`assetId\` VARCHAR(191) PRIMARY KEY, \`visitId\` VARCHAR(191) NOT NULL, \`assetType\` VARCHAR(50) NOT NULL, \`temperature\` DOUBLE NULL, \`tempInRange\` TINYINT(1) NULL, \`actionRequired\` VARCHAR(50) NULL, \`observation\` TEXT NULL, \`isFirstInFlow\` TINYINT(1) NULL DEFAULT 0, \`fefoFollowed\` TINYINT(1) NULL DEFAULT 0, INDEX \`idx_asset_visit\` (\`visitId\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
+    await pool.execute(`CREATE TABLE IF NOT EXISTS \`VisitPowerSkuResult\` (\`visitId\` VARCHAR(191) NOT NULL, \`skuCode\` VARCHAR(191) NOT NULL, \`status\` VARCHAR(50) NOT NULL, PRIMARY KEY (\`visitId\`, \`skuCode\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
     dashboardSchemaChecked = true;
   } catch (e) {}
 }
 
+import { MasterCache, getCachedMasterData, setCachedMasterData } from '@/lib/dashboard-cache';
+
+const MASTER_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function getMasterData(): Promise<MasterCache> {
+  const now = Date.now();
+  const cached = getCachedMasterData();
+  if (cached && now - cached.timestamp < MASTER_CACHE_TTL_MS) {
+    return cached;
+  }
+
+  const [customers, dbUsers, skuRows, powerSkuRows, routeRows] = await Promise.all([
+    customerRepository.getAllCustomers(),
+    pool.execute(`
+      SELECT u.id, u.name, u.role, m.name as managerName 
+      FROM User u 
+      LEFT JOIN Manager m ON u.managerId = m.id
+    `).then(([rows]: any) => rows).catch(() => []),
+    pool.execute('SELECT `skuCode`, `skuName`, `type`, `businessVertical` FROM `SKU`').then(([rows]: any) => rows).catch(() => []),
+    pool.execute('SELECT `skuCode`, `skuName`, `channel` FROM `PowerSKU`').then(([rows]: any) => rows).catch(() => []),
+    pool.execute(`
+      SELECT r.*, m.name as managerName 
+      FROM Route r 
+      LEFT JOIN Manager m ON r.managerId = m.id
+    `).then(([rows]: any) => rows).catch(() => []),
+  ]);
+
+  const isExcluded = (name: string) => {
+    const n = (name || '').toUpperCase().trim();
+    return n === 'CLOSED' || n === 'INTERNAL' || n === '' || n === 'EXP MANAGER' || n === 'INST MANAGER';
+  };
+
+  const allManagers = Array.from(
+    new Set<string>(
+      routeRows
+        .map((r: any) => (r.managerName || '').trim())
+        .filter((name: string) => !isExcluded(name))
+    )
+  ).sort() as string[];
+
+  const allSupervisors = Array.from(
+    new Set<string>(
+      routeRows
+        .map((r: any) => (r.superName || '').trim())
+        .filter((name: string) => !isExcluded(name))
+    )
+  ).sort() as string[];
+
+  const managerSupervisorMap: Record<string, string[]> = {};
+  routeRows.forEach((r: any) => {
+    const sup = (r.superName || '').trim();
+    const mgr = (r.managerName || '').trim();
+    if (sup && !isExcluded(sup) && mgr && !isExcluded(mgr)) {
+      if (!managerSupervisorMap[mgr]) managerSupervisorMap[mgr] = [];
+      if (!managerSupervisorMap[mgr].includes(sup)) managerSupervisorMap[mgr].push(sup);
+    }
+  });
+  Object.keys(managerSupervisorMap).forEach((m) => managerSupervisorMap[m].sort());
+
+  const skuMap = new Map<string, any>(skuRows.map((sku: any) => [sku.skuCode, sku]));
+  const powerSkuMap = new Map<string, any>(powerSkuRows.map((sku: any) => [sku.skuCode, sku]));
+  const customerMap = new Map(customers.map((c: any) => [c.cust_rt_id, c]));
+  const routeMap = new Map<string, any>(routeRows.map((r: any) => [r.routeCode, r]));
+
+  const userMap = new Map<string, { name: string; managerName: string }>(
+    dbUsers.map((u: any) => {
+      const supName = u.name.toUpperCase().trim();
+      return [u.id, { name: supName, managerName: '' }];
+    })
+  );
+
+  // Compact customer list for dropdown filter
+  const seenCust = new Set<string>();
+  const uniqueCustomers: { customerName: string; routeCode: string }[] = [];
+  customers.forEach((c: any) => {
+    const key = `${c.customerName}|${c.routeCode}`;
+    if (!seenCust.has(key)) {
+      seenCust.add(key);
+      uniqueCustomers.push({ customerName: c.customerName, routeCode: c.routeCode });
+    }
+  });
+
+  const newCache: MasterCache = {
+    timestamp: now,
+    customers,
+    customerMap,
+    uniqueCustomers,
+    routeRows,
+    routeMap,
+    allManagers,
+    allSupervisors,
+    managerSupervisorMap,
+    skuMap,
+    powerSkuMap,
+    dbUsers,
+    userMap,
+  };
+
+  setCachedMasterData(newCache);
+  return newCache;
+}
+
 const cacheStore = new Map<string, { timestamp: number; data: any }>();
-const CACHE_TTL_MS = 3000; // 3 seconds cache for deduplicating simultaneous requests
+const CACHE_TTL_MS = 5000; // 5 seconds cache for duplicate clicks & rapid tabs
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,68 +145,63 @@ export async function GET(req: NextRequest) {
 
     await ensureDashboardSchema();
 
-    // 1. Fetch raw datasets concurrently in parallel
-    const [visitsRaw, customers, dbUsers, skuRows, powerSkuRows, assets, pskuResults, npdResults, photosRaw, routeRows] = await Promise.all([
-      visitRepository.getAllVisits(),
-      customerRepository.getAllCustomers(),
-      pool.execute(`
-        SELECT u.id, u.name, u.role, m.name as managerName 
-        FROM User u 
-        LEFT JOIN Manager m ON u.managerId = m.id
-      `).then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `SKU`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `PowerSKU`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `VisitAsset`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `VisitPowerSkuResult`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `NPDResponse`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `VisitPhoto`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute(`
-        SELECT r.*, m.name as managerName 
-        FROM Route r 
-        LEFT JOIN Manager m ON r.managerId = m.id
-      `).then(([rows]: any) => rows).catch(() => []),
-    ]);
-
-    let visits = visitsRaw;
-    if (scope === 'supervisor') {
-      visits = visits.filter((v) => v.supervisorId === userSession.id);
-    }
-
     const startDateParam = req.nextUrl.searchParams.get('startDate');
     const endDateParam = req.nextUrl.searchParams.get('endDate');
     const supervisorIdParam = req.nextUrl.searchParams.get('supervisorId');
     const routeCodeParam = req.nextUrl.searchParams.get('routeCode');
+    const managerParam = req.nextUrl.searchParams.get('manager');
     const reportParam = req.nextUrl.searchParams.get('report');
 
     if (scope === 'fleet' && reportParam && !isReportAllowed(role, reportParam)) {
       return NextResponse.json({ error: 'Forbidden report for this role' }, { status: 403 });
     }
 
-    let filteredVisits = visits.filter((v) => v.status === 'Submitted');
+    // 1. Fetch cached master data & raw visits concurrently
+    const [masters, visitsRaw, assets, pskuResults, npdResults, photosRaw] = await Promise.all([
+      getMasterData(),
+      visitRepository.getAllVisits(),
+      pool.execute('SELECT * FROM `VisitAsset`').then(([rows]: any) => rows).catch(() => []),
+      pool.execute('SELECT * FROM `VisitPowerSkuResult`').then(([rows]: any) => rows).catch(() => []),
+      pool.execute('SELECT * FROM `NPDResponse`').then(([rows]: any) => rows).catch(() => []),
+      pool.execute('SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC LIMIT 200').then(([rows]: any) => rows).catch(() => []),
+    ]);
+
+    const {
+      customers,
+      customerMap,
+      uniqueCustomers,
+      routeRows,
+      routeMap,
+      allManagers,
+      allSupervisors,
+      managerSupervisorMap,
+      skuMap,
+      powerSkuMap,
+      dbUsers,
+    } = masters;
+
+    let visits = visitsRaw;
+    if (scope === 'supervisor') {
+      visits = visits.filter((v: any) => v.supervisorId === userSession.id);
+    }
+
+    let filteredVisits = visits.filter((v: any) => v.status === 'Submitted');
 
     if (startDateParam) {
       const start = new Date(startDateParam + 'T00:00:00');
-      filteredVisits = filteredVisits.filter(v => new Date(v.createdAt) >= start);
+      filteredVisits = filteredVisits.filter((v: any) => new Date(v.createdAt) >= start);
     }
     if (endDateParam) {
       const end = new Date(endDateParam + 'T23:59:59');
-      filteredVisits = filteredVisits.filter(v => new Date(v.createdAt) <= end);
+      filteredVisits = filteredVisits.filter((v: any) => new Date(v.createdAt) <= end);
     }
     if (scope === 'supervisor') {
-      filteredVisits = filteredVisits.filter(v => v.supervisorId === userSession.id);
+      filteredVisits = filteredVisits.filter((v: any) => v.supervisorId === userSession.id);
     }
 
-    const routeMap = new Map<string, any>(routeRows.map((r: any) => [r.routeCode, r]));
-
-    const isExcluded = (name: string) => {
-      const n = (name || '').toUpperCase().trim();
-      return n === 'CLOSED' || n === 'INTERNAL' || n === '';
-    };
-
     // Filter by Manager parameter (if passed)
-    const managerParam = req.nextUrl.searchParams.get('manager');
     if (managerParam) {
-      filteredVisits = filteredVisits.filter(v => {
+      filteredVisits = filteredVisits.filter((v: any) => {
         const [_, rCode] = (v.cust_rt_id || '').split('|');
         const routeInfo = routeMap.get(rCode || v.routeCode || '');
         const mgrName = routeInfo ? (routeInfo.managerName || '') : '';
@@ -114,7 +210,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (supervisorIdParam && (scope === 'full' || isFullAccessRole(role))) {
-      filteredVisits = filteredVisits.filter(v => {
+      filteredVisits = filteredVisits.filter((v: any) => {
         const [_, rCode] = (v.cust_rt_id || '').split('|');
         const routeInfo = routeMap.get(rCode || v.routeCode || '');
         const supName = routeInfo ? (routeInfo.superName || '') : '';
@@ -122,57 +218,11 @@ export async function GET(req: NextRequest) {
       });
     }
     if (routeCodeParam) {
-      filteredVisits = filteredVisits.filter(v => {
+      filteredVisits = filteredVisits.filter((v: any) => {
         const [_, rt] = (v.cust_rt_id || '').split('|');
         return rt === routeCodeParam;
       });
     }
-
-    // Build distinct sorted Managers and Supervisors lists from Route Master (routeRows)
-    const allManagers = Array.from(
-      new Set<string>(
-        routeRows
-          .map((r: any) => (r.managerName || '').trim())
-          .filter((name: string) => !isExcluded(name))
-      )
-    ).sort() as string[];
-
-    const allSupervisors = Array.from(
-      new Set<string>(
-        routeRows
-          .map((r: any) => (r.superName || '').trim())
-          .filter((name: string) => !isExcluded(name))
-      )
-    ).sort() as string[];
-
-    // Group into managerSupervisorMap
-    const managerSupervisorMap: Record<string, string[]> = {};
-    routeRows.forEach((r: any) => {
-      const sup = (r.superName || '').trim();
-      const mgr = (r.managerName || '').trim();
-      if (sup && !isExcluded(sup) && mgr && !isExcluded(mgr)) {
-        if (!managerSupervisorMap[mgr]) {
-          managerSupervisorMap[mgr] = [];
-        }
-        if (!managerSupervisorMap[mgr].includes(sup)) {
-          managerSupervisorMap[mgr].push(sup);
-        }
-      }
-    });
-    Object.keys(managerSupervisorMap).forEach((m) => {
-      managerSupervisorMap[m].sort();
-    });
-
-    const skuMap = new Map<string, any>(skuRows.map((sku: any) => [sku.skuCode, sku]));
-    const powerSkuMap = new Map<string, any>(powerSkuRows.map((sku: any) => [sku.skuCode, sku]));
-    const customerMap = new Map(customers.map((c) => [c.cust_rt_id, c]));
-
-    const userMap = new Map<string, { name: string; managerName: string }>(
-      dbUsers.map((u: any) => {
-        const supName = u.name.toUpperCase().trim();
-        return [u.id, { name: supName, managerName: '' }];
-      })
-    );
 
     const assetMap = new Map<string, any[]>();
     assets.forEach((ast: any) => {
@@ -183,19 +233,19 @@ export async function GET(req: NextRequest) {
     });
 
     const pskuMap = new Map<string, any[]>();
-    pskuResults.forEach((r: any) => {
-      if (!pskuMap.has(r.visitId)) {
-        pskuMap.set(r.visitId, []);
+    pskuResults.forEach((res: any) => {
+      if (!pskuMap.has(res.visitId)) {
+        pskuMap.set(res.visitId, []);
       }
-      pskuMap.get(r.visitId)!.push(r);
+      pskuMap.get(res.visitId)!.push(res);
     });
 
     const npdMap = new Map<string, any[]>();
-    npdResults.forEach((r: any) => {
-      if (!npdMap.has(r.visitId)) {
-        npdMap.set(r.visitId, []);
+    npdResults.forEach((res: any) => {
+      if (!npdMap.has(res.visitId)) {
+        npdMap.set(res.visitId, []);
       }
-      npdMap.get(r.visitId)!.push(r);
+      npdMap.get(res.visitId)!.push(res);
     });
 
     const formatTempContext = (assetType: string, temperature: number | null | undefined) => {
@@ -207,7 +257,7 @@ export async function GET(req: NextRequest) {
       return `${value}°C (should be 0 to 8°C)`;
     };
 
-    // 2. Map into flat structured rows for frontend analytics charts
+    // 4. Map into flat structured rows for frontend analytics charts
     const reportRows = {
       npd: [] as any[],
       psku: [] as any[],
@@ -220,7 +270,7 @@ export async function GET(req: NextRequest) {
     const classificationRowsDairy: any[] = [];
     const classificationRowsIceCream: any[] = [];
 
-    const rows = filteredVisits.map((v) => {
+    const rows = filteredVisits.map((v: any) => {
       const [customerCode, routeCode] = (v.cust_rt_id || '').split('|');
       const routeInfo = routeMap.get(routeCode || v.routeCode || '');
       const supName = routeInfo ? (routeInfo.superName || 'UNASSIGNED').toUpperCase().trim() : 'UNASSIGNED';
@@ -236,7 +286,7 @@ export async function GET(req: NextRequest) {
       const visitDate = (v.createdAt as any) instanceof Date ? (v.createdAt as any).toISOString() : v.createdAt;
 
       const date = new Date(v.createdAt);
-      const week = Math.min(8, Math.max(1, Math.ceil(date.getDate() / 4)));
+      const week = Math.min(5, Math.max(1, Math.ceil(date.getDate() / 7)));
 
       // Assets temperature processing
       const visitAssets = assetMap.get(v.visitId) || [];
@@ -257,7 +307,7 @@ export async function GET(req: NextRequest) {
       else if (visitPsku.some((r: any) => r.status === 'Not Available')) psku = 'N';
 
       const fefo = ok;
-      const action = visitAssets.map(a => a.actionRequired !== 'None' ? `${a.assetType}: ${a.actionRequired}` : '').filter(Boolean).join(', ') || 'None';
+      const action = visitAssets.map((a: any) => a.actionRequired !== 'None' ? `${a.assetType}: ${a.actionRequired}` : '').filter(Boolean).join(', ') || 'None';
 
       classificationRows.push({
         date: visitDate,
@@ -302,11 +352,9 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      visitNpd.forEach((response: any) => {
-        const sku = skuMap.get(response.skuCode);
-        const skuName = sku?.skuName || response.skuCode;
-        const st = (response.status || '').toUpperCase();
-        const availStr = (st === 'AVAILABLE' || st === 'YES' || st === 'A') ? 'YES' : ((st === 'NOT AVAILABLE' || st === 'NO' || st === 'N') ? 'NO' : 'N/A');
+      // Populate NPD Report Rows (Per SKU level granularity)
+      visitNpd.forEach((item: any) => {
+        const skuInfo = skuMap.get(item.skuCode);
         reportRows.npd.push({
           date: visitDate,
           visitId: v.visitId,
@@ -317,19 +365,17 @@ export async function GET(req: NextRequest) {
           outletCode: customerCode || '',
           outletName: custName,
           classification: gr,
-          skuCode: response.skuCode,
-          skuName,
-          businessVertical: sku?.businessVertical || 'Dairy',
-          status: response.status,
-          availability: availStr,
+          class: gr,
+          skuCode: item.skuCode,
+          skuName: skuInfo ? skuInfo.skuName : item.skuCode,
+          status: item.status,
+          businessVertical: skuInfo?.businessVertical || 'General',
         });
       });
 
-      visitPsku.forEach((response: any) => {
-        const pskuItem = powerSkuMap.get(response.skuCode);
-        const skuName = pskuItem?.skuName || response.skuCode;
-        const st = (response.status || '').toUpperCase();
-        const availStr = (st === 'AVAILABLE' || st === 'YES' || st === 'A') ? 'YES' : ((st === 'NOT AVAILABLE' || st === 'NO' || st === 'N') ? 'NO' : 'N/A');
+      // Populate PowerSKU Report Rows (Per SKU level granularity)
+      visitPsku.forEach((item: any) => {
+        const pskuInfo = powerSkuMap.get(item.skuCode) || skuMap.get(item.skuCode);
         reportRows.psku.push({
           date: visitDate,
           visitId: v.visitId,
@@ -340,22 +386,48 @@ export async function GET(req: NextRequest) {
           outletCode: customerCode || '',
           outletName: custName,
           classification: gr,
-          skuCode: response.skuCode,
-          skuName,
-          businessVertical: pskuItem?.channel === 'GT' ? 'Power SKU' : pskuItem?.channel || 'Power SKU',
-          status: response.status,
-          availability: availStr,
+          class: gr,
+          skuCode: item.skuCode,
+          skuName: pskuInfo ? pskuInfo.skuName : item.skuCode,
+          status: item.status,
         });
       });
 
-      visitAssets.forEach((ast: any) => {
-        const isOk = ast.tempInRange === 1 || ast.tempInRange === true;
-        const formattedTemp = formatTempContext(ast.assetType, ast.temperature);
-        const tempStatusStr = isOk ? 'In Range' : 'Breach';
-        const remarksStr = ast.actionRequired && ast.actionRequired !== 'None' 
-          ? (ast.observation && ast.observation !== '—' ? `${ast.actionRequired} - ${ast.observation}` : ast.actionRequired)
-          : (ast.observation || '—');
-
+      // Populate Cold Chain Report Rows (Per Asset level granularity)
+      if (visitAssets.length > 0) {
+        visitAssets.forEach((ast: any) => {
+          const isTempOk = ast.tempInRange === 1 || ast.tempInRange === true;
+          const formattedTemp = formatTempContext(ast.assetType, ast.temperature);
+          reportRows['cold-chain'].push({
+            date: visitDate,
+            visitId: v.visitId,
+            channel: ch,
+            manager: mgrName,
+            supervisor: supName,
+            routeCode: routeCode || '',
+            outletCode: customerCode || '',
+            outletName: custName,
+            classification: gr,
+            class: gr,
+            assetType: ast.assetType,
+            sizeModel: ast.sizeModel || 'Standard',
+            temperature: formattedTemp,
+            assetTemp: formattedTemp,
+            formattedTemperature: formattedTemp,
+            tempOk: isTempOk ? 'OK' : 'Breach',
+            tempStatus: isTempOk ? 'In Range' : 'Breach',
+            tempInRange: isTempOk,
+            tempRaw: ast.temperature ?? 0,
+            fefo: (ast.fefoFollowed === 1 || ast.fefoFollowed === true) ? 'Compliant' : 'Non-Compliant',
+            actionRequired: ast.actionRequired || 'None',
+            observation: ast.observation || '—',
+            actionRemarks: ast.actionRequired && ast.actionRequired !== 'None'
+              ? `${ast.actionRequired}${ast.observation && ast.observation !== '—' ? ` - ${ast.observation}` : ''}`
+              : (ast.observation || '—'),
+          });
+        });
+      } else {
+        const formattedTemp = formatTempContext(firstAsset.assetType, firstAsset.temperature);
         reportRows['cold-chain'].push({
           date: visitDate,
           visitId: v.visitId,
@@ -366,38 +438,78 @@ export async function GET(req: NextRequest) {
           outletCode: customerCode || '',
           outletName: custName,
           classification: gr,
-          assetType: ast.assetType,
-          temperature: ast.temperature,
+          class: gr,
+          assetType: firstAsset.assetType,
+          sizeModel: (firstAsset as any).sizeModel || 'Standard',
+          temperature: formattedTemp,
+          assetTemp: formattedTemp,
           formattedTemperature: formattedTemp,
-          assetTemp: formattedTemp !== '—' ? formattedTemp : (ast.temperature !== undefined && ast.temperature !== null ? `${ast.temperature}°C` : '—'),
-          tempInRange: isOk,
-          tempStatus: tempStatusStr,
-          actionRequired: ast.actionRequired,
-          observation: ast.observation || '—',
-          actionRemarks: remarksStr,
+          tempOk: ok ? 'OK' : 'Breach',
+          tempStatus: ok ? 'In Range' : 'Breach',
+          tempInRange: ok,
+          tempRaw: firstAsset.temperature ?? 0,
+          fefo: fefo ? 'Compliant' : 'Non-Compliant',
+          actionRequired: firstAsset.actionRequired || 'None',
+          observation: firstAsset.observation || '—',
+          actionRemarks: firstAsset.actionRequired && firstAsset.actionRequired !== 'None'
+            ? `${firstAsset.actionRequired}${firstAsset.observation && firstAsset.observation !== '—' ? ` - ${firstAsset.observation}` : ''}`
+            : (firstAsset.observation || '—'),
         });
-      });
+      }
+
+      const primaryAsset = visitAssets[0] || null;
 
       return {
+        id: v.visitId,
         visitId: v.visitId,
+        date: visitDate,
         createdAt: visitDate,
-        sup: supName,
         mgr: mgrName,
+        manager: mgrName,
+        sup: supName,
+        supervisor: supName,
         ch,
-        rt: routeCode || '',
-        code: customerCode || '',
-        cust: custName,
+        channel: ch,
         gr,
-        dairyGr,
-        iceGr,
+        classification: gr,
+        dairyGr: dairyGr || gr || '-',
+        dairyClassification: dairyGr || gr || '-',
+        iceCreamClassification: iceGr,
+        cust: custName,
+        outletName: custName,
+        cust_rt_id: v.cust_rt_id || '',
+        outletCode: customerCode || '',
+        rt: routeCode || '',
+        route: routeCode || '',
+        routeCode: routeCode || '',
         week,
-        atype: firstAsset.assetType,
-        temp: temperature,
-        ok,
+        sos: v.sosAsPerBda === 1 ? 'Y' : 'N',
+        plan: v.planogramCompliance === 1 ? 'Y' : 'N',
         npd,
         psku,
+        ok,
+        temp: ok ? 'OK' : 'Breach',
+        tempVal: temperature,
+        atype: primaryAsset?.assetType || 'Chiller',
+        assetType: primaryAsset?.assetType || 'Chiller',
+        sizeModel: primaryAsset?.sizeModel || 'Standard',
+        observation: firstAsset.observation || '',
+        allAssets: visitAssets.map((a: any) => ({
+          assetType: a.assetType,
+          sizeModel: a.sizeModel || 'Standard',
+          temperature: a.temperature ?? 0,
+          tempInRange: a.tempInRange === 1 || a.tempInRange === true,
+          actionRequired: a.actionRequired || 'None',
+          observation: a.observation || '',
+          fefoFollowed: a.fefoFollowed === 1 || a.fefoFollowed === true,
+        })),
         fefo,
+        fefoStr: fefo ? 'Y' : 'N',
         action,
+        visitType: v.visit_type || 'Visit',
+        visit_type: v.visit_type || 'Visit',
+        reasonCategory: v.reason_category || v.reasonCategory || '—',
+        reason: v.reason || v.observation || '—',
       };
     });
 
@@ -405,101 +517,83 @@ export async function GET(req: NextRequest) {
     reportRows.classificationDairy = classificationRowsDairy;
     reportRows.classificationIceCream = classificationRowsIceCream;
 
-    // 3. Process Visit Photos with full metadata
+    // Photos payload
     const photos = photosRaw.map((p: any) => {
-      const visit = visits.find((v: any) => v.visitId === p.visitId);
-      const userInfo = visit ? userMap.get(visit.supervisorId) : null;
-      const supName = userInfo ? userInfo.name : 'UNKNOWN';
-      const mgrName = userInfo ? userInfo.managerName : 'UNASSIGNED';
+      const visit = filteredVisits.find((v: any) => v.visitId === p.visitId);
       const customer = visit ? customerMap.get(visit.cust_rt_id || '') : null;
-      const custName = customer ? customer.customerName : 'Unknown';
-      const ch = customer ? customer.channel : 'General Trade';
       const [_, routeCode] = visit ? (visit.cust_rt_id || '').split('|') : ['', ''];
-      const photoDate = p.uploadedAt || (visit ? visit.createdAt : null);
+      const routeInfo = routeMap.get(routeCode || (visit ? visit.routeCode : '') || '');
 
       return {
         photoId: p.photoId,
         visitId: p.visitId,
         category: p.category,
         cloudinaryUrl: p.cloudinaryUrl,
-        uploadedAt: photoDate ? ((photoDate instanceof Date) ? photoDate.toISOString() : photoDate) : new Date().toISOString(),
-        supervisor: supName,
-        manager: mgrName,
-        outlet: custName,
-        route: routeCode || '',
-        channel: ch,
+        uploadedAt: (p.uploadedAt as any) instanceof Date ? (p.uploadedAt as any).toISOString() : p.uploadedAt,
+        appName: 'Market Visit App',
+        supervisor: routeInfo ? (routeInfo.superName || 'Unassigned') : 'Unassigned',
+        manager: routeInfo ? (routeInfo.managerName || 'Unassigned') : 'Unassigned',
+        outlet: customer ? customer.customerName : 'Unknown Outlet',
+        route: routeCode || 'N/A',
+        channel: customer ? customer.channel : 'GT',
       };
     });
 
-    // 4. Summaries & KPIs
+    // 5. Aggregate KPI Summary Metrics
     const totalVisits = filteredVisits.length;
-    const noVisitCount = visits.filter(v => v.status === 'Submitted' && (v as any).isNoVisit === true).length;
-    
+    const noVisitCount = filteredVisits.filter((v: any) => v.visit_type === 'No Visit').length;
+
     const todayStr = new Date().toISOString().split('T')[0];
-    const todayVisits = filteredVisits.filter(v => {
-      const dateStr = (v.createdAt as any) instanceof Date ? (v.createdAt as any).toISOString() : String(v.createdAt);
-      return dateStr.startsWith(todayStr);
+    const todayVisits = filteredVisits.filter((v: any) => {
+      const d = (v.createdAt as any) instanceof Date ? (v.createdAt as any).toISOString() : v.createdAt;
+      return typeof d === 'string' && d.startsWith(todayStr);
     }).length;
 
-    const dbRoutes: any[] = routeRows;
     const totalSupervisors = allSupervisors.length;
 
-    const totalAssignedCustomers = customers.length;
-    const visitedCustRtIds = new Set(filteredVisits.map(v => v.cust_rt_id));
-    const coveragePercent = totalAssignedCustomers > 0 ? Math.round((visitedCustRtIds.size / totalAssignedCustomers) * 100) : 0;
+    const totalUniqueAssignedOutlets = customers.length;
+    const visitedUniqueOutlets = new Set(filteredVisits.map((v: any) => v.cust_rt_id).filter(Boolean)).size;
+    const coveragePercent = totalUniqueAssignedOutlets > 0 ? Math.round((visitedUniqueOutlets / totalUniqueAssignedOutlets) * 100) : 0;
 
-    let totalAssetsCount = 0;
-    let inRangeAssetsCount = 0;
-    filteredVisits.forEach(v => {
+    const breachedVisits = filteredVisits.filter((v: any) => {
       const visitAssets = assetMap.get(v.visitId) || [];
-      visitAssets.forEach((a: any) => {
-        totalAssetsCount++;
-        if (a.tempInRange === 1 || a.tempInRange === true) inRangeAssetsCount++;
-      });
-    });
-    const tempBreachPercent = totalAssetsCount > 0 ? Math.round(((totalAssetsCount - inRangeAssetsCount) / totalAssetsCount) * 100) : 0;
+      return visitAssets.length > 0 ? visitAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
+    }).length;
+    const tempBreachPercent = totalVisits > 0 ? Math.round((breachedVisits / totalVisits) * 100) : 0;
 
-    // Per day visit counts
-    const visitsPerDayMap = new Map<string, number>();
-    filteredVisits.forEach(v => {
-      const d = new Date(v.createdAt).toISOString().split('T')[0];
-      visitsPerDayMap.set(d, (visitsPerDayMap.get(d) || 0) + 1);
+    const visitsPerDayMap: Record<string, number> = {};
+    filteredVisits.forEach((v: any) => {
+      const d = (v.createdAt as any) instanceof Date ? (v.createdAt as any).toISOString().split('T')[0] : String(v.createdAt).split('T')[0];
+      visitsPerDayMap[d] = (visitsPerDayMap[d] || 0) + 1;
     });
-    const visitsPerDay = Array.from(visitsPerDayMap.entries())
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const visitsPerDay = Object.keys(visitsPerDayMap).sort().map(d => ({ date: d, count: visitsPerDayMap[d] }));
 
-    // Coverage per Route
-    const routeMapForCoverage = new Map<string, { total: number; visited: Set<string>; routeName: string }>();
-    customers.forEach(c => {
-      if (!routeMapForCoverage.has(c.routeCode)) {
-        routeMapForCoverage.set(c.routeCode, { total: 0, visited: new Set(), routeName: c.routeCode });
-      }
-      routeMapForCoverage.get(c.routeCode)!.total++;
-    });
-
-    filteredVisits.forEach(v => {
-      const [cCode, rCode] = (v.cust_rt_id || '').split('|');
-      if (rCode && routeMapForCoverage.has(rCode)) {
-        routeMapForCoverage.get(rCode)!.visited.add(v.cust_rt_id);
+    const routeVisitsMap: Record<string, Set<string>> = {};
+    filteredVisits.forEach((v: any) => {
+      const [_, rCode] = (v.cust_rt_id || '').split('|');
+      const rt = rCode || v.routeCode;
+      if (rt) {
+        if (!routeVisitsMap[rt]) routeVisitsMap[rt] = new Set();
+        routeVisitsMap[rt].add(v.cust_rt_id);
       }
     });
 
-    const coveragePerRoute = Array.from(routeMapForCoverage.entries()).map(([routeCode, item]) => {
-      const coverage = item.total > 0 ? Math.round((item.visited.size / item.total) * 100) : 0;
+    const coveragePerRoute = routeRows.map((r: any) => {
+      const assigned = customers.filter((c: any) => c.routeCode === r.routeCode).length;
+      const visited = routeVisitsMap[r.routeCode] ? routeVisitsMap[r.routeCode].size : 0;
+      const percent = assigned > 0 ? Math.round((visited / assigned) * 100) : 0;
       return {
-        routeCode,
-        routeName: item.routeName,
-        assigned: item.total,
-        visited: item.visited.size,
-        coverage,
+        routeCode: r.routeCode,
+        routeName: r.routeName,
+        assigned,
+        visited,
+        percent,
       };
     });
 
-    // Supervisor Performance Summary strictly by superName from Route (ROUTE_MASTER)
     const supervisorPerformance = allSupervisors
       .map((supName: string) => {
-        const supVisits = filteredVisits.filter(v => {
+        const supVisits = filteredVisits.filter((v: any) => {
           const [_, rCode] = (v.cust_rt_id || '').split('|');
           const routeInfo = routeMap.get(rCode || v.routeCode || '');
           const sName = routeInfo ? (routeInfo.superName || '') : '';
@@ -507,31 +601,31 @@ export async function GET(req: NextRequest) {
         });
 
         const visitsCount = supVisits.length;
-        const uniqueOutlets = new Set(supVisits.map(v => v.cust_rt_id)).size;
+        const uniqueOutlets = new Set(supVisits.map((v: any) => v.cust_rt_id)).size;
 
-        const breaches = supVisits.filter(v => {
+        const breaches = supVisits.filter((v: any) => {
           const visitAssets = assetMap.get(v.visitId) || [];
           return visitAssets.length > 0 ? visitAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
         }).length;
 
         const supRoutes = routeRows.filter((r: any) => (r.superName || '').toUpperCase().trim() === supName.toUpperCase());
         const totalAssigned = supRoutes.reduce((sum: number, r: any) => {
-          return sum + customers.filter(c => c.routeCode === r.routeCode).length;
+          return sum + customers.filter((c: any) => c.routeCode === r.routeCode).length;
         }, 0);
 
         const totalVisited = supRoutes.reduce((sum: number, r: any) => {
           const visitedCustIds = new Set(
             filteredVisits
-              .filter(v => {
+              .filter((v: any) => {
                 const [_, rCode] = (v.cust_rt_id || '').split('|');
                 return rCode === r.routeCode;
               })
-              .map(v => v.cust_rt_id)
+              .map((v: any) => v.cust_rt_id)
           );
           return sum + visitedCustIds.size;
         }, 0);
 
-        const coveragePercent = totalAssigned > 0 ? Math.round((totalVisited / totalAssigned) * 100) : 0;
+        const coveragePct = totalAssigned > 0 ? Math.round((totalVisited / totalAssigned) * 100) : 0;
 
         return {
           supervisorId: supName,
@@ -539,17 +633,17 @@ export async function GET(req: NextRequest) {
           visitsCount,
           uniqueOutlets,
           breaches,
-          coveragePercent
+          coveragePercent: coveragePct,
         };
       })
       .sort((a: any, b: any) => b.visitsCount - a.visitsCount);
 
     const temperatureBreaches = filteredVisits
-      .filter(v => {
+      .filter((v: any) => {
         const visitAssets = assetMap.get(v.visitId) || [];
         return visitAssets.length > 0 ? visitAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
       })
-      .map(v => {
+      .map((v: any) => {
         const customer = customerMap.get(v.cust_rt_id || '');
         const custName = customer ? customer.customerName : 'Unknown';
         const [_, routeCode] = (v.cust_rt_id || '').split('|');
@@ -583,12 +677,23 @@ export async function GET(req: NextRequest) {
           superName: (r.superName || '').trim(),
           managerName: (r.managerName || '').trim(),
         })),
-        customers: customers.map((c: any) => ({
-          customerCode: c.customerCode,
-          customerName: c.customerName,
-          routeCode: c.routeCode,
-          cust_rt_id: c.cust_rt_id,
-        })),
+        customers: uniqueCustomers,
+        dairyOutlets: customers.map((c: any) => {
+          const rInfo = routeMap.get(c.routeCode);
+          const mgrName = rInfo ? (rInfo.managerName || '').trim() : '';
+          const supName = rInfo ? (rInfo.superName || '').trim() : '';
+          const dairyGr = (c.dairyClassification || c.classification || '-').trim();
+          return {
+            id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
+            code: c.customerCode,
+            name: c.customerName,
+            route: c.routeCode,
+            channel: c.channel || 'General Trade',
+            manager: mgrName,
+            supervisor: supName,
+            dairyGr: dairyGr || '-',
+          };
+        }),
       },
       totalVisits,
       noVisitCount,
@@ -599,7 +704,7 @@ export async function GET(req: NextRequest) {
       visitsPerDay,
       coveragePerRoute,
       supervisorPerformance,
-      temperatureBreaches
+      temperatureBreaches,
     };
 
     cacheStore.set(cacheKey, { timestamp: Date.now(), data: payload });

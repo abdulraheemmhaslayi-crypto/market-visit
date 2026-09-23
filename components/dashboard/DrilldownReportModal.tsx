@@ -113,6 +113,7 @@ function getCellValue(row: Record<string, unknown>, key: string) {
   }
   if (key === 'tempStatus') {
     if (row.tempStatus) return row.tempStatus as string;
+    if (row.tempOk) return row.tempOk === 'OK' ? 'In Range' : 'Breach';
     if (row.tempInRange !== undefined && row.tempInRange !== null) {
       return (row.tempInRange === 1 || row.tempInRange === true) ? 'In Range' : 'Breach';
     }
@@ -121,7 +122,10 @@ function getCellValue(row: Record<string, unknown>, key: string) {
   if (key === 'assetTemp') {
     if (row.assetTemp) return row.assetTemp as string;
     if (row.formattedTemperature) return row.formattedTemperature as string;
-    if (row.temperature !== undefined && row.temperature !== null) return `${row.temperature}°C`;
+    if (row.temperature !== undefined && row.temperature !== null) {
+      const tStr = String(row.temperature);
+      return tStr.includes('°C') ? tStr : `${tStr}°C`;
+    }
     return '—';
   }
   if (key === 'actionRemarks') {
@@ -137,8 +141,14 @@ function getCellValue(row: Record<string, unknown>, key: string) {
 
 function buildSummaryText(reportType: string, rows: Record<string, unknown>[]) {
   if (reportType === 'cold-chain') {
-    const inRange = rows.filter((r) => r.tempStatus === 'In Range' || getCellValue(r, 'tempStatus') === 'In Range').length;
-    const breach = rows.filter((r) => r.tempStatus === 'Breach' || getCellValue(r, 'tempStatus') === 'Breach').length;
+    const inRange = rows.filter((r) => {
+      const st = r.tempStatus || r.tempOk || getCellValue(r, 'tempStatus');
+      return st === 'In Range' || st === 'OK' || r.tempInRange === true || r.tempInRange === 1;
+    }).length;
+    const breach = rows.filter((r) => {
+      const st = r.tempStatus || r.tempOk || getCellValue(r, 'tempStatus');
+      return st === 'Breach' || r.tempInRange === false || r.tempInRange === 0;
+    }).length;
     return `Showing ${rows.length} assets · ${inRange} In Range · ${breach} Breach`;
   }
 

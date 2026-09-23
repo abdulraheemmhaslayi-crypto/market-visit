@@ -63,11 +63,11 @@ export default function AdminDashboardPage() {
   // Chart instances
   const chartsRef = useRef<Record<string, any>>({});
 
-  // Fetch real data on mount & poll every 10 seconds
+  // Fetch real data on mount & smooth non-blocking update on date filter changes
   useEffect(() => {
     let active = true;
     async function loadData(silent = false) {
-      if (!silent) setIsLoading(true);
+      if (!silent && rows.length === 0) setIsLoading(true);
       else setIsSyncing(true);
       try {
         const params = new URLSearchParams();
@@ -94,15 +94,28 @@ export default function AdminDashboardPage() {
         }
       }
     }
-    loadData(false);
 
+    const debounceTimer = setTimeout(() => {
+      loadData(rows.length > 0);
+    }, rows.length > 0 ? 300 : 0);
+
+    // Refresh gently every 3 minutes only if tab is visible, and on window focus
     const timer = setInterval(() => {
-      loadData(true);
-    }, 10000);
+      if (typeof document !== 'undefined' && !document.hidden) {
+        loadData(true);
+      }
+    }, 180000);
+
+    const handleFocus = () => {
+      if (active) loadData(true);
+    };
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       active = false;
+      clearTimeout(debounceTimer);
       clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [fFrom, fTo, userRole]);
 
@@ -114,7 +127,9 @@ export default function AdminDashboardPage() {
   // 1. Manager Options
   const mgrOptions = useMemo<string[]>(() => {
     if (!masters) return [];
-    return (masters.managers || []) as string[];
+    return ((masters.managers || []) as string[]).filter(
+      (m) => m !== 'EXP MANAGER' && m !== 'INST MANAGER'
+    );
   }, [masters]);
 
   // 2. Supervisor Options: Filtered strictly by Manager if selected, otherwise all supervisors
@@ -251,9 +266,17 @@ export default function AdminDashboardPage() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      const catOk = !fAssetCategory || fAssetCategory === 'All' || (r.atype && r.atype.toLowerCase().includes(fAssetCategory.toLowerCase().replace(/s$/, '')));
-      const modelOk = fSizeModels.length === 0 || (r.observation && fSizeModels.some(sm => (r.observation as string).toLowerCase().includes(sm.toLowerCase())));
-      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && (!fRoute || r.rt === fRoute) && catOk && modelOk && fromOk && toOk;
+      const catSearch = (fAssetCategory || '').toLowerCase().replace(/s$/, '');
+      const catOk = !fAssetCategory || fAssetCategory === 'All'
+        || (r.atype && r.atype.toLowerCase().includes(catSearch))
+        || (r.assetType && r.assetType.toLowerCase().includes(catSearch))
+        || (r.allAssets && r.allAssets.some((a: any) => a.assetType && a.assetType.toLowerCase().includes(catSearch)));
+      const modelOk = fSizeModels.length === 0
+        || (r.observation && fSizeModels.some(sm => (r.observation as string).toLowerCase().includes(sm.toLowerCase())))
+        || (r.sizeModel && fSizeModels.includes(r.sizeModel))
+        || (r.allAssets && r.allAssets.some((a: any) => a.sizeModel && fSizeModels.includes(a.sizeModel)));
+      const routeOk = !fRoute || r.rt === fRoute || r.route === fRoute || r.routeCode === fRoute;
+      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && routeOk && catOk && modelOk && fromOk && toOk;
     });
   }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fAssetCategory, fSizeModels, fFrom, fTo]);
 
@@ -345,7 +368,6 @@ export default function AdminDashboardPage() {
   const breachesCount = useMemo(() => filtered.filter((r) => !r.ok).length, [filtered]);
   const fefoCount = useMemo(() => filtered.filter((r) => r.fefo).length, [filtered]);
   const noVisitCount = useMemo(() => filtered.filter((r) => r.visitType === 'No Visit').length, [filtered]);
-  const noVisitRows = useMemo(() => filtered.filter((r: any) => r.visitType === 'No Visit'), [filtered]);
   const breachPct = useMemo(
     () => (filtered.length ? ((breachesCount / filtered.length) * 100).toFixed(1) + '% of assets' : '–'),
     [filtered, breachesCount]
@@ -359,6 +381,8 @@ export default function AdminDashboardPage() {
   const mgrTableData = useMemo(() => {
     const mgrs: Record<string, { v: number; o: Set<string>; b: number; f: number }> = {};
     filtered.forEach((r) => {
+      // Exclude EXP Manager and INST Manager
+      if (r.mgr === 'EXP MANAGER' || r.mgr === 'INST MANAGER') return;
       if (!mgrs[r.mgr]) {
         mgrs[r.mgr] = { v: 0, o: new Set(), b: 0, f: 0 };
       }
@@ -405,7 +429,7 @@ export default function AdminDashboardPage() {
         { header: 'Asset Type', key: 'atype' },
         { header: 'Asset Temp (°C)', key: 'temp', formatter: (val) => val !== undefined && val !== null ? `${val}°C` : '—' },
         { header: 'Temp Status', key: 'ok', formatter: (val) => val ? 'OK / In Range' : 'Temp Breach' },
-        { header: 'FEFO Compliance', key: 'fefo', formatter: (val) => val ? 'Compliant' : 'Non-Compliant' },
+        // { header: 'FEFO Compliance', key: 'fefo', formatter: (val) => val ? 'Compliant' : 'Non-Compliant' },
         { header: 'Visit Type', key: 'visitType' },
         { header: 'Action Required', key: 'action' },
       ],
@@ -431,7 +455,7 @@ export default function AdminDashboardPage() {
         { metric: 'Skipped Visits (No Visit)', value: noVisitCount, details: 'Visits logged as skipped outlet' },
         { metric: 'Assets Checked', value: filtered.length, details: 'Chiller and freezer units inspected' },
         { metric: 'Temperature Breaches', value: breachesCount, details: `${breachPct} temperature breach rate` },
-        { metric: 'FEFO Compliance Rate', value: fefoPct, details: 'Assets following FEFO principles' },
+        // { metric: 'FEFO Compliance Rate', value: fefoPct, details: 'Assets following FEFO principles' },
       ],
     });
   };
@@ -627,16 +651,57 @@ export default function AdminDashboardPage() {
 
   const handleExportClassificationDairyChart = () => {
     const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
-    const dairyRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
-    const dataToExport = dairyRows.length > 0 ? dairyRows : filtered;
+    const dairyVisitRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
+
+    const visitedMap = new Map<string, any>();
+    dairyVisitRows.forEach((r: any) => {
+      const key = r.outletCode || r.outletName;
+      if (key) visitedMap.set(key, r);
+    });
+
+    const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
+      const mgrOk = !fMgr || (o.manager || '').toUpperCase() === fMgr.toUpperCase();
+      const supOk = !fSuper || (o.supervisor || '').toUpperCase() === fSuper.toUpperCase();
+      const chOk = !fChannel || (o.channel || '').toLowerCase() === fChannel.toLowerCase();
+      const rtOk = !fRoute || o.route === fRoute;
+      const custOk = !fCust || o.name === fCust || o.code === fCust;
+      return mgrOk && supOk && chOk && rtOk && custOk;
+    });
+
+    const dataToExport = masterOutlets.length > 0
+      ? masterOutlets.map((o: any) => {
+          const visited = visitedMap.get(o.code) || visitedMap.get(o.name) || visitedMap.get(o.id);
+          return {
+            outletCode: o.code,
+            outletName: o.name,
+            routeCode: o.route,
+            manager: o.manager,
+            supervisor: o.supervisor,
+            channel: o.channel,
+            class: o.dairyGr === '-' ? 'Not Classified' : o.dairyGr,
+            status: visited ? 'Visited' : 'Unvisited',
+            lastVisitDate: visited?.date ? new Date(visited.date).toLocaleDateString() : '—',
+          };
+        })
+      : dairyVisitRows;
 
     exportToExcel({
       filename: `classification_dairy_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Dairy Classification',
-      title: 'Outlet Classification Distribution - Dairy Vertical',
+      title: 'Outlet Classification Coverage - Dairy Vertical',
       filterSummary: activeNote,
       userRole,
-      columns: [
+      columns: masterOutlets.length > 0 ? [
+        { header: 'Outlet Code', key: 'outletCode' },
+        { header: 'Outlet Name', key: 'outletName' },
+        { header: 'Classification Grade', key: 'class' },
+        { header: 'Visit Status', key: 'status' },
+        { header: 'Last Visit Date', key: 'lastVisitDate' },
+        { header: 'Route', key: 'routeCode' },
+        { header: 'Supervisor', key: 'supervisor' },
+        { header: 'Manager', key: 'manager' },
+        { header: 'Channel', key: 'channel' },
+      ] : [
         { header: 'Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
         { header: 'Visit ID', key: 'visitId' },
         { header: 'Manager', key: 'manager' },
@@ -695,29 +760,9 @@ export default function AdminDashboardPage() {
         { header: 'Total Visits', key: 'visits' },
         { header: 'Unique Outlets Covered', key: 'outlets' },
         { header: 'Temp Breaches', key: 'tempBreaches' },
-        { header: 'FEFO Compliance (%)', key: 'fefoPct' },
+        // { header: 'FEFO Compliance (%)', key: 'fefoPct' },
       ],
       data: managerData,
-    });
-  };
-
-  const handleExportNoVisits = () => {
-    exportToExcel({
-      filename: `skipped_no_visits_${new Date().toISOString().slice(0, 10)}`,
-      sheetName: 'No Visits',
-      title: 'Skipped Outlet / No Visit Record Log',
-      filterSummary: activeNote,
-      userRole,
-      columns: [
-        { header: 'Visit Date', key: 'createdAt', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Visit ID', key: 'visitId' },
-        { header: 'Manager', key: 'mgr' },
-        { header: 'Supervisor', key: 'sup' },
-        { header: 'Channel', key: 'ch' },
-        { header: 'Outlet Name', key: 'cust' },
-        { header: 'Reason / Remarks', key: 'action' },
-      ],
-      data: noVisitRows,
     });
   };
 
@@ -816,49 +861,166 @@ export default function AdminDashboardPage() {
       },
     });
 
-    // 1. Trend Line Chart (percentage-based)
+    // 1. Trend Line Chart (Date-wise Daily Trend)
     if (canvasTrendRef.current) {
       if (chartsRef.current.cTrend) chartsRef.current.cTrend.destroy();
-      const wk = countFreq(filtered, (r) => r.week);
-      const weeks = [1, 2, 3, 4, 5, 6, 7, 8];
+
+      const getDateKey = (r: any) => {
+        const raw = r.createdAt || r.date;
+        if (!raw) return '';
+        if (raw instanceof Date) return raw.toISOString().split('T')[0];
+        return String(raw).split('T')[0];
+      };
+
+      const dateCounts: Record<string, number> = {};
+      filtered.forEach((r) => {
+        const d = getDateKey(r);
+        if (d && d !== '—') {
+          dateCounts[d] = (dateCounts[d] || 0) + 1;
+        }
+      });
+
+      // Build sorted date sequence
+      let sortedDates: string[] = [];
+      if (fFrom && fTo && fFrom <= fTo) {
+        const curr = new Date(fFrom + 'T00:00:00');
+        const end = new Date(fTo + 'T00:00:00');
+        const diffDays = Math.round((end.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 90) {
+          while (curr <= end) {
+            sortedDates.push(curr.toISOString().split('T')[0]);
+            curr.setDate(curr.getDate() + 1);
+          }
+        } else {
+          sortedDates = Object.keys(dateCounts).sort();
+        }
+      } else {
+        sortedDates = Object.keys(dateCounts).sort();
+      }
+
+      if (sortedDates.length === 0) {
+        sortedDates = [new Date().toISOString().split('T')[0]];
+      }
+
+      const formatDateShort = (dStr: string) => {
+        try {
+          const parts = dStr.split('-');
+          if (parts.length === 3) {
+            const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          }
+        } catch (e) {}
+        return dStr;
+      };
+
+      const formatDateFull = (dStr: string) => {
+        try {
+          const parts = dStr.split('-');
+          if (parts.length === 3) {
+            const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+          }
+        } catch (e) {}
+        return dStr;
+      };
+
       const trendTotal = filtered.length;
-      const trendPct = (w: number) => (trendTotal ? Math.round(((wk[w] || 0) / trendTotal) * 100) : 0);
+
       chartsRef.current.cTrend = new Chart(canvasTrendRef.current, {
-        type: 'line',
+        type: 'bar',
         data: {
-          labels: weeks.map((w) => 'W' + w),
+          labels: sortedDates.map((d) => formatDateShort(d)),
           datasets: [
             {
               label: 'Visits',
-              data: weeks.map((w) => trendPct(w)),
-              borderColor: BLUE,
-              backgroundColor: 'rgba(79,70,229,.12)',
-              fill: true,
-              tension: 0.35,
-              pointRadius: 3,
-              borderWidth: 2.5,
+              data: sortedDates.map((d) => dateCounts[d] || 0),
+              backgroundColor: BLUE,
+              hoverBackgroundColor: '#4338ca',
+              borderRadius: 6,
             },
           ],
         },
+        plugins: [
+          {
+            id: 'trendBarValueLabels',
+            afterDatasetsDraw(chart: any) {
+              const { ctx } = chart;
+              const dataset = chart.data.datasets[0];
+              if (!dataset || !dataset.data) return;
+              const meta = chart.getDatasetMeta(0);
+              if (!meta || !meta.data) return;
+
+              const fontSize = sortedDates.length > 25 ? 9 : (sortedDates.length > 15 ? 10 : 11);
+              meta.data.forEach((bar: any, index: number) => {
+                const value = dataset.data[index];
+                if (typeof value !== 'number' || value <= 0) return;
+                const label = `${value}`;
+                ctx.save();
+                ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
+                ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
+                ctx.shadowBlur = 4;
+                ctx.fillText(label, bar.x, bar.y - 4);
+                ctx.restore();
+              });
+            },
+          },
+        ],
         options: {
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 20 },
+          },
           plugins: {
             legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.raw}% of ${trendTotal} visits` } },
+            tooltip: {
+              callbacks: {
+                title: (items) => {
+                  const idx = items[0]?.dataIndex;
+                  const dateStr = sortedDates[idx];
+                  return dateStr ? formatDateFull(dateStr) : items[0]?.label || '';
+                },
+                label: (ctx) => {
+                  const count = (ctx.raw as number) || 0;
+                  const pct = trendTotal ? Math.round((count / trendTotal) * 100) : 0;
+                  return ` Visits: ${count} (${pct}% of period total)`;
+                },
+              },
+            },
           },
           onClick: (e, el, chart) => {
             if (el.length > 0) {
-              const label = (chart.data.labels?.[el[0].index] ?? '') as string;
-              const weekNum = parseInt(label.replace('W', ''), 10);
-              handleChartClick(`Visits for Week ${weekNum}`, (r) => r.week === weekNum);
+              const idx = el[0].index;
+              const dateStr = sortedDates[idx];
+              const dateLabel = formatDateShort(dateStr);
+              handleChartClick(`Visits for ${dateLabel}`, (r) => getDateKey(r) === dateStr);
             }
           },
           onHover: (e, el, chart) => {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
-            y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: (v: any) => `${v}%` } },
+            x: {
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                maxRotation: 45,
+                minRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: 14,
+              },
+            },
+            y: {
+              beginAtZero: true,
+              grace: '15%',
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                precision: 0,
+              },
+            },
           },
         },
       });
@@ -997,17 +1159,25 @@ export default function AdminDashboardPage() {
       let breachCount = 0;
       let tempTotal = 0;
 
+      const isColdChainOk = (r: any) => {
+        if (r.tempInRange !== undefined && r.tempInRange !== null) return r.tempInRange === true || r.tempInRange === 1;
+        if (r.tempStatus) return r.tempStatus === 'In Range' || r.tempStatus === 'OK';
+        if (r.tempOk) return r.tempOk === 'OK';
+        if (r.ok !== undefined && r.ok !== null) return r.ok === true || r.ok === 1;
+        return false;
+      };
+
       const coldChainReportRows = reportRows['cold-chain'] || [];
       if (coldChainReportRows.length > 0) {
         tempTotal = coldChainReportRows.length;
         coldChainReportRows.forEach((r: any) => {
-          if (r.tempInRange === true || r.tempInRange === 1) okCount++;
+          if (isColdChainOk(r)) okCount++;
           else breachCount++;
         });
       } else if (filtered && filtered.length > 0) {
         tempTotal = filtered.length;
         filtered.forEach((r: any) => {
-          if (r.ok === true || r.ok === 1) okCount++;
+          if (isColdChainOk(r)) okCount++;
           else breachCount++;
         });
       }
@@ -1065,7 +1235,7 @@ export default function AdminDashboardPage() {
               
               if (coldChainReportRows.length > 0) {
                 const matched = coldChainReportRows.filter((r: any) =>
-                  isWithinRange ? (r.tempInRange === true || r.tempInRange === 1) : (r.tempInRange === false || r.tempInRange === 0)
+                  isWithinRange ? isColdChainOk(r) : !isColdChainOk(r)
                 );
                 setReportModalType('cold-chain');
                 setReportModalSource('cold-chain');
@@ -1074,7 +1244,7 @@ export default function AdminDashboardPage() {
                 setReportFilterChip({ key: 'segment', value: label, label: `Status: ${label}` });
                 setReportModalOpen(true);
               } else {
-                handleChartClick(`Cold Chain Status · ${label}`, (r) => (isWithinRange ? r.ok === true : r.ok === false));
+                handleChartClick(`Cold Chain Status · ${label}`, (r) => (isWithinRange ? isColdChainOk(r) : !isColdChainOk(r)));
               }
             }
           },
@@ -1086,6 +1256,7 @@ export default function AdminDashboardPage() {
     }
 
     // 5. NPD Availability Bar Chart (SKU-response & visit-level granularity)
+    /*
     if (canvasNpdRef.current) {
       if (chartsRef.current.cNpd) chartsRef.current.cNpd.destroy();
       
@@ -1173,6 +1344,7 @@ export default function AdminDashboardPage() {
         },
       });
     }
+    */
 
     // 6. Focus SKU Availability Bar Chart (percentage-based)
     if (canvasPskuRef.current) {
@@ -1218,16 +1390,62 @@ export default function AdminDashboardPage() {
       });
     }
 
-    // 7. Classification Bar Charts (Dairy & Ice Cream)
+    // 7. Classification Bar Charts (Dairy & Ice Cream) - Stacked Visited vs Unvisited Outlets
     if (canvasClassDairyRef.current) {
       if (chartsRef.current.cClassDairy) chartsRef.current.cClassDairy.destroy();
+
+      // Master outlets matching active upstream filters
+      const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
+        const mgrOk = !fMgr || (o.manager || '').toUpperCase() === fMgr.toUpperCase();
+        const supOk = !fSuper || (o.supervisor || '').toUpperCase() === fSuper.toUpperCase();
+        const chOk = !fChannel || (o.channel || '').toLowerCase() === fChannel.toLowerCase();
+        const rtOk = !fRoute || o.route === fRoute;
+        const custOk = !fCust || o.name === fCust || o.code === fCust;
+        return mgrOk && supOk && chOk && rtOk && custOk;
+      });
+
+      // Filtered visits during the selected period
       const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
-      const dairyRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
-      const cld = countFreq(dairyRows, (r) => r.class);
+      const dairyVisitRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
+
+      const visitedOutletKeys = new Set<string>();
+      const visitedByGrade: Record<string, Set<string>> = { A: new Set(), B: new Set(), C: new Set(), D: new Set(), E: new Set(), '-': new Set() };
+
+      dairyVisitRows.forEach((r: any) => {
+        const key = r.outletCode || r.outletName;
+        if (key) {
+          visitedOutletKeys.add(key);
+          const gr = r.class || r.classification || '-';
+          const normalizedGr = ['A', 'B', 'C', 'D', 'E'].includes(gr) ? gr : '-';
+          if (!visitedByGrade[normalizedGr]) visitedByGrade[normalizedGr] = new Set();
+          visitedByGrade[normalizedGr].add(key);
+        }
+      });
+
       const allGrades = ['A', 'B', 'C', 'D', 'E', '-'];
-      const gradeLabels = ['A', 'B', 'C', 'D', 'E', 'Not Classified'];
-      const classTotalDairy = dairyRows.length;
-      const classPctDairy = (count: number) => (classTotalDairy ? Math.round((count / classTotalDairy) * 100) : 0);
+      const gradeLabels: (string | string[])[] = ['A', 'B', 'C', 'D', 'E', ['Not', 'Classified']];
+
+      const stats: Record<string, { total: number; visited: number; unvisited: number; coveragePct: number }> = {};
+      allGrades.forEach((g) => {
+        const outletsInGrade = masterOutlets.filter((o: any) => {
+          const ogr = ['A', 'B', 'C', 'D', 'E'].includes(o.dairyGr) ? o.dairyGr : '-';
+          return ogr === g;
+        });
+
+        const masterTotal = outletsInGrade.length;
+        const visitedMasterCount = outletsInGrade.filter((o: any) => visitedOutletKeys.has(o.code) || visitedOutletKeys.has(o.name) || visitedOutletKeys.has(o.id)).length;
+        const visitedRowsCount = (visitedByGrade[g] || new Set()).size;
+
+        const visited = Math.max(visitedMasterCount, visitedRowsCount);
+        const total = Math.max(masterTotal, visited);
+        const unvisited = Math.max(0, total - visited);
+        const coveragePct = total > 0 ? Math.round((visited / total) * 100) : 0;
+
+        stats[g] = { total, visited, unvisited, coveragePct };
+      });
+
+      const maxTotal = Math.max(...allGrades.map((g) => stats[g]?.total || 0), 10);
+      const yMax = Math.ceil((maxTotal * 1.25) / 50) * 50;
 
       chartsRef.current.cClassDairy = new Chart(canvasClassDairyRef.current, {
         type: 'bar',
@@ -1235,23 +1453,127 @@ export default function AdminDashboardPage() {
           labels: gradeLabels,
           datasets: [
             {
-              label: 'Visits',
-              data: allGrades.map((g) => classPctDairy(cld[g] || 0)),
-              backgroundColor: allGrades.map((g) => g === '-' ? '#9aa9b4' : GCOL[g]),
-              borderRadius: 6,
+              label: 'Visited Outlets',
+              data: allGrades.map((g) => stats[g].visited),
+              backgroundColor: '#10b981',
+              hoverBackgroundColor: '#059669',
+              borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 4, bottomRight: 4 },
+              borderSkipped: false,
+              stack: 'dairyStack',
+              barPercentage: 0.62,
+              categoryPercentage: 0.8,
+            },
+            {
+              label: 'Unvisited Outlets',
+              data: allGrades.map((g) => stats[g].unvisited),
+              backgroundColor: theme === 'dark' ? '#334155' : '#cbd5e1',
+              hoverBackgroundColor: theme === 'dark' ? '#475569' : '#94a3b8',
+              borderRadius: { topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0 },
+              borderSkipped: false,
+              stack: 'dairyStack',
+              barPercentage: 0.62,
+              categoryPercentage: 0.8,
             },
           ],
         },
-        plugins: [createBarPctLabelPlugin()],
+        plugins: [
+          {
+            id: 'dairyStackedBarLabels',
+            afterDatasetsDraw(chart: any) {
+              const { ctx } = chart;
+              const meta0 = chart.getDatasetMeta(0);
+              const meta1 = chart.getDatasetMeta(1);
+              if (!meta0 || !meta1) return;
+
+              allGrades.forEach((g, i) => {
+                const s = stats[g];
+                if (!s || s.total === 0) return;
+
+                const bar0 = meta0.data[i];
+                const bar1 = meta1.data[i];
+                const topBar = s.unvisited > 0 && bar1 ? bar1 : bar0;
+                if (!topBar) return;
+
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+
+                // Line 1: Coverage %
+                ctx.font = '700 11px Inter, sans-serif';
+                ctx.fillStyle = s.coveragePct >= 50
+                  ? (theme === 'dark' ? '#34d399' : '#059669')
+                  : (theme === 'dark' ? '#fbbf24' : '#d97706');
+                ctx.fillText(`${s.coveragePct}%`, topBar.x, topBar.y - 14);
+
+                // Line 2: Ratio (visited/total)
+                ctx.font = '600 9.5px Inter, sans-serif';
+                ctx.fillStyle = theme === 'dark' ? '#94a3b8' : '#64748b';
+                ctx.fillText(`${s.visited}/${s.total}`, topBar.x, topBar.y - 2);
+
+                ctx.restore();
+              });
+            },
+          },
+        ],
         options: {
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 20, bottom: 4, left: 4, right: 6 },
+          },
           plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.raw}% of ${classTotalDairy} visits` } },
+            legend: {
+              display: true,
+              position: 'top',
+              align: 'end',
+              labels: {
+                color: textColor,
+                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
+                boxWidth: 8,
+                boxHeight: 8,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                padding: 10,
+              },
+            },
+            tooltip: {
+              backgroundColor: theme === 'dark' ? '#1e293b' : '#0f172a',
+              titleColor: '#ffffff',
+              bodyColor: '#e2e8f0',
+              borderColor: theme === 'dark' ? '#334155' : '#475569',
+              borderWidth: 1,
+              padding: 10,
+              callbacks: {
+                title: (items: any[]) => {
+                  const raw = items[0]?.label;
+                  const label = Array.isArray(raw) ? raw.join(' ') : String(raw || '');
+                  return `Classification · Dairy: ${label === 'Not Classified' ? 'Not Classified' : `Class ${label}`}`;
+                },
+                label: (ctx: any) => {
+                  const g = allGrades[ctx.dataIndex];
+                  const s = stats[g];
+                  if (!s) return '';
+                  if (ctx.datasetIndex === 0) {
+                    return ` Visited Outlets: ${s.visited.toLocaleString()} (${s.coveragePct}% coverage)`;
+                  }
+                  return ` Unvisited Outlets: ${s.unvisited.toLocaleString()}`;
+                },
+                afterBody: (items: any[]) => {
+                  const g = allGrades[items[0]?.dataIndex];
+                  const s = stats[g];
+                  if (!s) return [];
+                  return [
+                    '───────────────────────',
+                    ` Total Outlets: ${s.total.toLocaleString()}`,
+                    ` Outlet Visit Coverage: ${s.coveragePct}% (${s.visited}/${s.total})`,
+                  ];
+                },
+              },
+            },
           },
           onClick: (e, el, chart) => {
             if (el.length > 0 && allowedReports.includes('classification')) {
-              const label = (chart.data.labels?.[el[0].index] ?? '') as string;
+              const rawLabel = chart.data.labels?.[el[0].index];
+              const label = Array.isArray(rawLabel) ? rawLabel.join(' ') : String(rawLabel ?? '');
               const classValue = label === 'Not Classified' ? '-' : label;
               const matched = (reportRows.classificationDairy || []).filter((row: any) => row.class === classValue && visitLookup.has(row.visitId));
               setReportModalType('classification');
@@ -1266,13 +1588,34 @@ export default function AdminDashboardPage() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
-            y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: (v: any) => `${v}%` } },
+            x: {
+              stacked: true,
+              grid: { display: false },
+              ticks: {
+                color: textColor,
+                maxRotation: 0,
+                minRotation: 0,
+                autoSkip: false,
+                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
+              },
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              suggestedMax: yMax,
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                precision: 0,
+                font: { family: 'Inter, sans-serif', size: 10 },
+              },
+            },
           },
         },
       });
     }
 
+    /*
     if (canvasClassIceRef.current) {
       if (chartsRef.current.cClassIce) chartsRef.current.cClassIce.destroy();
       const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
@@ -1326,7 +1669,8 @@ export default function AdminDashboardPage() {
         },
       });
     }
-  }, [filtered, filteredForClassCharts, filteredNpdRows, isLoading, theme]);
+    */
+  }, [filtered, filteredForClassCharts, filteredNpdRows, isLoading, theme, masters, fMgr, fSuper, fChannel, fRoute, fCust]);
 
   if (isLoading) {
     return (
@@ -1720,7 +2064,7 @@ export default function AdminDashboardPage() {
             </select>
           </div>
 
-          <div className="fld">
+          {/* <div className="fld">
             <label>Channel</label>
             <select value={fChannel} onChange={(e) => {
               setFChannel(e.target.value);
@@ -1732,7 +2076,7 @@ export default function AdminDashboardPage() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-          </div>
+          </div> */}
 
           <div className="fld">
             <label>Classification</label>
@@ -1770,7 +2114,7 @@ export default function AdminDashboardPage() {
             </select>
           </div>
 
-          <div className="fld">
+          {/* <div className="fld">
             <label>Asset Category</label>
             <select
               value={fAssetCategory}
@@ -1784,9 +2128,9 @@ export default function AdminDashboardPage() {
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
-          </div>
+          </div> */}
 
-          <div className="fld min-w-[190px]">
+          {/* <div className="fld min-w-[190px]">
             <label>Size / Model</label>
             <MultiSelectDropdown
               placeholder="Select Size/Model"
@@ -1794,11 +2138,11 @@ export default function AdminDashboardPage() {
               selectedValues={fSizeModels}
               onChange={setFSizeModels}
             />
-          </div>
+          </div> */}
 
           <button className="reset" onClick={resetFilters}>Reset</button>
 
-          <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" />
+          {/* <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" /> */}
 
           <div className="live-badge">
             <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
@@ -1841,57 +2185,20 @@ export default function AdminDashboardPage() {
             <div className="val">{breachesCount}</div>
             <div className="delta">{breachPct}</div>
           </div>
-          <div className="kpi g">
+          {/* <div className="kpi g">
             <div className="lbl">FEFO Compliance</div>
             <div className="val">{fefoPct}</div>
             <div className="delta">assets following FEFO</div>
-          </div>
+          </div> */}
         </div>
 
-        {/* No Visit Details */}
-        {noVisitRows.length > 0 && (
-          <div className="panel" style={{ marginBottom: '12px' }}>
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3>No Visit Details</h3>
-                <div className="psub">Skipped outlet visits with recorded reasons</div>
-              </div>
-              <ExportButton onClick={handleExportNoVisits} label="Export Excel" variant="compact" />
-            </div>
-            <div className="overflow-x-auto" style={{ marginTop: '10px' }}>
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-soft)' }}>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Date</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Supervisor</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Route</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Outlet</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {noVisitRows.map((row: any) => (
-                    <tr key={row.visitId} style={{ borderBottom: '1px solid var(--border-soft)' }}>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-secondary)' }}>{new Date(row.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{row.sup}</td>
-                      <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{row.rt || '—'}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{row.cust || '—'}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-secondary)' }}>{row.reasonCategory || row.reason || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
         {/* Chart Row 1 */}
-        <div className="grid">
+        <div style={{ marginBottom: '16px' }}>
           <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Visits Over Time</h3>
-                <div className="psub">Weekly visits (filtered)</div>
+                <div className="psub">Daily visits (filtered)</div>
               </div>
               <ExportButton onClick={handleExportTrendChart} label="Export" variant="compact" />
             </div>
@@ -1899,7 +2206,7 @@ export default function AdminDashboardPage() {
               <canvas ref={canvasTrendRef}></canvas>
             </div>
           </div>
-          <div className="panel">
+          {/* <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Visits by Channel</h3>
@@ -1910,7 +2217,7 @@ export default function AdminDashboardPage() {
             <div className="chart-sm">
               <canvas ref={canvasChannelRef}></canvas>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Chart Row 2 */}
@@ -1942,8 +2249,8 @@ export default function AdminDashboardPage() {
         </div>
  
         {/* Chart Row 3 */}
-        <div className="grid3">
-          <div className="panel">
+        <div className="grid" style={{ gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 1.5fr)' }}>
+          {/* <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>NPD Availability</h3>
@@ -1954,7 +2261,7 @@ export default function AdminDashboardPage() {
             <div className="chart-sm">
               <canvas ref={canvasNpdRef}></canvas>
             </div>
-          </div>
+          </div> */}
           <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -1963,7 +2270,7 @@ export default function AdminDashboardPage() {
               </div>
               <ExportButton onClick={handleExportPowerSkuChart} label="Export" variant="compact" />
             </div>
-            <div className="chart-sm">
+            <div style={{ position: 'relative', height: '210px' }}>
               <canvas ref={canvasPskuRef}></canvas>
             </div>
           </div>
@@ -1971,15 +2278,15 @@ export default function AdminDashboardPage() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Outlets by Classification · Dairy</h3>
-                <div className="psub">Visit distribution A–E (Dairy)</div>
+                <div className="psub">Outlet visit coverage (Visited vs Unvisited by Class)</div>
               </div>
               <ExportButton onClick={handleExportClassificationDairyChart} label="Export" variant="compact" />
             </div>
-            <div className="chart-sm">
+            <div style={{ position: 'relative', height: '210px' }}>
               <canvas ref={canvasClassDairyRef}></canvas>
             </div>
           </div>
-          <div className="panel">
+          {/* <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Outlets by Classification · Ice Cream</h3>
@@ -1990,7 +2297,7 @@ export default function AdminDashboardPage() {
             <div className="chart-sm">
               <canvas ref={canvasClassIceRef}></canvas>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Manager Table */}
@@ -2010,7 +2317,7 @@ export default function AdminDashboardPage() {
                   <th>Visits</th>
                   <th>Outlets</th>
                   <th>Temp Breach</th>
-                  <th>FEFO %</th>
+                  {/* <th>FEFO %</th> */}
                 </tr>
               </thead>
               <tbody>
@@ -2027,12 +2334,12 @@ export default function AdminDashboardPage() {
                           <span className="pill g">0</span>
                         )}
                       </td>
-                      <td>{x.v ? Math.round((x.f / x.v) * 100) : 0}%</td>
+                      {/* <td>{x.v ? Math.round((x.f / x.v) * 100) : 0}%</td> */}
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', color: '#5a7085', padding: '20px' }}>
+                    <td colSpan={4} style={{ textAlign: 'center', color: '#5a7085', padding: '20px' }}>
                       No data for this filter
                     </td>
                   </tr>
@@ -2109,7 +2416,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Audit Photo Gallery Section with Pagination */}
-        <PhotoGallerySection
+        {/* <PhotoGallerySection
           photos={photos}
           fFrom={fFrom}
           fTo={fTo}
@@ -2118,7 +2425,7 @@ export default function AdminDashboardPage() {
           fChannel={fChannel}
           fCust={fCust}
           fRoute={fRoute}
-        />
+        /> */}
 
         {/* Footer */}
         <div className="foot">
