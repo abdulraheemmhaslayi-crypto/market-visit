@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
 
     // Map raw photos with metadata
     const sampleApps = ['Chrome', 'Edge', 'VS Code', 'Field Audit'];
-    const allEnrichedPhotos = photosRaw.map((p: any, idx: number) => {
+    let allEnrichedPhotos = photosRaw.map((p: any, idx: number) => {
       const visit = visitMap.get(p.visitId);
       const [custCodeRaw, routeCodeRaw] = visit ? (visit.cust_rt_id || '').split('|') : ['', ''];
       const routeCode = routeCodeRaw || (visit ? visit.routeCode : '') || '';
