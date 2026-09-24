@@ -4,6 +4,7 @@ export interface MasterCache {
   timestamp: number;
   customers: any[];
   customerMap: Map<string, any>;
+  customerCodeMap?: Map<string, any>;
   uniqueCustomers: { customerName: string; routeCode: string }[];
   routeRows: any[];
   routeMap: Map<string, any>;
@@ -14,6 +15,7 @@ export interface MasterCache {
   powerSkuMap: Map<string, any>;
   dbUsers: any[];
   userMap: Map<string, { name: string; managerName: string }>;
+  [key: string]: any;
 }
 
 let masterCache: MasterCache | null = null;

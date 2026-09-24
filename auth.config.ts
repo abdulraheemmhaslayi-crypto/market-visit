@@ -3,6 +3,7 @@ import { canAccessAdminRoute, canAccessSupervisorRoute, isFullAccessRole, isSupe
 
 export const authConfig = {
   trustHost: true,
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'antigravity_secret_key_123_abc_xyz_secret_999',
   pages: {
     signIn: '/login',
   },

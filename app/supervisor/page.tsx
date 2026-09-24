@@ -202,34 +202,61 @@ export default function SupervisorDashboard() {
     return Array.from(new Set(filteredByDate.map((r) => r.ch))).sort();
   }, [rows, fFrom, fTo]);
 
-  // 2. Customer / Outlet Options: strictly from masters, filtered by Route Code if selected
+  // 2. Customer / Outlet Options: strictly from masters, filtered by Route Code or Supervisor if selected
   const custOptions = useMemo<string[]>(() => {
     if (!masters) return [];
     let list = masters.customers || [];
     if (fRoute) {
-      list = list.filter((c: any) => c.routeCode === fRoute);
+      list = list.filter((c: any) => (c.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase());
+    } else if (fSuper) {
+      const supRoutes = new Set(
+        (masters.routes || [])
+          .filter((r: any) => (r.superName || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase())
+          .map((r: any) => (r.routeCode || '').toString().trim().toUpperCase())
+      );
+      list = list.filter((c: any) => supRoutes.has((c.routeCode || '').toString().trim().toUpperCase()));
     }
-    return Array.from(new Set(list.map((c: any) => c.customerName))).sort() as string[];
-  }, [masters, fRoute]);
+    return Array.from(new Set(list.map((c: any) => c.customerName).filter(Boolean))).sort() as string[];
+  }, [masters, fRoute, fSuper]);
 
   const classOptions = useMemo(() => {
-    const filteredByChannel = rows.filter(r => {
-      const rowDate = new Date(r.createdAt);
-      const from = normalizeDate(fFrom);
-      const to = normalizeDate(fTo);
-      const fromOk = !from || rowDate >= from;
-      const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      return (!fChannel || r.ch === fChannel) && fromOk && toOk;
-    });
-    return Array.from(new Set(filteredByChannel.map((r) => r.gr))).sort();
-  }, [rows, fChannel, fFrom, fTo]);
+    if (!masters) return ['A', 'B', 'C', 'D', 'E'];
+    if (fRoute || fSuper || fMgr) {
+      let custs = masters.customers || [];
+      if (fRoute) {
+        custs = custs.filter((c: any) => (c.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase());
+      } else if (fSuper) {
+        const supRoutes = new Set(
+          (masters.routes || [])
+            .filter((r: any) => (r.superName || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase())
+            .map((r: any) => (r.routeCode || '').toString().trim().toUpperCase())
+        );
+        custs = custs.filter((c: any) => supRoutes.has((c.routeCode || '').toString().trim().toUpperCase()));
+      } else if (fMgr) {
+        const mgrRoutes = new Set(
+          (masters.routes || [])
+            .filter((r: any) => (r.managerName || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase())
+            .map((r: any) => (r.routeCode || '').toString().trim().toUpperCase())
+        );
+        custs = custs.filter((c: any) => mgrRoutes.has((c.routeCode || '').toString().trim().toUpperCase()));
+      }
+      const classes = Array.from(new Set(custs.map((c: any) => c.classification).filter(Boolean))).sort();
+      return classes.length > 0 ? (classes as string[]) : ['A', 'B', 'C', 'D', 'E'];
+    }
+    return (masters.classifications || ['A', 'B', 'C', 'D', 'E']) as string[];
+  }, [masters, fRoute, fSuper, fMgr]);
 
   // Route Code Options strictly from masters
   const routeOptions = useMemo<string[]>(() => {
     if (!masters) return [];
-    const list = masters.routes || [];
-    return Array.from(new Set(list.map((r: any) => r.routeCode))).sort() as string[];
-  }, [masters]);
+    let routes = masters.routes || [];
+    if (fSuper) {
+      routes = routes.filter((r: any) => (r.superName || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase());
+    } else if (fMgr) {
+      routes = routes.filter((r: any) => (r.managerName || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase());
+    }
+    return Array.from(new Set(routes.map((r: any) => r.routeCode).filter((rt: string) => rt && rt !== 'DIS001'))).sort((a: any, b: any) => a.localeCompare(b, undefined, { numeric: true })) as string[];
+  }, [masters, fSuper, fMgr]);
 
   const resetFilters = () => {
     setFFrom('');
@@ -373,13 +400,19 @@ export default function SupervisorDashboard() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
+      const mgrOk = !fMgr || (r.manager || r.mgr || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
+      const superOk = !fSuper || (r.supervisor || r.sup || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const channelOk = !fChannel || (r.channel || r.ch || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
+      const classOk = !fClass || (r.classification || r.class || r.gr || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
+      const custOk = !fCust || (r.outletName || r.cust || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
+      const routeOk = !fRoute || (r.routeCode || r.route || r.rt || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
       return fromOk && toOk
-        && (!fMgr || r.manager === fMgr)
-        && (!fSuper || r.supervisor === fSuper)
-        && (!fChannel || r.channel === fChannel)
-        && (!fClass || r.classification === fClass)
-        && (!fCust || r.outletName === fCust)
-        && (!fRoute || r.routeCode === fRoute)
+        && mgrOk
+        && superOk
+        && channelOk
+        && classOk
+        && custOk
+        && routeOk
         && (!fSku || r.skuName === fSku)
         && (!fVertical || r.businessVertical === fVertical);
     });
@@ -393,14 +426,18 @@ export default function SupervisorDashboard() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      const routeOk = !fRoute || r.rt === fRoute || r.route === fRoute || r.routeCode === fRoute;
-      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && routeOk && fromOk && toOk;
+      const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
+      const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
+      const superOk = !fSuper || (r.sup || r.supervisor || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const classOk = !fClass || (r.gr || r.classification || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
+      const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
+      const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
+      return mgrOk && superOk && channelOk && classOk && custOk && routeOk && fromOk && toOk;
     });
   }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fFrom, fTo]);
 
   // Visit set for the two per-vertical Classification charts: respects Manager,
-  // Supervisor, Channel, and Outlet/Customer, but not the legacy single-value Classification
-  // slicer (which no longer has one meaning now that Dairy and Ice Cream grade independently).
+  // Supervisor, Channel, Outlet/Customer, and Route Code.
   const filteredForClassCharts = useMemo(() => {
     return rows.filter((r) => {
       const rowDate = new Date(r.createdAt);
@@ -408,9 +445,14 @@ export default function SupervisorDashboard() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fCust || r.cust === fCust) && fromOk && toOk;
+      const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
+      const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
+      const superOk = !fSuper || (r.sup || r.supervisor || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
+      const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
+      return mgrOk && superOk && channelOk && custOk && routeOk && fromOk && toOk;
     });
-  }, [rows, fMgr, fSuper, fChannel, fCust, fFrom, fTo]);
+  }, [rows, fMgr, fSuper, fChannel, fCust, fRoute, fFrom, fTo]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
