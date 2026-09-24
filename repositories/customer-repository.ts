@@ -1,5 +1,6 @@
 import { Customer, CustomerRouteMapping } from '@/types';
 import pool from '@/lib/db';
+import { getCustMasterChannel } from '@/lib/custmaster-channel';
 
 let customerSchemaChecked = false;
 
@@ -110,6 +111,26 @@ async function ensureCustomerTableSchema(): Promise<void> {
       // Non-blocking patch check
     }
 
+    // Auto-sync channels from CUSTMASTER Segment_Fin(120MT) if still set to 'General Trade' / 'GENERAL TRADE'
+    try {
+      const [needsSync]: any = await pool.execute(
+        "SELECT `customerCode`, `channel` FROM `Customer` WHERE `channel` IS NULL OR `channel` IN ('General Trade', 'GENERAL TRADE', '', 'GT') LIMIT 200"
+      );
+      if (Array.isArray(needsSync) && needsSync.length > 0) {
+        for (const cRow of needsSync) {
+          const resolved = getCustMasterChannel(cRow.customerCode);
+          if (resolved && resolved !== 'GT' && resolved !== 'General Trade' && resolved !== 'GENERAL TRADE') {
+            await pool.execute(
+              "UPDATE `Customer` SET `channel` = ? WHERE `customerCode` = ?",
+              [resolved, cRow.customerCode]
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Non-blocking sync
+    }
+
     customerSchemaChecked = true;
   } catch (err) {
     console.error('Failed to ensure Customer table schema:', err);
@@ -121,6 +142,12 @@ function mapRowToCustomer(row: any): Customer {
   const ice = row.iceCreamClassification ?? row.ice_cream_classification ?? null;
   const fallbackClass = (row.classification && row.classification !== 'D') ? row.classification : null;
 
+  const masterCh = getCustMasterChannel(row.customerCode, '');
+  let ch = masterCh || row.channel || '';
+  if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch === 'GT' || ch.toUpperCase() === 'GENERAL STORE') {
+    ch = 'GT';
+  }
+
   return {
     cust_rt_id: row.cust_rt_id || `${row.customerCode}|${row.routeCode || ''}`,
     customerCode: row.customerCode,
@@ -128,7 +155,7 @@ function mapRowToCustomer(row: any): Customer {
     classification: fallbackClass || dairy || ice || 'E',
     dairyClassification: dairy !== null && dairy !== undefined && dairy !== '' ? dairy : (fallbackClass || null),
     iceCreamClassification: ice !== null && ice !== undefined && ice !== '' ? ice : (fallbackClass || null),
-    channel: row.channel || 'General Trade',
+    channel: ch,
     routeCode: row.routeCode || '',
   };
 }

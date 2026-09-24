@@ -4,6 +4,7 @@ import { visitRepository } from '@/repositories/visit-repository';
 import { customerRepository } from '@/repositories/customer-repository';
 import pool from '@/lib/db';
 import { getDashboardScope, isFleetRole, isFullAccessRole, isSupervisorRole, isReportAllowed } from '@/lib/roles';
+import { getCustMasterChannel } from '@/lib/custmaster-channel';
 
 let dashboardSchemaChecked = false;
 async function ensureDashboardSchema() {
@@ -520,9 +521,26 @@ export async function GET(req: NextRequest) {
     // Photos payload
     const photos = photosRaw.map((p: any) => {
       const visit = filteredVisits.find((v: any) => v.visitId === p.visitId);
-      const customer = visit ? customerMap.get(visit.cust_rt_id || '') : null;
-      const [_, routeCode] = visit ? (visit.cust_rt_id || '').split('|') : ['', ''];
+      const [custCodeRaw, routeCodeRaw] = visit ? (visit.cust_rt_id || '').split('|') : ['', ''];
+      const routeCode = routeCodeRaw || (visit ? visit.routeCode : '') || '';
+      const customerCode = custCodeRaw || (visit ? visit.customerCode : '') || '';
+      const cleanCustCode = customerCode.trim().toUpperCase();
+
+      const customer = visit
+        ? (customerMap.get(visit.cust_rt_id || '') ||
+           customerMap.get(`${cleanCustCode}|${routeCode}`) ||
+           customerMap.get(`${routeCode}|${cleanCustCode}`) ||
+           customerMap.get(cleanCustCode))
+        : null;
+
       const routeInfo = routeMap.get(routeCode || (visit ? visit.routeCode : '') || '');
+
+      const candidateCode = cleanCustCode || (customer ? customer.customerCode : '') || (routeCodeRaw?.toUpperCase().startsWith('C') ? routeCodeRaw : '');
+      const masterCh = getCustMasterChannel(candidateCode, '');
+      let ch = masterCh || customer?.channel || '';
+      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE') {
+        ch = 'GT';
+      }
 
       return {
         photoId: p.photoId,
@@ -535,7 +553,7 @@ export async function GET(req: NextRequest) {
         manager: routeInfo ? (routeInfo.managerName || 'Unassigned') : 'Unassigned',
         outlet: customer ? customer.customerName : 'Unknown Outlet',
         route: routeCode || 'N/A',
-        channel: customer ? customer.channel : 'GT',
+        channel: ch,
       };
     });
 

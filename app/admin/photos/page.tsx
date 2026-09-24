@@ -371,11 +371,10 @@ export default function AuditPhotoGalleryPage() {
                   setSelectedDate(getTodayStr());
                   setCurrentPage(1);
                 }}
-                className={`flex-1 text-[11px] font-semibold py-2 px-2.5 rounded-xl border transition-all cursor-pointer ${
-                  selectedDate === getTodayStr()
+                className={`flex-1 text-[11px] font-semibold py-2 px-2.5 rounded-xl border transition-all cursor-pointer ${selectedDate === getTodayStr()
                     ? 'bg-accent text-white border-accent'
                     : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
-                }`}
+                  }`}
               >
                 Today
               </button>
@@ -384,11 +383,10 @@ export default function AuditPhotoGalleryPage() {
                   setSelectedDate('');
                   setCurrentPage(1);
                 }}
-                className={`flex-1 text-[11px] font-semibold py-2 px-2.5 rounded-xl border transition-all cursor-pointer ${
-                  !selectedDate
+                className={`flex-1 text-[11px] font-semibold py-2 px-2.5 rounded-xl border transition-all cursor-pointer ${!selectedDate
                     ? 'bg-accent text-white border-accent'
                     : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
-                }`}
+                  }`}
               >
                 All Dates
               </button>
@@ -503,9 +501,16 @@ export default function AuditPhotoGalleryPage() {
                   </div>
 
                   <div className="pt-2.5 border-t border-[var(--border-soft)] flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> Route: {photo.route || 'N/A'}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" /> {photo.route || 'N/A'}
+                      </span>
+                      {photo.channel && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-accent/10 text-accent border border-accent/20">
+                          {photo.channel}
+                        </span>
+                      )}
+                    </div>
                     <span className="flex items-center gap-1 font-mono">
                       <Calendar className="h-3 w-3 text-accent" /> {formattedDate} {formattedTime}
                     </span>
@@ -573,11 +578,10 @@ export default function AuditPhotoGalleryPage() {
                     key={pNum}
                     type="button"
                     onClick={() => setCurrentPage(pNum)}
-                    className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                      isActive
+                    className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${isActive
                         ? 'bg-accent text-white shadow-md shadow-accent/20 scale-105'
                         : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)] hover:text-[var(--text-primary)]'
-                    }`}
+                      }`}
                   >
                     {pNum}
                   </button>
