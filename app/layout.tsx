@@ -6,6 +6,7 @@ import { ToastProvider } from '@/components/ui/toast';
 import QueryProvider from '@/providers/query-provider';
 import { SessionProvider } from 'next-auth/react';
 import PWARegister from '@/components/pwa-register';
+import { DataTrackerProvider } from '@/providers/data-tracker-provider';
 
 const inter = Inter({
   variable: '--font-sans',
@@ -54,11 +55,13 @@ export default function RootLayout({
       <body className={`${inter.variable} ${calistoga.variable} ${jetbrainsMono.variable} antialiased h-full`} suppressHydrationWarning>
         <PWARegister />
         <SessionProvider>
-          <QueryProvider>
-            <ThemeProvider>
-              <ToastProvider>{children}</ToastProvider>
-            </ThemeProvider>
-          </QueryProvider>
+          <DataTrackerProvider>
+            <QueryProvider>
+              <ThemeProvider>
+                <ToastProvider>{children}</ToastProvider>
+              </ThemeProvider>
+            </QueryProvider>
+          </DataTrackerProvider>
         </SessionProvider>
       </body>
     </html>

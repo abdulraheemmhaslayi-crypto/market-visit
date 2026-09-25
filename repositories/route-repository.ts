@@ -18,49 +18,47 @@ async function ensureRouteTableSchema(): Promise<void> {
   if (routeSchemaChecked) return;
   try {
     await pool.execute(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Manager' and xtype='U')
-      CREATE TABLE \`Manager\` (
+      CREATE TABLE IF NOT EXISTS \`Manager\` (
         \`id\` VARCHAR(191) PRIMARY KEY,
         \`name\` VARCHAR(191) UNIQUE NOT NULL
-      );
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     await pool.execute(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Route' and xtype='U')
-      CREATE TABLE \`Route\` (
+      CREATE TABLE IF NOT EXISTS \`Route\` (
         \`routeCode\` VARCHAR(191) PRIMARY KEY,
         \`routeName\` VARCHAR(191) NOT NULL,
         \`channel\` VARCHAR(191) NOT NULL DEFAULT 'GT',
         \`supervisorId\` VARCHAR(191) NULL,
         \`managerId\` VARCHAR(191) NULL,
         \`superName\` VARCHAR(191) NULL
-      );
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     const [columnsResult]: any = await pool.execute(
-      "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Route'"
+      "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Route'"
     );
     const existingColumns = new Set((columnsResult as any[]).map((row: any) => row.COLUMN_NAME));
 
     const migrations: string[] = [];
     if (!existingColumns.has('channel')) {
-      migrations.push("ALTER TABLE \`Route\` ADD \`channel\` VARCHAR(191) NOT NULL DEFAULT 'GT'");
+      migrations.push("ALTER TABLE `Route` ADD COLUMN `channel` VARCHAR(191) NOT NULL DEFAULT 'GT'");
     }
     if (!existingColumns.has('supervisorId')) {
-      migrations.push("ALTER TABLE \`Route\` ADD \`supervisorId\` VARCHAR(191) NULL");
+      migrations.push("ALTER TABLE `Route` ADD COLUMN `supervisorId` VARCHAR(191) NULL");
     }
     if (!existingColumns.has('managerId')) {
-      migrations.push("ALTER TABLE \`Route\` ADD \`managerId\` VARCHAR(191) NULL");
+      migrations.push("ALTER TABLE `Route` ADD COLUMN `managerId` VARCHAR(191) NULL");
     }
     if (!existingColumns.has('superName')) {
-      migrations.push("ALTER TABLE \`Route\` ADD \`superName\` VARCHAR(191) NULL");
+      migrations.push("ALTER TABLE `Route` ADD COLUMN `superName` VARCHAR(191) NULL");
     }
 
     for (const migration of migrations) {
       try {
         await pool.execute(migration);
       } catch (error: any) {
-        if (!/already exists|duplicate column/i.test(error.message || '')) {
+        if (!/duplicate column|already exists|doesn't exist|Unknown column/i.test(error.message || '')) {
           // ignore duplicate column errors
         }
       }
@@ -86,7 +84,7 @@ export const routeRepository = {
 
     if (supervisorName) {
       const normalizedName = supervisorName.trim().toLowerCase().replace(/\s+/g, '');
-      sql += ' OR (LOWER(REPLACE(ISNULL(`superName`, \'\'), \' \', \'\')) = ?)';
+      sql += ' OR (LOWER(REPLACE(IFNULL(`superName`, \'\'), \' \', \'\')) = ?)';
       params.push(normalizedName);
     }
     const [rows]: any = await pool.execute(sql, params);
@@ -133,19 +131,14 @@ export const routeRepository = {
       const superName = route.superName || null;
 
       const [res]: any = await pool.execute(
-        `MERGE INTO \`Route\` AS target
-         USING (SELECT ? AS routeCode, ? AS routeName, ? AS channel, ? AS supervisorId, ? AS managerId, ? AS superName) AS source
-         ON target.routeCode = source.routeCode
-         WHEN MATCHED THEN
-           UPDATE SET
-             \`routeName\` = source.routeName,
-             \`channel\` = source.channel,
-             \`supervisorId\` = source.supervisorId,
-             \`managerId\` = source.managerId,
-             \`superName\` = source.superName
-         WHEN NOT MATCHED THEN
-           INSERT (\`routeCode\`, \`routeName\`, \`channel\`, \`supervisorId\`, \`managerId\`, \`superName\`)
-           VALUES (source.routeCode, source.routeName, source.channel, source.supervisorId, source.managerId, source.superName);`,
+        `INSERT INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`, \`supervisorId\`, \`managerId\`, \`superName\`)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           \`routeName\` = VALUES(\`routeName\`),
+           \`channel\` = VALUES(\`channel\`),
+           \`supervisorId\` = VALUES(\`supervisorId\`),
+           \`managerId\` = VALUES(\`managerId\`),
+           \`superName\` = VALUES(\`superName\`)`,
         [route.routeCode, route.routeName, channel, supervisorId, managerId, superName]
       );
       if (res.affectedRows === 1) {

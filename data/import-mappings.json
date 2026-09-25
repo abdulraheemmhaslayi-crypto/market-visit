@@ -57,10 +57,46 @@
     "class_code"
   ],
   "Channel": [
+    "segment_fin(120mt)",
+    "segmentfin120mt",
+    "segment_fin_120",
+    "segmentfin120",
+    "segment_fin",
+    "segmentfin",
+    "segment fin 120",
+    "segment fin",
     "channel",
     "subchannel",
     "tradechannel",
     "marketsegment",
     "sub_channel"
+  ],
+  "Super": [
+    "super",
+    "supervisor",
+    "supername",
+    "supervisorname",
+    "super_name"
+  ],
+  "Manager": [
+    "manager",
+    "mgr",
+    "mngr",
+    "managername",
+    "manager_name"
+  ],
+  "Type": [
+    "type",
+    "skutype",
+    "itemtype",
+    "sku_type",
+    "category_type"
+  ],
+  "BusinessVertical": [
+    "businessvertical",
+    "vertical",
+    "productvertical",
+    "bu",
+    "business_vertical"
   ]
 }

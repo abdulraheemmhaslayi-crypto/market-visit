@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
     "http://localhost:3000",
   ],
   output: "standalone",
+  env: {
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",

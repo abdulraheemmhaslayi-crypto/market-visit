@@ -3,7 +3,7 @@ import pool from '@/lib/db';
 
 async function ensureUserRoleColumn() {
   try {
-    await pool.execute('ALTER TABLE `User` ALTER COLUMN `role` VARCHAR(50) NOT NULL');
+    await pool.execute('ALTER TABLE `User` MODIFY COLUMN `role` VARCHAR(50) NOT NULL');
   } catch (error: any) {
     const message = error?.message || '';
     if (message.includes('doesn\'t exist') || message.includes('Unknown column')) {
@@ -30,7 +30,7 @@ function mapRowToUser(row: any): User {
 export const userRepository = {
   async getUserByEmail(email: string): Promise<User | null> {
     const [rows]: any = await pool.execute(
-      'SELECT TOP 1 * FROM `User` WHERE LOWER(`email`) = LOWER(?)',
+      'SELECT * FROM `User` WHERE LOWER(`email`) = LOWER(?) LIMIT 1',
       [email]
     );
     if (rows.length === 0) return null;
@@ -39,7 +39,7 @@ export const userRepository = {
 
   async getUserByEmployeeCode(code: string): Promise<User | null> {
     const [rows]: any = await pool.execute(
-      'SELECT TOP 1 * FROM `User` WHERE `employeeCode` = ?',
+      'SELECT * FROM `User` WHERE `employeeCode` = ? LIMIT 1',
       [code]
     );
     if (rows.length === 0) return null;
@@ -48,7 +48,7 @@ export const userRepository = {
 
   async getUserById(id: string): Promise<User | null> {
     const [rows]: any = await pool.execute(
-      'SELECT TOP 1 * FROM `User` WHERE `id` = ?',
+      'SELECT * FROM `User` WHERE `id` = ? LIMIT 1',
       [id]
     );
     if (rows.length === 0) return null;

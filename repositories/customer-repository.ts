@@ -1,5 +1,6 @@
 import { Customer, CustomerRouteMapping } from '@/types';
 import pool from '@/lib/db';
+import { getCustMasterChannel } from '@/lib/custmaster-channel';
 
 let customerSchemaChecked = false;
 
@@ -7,29 +8,29 @@ async function ensureCustomerTableSchema(): Promise<void> {
   if (customerSchemaChecked) return;
   try {
     const [columnsResult]: any = await pool.execute(
-      "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Customer'"
+      "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Customer'"
     );
     const existingColumns = new Set((columnsResult as any[]).map((row: any) => row.COLUMN_NAME));
 
     const migrations: string[] = [];
     if (!existingColumns.has('cust_rt_id')) {
-      migrations.push("ALTER TABLE `Customer` ADD `cust_rt_id` VARCHAR(191) NULL");
+      migrations.push("ALTER TABLE `Customer` ADD COLUMN `cust_rt_id` VARCHAR(191) NULL");
     }
     if (!existingColumns.has('routeCode')) {
-      migrations.push("ALTER TABLE `Customer` ADD `routeCode` VARCHAR(191) NULL");
+      migrations.push("ALTER TABLE `Customer` ADD COLUMN `routeCode` VARCHAR(191) NULL");
     }
     if (!existingColumns.has('dairyClassification')) {
-      migrations.push("ALTER TABLE `Customer` ADD `dairyClassification` VARCHAR(50) NULL");
+      migrations.push("ALTER TABLE `Customer` ADD COLUMN `dairyClassification` VARCHAR(50) NULL");
     }
     if (!existingColumns.has('iceCreamClassification')) {
-      migrations.push("ALTER TABLE `Customer` ADD `iceCreamClassification` VARCHAR(50) NULL");
+      migrations.push("ALTER TABLE `Customer` ADD COLUMN `iceCreamClassification` VARCHAR(50) NULL");
     }
 
     for (const migration of migrations) {
       try {
         await pool.execute(migration);
       } catch (error: any) {
-        if (!/already exists|duplicate column/i.test(error.message || '')) {
+        if (!/duplicate column|already exists|doesn't exist|Unknown column/i.test(error.message || '')) {
           // ignore duplicate column errors
         }
       }
@@ -38,11 +39,11 @@ async function ensureCustomerTableSchema(): Promise<void> {
     // Ensure CustomerRouteMapping has cust_rt_id column
     try {
       const [crmColumnsResult]: any = await pool.execute(
-        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'CustomerRouteMapping'"
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CustomerRouteMapping'"
       );
       const existingCrmColumns = new Set((crmColumnsResult as any[]).map((row: any) => row.COLUMN_NAME));
       if (!existingCrmColumns.has('cust_rt_id')) {
-        await pool.execute("ALTER TABLE `CustomerRouteMapping` ADD `cust_rt_id` VARCHAR(191) NULL");
+        await pool.execute("ALTER TABLE `CustomerRouteMapping` ADD COLUMN `cust_rt_id` VARCHAR(191) NULL");
       }
     } catch (e) {
       // Non-blocking schema check
@@ -51,21 +52,16 @@ async function ensureCustomerTableSchema(): Promise<void> {
     // Create dedicated relational table Customer_Classification if it doesn't exist
     try {
       await pool.execute(`
-        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Customer_Classification' and xtype='U')
-        CREATE TABLE \`Customer_Classification\` (
-          \`id\` INT IDENTITY(1,1) PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS \`Customer_Classification\` (
+          \`id\` INT AUTO_INCREMENT PRIMARY KEY,
           \`customerCode\` VARCHAR(191) NOT NULL,
           \`businessVertical\` VARCHAR(50) NOT NULL,
           \`classification\` VARCHAR(50) NOT NULL,
           \`channel\` VARCHAR(100) NULL,
-          \`updatedAt\` DATETIME DEFAULT GETDATE(),
-          CONSTRAINT uk_customer_vertical UNIQUE (\`customerCode\`, \`businessVertical\`)
-        );
-      `);
-      
-      await pool.execute(`
-        IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='idx_cust_class_code' AND object_id = OBJECT_ID('Customer_Classification'))
-        CREATE INDEX \`idx_cust_class_code\` ON \`Customer_Classification\` (\`customerCode\`);
+          \`updatedAt\` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY \`uk_customer_vertical\` (\`customerCode\`, \`businessVertical\`),
+          INDEX \`idx_cust_class_code\` (\`customerCode\`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
     } catch (e) {
       // Non-blocking schema check
@@ -101,24 +97,38 @@ async function ensureCustomerTableSchema(): Promise<void> {
           [p.dairy, p.ice, p.dairy, codeClean, altCode]
         );
         await pool.execute(
-          `MERGE INTO \`Customer_Classification\` WITH (HOLDLOCK) AS target
-           USING (SELECT ? AS customerCode, 'Dairy' AS businessVertical, ? AS classification) AS source
-           ON target.customerCode = source.customerCode AND target.businessVertical = source.businessVertical
-           WHEN NOT MATCHED THEN 
-             INSERT (customerCode, businessVertical, classification) VALUES (source.customerCode, source.businessVertical, source.classification);`,
+          `INSERT IGNORE INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`)
+           VALUES (?, 'Dairy', ?)`,
           [p.code, p.dairy]
         );
         await pool.execute(
-          `MERGE INTO \`Customer_Classification\` WITH (HOLDLOCK) AS target
-           USING (SELECT ? AS customerCode, 'Ice Cream' AS businessVertical, ? AS classification) AS source
-           ON target.customerCode = source.customerCode AND target.businessVertical = source.businessVertical
-           WHEN NOT MATCHED THEN 
-             INSERT (customerCode, businessVertical, classification) VALUES (source.customerCode, source.businessVertical, source.classification);`,
+          `INSERT IGNORE INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`)
+           VALUES (?, 'Ice Cream', ?)`,
           [p.code, p.ice]
         );
       }
     } catch (e) {
       // Non-blocking patch check
+    }
+
+    // Auto-sync channels from CUSTMASTER Segment_Fin(120MT) if still set to 'General Trade' / 'GENERAL TRADE'
+    try {
+      const [needsSync]: any = await pool.execute(
+        "SELECT `customerCode`, `channel` FROM `Customer` WHERE `channel` IS NULL OR `channel` IN ('General Trade', 'GENERAL TRADE', '', 'GT') LIMIT 200"
+      );
+      if (Array.isArray(needsSync) && needsSync.length > 0) {
+        for (const cRow of needsSync) {
+          const resolved = getCustMasterChannel(cRow.customerCode);
+          if (resolved && resolved !== 'GT' && resolved !== 'General Trade' && resolved !== 'GENERAL TRADE') {
+            await pool.execute(
+              "UPDATE `Customer` SET `channel` = ? WHERE `customerCode` = ?",
+              [resolved, cRow.customerCode]
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Non-blocking sync
     }
 
     customerSchemaChecked = true;
@@ -132,6 +142,12 @@ function mapRowToCustomer(row: any): Customer {
   const ice = row.iceCreamClassification ?? row.ice_cream_classification ?? null;
   const fallbackClass = (row.classification && row.classification !== 'D') ? row.classification : null;
 
+  const masterCh = getCustMasterChannel(row.customerCode, '');
+  let ch = masterCh || row.channel || '';
+  if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch === 'GT' || ch.toUpperCase() === 'GENERAL STORE') {
+    ch = 'GT';
+  }
+
   return {
     cust_rt_id: row.cust_rt_id || `${row.customerCode}|${row.routeCode || ''}`,
     customerCode: row.customerCode,
@@ -139,7 +155,7 @@ function mapRowToCustomer(row: any): Customer {
     classification: fallbackClass || dairy || ice || 'E',
     dairyClassification: dairy !== null && dairy !== undefined && dairy !== '' ? dairy : (fallbackClass || null),
     iceCreamClassification: ice !== null && ice !== undefined && ice !== '' ? ice : (fallbackClass || null),
-    channel: row.channel || 'General Trade',
+    channel: ch,
     routeCode: row.routeCode || '',
   };
 }
@@ -314,32 +330,23 @@ export const customerRepository = {
       if (cust.routeCode) {
         try {
           await pool.execute(
-            `MERGE INTO \`Route\` WITH (HOLDLOCK) AS target
-             USING (SELECT ? AS routeCode, ? AS routeName, ? AS channel) AS source
-             ON target.routeCode = source.routeCode
-             WHEN NOT MATCHED THEN 
-               INSERT (routeCode, routeName, channel) VALUES (source.routeCode, source.routeName, source.channel);`,
+            `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, ?)`,
             [cust.routeCode, `Route ${cust.routeCode}`, cust.channel || 'GT']
           );
         } catch (e) {}
       }
 
       const [res]: any = await pool.execute(
-        `MERGE INTO \`Customer\` AS target
-         USING (SELECT ? AS cust_rt_id, ? AS customerCode, ? AS customerName, ? AS classification, ? AS dairyClassification, ? AS iceCreamClassification, ? AS channel, ? AS routeCode) AS source
-         ON target.cust_rt_id = source.cust_rt_id
-         WHEN MATCHED THEN
-           UPDATE SET 
-             \`customerName\` = source.customerName,
-             \`classification\` = source.classification,
-             \`dairyClassification\` = COALESCE(source.dairyClassification, target.dairyClassification),
-             \`iceCreamClassification\` = COALESCE(source.iceCreamClassification, target.iceCreamClassification),
-             \`channel\` = source.channel,
-             \`customerCode\` = source.customerCode,
-             \`routeCode\` = source.routeCode
-         WHEN NOT MATCHED THEN
-           INSERT (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`) 
-           VALUES (source.cust_rt_id, source.customerCode, source.customerName, source.classification, source.dairyClassification, source.iceCreamClassification, source.channel, source.routeCode);`,
+        `INSERT INTO \`Customer\` (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE 
+           \`customerName\` = VALUES(\`customerName\`),
+           \`classification\` = VALUES(\`classification\`),
+           \`dairyClassification\` = COALESCE(VALUES(\`dairyClassification\`), \`Customer\`.\`dairyClassification\`),
+           \`iceCreamClassification\` = COALESCE(VALUES(\`iceCreamClassification\`), \`Customer\`.\`iceCreamClassification\`),
+           \`channel\` = VALUES(\`channel\`),
+           \`customerCode\` = VALUES(\`customerCode\`),
+           \`routeCode\` = VALUES(\`routeCode\`)`,
         [cust.cust_rt_id, cust.customerCode, cust.customerName, cust.classification, cust.dairyClassification || null, cust.iceCreamClassification || null, cust.channel, cust.routeCode]
       );
       if (res.affectedRows === 1) {
@@ -350,27 +357,17 @@ export const customerRepository = {
 
       if (cust.dairyClassification) {
         await pool.execute(
-          `MERGE INTO \`Customer_Classification\` AS target
-           USING (SELECT ? AS customerCode, 'Dairy' AS businessVertical, ? AS classification, ? AS channel) AS source
-           ON target.customerCode = source.customerCode AND target.businessVertical = source.businessVertical
-           WHEN MATCHED THEN
-             UPDATE SET \`classification\` = source.classification, \`channel\` = source.channel
-           WHEN NOT MATCHED THEN
-             INSERT (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
-             VALUES (source.customerCode, source.businessVertical, source.classification, source.channel);`,
+          `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+           VALUES (?, 'Dairy', ?, ?)
+           ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`,
           [cust.customerCode, cust.dairyClassification, cust.channel]
         );
       }
       if (cust.iceCreamClassification) {
         await pool.execute(
-          `MERGE INTO \`Customer_Classification\` AS target
-           USING (SELECT ? AS customerCode, 'Ice Cream' AS businessVertical, ? AS classification, ? AS channel) AS source
-           ON target.customerCode = source.customerCode AND target.businessVertical = source.businessVertical
-           WHEN MATCHED THEN
-             UPDATE SET \`classification\` = source.classification, \`channel\` = source.channel
-           WHEN NOT MATCHED THEN
-             INSERT (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
-             VALUES (source.customerCode, source.businessVertical, source.classification, source.channel);`,
+          `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+           VALUES (?, 'Ice Cream', ?, ?)
+           ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`,
           [cust.customerCode, cust.iceCreamClassification, cust.channel]
         );
       }
@@ -391,24 +388,18 @@ export const customerRepository = {
       if (m.routeCode) {
         try {
           await pool.execute(
-            `MERGE INTO \`Route\` WITH (HOLDLOCK) AS target
-             USING (SELECT ? AS routeCode, ? AS routeName, 'GT' AS channel) AS source
-             ON target.routeCode = source.routeCode
-             WHEN NOT MATCHED THEN 
-               INSERT (routeCode, routeName, channel) VALUES (source.routeCode, source.routeName, source.channel);`,
+            `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, 'GT')`,
             [m.routeCode, `Route ${m.routeCode}`]
           );
         } catch (e) {}
       }
 
       const [res]: any = await pool.execute(
-        `MERGE INTO \`CustomerRouteMapping\` AS target
-         USING (SELECT ? AS cust_rt_id, ? AS customerCode, ? AS routeCode) AS source
-         ON target.cust_rt_id = source.cust_rt_id
-         WHEN MATCHED THEN
-           UPDATE SET \`customerCode\` = source.customerCode, \`routeCode\` = source.routeCode
-         WHEN NOT MATCHED THEN
-           INSERT (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) VALUES (source.cust_rt_id, source.customerCode, source.routeCode);`,
+        `INSERT INTO \`CustomerRouteMapping\` (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) 
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE 
+           \`customerCode\` = VALUES(\`customerCode\`),
+           \`routeCode\` = VALUES(\`routeCode\`)`,
         [cust_rt_id, m.customerCode, m.routeCode]
       );
       if (res.affectedRows === 1) {

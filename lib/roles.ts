@@ -8,10 +8,11 @@ export const FLEET_ROLES: AppRole[] = ['Fleet', 'Maintenance'];
 
 export function normalizeRole(role?: string | null): AppRole | undefined {
   if (!role) return undefined;
-  if (FULL_ACCESS_ROLES.includes(role as AppRole)) return role as AppRole;
-  if (SUPERVISOR_ROLES.includes(role as AppRole)) return role as AppRole;
-  if (FLEET_ROLES.includes(role as AppRole)) return role as AppRole;
-  return undefined;
+  const trimmed = role.trim().toUpperCase();
+  const match = FULL_ACCESS_ROLES.find((r) => r.toUpperCase() === trimmed) ||
+                SUPERVISOR_ROLES.find((r) => r.toUpperCase() === trimmed) ||
+                FLEET_ROLES.find((r) => r.toUpperCase() === trimmed);
+  return match;
 }
 
 export function isFullAccessRole(role?: string | null) {

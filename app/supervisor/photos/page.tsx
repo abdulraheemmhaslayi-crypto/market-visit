@@ -7,7 +7,6 @@ import {
   User,
   MapPin,
   Store,
-  X,
   ExternalLink,
   Image as ImageIcon,
   Search,
@@ -15,12 +14,15 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   AppWindow,
   CheckCircle2,
   SlidersHorizontal,
   FileCheck,
   Maximize2,
 } from 'lucide-react';
+import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 
@@ -56,7 +58,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
   const [outlets, setOutlets] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<AuditPhoto | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const [pagination, setPagination] = useState({
     totalCount: 0,
@@ -138,7 +140,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
         { header: 'Route', key: 'route' },
         { header: 'Channel', key: 'channel' },
         { header: 'Application', key: 'appName' },
-        { header: 'Cloudinary Image URL', key: 'cloudinaryUrl' },
+        { header: 'Image URL', key: 'cloudinaryUrl' },
       ],
       data: photos,
     });
@@ -350,7 +352,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
             return (
               <div
                 key={photo.photoId}
-                onClick={() => setSelectedPhoto(photo)}
+                onClick={() => {
+                  const idx = photos.findIndex((p) => p.photoId === photo.photoId);
+                  setLightboxIndex(idx !== -1 ? idx : 0);
+                }}
                 className="group relative rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col"
               >
                 {/* Image Frame */}
@@ -413,128 +418,101 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
       {/* Pagination Footer */}
       {pagination.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[var(--border-soft)]">
-          <p className="text-xs text-[var(--text-muted)]">
-            Showing Page <strong>{pagination.currentPage}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalCount} total photos)
-          </p>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-[var(--border-soft)]">
+          <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            <span>
+              Showing <strong className="text-[var(--text-primary)]">{(pagination.currentPage - 1) * pagination.limit + 1}</strong> –{' '}
+              <strong className="text-[var(--text-primary)]">{Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)}</strong> of{' '}
+              <strong className="text-[var(--text-primary)]">{pagination.totalCount.toLocaleString()}</strong> photos
+            </span>
+            <span className="hidden sm:inline px-2 py-0.5 rounded-md bg-[var(--surface-2)] border border-[var(--border-soft)] font-mono text-[11px]">
+              Page {pagination.currentPage} / {pagination.totalPages}
+            </span>
+          </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            <button
+              title="First Page"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="h-8 w-8 flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--border-soft)] disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+
             <button
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--border-soft)] transition-colors flex items-center gap-1 cursor-pointer"
+              className="h-8 px-3 text-xs font-semibold rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--border-soft)] transition-colors flex items-center gap-1 cursor-pointer"
             >
-              <ChevronLeft className="h-3.5 w-3.5" /> Previous
+              <ChevronLeft className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Previous</span>
             </button>
 
+            {/* Smart Windowed Page Pills */}
             <div className="flex items-center gap-1">
-              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((pNum) => (
-                <button
-                  key={pNum}
-                  onClick={() => setCurrentPage(pNum)}
-                  className={`h-8 w-8 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    currentPage === pNum
-                      ? 'bg-accent text-white shadow-sm'
-                      : 'bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:bg-[var(--surface-2)]'
-                  }`}
-                >
-                  {pNum}
-                </button>
-              ))}
+              {((): (number | 'ellipsis')[] => {
+                const total = pagination.totalPages;
+                const cur = pagination.currentPage;
+                if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+                if (cur <= 4) return [1, 2, 3, 4, 5, 'ellipsis', total];
+                if (cur >= total - 3) return [1, 'ellipsis', total - 4, total - 3, total - 2, total - 1, total];
+                return [1, 'ellipsis', cur - 1, cur, cur + 1, 'ellipsis', total];
+              })().map((item, idx) => {
+                if (item === 'ellipsis') {
+                  return (
+                    <span key={`ellipsis-${idx}`} className="px-1 text-xs text-[var(--text-muted)] select-none">
+                      …
+                    </span>
+                  );
+                }
+                const pNum = item as number;
+                const isActive = pagination.currentPage === pNum;
+                return (
+                  <button
+                    key={pNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pNum)}
+                    className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-accent text-white shadow-md shadow-accent/20 scale-105'
+                        : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {pNum}
+                  </button>
+                );
+              })}
             </div>
 
             <button
               onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
               disabled={currentPage >= pagination.totalPages}
-              className="h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--border-soft)] transition-colors flex items-center gap-1 cursor-pointer"
+              className="h-8 px-3 text-xs font-semibold rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--border-soft)] transition-colors flex items-center gap-1 cursor-pointer"
             >
-              Next <ChevronRight className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Next</span> <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+
+            <button
+              title="Last Page"
+              onClick={() => setCurrentPage(pagination.totalPages)}
+              disabled={currentPage >= pagination.totalPages}
+              className="h-8 w-8 flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--border-soft)] disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              <ChevronsRight className="h-4 w-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Lightbox Dialog Modal */}
-      {selectedPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity"
-            onClick={() => setSelectedPhoto(null)}
-          />
-
-          <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-10 animate-slide-up flex flex-col md:flex-row max-h-[90vh]">
-            <div className="flex-1 bg-black flex items-center justify-center p-4 min-h-[300px] max-h-[60vh] md:max-h-[90vh]">
-              <img
-                src={selectedPhoto.cloudinaryUrl}
-                alt={selectedPhoto.category}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-              />
-            </div>
-
-            <div className="w-full md:w-80 p-6 bg-slate-900 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                    {selectedPhoto.category || 'Audit Photo'}
-                  </span>
-                  <button
-                    onClick={() => setSelectedPhoto(null)}
-                    className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Outlet Name</label>
-                    <p className="text-sm font-semibold text-slate-100">{selectedPhoto.outlet}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Route</label>
-                      <p className="text-xs font-mono font-medium text-slate-300">{selectedPhoto.route || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Channel</label>
-                      <p className="text-xs font-medium text-slate-300">{selectedPhoto.channel || 'GT'}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Date & Time</label>
-                    <p className="text-xs font-mono text-slate-300">
-                      {new Date(selectedPhoto.uploadedAt).toLocaleString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Visit Ref ID</label>
-                    <p className="text-[11px] font-mono text-slate-400 break-all">{selectedPhoto.visitId}</p>
-                  </div>
-                </div>
-              </div>
-
-              <a
-                href={selectedPhoto.cloudinaryUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-primary w-full justify-center py-2.5 text-xs"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" /> Open Full HD Image
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Lightbox Dialog Modal with Next/Prev Navigation */}
+      <ImageLightboxModal
+        photos={photos}
+        currentIndex={lightboxIndex ?? 0}
+        isOpen={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+        onNavigate={(newIdx) => setLightboxIndex(newIdx)}
+        title="Supervisor Audit Photo Gallery"
+      />
     </div>
   );
 }

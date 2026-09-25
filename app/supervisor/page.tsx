@@ -20,6 +20,7 @@ import { getAllowedReports, isFleetRole } from '@/lib/roles';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
+import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 
 const GCOL: Record<string, string> = {
   A: '#0b7a4c',
@@ -49,6 +50,7 @@ export default function SupervisorDashboard() {
     powerSkuResults?: VisitPowerSkuResult[];
     npdResponses: NPDResponse[];
   } | null>(null);
+  const [visitPhotoIndex, setVisitPhotoIndex] = useState<number | null>(null);
 
   // Analytics Dashboard Data States (Admin match dependency)
   const [rows, setRows] = useState<any[]>([]);
@@ -67,6 +69,7 @@ export default function SupervisorDashboard() {
   const [fRoute, setFRoute] = useState('');
   const [fSku, setFSku] = useState('');
   const [fVertical, setFVertical] = useState('');
+  const [fAssetType, setFAssetType] = useState('');
   const [masters, setMasters] = useState<any>(null);
 
   // Canvas Refs for Charts
@@ -120,20 +123,28 @@ export default function SupervisorDashboard() {
     }
   };
 
-  const refreshAll = () => {
-    setLoading(true);
-    setIsAnalyticsLoading(true);
+  const refreshAll = (silent: boolean = false) => {
+    if (!silent) {
+      setLoading(true);
+      setIsAnalyticsLoading(true);
+    }
     Promise.all([fetchVisits(), fetchAnalytics()])
       .finally(() => {
         loadDrafts();
-        setLoading(false);
+        if (!silent) {
+          setLoading(false);
+        }
       });
   };
 
   useEffect(() => {
-    if (session?.user) {
-      refreshAll();
-    }
+    if (!session?.user) return;
+    const isFirstLoad = rows.length === 0;
+    const timer = setTimeout(() => {
+      refreshAll(!isFirstLoad);
+    }, isFirstLoad ? 0 : 300);
+
+    return () => clearTimeout(timer);
   }, [session, fFrom, fTo]);
 
   useEffect(() => {
@@ -231,7 +242,114 @@ export default function SupervisorDashboard() {
     setFVertical('');
     setFMgr('');
     setFSuper('');
+    setFAssetType('');
   };
+
+  const isColdChainOk = (r: any) => {
+    if (r.tempInRange !== undefined && r.tempInRange !== null) return r.tempInRange === true || r.tempInRange === 1;
+    if (r.tempStatus) return r.tempStatus === 'In Range' || r.tempStatus === 'OK';
+    if (r.tempOk) return r.tempOk === 'OK';
+    if (r.ok !== undefined && r.ok !== null) return r.ok === true || r.ok === 1;
+    return false;
+  };
+
+  // Filtered Cold Chain Rows for Fleet / Cold Chain Status chart & reports
+  const filteredColdChainRows = useMemo(() => {
+    const rawRows = (reportRows['cold-chain'] && reportRows['cold-chain'].length > 0)
+      ? reportRows['cold-chain']
+      : rows.map((r: any) => ({
+          date: r.createdAt || r.date,
+          visitId: r.visitId,
+          channel: r.ch || r.channel,
+          manager: r.mgr || r.manager,
+          supervisor: r.sup || r.supervisor,
+          routeCode: r.rt || r.route || r.routeCode || '',
+          outletCode: r.outletCode || '',
+          outletName: r.cust || r.outletName || '',
+          classification: r.gr || r.classification || '',
+          class: r.gr || r.class || '',
+          assetType: r.atype || r.assetType || 'Chiller',
+          sizeModel: r.sizeModel || 'Standard',
+          temperature: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
+          assetTemp: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
+          formattedTemperature: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
+          tempOk: r.ok ? 'OK' : 'Breach',
+          tempStatus: r.ok ? 'In Range' : 'Breach',
+          tempInRange: r.ok === true || r.ok === 1,
+          tempRaw: r.tempVal ?? 0,
+          actionRequired: r.action || 'None',
+          observation: r.observation || '—',
+          actionRemarks: r.action || r.observation || '—',
+        }));
+
+    return rawRows.filter((r: any) => {
+      const rowDate = new Date(r.date);
+      const from = normalizeDate(fFrom);
+      const to = normalizeDate(fTo);
+      const fromOk = !from || rowDate >= from;
+      const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
+      const superOk = !fSuper || (r.supervisor || '').toUpperCase() === fSuper.toUpperCase();
+      const routeOk = !fRoute || (r.routeCode || '').toUpperCase() === fRoute.toUpperCase();
+      const assetOk = !fAssetType || (r.assetType || '').toUpperCase() === fAssetType.toUpperCase();
+      return fromOk && toOk && superOk && routeOk && assetOk;
+    });
+  }, [reportRows, rows, fFrom, fTo, fSuper, fRoute, fAssetType]);
+
+  const fleetSupervisorOptions = useMemo<string[]>(() => {
+    const set = new Set<string>();
+    if (masters?.supervisors) {
+      masters.supervisors.forEach((s: string) => {
+        const name = (s || '').trim();
+        if (name && name.toUpperCase() !== 'UNASSIGNED' && name.toUpperCase() !== 'CLOSED' && name.toUpperCase() !== 'INTERNAL' && name.toUpperCase() !== 'SAMRA') {
+          set.add(name);
+        }
+      });
+    }
+    (reportRows['cold-chain'] || []).forEach((r: any) => {
+      const name = (r.supervisor || '').trim();
+      if (name && name.toUpperCase() !== 'UNASSIGNED' && name.toUpperCase() !== 'CLOSED' && name.toUpperCase() !== 'INTERNAL' && name.toUpperCase() !== 'SAMRA') {
+        set.add(name);
+      }
+    });
+    rows.forEach((r: any) => {
+      const name = (r.sup || r.supervisor || '').trim();
+      if (name && name.toUpperCase() !== 'UNASSIGNED' && name.toUpperCase() !== 'CLOSED' && name.toUpperCase() !== 'INTERNAL' && name.toUpperCase() !== 'SAMRA') {
+        set.add(name);
+      }
+    });
+    return Array.from(set).sort();
+  }, [masters, reportRows, rows]);
+
+  const fleetRouteOptions = useMemo<string[]>(() => {
+    const set = new Set<string>();
+    if (masters?.routes) {
+      masters.routes.forEach((r: any) => {
+        if (!fSuper || (r.superName || '').toUpperCase() === fSuper.toUpperCase()) {
+          if (r.routeCode) set.add(r.routeCode);
+        }
+      });
+    }
+    (reportRows['cold-chain'] || []).forEach((r: any) => {
+      if (!fSuper || (r.supervisor || '').toUpperCase() === fSuper.toUpperCase()) {
+        if (r.routeCode) set.add(r.routeCode);
+      }
+    });
+    rows.forEach((r: any) => {
+      if (!fSuper || (r.sup || r.supervisor || '').toUpperCase() === fSuper.toUpperCase()) {
+        const rt = r.rt || r.route || r.routeCode;
+        if (rt) set.add(rt);
+      }
+    });
+    return Array.from(set).sort();
+  }, [masters, reportRows, rows, fSuper]);
+
+  const fleetAssetTypeOptions = useMemo<string[]>(() => {
+    const set = new Set<string>(['Chiller', 'Freezer']);
+    (reportRows['cold-chain'] || []).forEach((r: any) => {
+      if (r.assetType) set.add(r.assetType);
+    });
+    return Array.from(set).sort();
+  }, [reportRows]);
 
   // NPD Product report-level filter options (SKU-response granularity, not available on visit-level `rows`)
   const npdRouteOptions = useMemo(
@@ -275,7 +393,8 @@ export default function SupervisorDashboard() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && (!fRoute || r.rt === fRoute) && fromOk && toOk;
+      const routeOk = !fRoute || r.rt === fRoute || r.route === fRoute || r.routeCode === fRoute;
+      return (!fMgr || r.mgr === fMgr) && (!fSuper || r.sup === fSuper) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && routeOk && fromOk && toOk;
     });
   }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fFrom, fTo]);
 
@@ -351,11 +470,13 @@ export default function SupervisorDashboard() {
       setReportFilterChip(null);
       return;
     }
+    if (reportModalSource === 'cold-chain') {
+      setReportModalRows(filteredColdChainRows);
+      setReportFilterChip(null);
+      return;
+    }
     const visitLookup = new Map(filtered.map((row) => [row.visitId, row]));
     const matched = (reportRows[reportModalSource] || []).filter((row: any) => {
-      if (reportModalSource === 'cold-chain') {
-        return true;
-      }
       const visit = visitLookup.get(row.visitId);
       return visit ? true : false;
     });
@@ -368,7 +489,6 @@ export default function SupervisorDashboard() {
   const breachesCount = useMemo(() => filtered.filter((r) => !r.ok).length, [filtered]);
   const fefoCount = useMemo(() => filtered.filter((r) => r.fefo).length, [filtered]);
   const noVisitCount = useMemo(() => filtered.filter((r) => r.visitType === 'No Visit').length, [filtered]);
-  const noVisitRows = useMemo(() => filtered.filter((r: any) => r.visitType === 'No Visit'), [filtered]);
   const breachPct = useMemo(
     () => (filtered.length ? ((breachesCount / filtered.length) * 100).toFixed(1) + '% of assets' : '–'),
     [filtered, breachesCount]
@@ -382,6 +502,8 @@ export default function SupervisorDashboard() {
   const mgrTableData = useMemo(() => {
     const mgrs: Record<string, { v: number; o: Set<string>; b: number; f: number }> = {};
     filtered.forEach((r) => {
+      // Exclude EXP Manager and INST Manager
+      if (r.mgr === 'EXP MANAGER' || r.mgr === 'INST MANAGER') return;
       if (!mgrs[r.mgr]) {
         mgrs[r.mgr] = { v: 0, o: new Set(), b: 0, f: 0 };
       }
@@ -428,7 +550,7 @@ export default function SupervisorDashboard() {
         { header: 'Asset Type', key: 'atype' },
         { header: 'Asset Temp (°C)', key: 'temp', formatter: (val) => val !== undefined && val !== null ? `${val}°C` : '—' },
         { header: 'Temp Status', key: 'ok', formatter: (val) => val ? 'OK / In Range' : 'Temp Breach' },
-        { header: 'FEFO Compliance', key: 'fefo', formatter: (val) => val ? 'Compliant' : 'Non-Compliant' },
+        // { header: 'FEFO Compliance', key: 'fefo', formatter: (val) => val ? 'Compliant' : 'Non-Compliant' },
         { header: 'Visit Type', key: 'visitType' },
         { header: 'Action Required', key: 'action' },
       ],
@@ -454,7 +576,7 @@ export default function SupervisorDashboard() {
         { metric: 'Skipped Visits (No Visit)', value: noVisitCount, details: 'Visits logged as skipped outlet' },
         { metric: 'Assets Checked', value: filtered.length, details: 'Chiller and freezer units inspected' },
         { metric: 'Temperature Breaches', value: breachesCount, details: `${breachPct} temperature breach rate` },
-        { metric: 'FEFO Compliance Rate', value: fefoPct, details: 'Assets following FEFO principles' },
+        // { metric: 'FEFO Compliance Rate', value: fefoPct, details: 'Assets following FEFO principles' },
       ],
     });
   };
@@ -509,41 +631,27 @@ export default function SupervisorDashboard() {
   };
 
   const handleExportColdChainChart = () => {
-    const coldChainReportRows = reportRows['cold-chain'] || [];
-    const coldChainData = coldChainReportRows.length > 0
-      ? coldChainReportRows
-      : filtered.map((r) => ({
-          date: r.createdAt,
-          visitId: r.visitId,
-          channel: r.ch,
-          manager: r.mgr,
-          supervisor: r.sup,
-          outletName: r.cust,
-          classification: r.gr,
-          assetType: r.atype,
-          temperature: r.temp,
-          tempStatus: r.ok ? 'In Range' : 'Breach',
-          actionRemarks: r.action || '—',
-        }));
+    const coldChainData = filteredColdChainRows;
 
     exportToExcel({
-      filename: `supervisor_cold_chain_${new Date().toISOString().slice(0, 10)}`,
+      filename: `cold_chain_status_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Cold Chain Status',
       title: 'Asset Temperature & Cold Chain Inspection Status',
-      filterSummary: activeNote,
+      filterSummary: `Date: ${fFrom || 'All'} to ${fTo || 'All'}, Supervisor: ${fSuper || 'All'}, Route: ${fRoute || 'All'}, Asset Type: ${fAssetType || 'All'}`,
       userRole: userRole || 'Supervisor',
       columns: [
         { header: 'Inspection Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
         { header: 'Visit ID', key: 'visitId' },
         { header: 'Manager', key: 'manager' },
         { header: 'Supervisor', key: 'supervisor' },
+        { header: 'Route Code', key: 'routeCode' },
         { header: 'Channel', key: 'channel' },
         { header: 'Outlet Name', key: 'outletName' },
         { header: 'Classification', key: 'classification' },
         { header: 'Asset Type', key: 'assetType' },
         { header: 'Asset Temp', key: 'assetTemp', formatter: (val: any, row: any) => val || (row.temperature !== undefined ? `${row.temperature}°C` : '—') },
-        { header: 'Temp Status', key: 'tempStatus', formatter: (val: any, row: any) => val || (row.tempInRange ? 'In Range' : 'Breach') },
-        { header: 'Action Required / Remarks', key: 'actionRemarks', formatter: (val: any, row: any) => val || row.actionRequired || '—' },
+        { header: 'Temp Status', key: 'tempStatus', formatter: (val: any, row: any) => val || (isColdChainOk(row) ? 'In Range' : 'Breach') },
+        { header: 'Action / Remarks', key: 'actionRemarks' },
       ],
       data: coldChainData,
     });
@@ -638,16 +746,58 @@ export default function SupervisorDashboard() {
 
   const handleExportClassificationDairyChart = () => {
     const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
-    const dairyRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
-    const dataToExport = dairyRows.length > 0 ? dairyRows : filtered;
+    const dairyVisitRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
+
+    const visitedMap = new Map<string, any>();
+    dairyVisitRows.forEach((r: any) => {
+      const key = r.outletCode || r.outletName;
+      if (key) visitedMap.set(key, r);
+    });
+
+    const currentSup = (session?.user?.name || '').toUpperCase().trim();
+    const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
+      const supMatch = fSuper ? (o.supervisor || '').toUpperCase() === fSuper.toUpperCase() : (currentSup ? (o.supervisor || '').toUpperCase() === currentSup : true);
+      const mgrOk = !fMgr || (o.manager || '').toUpperCase() === fMgr.toUpperCase();
+      const chOk = !fChannel || (o.channel || '').toLowerCase() === fChannel.toLowerCase();
+      const rtOk = !fRoute || o.route === fRoute;
+      const custOk = !fCust || o.name === fCust || o.code === fCust;
+      return supMatch && mgrOk && chOk && rtOk && custOk;
+    });
+
+    const dataToExport = masterOutlets.length > 0
+      ? masterOutlets.map((o: any) => {
+          const visited = visitedMap.get(o.code) || visitedMap.get(o.name) || visitedMap.get(o.id);
+          return {
+            outletCode: o.code,
+            outletName: o.name,
+            routeCode: o.route,
+            manager: o.manager,
+            supervisor: o.supervisor,
+            channel: o.channel,
+            class: o.dairyGr === '-' ? 'Not Classified' : o.dairyGr,
+            status: visited ? 'Visited' : 'Unvisited',
+            lastVisitDate: visited?.date ? new Date(visited.date).toLocaleDateString() : '—',
+          };
+        })
+      : dairyVisitRows;
 
     exportToExcel({
       filename: `supervisor_classification_dairy_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Dairy Classification',
-      title: 'Outlet Classification Distribution - Dairy Vertical',
+      title: 'Outlet Classification Coverage - Dairy Vertical',
       filterSummary: activeNote,
       userRole: userRole || 'Supervisor',
-      columns: [
+      columns: masterOutlets.length > 0 ? [
+        { header: 'Outlet Code', key: 'outletCode' },
+        { header: 'Outlet Name', key: 'outletName' },
+        { header: 'Classification Grade', key: 'class' },
+        { header: 'Visit Status', key: 'status' },
+        { header: 'Last Visit Date', key: 'lastVisitDate' },
+        { header: 'Route', key: 'routeCode' },
+        { header: 'Supervisor', key: 'supervisor' },
+        { header: 'Manager', key: 'manager' },
+        { header: 'Channel', key: 'channel' },
+      ] : [
         { header: 'Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
         { header: 'Visit ID', key: 'visitId' },
         { header: 'Manager', key: 'manager' },
@@ -683,26 +833,6 @@ export default function SupervisorDashboard() {
         { header: 'Classification Grade', key: 'class', formatter: (val: any, row: any) => val || row.gr || 'Not classified' },
       ],
       data: dataToExport,
-    });
-  };
-
-  const handleExportNoVisits = () => {
-    exportToExcel({
-      filename: `supervisor_skipped_visits_${new Date().toISOString().slice(0, 10)}`,
-      sheetName: 'No Visits',
-      title: 'Skipped Outlet / No Visit Record Log',
-      filterSummary: activeNote,
-      userRole: userRole || 'Supervisor',
-      columns: [
-        { header: 'Visit Date', key: 'createdAt', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Visit ID', key: 'visitId' },
-        { header: 'Manager', key: 'mgr' },
-        { header: 'Supervisor', key: 'sup' },
-        { header: 'Channel', key: 'ch' },
-        { header: 'Outlet Name', key: 'cust' },
-        { header: 'Reason / Remarks', key: 'action' },
-      ],
-      data: noVisitRows,
     });
   };
 
@@ -805,49 +935,166 @@ export default function SupervisorDashboard() {
       },
     });
 
-    // 1. Trend Line Chart (percentage-based)
+    // 1. Trend Line Chart (Date-wise Daily Trend)
     if (canvasTrendRef.current) {
       if (chartsRef.current.cTrend) chartsRef.current.cTrend.destroy();
-      const wk = countFreq(filtered, (r) => r.week);
-      const weeks = [1, 2, 3, 4, 5, 6, 7, 8];
+
+      const getDateKey = (r: any) => {
+        const raw = r.createdAt || r.date;
+        if (!raw) return '';
+        if (raw instanceof Date) return raw.toISOString().split('T')[0];
+        return String(raw).split('T')[0];
+      };
+
+      const dateCounts: Record<string, number> = {};
+      filtered.forEach((r) => {
+        const d = getDateKey(r);
+        if (d && d !== '—') {
+          dateCounts[d] = (dateCounts[d] || 0) + 1;
+        }
+      });
+
+      // Build sorted date sequence
+      let sortedDates: string[] = [];
+      if (fFrom && fTo && fFrom <= fTo) {
+        const curr = new Date(fFrom + 'T00:00:00');
+        const end = new Date(fTo + 'T00:00:00');
+        const diffDays = Math.round((end.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 90) {
+          while (curr <= end) {
+            sortedDates.push(curr.toISOString().split('T')[0]);
+            curr.setDate(curr.getDate() + 1);
+          }
+        } else {
+          sortedDates = Object.keys(dateCounts).sort();
+        }
+      } else {
+        sortedDates = Object.keys(dateCounts).sort();
+      }
+
+      if (sortedDates.length === 0) {
+        sortedDates = [new Date().toISOString().split('T')[0]];
+      }
+
+      const formatDateShort = (dStr: string) => {
+        try {
+          const parts = dStr.split('-');
+          if (parts.length === 3) {
+            const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          }
+        } catch (e) {}
+        return dStr;
+      };
+
+      const formatDateFull = (dStr: string) => {
+        try {
+          const parts = dStr.split('-');
+          if (parts.length === 3) {
+            const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            return dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+          }
+        } catch (e) {}
+        return dStr;
+      };
+
       const trendTotal = filtered.length;
-      const trendPct = (w: number) => (trendTotal ? Math.round(((wk[w] || 0) / trendTotal) * 100) : 0);
+
       chartsRef.current.cTrend = new Chart(canvasTrendRef.current, {
-        type: 'line',
+        type: 'bar',
         data: {
-          labels: weeks.map((w) => 'W' + w),
+          labels: sortedDates.map((d) => formatDateShort(d)),
           datasets: [
             {
               label: 'Visits',
-              data: weeks.map((w) => trendPct(w)),
-              borderColor: BLUE,
-              backgroundColor: 'rgba(79,70,229,.12)',
-              fill: true,
-              tension: 0.35,
-              pointRadius: 3,
-              borderWidth: 2.5,
+              data: sortedDates.map((d) => dateCounts[d] || 0),
+              backgroundColor: BLUE,
+              hoverBackgroundColor: '#4338ca',
+              borderRadius: 6,
             },
           ],
         },
+        plugins: [
+          {
+            id: 'trendBarValueLabels',
+            afterDatasetsDraw(chart: any) {
+              const { ctx } = chart;
+              const dataset = chart.data.datasets[0];
+              if (!dataset || !dataset.data) return;
+              const meta = chart.getDatasetMeta(0);
+              if (!meta || !meta.data) return;
+
+              const fontSize = sortedDates.length > 25 ? 9 : (sortedDates.length > 15 ? 10 : 11);
+              meta.data.forEach((bar: any, index: number) => {
+                const value = dataset.data[index];
+                if (typeof value !== 'number' || value <= 0) return;
+                const label = `${value}`;
+                ctx.save();
+                ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
+                ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
+                ctx.shadowBlur = 4;
+                ctx.fillText(label, bar.x, bar.y - 4);
+                ctx.restore();
+              });
+            },
+          },
+        ],
         options: {
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 20 },
+          },
           plugins: {
             legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.raw}% of ${trendTotal} visits` } },
+            tooltip: {
+              callbacks: {
+                title: (items) => {
+                  const idx = items[0]?.dataIndex;
+                  const dateStr = sortedDates[idx];
+                  return dateStr ? formatDateFull(dateStr) : items[0]?.label || '';
+                },
+                label: (ctx) => {
+                  const count = (ctx.raw as number) || 0;
+                  const pct = trendTotal ? Math.round((count / trendTotal) * 100) : 0;
+                  return ` Visits: ${count} (${pct}% of period total)`;
+                },
+              },
+            },
           },
           onClick: (e, el, chart) => {
             if (el.length > 0) {
-              const label = (chart.data.labels?.[el[0].index] ?? '') as string;
-              const weekNum = parseInt(label.replace('W', ''), 10);
-              handleChartClick(`Visits for Week ${weekNum}`, (r) => r.week === weekNum);
+              const idx = el[0].index;
+              const dateStr = sortedDates[idx];
+              const dateLabel = formatDateShort(dateStr);
+              handleChartClick(`Visits for ${dateLabel}`, (r) => getDateKey(r) === dateStr);
             }
           },
           onHover: (e, el, chart) => {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
-            y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: (v: any) => `${v}%` } },
+            x: {
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                maxRotation: 45,
+                minRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: 14,
+              },
+            },
+            y: {
+              beginAtZero: true,
+              grace: '15%',
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                precision: 0,
+              },
+            },
           },
         },
       });
@@ -908,22 +1155,13 @@ export default function SupervisorDashboard() {
       
       let okCount = 0;
       let breachCount = 0;
-      let tempTotal = 0;
+      const targetRows = filteredColdChainRows;
+      const tempTotal = targetRows.length;
 
-      const coldChainReportRows = reportRows['cold-chain'] || [];
-      if (coldChainReportRows.length > 0) {
-        tempTotal = coldChainReportRows.length;
-        coldChainReportRows.forEach((r: any) => {
-          if (r.tempInRange === true || r.tempInRange === 1) okCount++;
-          else breachCount++;
-        });
-      } else if (filtered && filtered.length > 0) {
-        tempTotal = filtered.length;
-        filtered.forEach((r: any) => {
-          if (r.ok === true || r.ok === 1) okCount++;
-          else breachCount++;
-        });
-      }
+      targetRows.forEach((r: any) => {
+        if (isColdChainOk(r)) okCount++;
+        else breachCount++;
+      });
 
       const tempPct = (count: number) => (tempTotal ? Math.round((count / tempTotal) * 100) : 0);
 
@@ -969,26 +1207,29 @@ export default function SupervisorDashboard() {
                 },
               },
             },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw}%` } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const count = ctx.dataIndex === 0 ? okCount : breachCount;
+                  return `${ctx.label}: ${ctx.raw}% (${count} of ${tempTotal} assets)`;
+                },
+              },
+            },
           },
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? '') as string;
               const isWithinRange = label === 'Within range';
               
-              if (coldChainReportRows.length > 0) {
-                const matched = coldChainReportRows.filter((r: any) =>
-                  isWithinRange ? (r.tempInRange === true || r.tempInRange === 1) : (r.tempInRange === false || r.tempInRange === 0)
-                );
-                setReportModalType('cold-chain');
-                setReportModalSource('cold-chain');
-                setReportModalTitle(`Cold Chain Status · ${label}`);
-                setReportModalRows(matched);
-                setReportFilterChip({ key: 'segment', value: label, label: `Status: ${label}` });
-                setReportModalOpen(true);
-              } else {
-                handleChartClick(`Cold Chain Status · ${label}`, (r) => (isWithinRange ? r.ok === true : r.ok === false));
-              }
+              const matched = targetRows.filter((r: any) =>
+                isWithinRange ? isColdChainOk(r) : !isColdChainOk(r)
+              );
+              setReportModalType('cold-chain');
+              setReportModalSource('cold-chain');
+              setReportModalTitle(`Cold Chain Status · ${label}`);
+              setReportModalRows(matched);
+              setReportFilterChip({ key: 'segment', value: label, label: `Status: ${label}` });
+              setReportModalOpen(true);
             }
           },
           onHover: (e, el, chart) => {
@@ -999,6 +1240,7 @@ export default function SupervisorDashboard() {
     }
 
     // 5. NPD Availability Bar Chart (SKU-response & visit-level granularity)
+    /*
     if (canvasNpdRef.current) {
       if (chartsRef.current.cNpd) chartsRef.current.cNpd.destroy();
       
@@ -1086,6 +1328,7 @@ export default function SupervisorDashboard() {
         },
       });
     }
+    */
 
     // 6. Focus SKU Availability Bar Chart (percentage-based)
     if (canvasPskuRef.current) {
@@ -1131,16 +1374,63 @@ export default function SupervisorDashboard() {
       });
     }
 
-    // 7. Classification Bar Charts (Dairy & Ice Cream)
+    // 7. Classification Bar Charts (Dairy & Ice Cream) - Stacked Visited vs Unvisited Outlets
     if (canvasClassDairyRef.current) {
       if (chartsRef.current.cClassDairy) chartsRef.current.cClassDairy.destroy();
+
+      // Master outlets matching active upstream filters & supervisor scope
+      const currentSup = (session?.user?.name || '').toUpperCase().trim();
+      const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
+        const supMatch = fSuper ? (o.supervisor || '').toUpperCase() === fSuper.toUpperCase() : (currentSup ? (o.supervisor || '').toUpperCase() === currentSup : true);
+        const mgrOk = !fMgr || (o.manager || '').toUpperCase() === fMgr.toUpperCase();
+        const chOk = !fChannel || (o.channel || '').toLowerCase() === fChannel.toLowerCase();
+        const rtOk = !fRoute || o.route === fRoute;
+        const custOk = !fCust || o.name === fCust || o.code === fCust;
+        return supMatch && mgrOk && chOk && rtOk && custOk;
+      });
+
+      // Filtered visits during the selected period
       const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
-      const dairyRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
-      const cld = countFreq(dairyRows, (r) => r.class);
+      const dairyVisitRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
+
+      const visitedOutletKeys = new Set<string>();
+      const visitedByGrade: Record<string, Set<string>> = { A: new Set(), B: new Set(), C: new Set(), D: new Set(), E: new Set(), '-': new Set() };
+
+      dairyVisitRows.forEach((r: any) => {
+        const key = r.outletCode || r.outletName;
+        if (key) {
+          visitedOutletKeys.add(key);
+          const gr = r.class || r.classification || '-';
+          const normalizedGr = ['A', 'B', 'C', 'D', 'E'].includes(gr) ? gr : '-';
+          if (!visitedByGrade[normalizedGr]) visitedByGrade[normalizedGr] = new Set();
+          visitedByGrade[normalizedGr].add(key);
+        }
+      });
+
       const allGrades = ['A', 'B', 'C', 'D', 'E', '-'];
-      const gradeLabels = ['A', 'B', 'C', 'D', 'E', 'Not Classified'];
-      const classTotalDairy = dairyRows.length;
-      const classPctDairy = (count: number) => (classTotalDairy ? Math.round((count / classTotalDairy) * 100) : 0);
+      const gradeLabels: (string | string[])[] = ['A', 'B', 'C', 'D', 'E', ['Not', 'Classified']];
+
+      const stats: Record<string, { total: number; visited: number; unvisited: number; coveragePct: number }> = {};
+      allGrades.forEach((g) => {
+        const outletsInGrade = masterOutlets.filter((o: any) => {
+          const ogr = ['A', 'B', 'C', 'D', 'E'].includes(o.dairyGr) ? o.dairyGr : '-';
+          return ogr === g;
+        });
+
+        const masterTotal = outletsInGrade.length;
+        const visitedMasterCount = outletsInGrade.filter((o: any) => visitedOutletKeys.has(o.code) || visitedOutletKeys.has(o.name) || visitedOutletKeys.has(o.id)).length;
+        const visitedRowsCount = (visitedByGrade[g] || new Set()).size;
+
+        const visited = Math.max(visitedMasterCount, visitedRowsCount);
+        const total = Math.max(masterTotal, visited);
+        const unvisited = Math.max(0, total - visited);
+        const coveragePct = total > 0 ? Math.round((visited / total) * 100) : 0;
+
+        stats[g] = { total, visited, unvisited, coveragePct };
+      });
+
+      const maxTotal = Math.max(...allGrades.map((g) => stats[g]?.total || 0), 10);
+      const yMax = Math.ceil((maxTotal * 1.25) / 50) * 50;
 
       chartsRef.current.cClassDairy = new Chart(canvasClassDairyRef.current, {
         type: 'bar',
@@ -1148,23 +1438,127 @@ export default function SupervisorDashboard() {
           labels: gradeLabels,
           datasets: [
             {
-              label: 'Visits',
-              data: allGrades.map((g) => classPctDairy(cld[g] || 0)),
-              backgroundColor: allGrades.map((g) => g === '-' ? '#9aa9b4' : GCOL[g]),
-              borderRadius: 6,
+              label: 'Visited Outlets',
+              data: allGrades.map((g) => stats[g].visited),
+              backgroundColor: '#10b981',
+              hoverBackgroundColor: '#059669',
+              borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 4, bottomRight: 4 },
+              borderSkipped: false,
+              stack: 'dairyStack',
+              barPercentage: 0.62,
+              categoryPercentage: 0.8,
+            },
+            {
+              label: 'Unvisited Outlets',
+              data: allGrades.map((g) => stats[g].unvisited),
+              backgroundColor: theme === 'dark' ? '#334155' : '#cbd5e1',
+              hoverBackgroundColor: theme === 'dark' ? '#475569' : '#94a3b8',
+              borderRadius: { topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0 },
+              borderSkipped: false,
+              stack: 'dairyStack',
+              barPercentage: 0.62,
+              categoryPercentage: 0.8,
             },
           ],
         },
-        plugins: [createBarPctLabelPlugin()],
+        plugins: [
+          {
+            id: 'dairyStackedBarLabels',
+            afterDatasetsDraw(chart: any) {
+              const { ctx } = chart;
+              const meta0 = chart.getDatasetMeta(0);
+              const meta1 = chart.getDatasetMeta(1);
+              if (!meta0 || !meta1) return;
+
+              allGrades.forEach((g, i) => {
+                const s = stats[g];
+                if (!s || s.total === 0) return;
+
+                const bar0 = meta0.data[i];
+                const bar1 = meta1.data[i];
+                const topBar = s.unvisited > 0 && bar1 ? bar1 : bar0;
+                if (!topBar) return;
+
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+
+                // Line 1: Coverage %
+                ctx.font = '700 11px Inter, sans-serif';
+                ctx.fillStyle = s.coveragePct >= 50
+                  ? (theme === 'dark' ? '#34d399' : '#059669')
+                  : (theme === 'dark' ? '#fbbf24' : '#d97706');
+                ctx.fillText(`${s.coveragePct}%`, topBar.x, topBar.y - 14);
+
+                // Line 2: Ratio (visited/total)
+                ctx.font = '600 9.5px Inter, sans-serif';
+                ctx.fillStyle = theme === 'dark' ? '#94a3b8' : '#64748b';
+                ctx.fillText(`${s.visited}/${s.total}`, topBar.x, topBar.y - 2);
+
+                ctx.restore();
+              });
+            },
+          },
+        ],
         options: {
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 20, bottom: 4, left: 4, right: 6 },
+          },
           plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.raw}% of ${classTotalDairy} visits` } },
+            legend: {
+              display: true,
+              position: 'top',
+              align: 'end',
+              labels: {
+                color: textColor,
+                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
+                boxWidth: 8,
+                boxHeight: 8,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                padding: 10,
+              },
+            },
+            tooltip: {
+              backgroundColor: theme === 'dark' ? '#1e293b' : '#0f172a',
+              titleColor: '#ffffff',
+              bodyColor: '#e2e8f0',
+              borderColor: theme === 'dark' ? '#334155' : '#475569',
+              borderWidth: 1,
+              padding: 10,
+              callbacks: {
+                title: (items: any[]) => {
+                  const raw = items[0]?.label;
+                  const label = Array.isArray(raw) ? raw.join(' ') : String(raw || '');
+                  return `Classification · Dairy: ${label === 'Not Classified' ? 'Not Classified' : `Class ${label}`}`;
+                },
+                label: (ctx: any) => {
+                  const g = allGrades[ctx.dataIndex];
+                  const s = stats[g];
+                  if (!s) return '';
+                  if (ctx.datasetIndex === 0) {
+                    return ` Visited Outlets: ${s.visited.toLocaleString()} (${s.coveragePct}% coverage)`;
+                  }
+                  return ` Unvisited Outlets: ${s.unvisited.toLocaleString()}`;
+                },
+                afterBody: (items: any[]) => {
+                  const g = allGrades[items[0]?.dataIndex];
+                  const s = stats[g];
+                  if (!s) return [];
+                  return [
+                    '───────────────────────',
+                    ` Total Outlets: ${s.total.toLocaleString()}`,
+                    ` Outlet Visit Coverage: ${s.coveragePct}% (${s.visited}/${s.total})`,
+                  ];
+                },
+              },
+            },
           },
           onClick: (e, el, chart) => {
             if (el.length > 0) {
-              const label = (chart.data.labels?.[el[0].index] ?? '') as string;
+              const rawLabel = chart.data.labels?.[el[0].index];
+              const label = Array.isArray(rawLabel) ? rawLabel.join(' ') : String(rawLabel ?? '');
               if (!allowedReports.includes('classification')) return;
               const classValue = label === 'Not Classified' ? '-' : label;
               const matched = (reportRows.classificationDairy || []).filter((row: any) => row.class === classValue && visitLookup.has(row.visitId));
@@ -1180,13 +1574,34 @@ export default function SupervisorDashboard() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
-            y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: (v: any) => `${v}%` } },
+            x: {
+              stacked: true,
+              grid: { display: false },
+              ticks: {
+                color: textColor,
+                maxRotation: 0,
+                minRotation: 0,
+                autoSkip: false,
+                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
+              },
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              suggestedMax: yMax,
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                precision: 0,
+                font: { family: 'Inter, sans-serif', size: 10 },
+              },
+            },
           },
         },
       });
     }
 
+    /*
     if (canvasClassIceRef.current) {
       if (chartsRef.current.cClassIce) chartsRef.current.cClassIce.destroy();
       const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
@@ -1241,7 +1656,8 @@ export default function SupervisorDashboard() {
         },
       });
     }
-  }, [filtered, filteredForClassCharts, filteredNpdRows, isAnalyticsLoading, theme]);
+    */
+  }, [filtered, filteredForClassCharts, filteredNpdRows, filteredColdChainRows, isAnalyticsLoading, theme, masters, fSuper, fMgr, fChannel, fRoute, fCust, session]);
 
   if (isAnalyticsLoading) {
     return (
@@ -1252,19 +1668,193 @@ export default function SupervisorDashboard() {
   }
 
   if (isFleetRole(userRole)) {
+    const fleetTotalAssets = filteredColdChainRows.length;
+    const fleetInRangeCount = filteredColdChainRows.filter((r: any) => isColdChainOk(r)).length;
+    const fleetBreachCount = fleetTotalAssets - fleetInRangeCount;
+    const fleetCompliancePct = fleetTotalAssets ? Math.round((fleetInRangeCount / fleetTotalAssets) * 100) : 100;
+
+    const handleOpenAllFleetRecords = () => {
+      setReportModalType('cold-chain');
+      setReportModalSource('cold-chain');
+      setReportModalTitle('Cold Chain Status · All Assets');
+      setReportModalRows(filteredColdChainRows);
+      setReportFilterChip(null);
+      setReportModalOpen(true);
+    };
+
     return (
-      <div className="max-w-3xl mx-auto space-y-4 animate-fade-in">
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-700">
-          Fleet / Maintenance view: only the Cold Chain Status module is available on this account.
-        </div>
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>Cold Chain Status</h3>
+      <div className="max-w-5xl mx-auto space-y-4 animate-fade-in pb-12">
+        {/* Top Header Banner */}
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/80 dark:bg-blue-950/30 dark:border-blue-800/50 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 text-[10px] font-extrabold rounded-full bg-blue-600 text-white tracking-wider uppercase">
+                Fleet / Maintenance
+              </span>
+              <span className="text-[11px] text-[var(--text-secondary)] font-medium">
+                Live Cold Chain Monitoring
+              </span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-extrabold text-[var(--text-primary)] mt-1.5">
+              Cold Chain & Asset Temperature Compliance
+            </h2>
           </div>
-          <div style={{ height: '280px' }}>
-            <canvas ref={canvasTempRef}></canvas>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <button
+              onClick={() => refreshAll(false)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] text-xs font-bold hover:bg-[var(--surface-2)] shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading || isAnalyticsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              onClick={handleOpenAllFleetRecords}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[var(--accent)] text-white text-xs font-bold hover:opacity-90 shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              View Full Table
+            </button>
           </div>
         </div>
+
+        {/* Filters Bar: From, To, Supervisor, Route, Asset Type */}
+        <div className="card p-4 sm:p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">
+              Filters & Slicers
+            </div>
+            {(fFrom || fTo || fSuper || fRoute || fAssetType) && (
+              <button
+                onClick={resetFilters}
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer transition-colors"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">From</label>
+              <input
+                type="date"
+                value={fFrom}
+                onChange={(e) => setFFrom(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">To</label>
+              <input
+                type="date"
+                value={fTo}
+                onChange={(e) => setFTo(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">Supervisor</label>
+              <select
+                value={fSuper}
+                onChange={(e) => {
+                  setFSuper(e.target.value);
+                  setFRoute('');
+                }}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              >
+                <option value="">All Supervisors</option>
+                {fleetSupervisorOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">Route</label>
+              <select
+                value={fRoute}
+                onChange={(e) => setFRoute(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              >
+                <option value="">All Routes</option>
+                {fleetRouteOptions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">Asset Type</label>
+              <select
+                value={fAssetType}
+                onChange={(e) => setFAssetType(e.target.value)}
+                className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-[var(--border)] bg-[var(--bg)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+              >
+                <option value="">All Asset Types</option>
+                {fleetAssetTypeOptions.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick KPI Summary Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-blue-500">
+            <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Assets Checked</span>
+            <span className="text-2xl font-extrabold text-[var(--text-primary)] mt-1">{fleetTotalAssets}</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-medium">total inspected</span>
+          </div>
+
+          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-emerald-500">
+            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Within Range (OK)</span>
+            <span className="text-2xl font-extrabold text-emerald-600 mt-1">{fleetInRangeCount}</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-medium">temp compliant</span>
+          </div>
+
+          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-rose-500">
+            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Breach (Out of Range)</span>
+            <span className="text-2xl font-extrabold text-rose-600 mt-1">{fleetBreachCount}</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-medium">violations detected</span>
+          </div>
+
+          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-indigo-500">
+            <span className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-wider">Compliance Rate</span>
+            <span className="text-2xl font-extrabold text-[var(--accent)] mt-1">{fleetCompliancePct}%</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-medium">overall compliance</span>
+          </div>
+        </div>
+
+        {/* Cold Chain Doughnut Chart Card */}
+        <div className="card p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-3 border-b border-[var(--border)]">
+            <div>
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Cold Chain Status</h3>
+              <p className="text-[11px] text-[var(--text-secondary)]">Click on doughnut segments to drill down into asset records</p>
+            </div>
+            <button
+              onClick={handleExportColdChainChart}
+              className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold hover:bg-[var(--surface-2)] text-[var(--text-primary)] transition-all cursor-pointer"
+            >
+              Export to Excel
+            </button>
+          </div>
+
+          {fleetTotalAssets === 0 ? (
+            <div className="h-[280px] flex flex-col items-center justify-center text-center p-6 text-[var(--text-secondary)]">
+              <Thermometer className="h-10 w-10 text-[var(--text-muted)] mb-2 opacity-50" />
+              <p className="text-sm font-semibold text-[var(--text-primary)]">No cold chain records found for the selected filters.</p>
+              <p className="text-xs text-[var(--text-muted)] mt-1">Try broadening your date range or clearing filters.</p>
+            </div>
+          ) : (
+            <div style={{ height: '300px', position: 'relative' }}>
+              <canvas ref={canvasTempRef}></canvas>
+            </div>
+          )}
+        </div>
+
         <DrilldownReportModal
           isOpen={reportModalOpen}
           onClose={() => setReportModalOpen(false)}
@@ -1604,7 +2194,7 @@ export default function SupervisorDashboard() {
             New Audit
           </button>
           <button
-            onClick={refreshAll}
+            onClick={() => refreshAll(false)}
             className="flex items-center justify-center gap-1.5 px-3 h-9 bg-[#ffffff20] text-white hover:bg-[#ffffff30] rounded-xl text-xs font-bold transition-all border border-[#ffffff30]"
           >
             <RefreshCw className={`h-4 w-4 ${loading || isAnalyticsLoading ? 'animate-spin' : ''}`} />
@@ -1670,7 +2260,7 @@ export default function SupervisorDashboard() {
 
 
 
-          <div className="fld">
+          {/* <div className="fld">
             <label>Channel</label>
             <select value={fChannel} onChange={(e) => {
               setFChannel(e.target.value);
@@ -1682,7 +2272,7 @@ export default function SupervisorDashboard() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-          </div>
+          </div> */}
 
           <div className="fld">
             <label>Classification</label>
@@ -1721,7 +2311,7 @@ export default function SupervisorDashboard() {
           </div>
 
           <button className="reset" onClick={resetFilters}>Reset</button>
-          <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" />
+          {/* <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" /> */}
         </div>
 
         {/* Active description */}
@@ -1757,49 +2347,12 @@ export default function SupervisorDashboard() {
             <div className="val">{breachesCount}</div>
             <div className="delta">{breachPct}</div>
           </div>
-          <div className="kpi g">
+          {/* <div className="kpi g">
             <div className="lbl">FEFO Compliance</div>
             <div className="val">{fefoPct}</div>
             <div className="delta">assets following FEFO</div>
-          </div>
+          </div> */}
         </div>
-
-        {/* No Visit Details */}
-        {noVisitRows.length > 0 && (
-          <div className="panel" style={{ marginBottom: '12px' }}>
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3>No Visit Details</h3>
-                <div className="psub">Skipped outlet visits with recorded reasons</div>
-              </div>
-              <ExportButton onClick={handleExportNoVisits} label="Export Excel" variant="compact" />
-            </div>
-            <div className="overflow-x-auto" style={{ marginTop: '10px' }}>
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-soft)' }}>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Date</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Supervisor</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Route</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Outlet</th>
-                    <th className="px-3 py-2 text-left" style={{ color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }}>Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {noVisitRows.map((row: any) => (
-                    <tr key={row.visitId} style={{ borderBottom: '1px solid var(--border-soft)' }}>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-secondary)' }}>{new Date(row.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{row.sup}</td>
-                      <td className="px-3 py-2 font-mono" style={{ color: 'var(--text-secondary)' }}>{row.rt || '—'}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{row.cust || '—'}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--text-secondary)' }}>{row.reasonCategory || row.reason || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
         {/* Row 1 Grid */}
         <div style={{ marginBottom: '16px' }}>
@@ -1807,7 +2360,7 @@ export default function SupervisorDashboard() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Visits Over Time</h3>
-                <div className="psub">Weekly visits (filtered)</div>
+                <div className="psub">Daily visits (filtered)</div>
               </div>
               <ExportButton onClick={handleExportTrendChart} label="Export" variant="compact" />
             </div>
@@ -1846,8 +2399,8 @@ export default function SupervisorDashboard() {
         </div>
 
         {/* Row 3 Grid */}
-        <div className="grid3">
-          <div className="panel">
+        <div className="grid" style={{ gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 1.5fr)' }}>
+          {/* <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>NPD Availability</h3>
@@ -1858,7 +2411,7 @@ export default function SupervisorDashboard() {
             <div className="chart-sm">
               <canvas ref={canvasNpdRef}></canvas>
             </div>
-          </div>
+          </div> */}
           <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -1867,7 +2420,7 @@ export default function SupervisorDashboard() {
               </div>
               <ExportButton onClick={handleExportPowerSkuChart} label="Export" variant="compact" />
             </div>
-            <div className="chart-sm">
+            <div style={{ position: 'relative', height: '210px' }}>
               <canvas ref={canvasPskuRef}></canvas>
             </div>
           </div>
@@ -1875,15 +2428,15 @@ export default function SupervisorDashboard() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Outlets by Classification · Dairy</h3>
-                <div className="psub">Visit distribution A–E (Dairy)</div>
+                <div className="psub">Outlet visit coverage (Visited vs Unvisited by Class)</div>
               </div>
               <ExportButton onClick={handleExportClassificationDairyChart} label="Export" variant="compact" />
             </div>
-            <div className="chart-sm">
+            <div style={{ position: 'relative', height: '210px' }}>
               <canvas ref={canvasClassDairyRef}></canvas>
             </div>
           </div>
-          <div className="panel">
+          {/* <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Outlets by Classification · Ice Cream</h3>
@@ -1894,7 +2447,7 @@ export default function SupervisorDashboard() {
             <div className="chart-sm">
               <canvas ref={canvasClassIceRef}></canvas>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Operational Cards Row (Pending Drafts & Submitted Audits List to fully retain components) */}
@@ -1984,7 +2537,7 @@ export default function SupervisorDashboard() {
                   <th>Visits</th>
                   <th>Outlets</th>
                   <th>Temp Breach</th>
-                  <th>FEFO %</th>
+                  {/* <th>FEFO %</th> */}
                 </tr>
               </thead>
               <tbody>
@@ -2001,12 +2554,12 @@ export default function SupervisorDashboard() {
                           <span className="pill g">0</span>
                         )}
                       </td>
-                      <td>{x.v ? Math.round((x.f / x.v) * 100) : 0}%</td>
+                      {/* <td>{x.v ? Math.round((x.f / x.v) * 100) : 0}%</td> */}
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', color: '#5a7085', padding: '20px' }}>
+                    <td colSpan={4} style={{ textAlign: 'center', color: '#5a7085', padding: '20px' }}>
                       No data for this filter
                     </td>
                   </tr>
@@ -2080,7 +2633,7 @@ export default function SupervisorDashboard() {
         </div>
 
         {/* Audit Photo Gallery Section with Pagination */}
-        <PhotoGallerySection
+        {/* <PhotoGallerySection
           photos={photos}
           fFrom={fFrom}
           fTo={fTo}
@@ -2089,7 +2642,7 @@ export default function SupervisorDashboard() {
           fChannel={fChannel}
           fCust={fCust}
           fRoute={fRoute}
-        />
+        /> */}
 
         {/* Footer */}
         <div className="foot">
@@ -2172,11 +2725,18 @@ export default function SupervisorDashboard() {
                       <p className="text-[12px] italic text-[var(--text-muted)]">No photos attached.</p>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {reviewData.photos.map(photo => (
-                          <a key={photo.photoId} href={photo.cloudinaryUrl} target="_blank" rel="noreferrer"
-                            className="block rounded-xl overflow-hidden" style={{ aspectRatio: '1', border: '1px solid var(--border)' }}>
-                            <img src={photo.cloudinaryUrl} alt={photo.category} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
-                          </a>
+                        {reviewData.photos.map((photo, i) => (
+                          <div
+                            key={photo.photoId}
+                            onClick={() => setVisitPhotoIndex(i)}
+                            className="block rounded-xl overflow-hidden cursor-pointer group relative shadow-xs hover:shadow-md transition-all"
+                            style={{ aspectRatio: '1', border: '1px solid var(--border)' }}
+                          >
+                            <img src={photo.cloudinaryUrl} alt={photo.category} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                            <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-[9px] font-bold text-white uppercase">
+                              {photo.category || 'Photo'}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -2229,6 +2789,24 @@ export default function SupervisorDashboard() {
         filterChip={reportFilterChip}
         onClearFilter={handleClearReportFilter}
       />
+
+      {/* Visit Review Lightbox Modal */}
+      {reviewData && (
+        <ImageLightboxModal
+          photos={reviewData.photos.map((p) => ({
+            ...p,
+            outlet: reviewData.visit.customerCode || 'Visit Attachment',
+            supervisor: reviewData.visit.supervisorId,
+            route: reviewData.visit.routeCode,
+            uploadedAt: p.uploadedAt || reviewData.visit.createdAt,
+          }))}
+          currentIndex={visitPhotoIndex ?? 0}
+          isOpen={visitPhotoIndex !== null}
+          onClose={() => setVisitPhotoIndex(null)}
+          onNavigate={(idx) => setVisitPhotoIndex(idx)}
+          title={`Visit #${reviewData.visit.visitId.slice(-6)} Attachments`}
+        />
+      )}
     </div>
   );
 }

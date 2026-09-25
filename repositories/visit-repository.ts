@@ -1,5 +1,6 @@
 import { Visit, VisitPhoto, NPDResponse, VisitAsset, VisitPowerSkuResult } from '@/types';
 import pool from '@/lib/db';
+import mysql from 'mysql2/promise';
 
 function mapRowToVisit(row: any): Visit {
   const [customerCode, routeCode] = (row.cust_rt_id || '').split('|');
@@ -48,7 +49,7 @@ function mapRowToNpd(row: any): NPDResponse {
   };
 }
 
-async function ensureVisitTableSchema(connection: any): Promise<void> {
+async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolConnection): Promise<void> {
   const [columnsResult]: any = await connection.execute(
     "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Visit'"
   );
@@ -119,8 +120,7 @@ async function ensureVisitTableSchema(connection: any): Promise<void> {
   // Ensure VisitAsset table exists and has all required columns
   try {
     await connection.execute(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='VisitAsset' and xtype='U')
-      CREATE TABLE \`VisitAsset\` (
+      CREATE TABLE IF NOT EXISTS \`VisitAsset\` (
         \`assetId\` VARCHAR(191) PRIMARY KEY,
         \`visitId\` VARCHAR(191) NOT NULL,
         \`assetType\` VARCHAR(50) NOT NULL,
@@ -129,13 +129,9 @@ async function ensureVisitTableSchema(connection: any): Promise<void> {
         \`actionRequired\` VARCHAR(50) NULL,
         \`observation\` TEXT NULL,
         \`isFirstInFlow\` TINYINT(1) NULL DEFAULT 0,
-        \`fefoFollowed\` TINYINT(1) NULL DEFAULT 0
-      );
-    `);
-    
-    await connection.execute(`
-      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='idx_asset_visit' AND object_id = OBJECT_ID('VisitAsset'))
-      CREATE INDEX \`idx_asset_visit\` ON \`VisitAsset\` (\`visitId\`);
+        \`fefoFollowed\` TINYINT(1) NULL DEFAULT 0,
+        INDEX \`idx_asset_visit\` (\`visitId\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     const [vaColumnsResult]: any = await connection.execute(
@@ -172,23 +168,19 @@ async function ensureVisitTableSchema(connection: any): Promise<void> {
   await ensureVisitPhotoTableSchema(connection);
 }
 
-async function ensureVisitPhotoTableSchema(connection: any): Promise<void> {
+async function ensureVisitPhotoTableSchema(connection: mysql.Connection | mysql.PoolConnection): Promise<void> {
   try {
     await connection.execute(`
-      IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='VisitPhoto' and xtype='U')
-      CREATE TABLE \`VisitPhoto\` (
+      CREATE TABLE IF NOT EXISTS \`VisitPhoto\` (
         \`photoId\` VARCHAR(191) PRIMARY KEY,
         \`visitId\` VARCHAR(191) NOT NULL,
         \`category\` VARCHAR(50) NOT NULL,
         \`cloudinaryUrl\` TEXT NOT NULL,
         \`publicId\` VARCHAR(191) NOT NULL,
         \`uploadedAt\` DATETIME NOT NULL,
-        \`appName\` VARCHAR(191) NULL DEFAULT 'Chrome'
-      );
-    `);
-    await connection.execute(`
-      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name='idx_photo_visit' AND object_id = OBJECT_ID('VisitPhoto'))
-      CREATE INDEX \`idx_photo_visit\` ON \`VisitPhoto\` (\`visitId\`);
+        \`appName\` VARCHAR(191) NULL DEFAULT 'Chrome',
+        INDEX \`idx_photo_visit\` (\`visitId\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
     const [vpColumnsResult]: any = await connection.execute(
@@ -355,7 +347,7 @@ export const visitRepository = {
     }));
   },
 
-  async saveVisitRecord(visit: Visit, connection?: any): Promise<void> {
+  async saveVisitRecord(visit: Visit, connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
     const isNoVisit = visit.visit_type === 'No Visit';
 
@@ -365,30 +357,28 @@ export const visitRepository = {
 
     await executor.execute(
       `
-      MERGE INTO \`Visit\` AS target
-       USING (SELECT ? AS visitId, ? AS supervisorId, ? AS cust_rt_id, ? AS dairyClassification, ? AS iceCreamClassification, ? AS visit_type, ? AS reason_category, ? AS reason, ? AS observation, ? AS latitude, ? AS longitude, ? AS accuracy, ? AS status, ? AS createdBy, ? AS visit_datetime, ? AS createdAt, ? AS updatedAt, ? AS sosAsPerBda) AS source
-       ON target.visitId = source.visitId
-       WHEN MATCHED THEN
-         UPDATE SET
-           \`supervisorId\` = source.supervisorId,
-           \`cust_rt_id\` = source.cust_rt_id,
-           \`dairyClassification\` = source.dairyClassification,
-           \`iceCreamClassification\` = source.iceCreamClassification,
-           \`visit_type\` = source.visit_type,
-           \`reason_category\` = source.reason_category,
-           \`reason\` = source.reason,
-           \`observation\` = source.observation,
-           \`latitude\` = source.latitude,
-           \`longitude\` = source.longitude,
-           \`accuracy\` = source.accuracy,
-           \`status\` = source.status,
-           \`createdBy\` = source.createdBy,
-           \`visit_datetime\` = source.visit_datetime,
-           \`updatedAt\` = source.updatedAt,
-           \`sosAsPerBda\` = source.sosAsPerBda
-       WHEN NOT MATCHED THEN
-         INSERT (\`visitId\`, \`supervisorId\`, \`cust_rt_id\`, \`dairyClassification\`, \`iceCreamClassification\`, \`visit_type\`, \`reason_category\`, \`reason\`, \`observation\`, \`latitude\`, \`longitude\`, \`accuracy\`, \`status\`, \`createdBy\`, \`visit_datetime\`, \`createdAt\`, \`updatedAt\`, \`sosAsPerBda\`)
-         VALUES (source.visitId, source.supervisorId, source.cust_rt_id, source.dairyClassification, source.iceCreamClassification, source.visit_type, source.reason_category, source.reason, source.observation, source.latitude, source.longitude, source.accuracy, source.status, source.createdBy, source.visit_datetime, source.createdAt, source.updatedAt, source.sosAsPerBda);
+      INSERT INTO \`Visit\` (
+        \`visitId\`, \`supervisorId\`, \`cust_rt_id\`, \`dairyClassification\`, \`iceCreamClassification\`, \`visit_type\`, \`reason_category\`, \`reason\`, \`observation\`,
+        \`latitude\`, \`longitude\`, \`accuracy\`, \`status\`, 
+        \`createdBy\`, \`visit_datetime\`, \`createdAt\`, \`updatedAt\`, \`sosAsPerBda\`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        \`supervisorId\` = VALUES(\`supervisorId\`),
+        \`cust_rt_id\` = VALUES(\`cust_rt_id\`),
+        \`dairyClassification\` = VALUES(\`dairyClassification\`),
+        \`iceCreamClassification\` = VALUES(\`iceCreamClassification\`),
+        \`visit_type\` = VALUES(\`visit_type\`),
+        \`reason_category\` = VALUES(\`reason_category\`),
+        \`reason\` = VALUES(\`reason\`),
+        \`observation\` = VALUES(\`observation\`),
+        \`latitude\` = VALUES(\`latitude\`),
+        \`longitude\` = VALUES(\`longitude\`),
+        \`accuracy\` = VALUES(\`accuracy\`),
+        \`status\` = VALUES(\`status\`),
+        \`createdBy\` = VALUES(\`createdBy\`),
+        \`visit_datetime\` = VALUES(\`visit_datetime\`),
+        \`updatedAt\` = VALUES(\`updatedAt\`),
+        \`sosAsPerBda\` = VALUES(\`sosAsPerBda\`)
     `,
       [
         visit.visitId,
@@ -413,12 +403,12 @@ export const visitRepository = {
     );
   },
 
-  async deletePhotosForVisit(visitId: string, connection?: any): Promise<void> {
+  async deletePhotosForVisit(visitId: string, connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
     await executor.execute('DELETE FROM `VisitPhoto` WHERE `visitId` = ?', [visitId]);
   },
 
-  async insertPhotos(photos: VisitPhoto[], connection?: any): Promise<void> {
+  async insertPhotos(photos: VisitPhoto[], connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
     await ensureVisitPhotoTableSchema(executor);
     for (const p of photos) {
@@ -446,12 +436,12 @@ export const visitRepository = {
     }
   },
 
-  async deleteNpdForVisit(visitId: string, connection?: any): Promise<void> {
+  async deleteNpdForVisit(visitId: string, connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
     await executor.execute('DELETE FROM `NPDResponse` WHERE `visitId` = ?', [visitId]);
   },
 
-  async insertNpd(npdResponses: NPDResponse[], connection?: any): Promise<void> {
+  async insertNpd(npdResponses: NPDResponse[], connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
     for (const n of npdResponses) {
       await executor.execute(
@@ -461,49 +451,39 @@ export const visitRepository = {
     }
   },
 
-  async deleteAssetsForVisit(visitId: string, connection?: any): Promise<void> {
+  async deleteAssetsForVisit(visitId: string, connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
     await executor.execute('DELETE FROM `VisitAsset` WHERE `visitId` = ?', [visitId]);
   },
 
-  async insertAssets(assets: VisitAsset[], connection?: any): Promise<void> {
+  async insertAssets(assets: VisitAsset[], connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
     for (const ast of assets) {
       const assetIdVal = ast.assetId || `ast_${ast.visitId}_${ast.assetType}_${Math.random().toString(36).substring(2, 9)}`;
       try {
         await executor.execute(
-          `MERGE INTO \`VisitAsset\` AS target
-           USING (SELECT ? AS assetId, ? AS visitId, ? AS assetType, ? AS temperature, ? AS tempInRange, ? AS actionRequired, ? AS observation, ? AS isFirstInFlow, ? AS fefoFollowed) AS source
-           ON target.assetId = source.assetId
-           WHEN MATCHED THEN
-             UPDATE SET
-               \`assetType\` = source.assetType,
-               \`temperature\` = source.temperature,
-               \`tempInRange\` = source.tempInRange,
-               \`actionRequired\` = source.actionRequired,
-               \`observation\` = source.observation,
-               \`isFirstInFlow\` = source.isFirstInFlow,
-               \`fefoFollowed\` = source.fefoFollowed
-           WHEN NOT MATCHED THEN
-             INSERT (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`)
-             VALUES (source.assetId, source.visitId, source.assetType, source.temperature, source.tempInRange, source.actionRequired, source.observation, source.isFirstInFlow, source.fefoFollowed);`,
+          `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             \`assetType\` = VALUES(\`assetType\`),
+             \`temperature\` = VALUES(\`temperature\`),
+             \`tempInRange\` = VALUES(\`tempInRange\`),
+             \`actionRequired\` = VALUES(\`actionRequired\`),
+             \`observation\` = VALUES(\`observation\`),
+             \`isFirstInFlow\` = VALUES(\`isFirstInFlow\`),
+             \`fefoFollowed\` = VALUES(\`fefoFollowed\`)`,
           [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0]
         );
       } catch (err: any) {
         if (err.message && err.message.includes('Unknown column')) {
           await executor.execute(
-            `MERGE INTO \`VisitAsset\` AS target
-             USING (SELECT ? AS visitId, ? AS assetType, ? AS temperature, ? AS tempInRange, ? AS actionRequired, ? AS observation) AS source
-             ON target.visitId = source.visitId AND target.assetType = source.assetType
-             WHEN MATCHED THEN
-               UPDATE SET
-                 \`temperature\` = source.temperature,
-                 \`tempInRange\` = source.tempInRange,
-                 \`actionRequired\` = source.actionRequired,
-                 \`observation\` = source.observation
-             WHEN NOT MATCHED THEN
-               INSERT (\`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`)
-               VALUES (source.visitId, source.assetType, source.temperature, source.tempInRange, source.actionRequired, source.observation);`,
+            `INSERT INTO \`VisitAsset\` (\`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`) 
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               \`temperature\` = VALUES(\`temperature\`),
+               \`tempInRange\` = VALUES(\`tempInRange\`),
+               \`actionRequired\` = VALUES(\`actionRequired\`),
+               \`observation\` = VALUES(\`observation\`)`,
             [ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '']
           );
         } else {
@@ -513,12 +493,12 @@ export const visitRepository = {
     }
   },
 
-  async deletePowerSkuResultsForVisit(visitId: string, connection?: any): Promise<void> {
+  async deletePowerSkuResultsForVisit(visitId: string, connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
     await executor.execute('DELETE FROM `VisitPowerSkuResult` WHERE `visitId` = ?', [visitId]);
   },
 
-  async insertPowerSkuResults(results: VisitPowerSkuResult[], connection?: any): Promise<void> {
+  async insertPowerSkuResults(results: VisitPowerSkuResult[], connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
     for (const r of results) {
       await executor.execute(
