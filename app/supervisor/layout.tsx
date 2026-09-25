@@ -25,6 +25,7 @@ import {
   ArrowLeft,
   Thermometer,
   Camera,
+  AlertTriangle,
 } from 'lucide-react';
 import { isFleetRole } from '@/lib/roles';
 
@@ -43,6 +44,7 @@ const navGroups = [
     items: [
       { name: 'My Visits', path: '/supervisor', icon: ClipboardList },
       { name: 'New Audit', path: '/supervisor/visit', icon: PlusCircle },
+      { name: 'No Visits', path: '/supervisor/no-visits', icon: AlertTriangle },
     ],
   },
   {
@@ -50,6 +52,7 @@ const navGroups = [
     items: [
       { name: 'Reports', path: '/supervisor/reports', icon: BarChart3 },
       { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
+      { name: 'Data Usage', path: '/supervisor/data-usage', icon: Activity },
     ],
   },
   {
@@ -78,6 +81,7 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
   const supervisorNavActions = [
     { name: 'Dashboard', path: '/supervisor', icon: Home },
     { name: 'My Visits', path: '/supervisor/my-visits', icon: MapPin },
+    { name: 'No Visits', path: '/supervisor/no-visits', icon: AlertTriangle },
     { name: 'New Audit Wizard', path: '/supervisor/visit', icon: Plus },
     { name: 'Reports & Stats', path: '/supervisor/reports', icon: BarChart3 },
     { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
@@ -103,8 +107,11 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
 
     let active = true;
     const loadNoVisitCount = async () => {
+      // Skip fetching if browser tab is in background / minimized
+      if (typeof document !== 'undefined' && document.hidden) return;
+
       try {
-        const res = await fetch('/api/dashboard');
+        const res = await fetch('/api/dashboard/badge-count');
         const data = await res.json();
         if (active && data?.success) {
           setNoVisitCount(Number(data.noVisitCount || 0));
@@ -115,11 +122,17 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
     };
 
     loadNoVisitCount();
-    const timer = window.setInterval(loadNoVisitCount, 15000);
+    // 90 seconds interval instead of 15s, with visibility change listener
+    const timer = window.setInterval(loadNoVisitCount, 90000);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) loadNoVisitCount();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       active = false;
       window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [session?.user]);
 
@@ -255,9 +268,9 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
                         style={{ opacity: active ? 1 : 0.6 }}
                       />
                       <span>{item.name}</span>
-                      {!isFleet && (item.path === '/supervisor' || item.path === '/supervisor/reports') && (
+                      {!isFleet && item.path === '/supervisor/no-visits' && noVisitCount > 0 && (
                         <span className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-                          No Visit {noVisitCount}
+                          {noVisitCount}
                         </span>
                       )}
                     </Link>

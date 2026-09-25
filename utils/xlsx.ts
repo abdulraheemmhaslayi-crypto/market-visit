@@ -31,7 +31,24 @@ const DEFAULT_MAPPINGS: Record<string, string[]> = {
   SKUCode: ['skucode', 'skuid', 'itemcode', 'itemid', 'materialcode', 'materialid', 'sku_code'],
   SKUName: ['skuname', 'skudesc', 'itemname', 'itemdesc', 'materialname', 'materialdesc', 'sku_name'],
   Classification: ['classification', 'class', 'grade', 'category', 'class_code'],
-  Channel: ['channel', 'subchannel', 'tradechannel', 'marketsegment', 'sub_channel', 'segment/channel', 'segment_channel', 'segment'],
+  Channel: [
+    'segment_fin(120mt)',
+    'segmentfin120mt',
+    'segment_fin_120',
+    'segmentfin120',
+    'segment_fin',
+    'segmentfin',
+    'segment fin 120',
+    'segment fin',
+    'channel',
+    'subchannel',
+    'tradechannel',
+    'marketsegment',
+    'sub_channel',
+    'segment/channel',
+    'segment_channel',
+    'segment',
+  ],
   Super: ['super', 'supervisor', 'supername', 'supervisorname', 'super_name'],
   Manager: ['manager', 'mgr', 'mngr', 'managername', 'manager_name'],
   Type: ['type', 'skutype', 'itemtype', 'sku_type', 'category_type'],
@@ -229,6 +246,23 @@ export function checkMissingFields(
       const { header, score } = findBestHeaderMatch(headers, optionalField, aliases);
       if (score >= 0.6 && header) {
         foundMapping[optionalField] = header;
+      }
+    }
+  }
+
+  // For custMappings / CUSTMASTER, extract Channel prioritizing 'Segment_Fin(120MT)' / 'segment fin 120'
+  if (type === 'custMappings') {
+    const segFinHeader = headers.find((h) => {
+      const clean = cleanString(h);
+      return clean.includes('segmentfin') || (clean.includes('segment') && clean.includes('fin')) || clean.includes('120mt');
+    });
+    if (segFinHeader) {
+      foundMapping['Channel'] = segFinHeader;
+    } else {
+      const aliases = config['Channel'] || [];
+      const { header, score } = findBestHeaderMatch(headers, 'Channel', aliases);
+      if (score >= 0.6 && header) {
+        foundMapping['Channel'] = header;
       }
     }
   }
@@ -470,17 +504,19 @@ export function mergeParsedData(parsedFiles: ParsedFileResult[]): { payload: Par
   // 4. Process CUSTMASTER Customer mappings
   const hasRouteFile = filesByType.routes.length > 0;
   const importedRouteCodes = new Set(payload.routes.map(r => r.routeCode));
-  const customerNamesMap = new Map<string, { customerName: string; routeCodes: Set<string> }>();
+  const customerNamesMap = new Map<string, { customerName: string; routeCodes: Set<string>; channel?: string }>();
   filesByType.custMappings.forEach(f => {
     const customerCodeCol = f.mapping['CustomerCode'];
     const customerNameCol = f.mapping['CustomerName'];
     const routeCodeCol = f.mapping['RouteCode'];
+    const channelCol = f.mapping['Channel'];
 
     f.data.forEach((row, index) => {
       const rowNum = index + 2;
       const customerCode = String(row[customerCodeCol] || '').trim();
       const customerName = String(row[customerNameCol] || '').trim();
       const routeCode = String(row[routeCodeCol] || '').trim();
+      const channel = channelCol && row[channelCol] ? String(row[channelCol]).trim().toUpperCase() : '';
 
       if (!customerCode) {
         errors.push({ row: rowNum, error: `${f.fileName}: Row is missing CustomerCode value.` });
@@ -506,9 +542,14 @@ export function mergeParsedData(parsedFiles: ParsedFileResult[]): { payload: Par
         });
 
         if (!customerNamesMap.has(customerCode)) {
-          customerNamesMap.set(customerCode, { customerName, routeCodes: new Set() });
+          customerNamesMap.set(customerCode, { customerName, routeCodes: new Set(), channel });
+        } else {
+          const entry = customerNamesMap.get(customerCode)!;
+          entry.routeCodes.add(routeCode);
+          if (channel && (!entry.channel || entry.channel === 'GENERAL TRADE')) {
+            entry.channel = channel;
+          }
         }
-        customerNamesMap.get(customerCode)!.routeCodes.add(routeCode);
       }
     });
   });
@@ -531,7 +572,8 @@ export function mergeParsedData(parsedFiles: ParsedFileResult[]): { payload: Par
     const dairyClassification = dairyInfo ? dairyInfo.classification : undefined;
     const iceCreamClassification = iceInfo ? iceInfo.classification : undefined;
     const classification = dairyClassification || iceCreamClassification || 'D';
-    const rawChannel = (dairyInfo?.channel || iceInfo?.channel || 'General Trade');
+    const custMasterChannel = nameInfo?.channel;
+    const rawChannel = custMasterChannel || dairyInfo?.channel || iceInfo?.channel || 'General Trade';
     const channel = rawChannel ? rawChannel.toUpperCase() : 'GENERAL TRADE';
 
     payload.customers.push({
