@@ -137,30 +137,39 @@ function LoginForm() {
     <main className="min-h-screen flex flex-col justify-center items-center px-4 bg-[#F8FAFC] dark:bg-slate-950 relative overflow-hidden select-none animate-fade-in">
 
       {/* Decorative ambient radial glows in background */}
-      <div className="absolute top-[-10%] right-[-10%] h-[400px] w-[400px] rounded-full bg-[#5B5CEB]/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-10%] h-[400px] w-[400px] rounded-full bg-[#5B5CEB]/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] right-[-10%] h-[450px] w-[450px] rounded-full bg-[#0284c7]/10 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] h-[450px] w-[450px] rounded-full bg-[#e11d48]/10 blur-[130px] pointer-events-none" />
 
       {/* Login Container: full screen on mobile, styled card on desktop */}
       <div
-        className="w-full max-w-md bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-6 sm:p-8 z-10 transition-all duration-300 relative max-md:border-none max-md:bg-transparent max-md:shadow-none max-md:px-4"
+        className="w-full max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-[#E2E8F0] dark:border-slate-800 p-6 sm:p-8 z-10 transition-all duration-300 relative max-md:border-none max-md:bg-transparent max-md:shadow-none max-md:px-4"
         style={{
-          borderRadius: '24px',
-          boxShadow: 'var(--shadow-card)',
+          borderRadius: '28px',
+          boxShadow: '0 20px 45px -15px rgba(2, 132, 199, 0.12), 0 0 1px 1px rgba(0, 0, 0, 0.05)',
         }}
       >
-        <div className="flex flex-col items-center mb-8 max-md:mb-6">
+        <div className="flex flex-col items-center mb-6 max-md:mb-5">
+          {/* Official Dandy Brand Logo */}
+          <div className="relative mb-4 p-3 rounded-2xl bg-white dark:bg-slate-800 shadow-md border border-slate-100 dark:border-slate-700/80 group transition-all duration-300 hover:shadow-lg hover:border-sky-300 dark:hover:border-sky-500">
+            <img
+              src="/images/dandy-logo.png"
+              alt="Dandy Logo"
+              className="h-16 sm:h-20 w-auto object-contain transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
+            />
+          </div>
+
           {/* Authentication pill badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#5B5CEB]/25 bg-[#EEF2FF] dark:bg-blue-950/10 px-3.5 py-1.5 mb-4">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#5B5CEB] animate-pulse" />
-            <span className="font-mono text-[9px] uppercase tracking-[0.12em] font-bold text-[#5B5CEB] dark:text-blue-400">
-              Authentication Required
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#0284c7]/30 bg-[#F0F9FF] dark:bg-sky-950/30 px-3.5 py-1.5 mb-3">
+            <span className="h-2 w-2 rounded-full bg-[#0284c7] animate-pulse" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.14em] font-bold text-[#0284c7] dark:text-sky-400">
+              Dandy Secure Portal
             </span>
           </div>
 
-          <h1 className="text-[28px] max-md:text-[24px] font-extrabold tracking-tight text-gray-900 dark:text-white text-center leading-none">
-            Field Visit <span className="text-[#5B5CEB]">Management</span>
+          <h1 className="text-[26px] max-md:text-[22px] font-black tracking-tight text-gray-900 dark:text-white text-center leading-none">
+            Field Visit <span className="text-[#0284c7]">Management</span>
           </h1>
-          <p className="text-gray-500 dark:text-slate-400 text-[13px] mt-2.5 text-center max-w-[280px] leading-normal font-medium">
+          <p className="text-gray-500 dark:text-slate-400 text-[12.5px] mt-2 text-center max-w-[310px] leading-normal font-medium">
             Enter supervisor or administrator credentials to access your console.
           </p>
         </div>
@@ -172,7 +181,7 @@ function LoginForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4.5">
           <div className="space-y-1.5">
             <label htmlFor="email" className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">
               Email / Login ID
@@ -184,10 +193,10 @@ function LoginForm() {
               <input
                 id="email"
                 type="email"
-                placeholder="name@company.com"
+                placeholder="name@dandy.com"
                 disabled={loading}
                 {...register('email')}
-                className="w-full pl-11 pr-4 bg-white dark:bg-slate-950 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl text-gray-900 dark:text-white text-[14px] outline-none transition-all placeholder:text-gray-400/70 focus:border-[#5B5CEB] focus:ring-1 focus:ring-[#5B5CEB] disabled:opacity-50"
+                className="w-full pl-11 pr-4 bg-white dark:bg-slate-950 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl text-gray-900 dark:text-white text-[14px] outline-none transition-all placeholder:text-gray-400/70 focus:border-[#0284c7] focus:ring-2 focus:ring-[#0284c7]/20 disabled:opacity-50"
                 style={{ height: '52px' }}
               />
             </div>
@@ -204,7 +213,7 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={() => setForgotOpen(true)}
-                className="text-[11px] font-bold text-[#5B5CEB] hover:text-[#4C4BCE] transition-all cursor-pointer bg-transparent border-none"
+                className="text-[11px] font-bold text-[#0284c7] hover:text-[#0369a1] transition-all cursor-pointer bg-transparent border-none"
               >
                 Forgot Password?
               </button>
@@ -219,7 +228,7 @@ function LoginForm() {
                 placeholder="••••••••"
                 disabled={loading}
                 {...register('password')}
-                className="w-full pl-11 pr-11 bg-white dark:bg-slate-950 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl text-gray-900 dark:text-white text-[14px] outline-none transition-all placeholder:text-gray-400/70 focus:border-[#5B5CEB] focus:ring-1 focus:ring-[#5B5CEB] disabled:opacity-50"
+                className="w-full pl-11 pr-11 bg-white dark:bg-slate-950 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl text-gray-900 dark:text-white text-[14px] outline-none transition-all placeholder:text-gray-400/70 focus:border-[#0284c7] focus:ring-2 focus:ring-[#0284c7]/20 disabled:opacity-50"
                 style={{ height: '52px' }}
               />
               <button
@@ -239,7 +248,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#5B5CEB] hover:bg-[#4C4BCE] text-white font-bold text-[13px] tracking-wider uppercase rounded-2xl shadow-[0_4px_16px_rgba(91,92,235,0.25)] hover:shadow-[0_6px_20px_rgba(91,92,235,0.35)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full bg-gradient-to-r from-[#0284c7] to-[#0066b2] hover:from-[#0369a1] hover:to-[#0284c7] text-white font-bold text-[13px] tracking-wider uppercase rounded-2xl shadow-[0_4px_18px_rgba(2,132,199,0.35)] hover:shadow-[0_6px_24px_rgba(2,132,199,0.45)] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             style={{ height: '52px' }}
           >
             {loading ? (

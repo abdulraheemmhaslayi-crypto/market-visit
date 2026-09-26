@@ -69,6 +69,43 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
           }
         }
 
+        if (
+          lowerInput === 'subadmin@marketvisit.com' ||
+          lowerInput === 'subadmin' ||
+          lowerInput === 'sub-admin' ||
+          loginInput.toUpperCase() === 'SUBADMIN001'
+        ) {
+          const pass = credentials.password as string;
+          if (pass === 'subadmin@123' || pass === 'subadmin' || pass === 'admin@123') {
+            return {
+              id: 'usr_subadmin_dev',
+              name: 'Operations Manager (Sub-Admin)',
+              email: 'subadmin@marketvisit.com',
+              employeeCode: 'SUBADM001',
+              role: 'Sub-Admin',
+              status: 'Active',
+            };
+          }
+        }
+
+        if (
+          lowerInput === 'supervisor@marketvisit.com' ||
+          lowerInput === 'supervisor' ||
+          loginInput.toUpperCase() === 'SUP001'
+        ) {
+          const pass = credentials.password as string;
+          if (pass === 'supervisor@123' || pass === 'supervisor') {
+            return {
+              id: 'usr_sup_dev',
+              name: 'Field Supervisor',
+              email: 'supervisor@marketvisit.com',
+              employeeCode: 'SUP001',
+              role: 'Supervisor',
+              status: 'Active',
+            };
+          }
+        }
+
         throw new Error('Invalid email or password.');
       },
     }),
