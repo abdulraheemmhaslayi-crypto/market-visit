@@ -58,7 +58,7 @@ export async function createSupervisorAction(data: SupervisorInput): Promise<Act
     if (!canModifyMasterData(currentUser?.role)) {
       return {
         success: false,
-        error: '403 Forbidden: Sub-Admin role does not have write permissions to create supervisor accounts.',
+        error: '403 Forbidden: You do not have write permissions to create supervisor accounts.',
       };
     }
     const parsed = supervisorSchema.safeParse(data);
@@ -138,7 +138,7 @@ export async function updateSupervisorAction(id: string, data: SupervisorInput):
     if (!canModifyMasterData(adminUserRole)) {
       return {
         success: false,
-        error: '403 Forbidden: Sub-Admin role does not have write permissions to update supervisor accounts.',
+        error: '403 Forbidden: You do not have write permissions to update supervisor accounts.',
       };
     }
     const parsed = supervisorSchema.safeParse(data);
@@ -219,7 +219,7 @@ export async function disableSupervisorAction(id: string): Promise<ActionRespons
     if (!canModifyMasterData(adminUserRole)) {
       return {
         success: false,
-        error: '403 Forbidden: Sub-Admin role does not have write permissions to disable supervisor accounts.',
+        error: '403 Forbidden: You do not have write permissions to disable supervisor accounts.',
       };
     }
     const existingUser = await userRepository.getUserById(id);

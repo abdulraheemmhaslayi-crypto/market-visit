@@ -12,7 +12,7 @@ import {
 import { Route, Customer, CustomerRouteMapping, SKU, ImportSummary } from '@/types';
 
 import { useSession } from 'next-auth/react';
-import { canModifyMasterData } from '@/lib/roles';
+import { canImportMasterData } from '@/lib/roles';
 import { Lock } from 'lucide-react';
 
 type ImportStep = 'UPLOAD' | 'VALIDATE' | 'IMPORTING' | 'SUMMARY';
@@ -29,7 +29,7 @@ const STEP_ORDER: ImportStep[] = ['UPLOAD', 'VALIDATE', 'IMPORTING', 'SUMMARY'];
 export default function MasterImportPage() {
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role;
-  const canEdit = canModifyMasterData(userRole);
+  const canEdit = canImportMasterData(userRole);
   const { showToast } = useToast();
   const [step, setStep] = useState<ImportStep>('UPLOAD');
   const [activeImportKey, setActiveImportKey] = useState<keyof typeof files | 'ALL'>('ALL');

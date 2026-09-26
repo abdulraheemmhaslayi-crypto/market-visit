@@ -189,13 +189,18 @@ export default function SupervisorsPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            Supervisors Management
-          </h1>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            Manage field team credentials, roles, and account status.
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center shadow-xs border border-[var(--border)] flex-shrink-0">
+            <img src="/images/dandy-logo.png" alt="Dandy Logo" className="h-full w-auto object-contain" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+              Supervisors Management
+            </h1>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Manage field team credentials, roles, and account status.
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <ExportButton onClick={handleExportSupervisors} label="Export Excel" variant="outline" />
@@ -206,7 +211,7 @@ export default function SupervisorsPage() {
             </button>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <Lock className="h-3.5 w-3.5" /> Read-Only Mode (Sub-Admin)
+              <Lock className="h-3.5 w-3.5" /> Read-Only Mode
             </span>
           )}
         </div>

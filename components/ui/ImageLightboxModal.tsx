@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
   X,
   ChevronLeft,
@@ -17,10 +17,17 @@ import {
   MessageSquare,
   Upload,
   RotateCcw,
+  RotateCw,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
   Sparkles,
   Camera,
   Check,
+  Image as ImageIcon,
+  FlipHorizontal,
 } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { AuditActionItem } from '@/lib/audit-actions';
 
 export interface LightboxItem {
@@ -29,6 +36,9 @@ export interface LightboxItem {
   cloudinaryUrl?: string;
   category?: string;
   outlet?: string;
+  outletCode?: string;
+  customerCode?: string;
+  custCode?: string;
   supervisor?: string;
   manager?: string;
   route?: string;
@@ -46,6 +56,7 @@ export interface ImageLightboxModalProps {
   onClose: () => void;
   onNavigate: (newIndex: number) => void;
   title?: string;
+  userRole?: string;
   actionItems?: Record<string, AuditActionItem>;
   onActionUpdated?: () => void;
 }
@@ -57,6 +68,7 @@ export default function ImageLightboxModal({
   onClose,
   onNavigate,
   title,
+  userRole,
   actionItems = {},
   onActionUpdated,
 }: ImageLightboxModalProps) {
@@ -85,15 +97,148 @@ export default function ImageLightboxModal({
 
   const currentAction = current?.photoId ? actionItems[current.photoId] : null;
 
-  // Reset local form states when current image changes
+  // Role Detection
+  const { data: session } = useSession();
+  const effectiveRole = userRole || (session?.user as any)?.role || 'Admin';
+  const isSupervisor = effectiveRole.toLowerCase().includes('supervisor');
+
+  // Outlet Code Detection
+  const outletCode =
+    current?.outletCode ||
+    current?.customerCode ||
+    current?.custCode ||
+    (current?.visitId?.includes('|') ? current.visitId.split('|')[0] : '');
+
+  // Zoom & Rotation States
+  const [zoom, setZoom] = useState<number>(1);
+  const [rotation, setRotation] = useState<number>(0);
+
+  // Camera & Gallery Proof States
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const nativeCameraInputRef = useRef<HTMLInputElement>(null);
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+    setCameraError(null);
+  }, []);
+
+  const startCamera = async (mode: 'environment' | 'user' = facingMode) => {
+    setIsCameraActive(true);
+    setCameraError(null);
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: mode },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+    } catch (err: any) {
+      console.warn('getUserMedia error:', err);
+      setCameraError('Direct camera stream unavailable or blocked. You can use your device camera app or choose from gallery.');
+    }
+  };
+
+  const toggleCameraFacingMode = () => {
+    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nextMode);
+    startCamera(nextMode);
+  };
+
+  const takePhotoSnapshot = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      if (facingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setProofPhotoUrl(dataUrl);
+      stopCamera();
+    }
+  };
+
+  const handleGalleryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) setProofPhotoUrl(result);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleNativeCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setProofPhotoUrl(result);
+        stopCamera();
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
+  // Stop camera if modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      stopCamera();
+    }
+  }, [isOpen, stopCamera]);
+
+  // Reset local form states and image transforms when current image changes
   useEffect(() => {
     setIsFlagging(false);
     setIsSubmittingProof(false);
     setGmComment('');
     setSupervisorComment('');
     setProofPhotoUrl('');
+    setZoom(1);
+    setRotation(0);
+    stopCamera();
     setActiveTab(currentAction?.proofPhotoUrl ? 'before_after' : 'details');
-  }, [currentIndex, current?.photoId, currentAction?.proofPhotoUrl]);
+  }, [currentIndex, current?.photoId, currentAction?.proofPhotoUrl, stopCamera]);
 
   const handlePrev = useCallback(() => {
     if (hasPrev) {
@@ -169,10 +314,26 @@ export default function ImageLightboxModal({
 
     setIsSavingProof(true);
     try {
-      // Use provided image URL or standard resolution proof fallback
-      const finalProofUrl =
+      let finalProofUrl =
         proofPhotoUrl ||
         'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80';
+
+      // If proofPhotoUrl is a base64 data URL, upload to /api/upload
+      if (proofPhotoUrl && proofPhotoUrl.startsWith('data:image')) {
+        try {
+          const upRes = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file: proofPhotoUrl, category: 'Proof' }),
+          });
+          if (upRes.ok) {
+            const upData = await upRes.json();
+            if (upData.url) finalProofUrl = upData.url;
+          }
+        } catch (uploadErr) {
+          console.warn('API upload fallback to data URL:', uploadErr);
+        }
+      }
 
       const res = await fetch('/api/admin/audit-actions', {
         method: 'PATCH',
@@ -187,6 +348,7 @@ export default function ImageLightboxModal({
 
       if (res.ok) {
         setIsSubmittingProof(false);
+        stopCamera();
         setActiveTab('before_after');
         if (onActionUpdated) onActionUpdated();
       }
@@ -275,20 +437,85 @@ export default function ImageLightboxModal({
               </div>
             </div>
           ) : (
-            /* Standard Single Image View */
-            <img
-              key={imageUrl}
-              src={imageUrl}
-              alt={categoryName}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl transition-all duration-200 animate-in fade-in zoom-in-95"
-            />
+            /* Standard Single Image View with Zoom & Rotation */
+            <div className="w-full h-full flex items-center justify-center overflow-hidden p-2">
+              <img
+                key={imageUrl}
+                src={imageUrl}
+                alt={categoryName}
+                style={{
+                  transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                  transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transformOrigin: 'center center',
+                }}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
+                draggable={false}
+              />
+            </div>
+          )}
+
+          {/* Floating Image Zoom & Rotation Controls */}
+          {activeTab !== 'before_after' && (
+            <div className="absolute bottom-14 inset-x-0 z-30 flex items-center justify-center pointer-events-none">
+              <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-950/85 border border-slate-700/80 backdrop-blur-md shadow-2xl pointer-events-auto text-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}
+                  title="Zoom Out"
+                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                >
+                  <ZoomOut className="h-3.5 w-3.5" />
+                </button>
+                <span className="text-[11px] font-mono font-bold min-w-[40px] text-center text-slate-300 select-none">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.min(4, Math.round((z + 0.25) * 100) / 100))}
+                  title="Zoom In"
+                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                >
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </button>
+                <div className="h-3.5 w-px bg-slate-700 mx-1" />
+                <button
+                  type="button"
+                  onClick={() => setRotation((r) => (r - 90) % 360)}
+                  title="Rotate Counter-Clockwise (-90°)"
+                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRotation((r) => (r + 90) % 360)}
+                  title="Rotate Clockwise (+90°)"
+                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                </button>
+                {(zoom !== 1 || rotation !== 0) && (
+                  <>
+                    <div className="h-3.5 w-px bg-slate-700 mx-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setZoom(1);
+                        setRotation(0);
+                      }}
+                      title="Reset Zoom & Rotation"
+                      className="px-2 py-0.5 text-[10px] font-bold bg-white/10 hover:bg-white/20 rounded-md text-amber-300 transition-colors"
+                    >
+                      Reset
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Top Overlay Badge & Action Status */}
           <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-black/60 text-sky-400 border border-sky-500/30 backdrop-blur-md shadow-md">
-              {categoryName}
-            </span>
             <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-black/60 text-slate-200 border border-slate-700 backdrop-blur-md shadow-md">
               {currentIndex + 1} / {total}
             </span>
@@ -406,6 +633,7 @@ export default function ImageLightboxModal({
                   {title || 'Image Audit & Action'}
                 </h4>
                 <p className="text-[11px] text-slate-400">
+                  {outletCode ? <span className="font-mono text-sky-400 font-bold mr-1">[{outletCode}]</span> : null}
                   {current.outlet || 'Store Attachment'}
                 </p>
               </div>
@@ -425,13 +653,24 @@ export default function ImageLightboxModal({
                   <Flag className="h-3.5 w-3.5" /> GM Action & Tracking
                 </span>
                 {!currentAction && !isFlagging && (
-                  <button
-                    type="button"
-                    onClick={() => setIsFlagging(true)}
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black transition-all cursor-pointer flex items-center gap-1 shadow"
-                  >
-                    <Flag className="h-3 w-3" /> Flag for Action
-                  </button>
+                  isSupervisor ? (
+                    <button
+                      type="button"
+                      disabled
+                      title="Directives are created by Admin or Sub-Admin roles"
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed flex items-center gap-1 opacity-60"
+                    >
+                      <Flag className="h-3 w-3" /> Flag for Action
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsFlagging(true)}
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black transition-all cursor-pointer flex items-center gap-1 shadow"
+                    >
+                      <Flag className="h-3 w-3" /> Flag for Action
+                    </button>
+                  )
                 )}
               </div>
 
@@ -450,32 +689,6 @@ export default function ImageLightboxModal({
                       placeholder="e.g. Planogram breach: Dandy 2L displaced on top shelf. Please rectify and upload proof."
                       className="w-full text-xs p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-semibold block mb-1">Priority</label>
-                      <select
-                        value={priority}
-                        onChange={(e) => setPriority(e.target.value as any)}
-                        className="w-full text-xs p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200"
-                      >
-                        <option value="Normal">Normal</option>
-                        <option value="Urgent">⚠️ Urgent (24h)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-400 font-semibold block mb-1">Target Window</label>
-                      <select
-                        value={deadline}
-                        onChange={(e) => setDeadline(e.target.value)}
-                        className="w-full text-xs p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200"
-                      >
-                        <option value="24 Hours">24 Hours</option>
-                        <option value="48 Hours">48 Hours</option>
-                        <option value="Next Scheduled Visit">Next Visit</option>
-                      </select>
-                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 pt-1">
@@ -519,9 +732,6 @@ export default function ImageLightboxModal({
                         <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
                       )}
                       Status: {currentAction.actionStatus === 'RESOLVED' ? 'Verified & Closed' : currentAction.actionStatus === 'SUBMITTED' ? 'Proof Uploaded (Review)' : 'Pending Supervisor Action'}
-                    </span>
-                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-black/40">
-                      {currentAction.priority}
                     </span>
                   </div>
 
@@ -585,8 +795,8 @@ export default function ImageLightboxModal({
                         </div>
                       )}
                     </div>
-                  ) : (
-                    /* Supervisor Proof Form / Simulation */
+                  ) : isSupervisor ? (
+                    /* Supervisor Proof Form / Submission (Supervisor Only) */
                     <div>
                       {!isSubmittingProof ? (
                         <button
@@ -615,33 +825,211 @@ export default function ImageLightboxModal({
                             />
                           </div>
 
-                          <div>
-                            <label className="text-[10px] text-slate-400 block mb-1">
-                              Proof Photo (Attach or Pick Sample):
+                          {/* Proof Photo Attachment with 2 distinct options: Camera & Gallery */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                              <Camera className="h-3.5 w-3.5 text-sky-400" />
+                              Proof Photo Attachment:
                             </label>
-                            <div className="flex gap-1.5 mb-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleSelectSampleProof('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80')}
-                                className="text-[10px] font-semibold px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700"
-                              >
-                                Clean Shelf Proof
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSelectSampleProof('https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?auto=format&fit=crop&w=800&q=80')}
-                                className="text-[10px] font-semibold px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700"
-                              >
-                                Rectified Display
-                              </button>
-                            </div>
+
+                            {/* Hidden File Inputs for native camera and gallery */}
                             <input
-                              type="text"
-                              value={proofPhotoUrl}
-                              onChange={(e) => setProofPhotoUrl(e.target.value)}
-                              placeholder="Photo URL or preset selected above"
-                              className="w-full text-[11px] p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-200"
+                              ref={galleryInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleGalleryFileChange}
                             />
+                            <input
+                              ref={nativeCameraInputRef}
+                              type="file"
+                              accept="image/*"
+                              capture={facingMode}
+                              className="hidden"
+                              onChange={handleNativeCameraChange}
+                            />
+
+                            {/* Viewfinder when in-app camera is active */}
+                            {isCameraActive ? (
+                              <div className="rounded-xl overflow-hidden bg-black border border-sky-500/50 p-2 space-y-2 animate-in fade-in duration-200">
+                                <div className="flex items-center justify-between px-1">
+                                  <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1">
+                                    <span className="h-2 w-2 rounded-full bg-sky-400 animate-pulse" />
+                                    {facingMode === 'environment' ? 'Rear Camera (Back)' : 'Front Camera (Selfie)'}
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={toggleCameraFacingMode}
+                                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 text-[11px] font-bold flex items-center gap-1 border border-slate-700 transition-all cursor-pointer"
+                                      title="Switch between front and back camera"
+                                    >
+                                      <FlipHorizontal className="h-3.5 w-3.5" />
+                                      Flip Camera
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={stopCamera}
+                                      className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer"
+                                      title="Close Camera"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {cameraError ? (
+                                  <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-[11px] text-red-200 space-y-2">
+                                    <p>{cameraError}</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => nativeCameraInputRef.current?.click()}
+                                      className="w-full py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs cursor-pointer"
+                                    >
+                                      Open Device Camera App
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="relative rounded-lg overflow-hidden bg-slate-950 aspect-video flex items-center justify-center">
+                                    <video
+                                      ref={videoRef}
+                                      autoPlay
+                                      playsInline
+                                      muted
+                                      className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`}
+                                    />
+                                  </div>
+                                )}
+
+                                {!cameraError && (
+                                  <div className="flex items-center justify-between pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => nativeCameraInputRef.current?.click()}
+                                      className="text-[10px] text-slate-400 hover:text-sky-300 underline cursor-pointer"
+                                    >
+                                      Use Native Camera App
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={takePhotoSnapshot}
+                                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/30 cursor-pointer active:scale-95 transition-all"
+                                    >
+                                      <Camera className="h-4 w-4" />
+                                      Capture Photo
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ) : proofPhotoUrl ? (
+                              /* Attached Proof Preview Card */
+                              <div className="p-2.5 rounded-xl bg-slate-950 border border-emerald-500/40 space-y-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="relative h-16 w-24 rounded-lg overflow-hidden border border-slate-700 bg-black flex-shrink-0">
+                                    <img
+                                      src={proofPhotoUrl}
+                                      alt="Proof preview"
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400">
+                                      <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                                      Proof Photo Ready
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                                      Ready to submit with resolution notes.
+                                    </p>
+                                    <div className="flex items-center gap-1.5 mt-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setProofPhotoUrl('');
+                                          startCamera('environment');
+                                        }}
+                                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
+                                      >
+                                        Retake (Camera)
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => galleryInputRef.current?.click()}
+                                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
+                                      >
+                                        Change (Gallery)
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setProofPhotoUrl('')}
+                                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 cursor-pointer"
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Two Distinct Options: Camera & Gallery */
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                  {/* Option 1: Camera */}
+                                  <button
+                                    type="button"
+                                    onClick={() => startCamera('environment')}
+                                    className="p-3 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700 hover:border-sky-500/50 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group hover:-translate-y-0.5 shadow-sm text-left"
+                                  >
+                                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:bg-sky-500 group-hover:text-black transition-all">
+                                      <Camera className="h-5 w-5" />
+                                    </div>
+                                    <span className="text-xs font-bold text-slate-100">
+                                      1. Camera
+                                    </span>
+                                    <span className="text-[9.5px] text-slate-400 text-center leading-tight">
+                                      Front & Back Switch
+                                    </span>
+                                  </button>
+
+                                  {/* Option 2: Gallery */}
+                                  <button
+                                    type="button"
+                                    onClick={() => galleryInputRef.current?.click()}
+                                    className="p-3 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700 hover:border-sky-500/50 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group hover:-translate-y-0.5 shadow-sm text-left"
+                                  >
+                                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:bg-sky-500 group-hover:text-black transition-all">
+                                      <ImageIcon className="h-5 w-5" />
+                                    </div>
+                                    <span className="text-xs font-bold text-slate-100">
+                                      2. Upload Gallery
+                                    </span>
+                                    <span className="text-[9.5px] text-slate-400 text-center leading-tight">
+                                      Pick from device files
+                                    </span>
+                                  </button>
+                                </div>
+
+                                {/* Testing Preset Samples */}
+                                <div className="flex items-center gap-1.5 pt-0.5">
+                                  <span className="text-[9.5px] text-slate-500 uppercase tracking-wider font-semibold">
+                                    Presets:
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectSampleProof('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80')}
+                                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
+                                  >
+                                    Clean Shelf
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectSampleProof('https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?auto=format&fit=crop&w=800&q=80')}
+                                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
+                                  >
+                                    Rectified Display
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2 pt-1">
@@ -663,6 +1051,16 @@ export default function ImageLightboxModal({
                         </form>
                       )}
                     </div>
+                  ) : (
+                    /* Admin / Sub-Admin View: Awaiting Supervisor Proof */
+                    <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300 space-y-1.5">
+                      <p className="font-semibold text-amber-300 flex items-center gap-1.5">
+                        <Clock className="h-4 w-4 text-amber-400" /> Awaiting Supervisor Corrective Action
+                      </p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Directive is assigned to <strong className="text-slate-200">{currentAction.supervisor}</strong>. Resolution proof is strictly submitted by the supervisor.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
@@ -676,6 +1074,7 @@ export default function ImageLightboxModal({
                     Outlet / Store
                   </label>
                   <p className="text-sm font-semibold text-slate-100 mt-0.5">
+                    {outletCode ? <span className="font-mono text-sky-400 font-bold mr-1.5">{outletCode} -</span> : null}
                     {current.outlet}
                   </p>
                 </div>
