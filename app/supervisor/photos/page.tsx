@@ -198,8 +198,8 @@ export default function SupervisorAuditPhotoGalleryPage() {
       {/* Top Header Card */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-sm">
         <div className="flex items-center gap-3.5">
-          <div className="p-3 rounded-xl bg-accent/10 text-accent">
-            <Camera className="h-6 w-6" />
+          <div className="h-12 w-12 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center shadow-xs border border-[var(--border)] flex-shrink-0">
+            <img src="/images/dandy-logo.png" alt="Dandy Logo" className="h-full w-auto object-contain" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-2">
@@ -279,7 +279,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           {/* Date Selector */}
           <div className="space-y-1">
             <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
@@ -294,28 +294,6 @@ export default function SupervisorAuditPhotoGalleryPage() {
               }}
               className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
             />
-          </div>
-
-          {/* Dynamic Application Filter */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-              <AppWindow className="h-3.5 w-3.5 text-accent" /> Application
-            </label>
-            <select
-              value={selectedApp}
-              onChange={(e) => {
-                setSelectedApp(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
-            >
-              <option value="all">All Applications</option>
-              {applications.map((app) => (
-                <option key={app} value={app}>
-                  {app}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Dynamic Route Code Filter */}
@@ -437,18 +415,6 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                   />
-
-                  {/* Category Pill Overlay */}
-                  <div
-                    className="absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md shadow-sm"
-                    style={{
-                      backgroundColor: catStyle.bg,
-                      color: catStyle.text,
-                      border: `1px solid ${catStyle.border}`,
-                    }}
-                  >
-                    {photo.category || 'Attachment'}
-                  </div>
 
                   {/* Management Directive Badge Overlay */}
                   {actionItem && (

@@ -1886,24 +1886,30 @@ export default function SupervisorDashboard() {
           margin:-20px; /* offset standard padding */
         }
         .top {
-          background:linear-gradient(135deg,#6366F1,#4F46E5);
+          background:linear-gradient(135deg, #0369a1 0%, #0284c7 55%, #00529b 100%);
           color:#fff;
           padding:12px 18px;
           display:flex;
           align-items:center;
-          gap:12px;
+          gap:14px;
           box-shadow:var(--shadow);
+          border-bottom: 2px solid rgba(255,255,255,0.12);
         }
         .top .logo {
-          width:36px;
-          height:36px;
-          border-radius:9px;
+          height:42px;
+          padding:3px 8px;
+          border-radius:10px;
           background:#fff;
-          display:grid;
-          place-items:center;
-          font-weight:800;
-          color:#4F46E5;
-          font-size:16px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          box-shadow:0 2px 8px rgba(0,0,0,0.15);
+          flex-shrink:0;
+        }
+        .top .logo img {
+          height:36px;
+          width:auto;
+          object-fit:contain;
         }
         .top h1 {
           font-size:17px;
@@ -2179,7 +2185,9 @@ export default function SupervisorDashboard() {
 
       {/* Header Banner */}
       <div className="top">
-        <div className="logo">D</div>
+        <div className="logo">
+          <img src="/images/dandy-logo.png" alt="Dandy" />
+        </div>
         <div>
           <h1>Dandy Market Visit — Supervisor Dashboard</h1>
           <div className="sub">Field-force visit compliance & execution · Dandy Company Ltd</div>
