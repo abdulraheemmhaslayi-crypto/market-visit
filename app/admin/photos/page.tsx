@@ -47,6 +47,7 @@ export interface AuditPhoto {
   supervisor: string;
   manager: string;
   outlet: string;
+  outletCode?: string;
   route: string;
   channel: string;
 }
@@ -654,7 +655,10 @@ export default function AuditPhotoGalleryPage() {
                   <div className="space-y-1.5">
                     <p className="text-xs font-bold text-[var(--text-primary)] truncate flex items-center gap-2">
                       <Store className="h-4 w-4 text-accent flex-shrink-0" />
-                      <span className="truncate">{photo.outlet}</span>
+                      <span className="truncate">
+                        {photo.outletCode ? <span className="font-mono text-sky-400 font-bold mr-1">[{photo.outletCode}]</span> : null}
+                        {photo.outlet}
+                      </span>
                     </p>
                     <p className="text-[11px] text-[var(--text-secondary)] truncate flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 text-[var(--text-muted)] flex-shrink-0" />
@@ -885,6 +889,7 @@ export default function AuditPhotoGalleryPage() {
         onClose={() => setLightboxIndex(null)}
         onNavigate={(newIdx) => setLightboxIndex(newIdx)}
         title="Admin Audit Photo Gallery"
+        userRole="Admin"
         actionItems={actionItemsMap}
         onActionUpdated={() => {
           fetchActionItems();

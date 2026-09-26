@@ -672,9 +672,8 @@ export default function SupervisorReportsPage() {
               ticks: {
                 color: textColor,
                 maxRotation: 45,
-                minRotation: 0,
-                autoSkip: true,
-                maxTicksLimit: 14,
+                minRotation: 45,
+                autoSkip: false,
               },
             },
             y: {

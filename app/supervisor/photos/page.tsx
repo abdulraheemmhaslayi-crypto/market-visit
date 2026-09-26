@@ -21,10 +21,14 @@ import {
   SlidersHorizontal,
   FileCheck,
   Maximize2,
+  Flag,
+  AlertTriangle,
+  Clock,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
+import { AuditActionItem } from '@/lib/audit-actions';
 
 export interface AuditPhoto {
   photoId: string;
@@ -37,6 +41,7 @@ export interface AuditPhoto {
   supervisor: string;
   manager: string;
   outlet: string;
+  outletCode?: string;
   route: string;
   channel: string;
 }
@@ -51,6 +56,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize] = useState<number>(12);
+
+  // GM / Admin Action Tracking State
+  const [actionItemsMap, setActionItemsMap] = useState<Record<string, AuditActionItem>>({});
+  const [actionFilter, setActionFilter] = useState<'all' | 'PENDING'>('all');
 
   const [photos, setPhotos] = useState<AuditPhoto[]>([]);
   const [applications, setApplications] = useState<string[]>([]);
@@ -112,9 +121,27 @@ export default function SupervisorAuditPhotoGalleryPage() {
     [selectedDate, selectedApp, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
   );
 
+  // Fetch GM / Admin Action Directives
+  const fetchActionItems = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/audit-actions');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.items)) {
+        const map: Record<string, AuditActionItem> = {};
+        data.items.forEach((item: AuditActionItem) => {
+          map[item.photoId] = item;
+        });
+        setActionItemsMap(map);
+      }
+    } catch (err) {
+      console.error('Failed to load supervisor audit action items:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPhotos(false);
-  }, [fetchPhotos]);
+    fetchActionItems();
+  }, [fetchPhotos, fetchActionItems]);
 
   const handleResetFilters = () => {
     setSelectedDate(getTodayStr());
@@ -157,6 +184,15 @@ export default function SupervisorAuditPhotoGalleryPage() {
     return { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' };
   };
 
+  const pendingActionCount = Object.values(actionItemsMap).filter(
+    (a) => a.actionStatus === 'PENDING'
+  ).length;
+
+  const displayedPhotos =
+    actionFilter === 'PENDING'
+      ? photos.filter((p) => actionItemsMap[p.photoId]?.actionStatus === 'PENDING')
+      : photos;
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Top Header Card */}
@@ -195,6 +231,36 @@ export default function SupervisorAuditPhotoGalleryPage() {
           </div>
         </div>
       </div>
+
+      {/* Management Action Directives Alert Banner for Supervisor */}
+      {pendingActionCount > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-200 shadow-sm animate-in fade-in duration-200">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <h4 className="text-xs sm:text-sm font-bold text-amber-200 flex items-center gap-2">
+                Management Directives Awaiting Corrective Action ({pendingActionCount})
+              </h4>
+              <p className="text-[11px] text-amber-300/80 mt-0.5">
+                Admin or Sub-Admin has flagged {pendingActionCount} audit {pendingActionCount === 1 ? 'photo' : 'photos'} for action. Click flagged photos to review directives and submit resolution proof.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionFilter(actionFilter === 'PENDING' ? 'all' : 'PENDING')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap self-start sm:self-center ${
+              actionFilter === 'PENDING'
+                ? 'bg-amber-500 text-black border-amber-400 shadow-md font-extrabold'
+                : 'bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30'
+            }`}
+          >
+            {actionFilter === 'PENDING' ? 'Show All Photos' : 'Filter Action Directives'}
+          </button>
+        </div>
+      )}
 
       {/* Filter Control Bar */}
       <div className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-sm space-y-3">
@@ -336,8 +402,9 @@ export default function SupervisorAuditPhotoGalleryPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {photos.map((photo) => {
+          {displayedPhotos.map((photo) => {
             const catStyle = getCategoryStyle(photo.category);
+            const actionItem = actionItemsMap[photo.photoId];
             const dateObj = new Date(photo.uploadedAt);
             const formattedDate = dateObj.toLocaleDateString('en-US', {
               month: 'short',
@@ -353,10 +420,14 @@ export default function SupervisorAuditPhotoGalleryPage() {
               <div
                 key={photo.photoId}
                 onClick={() => {
-                  const idx = photos.findIndex((p) => p.photoId === photo.photoId);
+                  const idx = displayedPhotos.findIndex((p) => p.photoId === photo.photoId);
                   setLightboxIndex(idx !== -1 ? idx : 0);
                 }}
-                className="group relative rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col"
+                className={`group relative rounded-xl border bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col ${
+                  actionItem?.actionStatus === 'PENDING'
+                    ? 'border-amber-500/60 ring-1 ring-amber-500/30'
+                    : 'border-[var(--border)]'
+                }`}
               >
                 {/* Image Frame */}
                 <div className="relative aspect-video w-full bg-slate-950 overflow-hidden">
@@ -379,6 +450,26 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     {photo.category || 'Attachment'}
                   </div>
 
+                  {/* Management Directive Badge Overlay */}
+                  {actionItem && (
+                    <div
+                      className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9.5px] font-bold shadow-md flex items-center gap-1 z-10 ${
+                        actionItem.actionStatus === 'RESOLVED'
+                          ? 'bg-emerald-500 text-white'
+                          : actionItem.actionStatus === 'SUBMITTED'
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-amber-500 text-black animate-pulse'
+                      }`}
+                    >
+                      <Flag className="h-3 w-3" />
+                      {actionItem.actionStatus === 'RESOLVED'
+                        ? 'Resolved'
+                        : actionItem.actionStatus === 'SUBMITTED'
+                        ? 'Proof Sent'
+                        : 'Action Required'}
+                    </div>
+                  )}
+
                   {/* Image Spec Badge Overlay */}
                   <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded text-[9.5px] font-mono font-bold bg-black/70 text-white/90 backdrop-blur-sm border border-white/20 flex items-center gap-1">
                     <FileCheck className="h-3 w-3 text-emerald-400" /> Optimized HD (~350 KB)
@@ -386,7 +477,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="text-xs font-bold text-white px-3 py-1.5 rounded-xl bg-accent backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
-                      <Maximize2 className="h-3.5 w-3.5" /> Click to Expand
+                      <Maximize2 className="h-3.5 w-3.5" /> Click to Expand & Review
                     </span>
                   </div>
                 </div>
@@ -396,13 +487,28 @@ export default function SupervisorAuditPhotoGalleryPage() {
                   <div className="space-y-1">
                     <p className="text-xs font-bold text-[var(--text-primary)] truncate flex items-center gap-1.5">
                       <Store className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-                      <span className="truncate">{photo.outlet}</span>
+                      <span className="truncate">
+                        {photo.outletCode ? <span className="font-mono text-sky-400 font-bold mr-1">[{photo.outletCode}]</span> : null}
+                        {photo.outlet}
+                      </span>
                     </p>
                     <p className="text-[11px] text-[var(--text-secondary)] truncate flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 text-[var(--text-muted)] flex-shrink-0" />
                       <span>Route: {photo.route || 'N/A'} ({photo.channel})</span>
                     </p>
                   </div>
+
+                  {/* GM Directive Remark Banner */}
+                  {actionItem && actionItem.gmComment && (
+                    <div className="mt-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] space-y-0.5">
+                      <p className="font-bold text-amber-400 flex items-center gap-1 text-[10px] uppercase tracking-wider">
+                        <AlertTriangle className="h-3 w-3" /> Management Directive:
+                      </p>
+                      <p className="text-[11px] text-amber-200 italic line-clamp-2">
+                        "{actionItem.gmComment}"
+                      </p>
+                    </div>
+                  )}
 
                   <div className="pt-2 border-t border-[var(--border-soft)] flex items-center justify-between text-[10px] text-[var(--text-muted)]">
                     <span className="flex items-center gap-1 font-mono">
@@ -506,12 +612,18 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
       {/* Lightbox Dialog Modal with Next/Prev Navigation */}
       <ImageLightboxModal
-        photos={photos}
+        photos={displayedPhotos}
         currentIndex={lightboxIndex ?? 0}
         isOpen={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}
         onNavigate={(newIdx) => setLightboxIndex(newIdx)}
         title="Supervisor Audit Photo Gallery"
+        userRole="Supervisor"
+        actionItems={actionItemsMap}
+        onActionUpdated={() => {
+          fetchActionItems();
+          fetchPhotos(true);
+        }}
       />
     </div>
   );

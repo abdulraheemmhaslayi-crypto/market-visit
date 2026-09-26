@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useTheme } from '@/providers/theme-provider';
-import { canModifyMasterData } from '@/lib/roles';
+import { canImportMasterData } from '@/lib/roles';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -144,17 +144,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'A';
   const userName = user?.name || 'Administrator';
   const userRole = user?.role || 'Admin';
-  const canEditMaster = canModifyMasterData(userRole);
+  const canImportMaster = canImportMasterData(userRole);
 
   const filteredNavGroups = navGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => item.path !== '/admin/import' || canEditMaster),
+      items: group.items.filter((item) => item.path !== '/admin/import' || canImportMaster),
     }))
     .filter((group) => group.items.length > 0);
 
   const filteredAdminNavActions = adminNavActions.filter(
-    (action) => action.path !== '/admin/import' || canEditMaster
+    (action) => action.path !== '/admin/import' || canImportMaster
   );
 
   // Close user menu on outside click
@@ -590,7 +590,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
             style={{
               color: pathname === '/admin' ? 'var(--accent)' : 'var(--text-muted)',
-              width: canEditMaster ? '20%' : '25%',
+              width: canImportMaster ? '20%' : '25%',
             }}
           >
             <LayoutDashboard className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname === '/admin' ? 'scale(1.1)' : 'scale(1)' }} />
@@ -606,7 +606,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
             style={{
               color: pathname.startsWith('/admin/visits') ? 'var(--accent)' : 'var(--text-muted)',
-              width: canEditMaster ? '20%' : '25%',
+              width: canImportMaster ? '20%' : '25%',
             }}
           >
             <CalendarCheck className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/visits') ? 'scale(1.1)' : 'scale(1)' }} />
@@ -622,7 +622,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
             style={{
               color: pathname.startsWith('/admin/supervisors') ? 'var(--accent)' : 'var(--text-muted)',
-              width: canEditMaster ? '20%' : '25%',
+              width: canImportMaster ? '20%' : '25%',
             }}
           >
             <Users className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/supervisors') ? 'scale(1.1)' : 'scale(1)' }} />
@@ -638,7 +638,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
             style={{
               color: pathname.startsWith('/admin/reports') ? 'var(--accent)' : 'var(--text-muted)',
-              width: canEditMaster ? '20%' : '25%',
+              width: canImportMaster ? '20%' : '25%',
             }}
           >
             <FileBarChart2 className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/reports') ? 'scale(1.1)' : 'scale(1)' }} />
@@ -649,13 +649,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
 
           {/* Import Tab */}
-          {canEditMaster && (
+          {canImportMaster && (
             <Link
               href="/admin/import"
               className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
               style={{
                 color: pathname.startsWith('/admin/import') ? 'var(--accent)' : 'var(--text-muted)',
-                width: canEditMaster ? '20%' : '25%',
+                width: canImportMaster ? '20%' : '25%',
               }}
             >
               <FileSpreadsheet className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/import') ? 'scale(1.1)' : 'scale(1)' }} />
