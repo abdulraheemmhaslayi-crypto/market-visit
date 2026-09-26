@@ -8,10 +8,11 @@ export const FLEET_ROLES: AppRole[] = ['Fleet', 'Maintenance'];
 
 export function normalizeRole(role?: string | null): AppRole | undefined {
   if (!role) return undefined;
-  const trimmed = role.trim().toUpperCase();
-  const match = FULL_ACCESS_ROLES.find((r) => r.toUpperCase() === trimmed) ||
-                SUPERVISOR_ROLES.find((r) => r.toUpperCase() === trimmed) ||
-                FLEET_ROLES.find((r) => r.toUpperCase() === trimmed);
+  const trimmed = role.trim().toUpperCase().replace(/[\s_]+/g, '-');
+  if (trimmed === 'SUB-ADMIN' || trimmed === 'SUBADMIN') return 'Sub-Admin';
+  const match = FULL_ACCESS_ROLES.find((r) => r.toUpperCase().replace(/[\s_]+/g, '-') === trimmed) ||
+                SUPERVISOR_ROLES.find((r) => r.toUpperCase().replace(/[\s_]+/g, '-') === trimmed) ||
+                FLEET_ROLES.find((r) => r.toUpperCase().replace(/[\s_]+/g, '-') === trimmed);
   return match;
 }
 
@@ -28,13 +29,24 @@ export function isFleetRole(role?: string | null) {
 }
 
 /**
- * Returns true if the user role is authorized to perform write / add / edit / import operations.
- * Sub-Admin, Supervisor, Fleet, and Maintenance users are restricted to Read-Only access.
+ * Returns true if the user role is authorized to perform master import operations.
+ * Master Import is restricted to full Administrators (Admin, GM, BDM, Sales Manager).
+ * Sub-Admin role is restricted from Master Import.
+ */
+export function canImportMasterData(role?: string | null): boolean {
+  const norm = normalizeRole(role);
+  if (!norm) return false;
+  return norm === 'Admin' || norm === 'GM' || norm === 'BDM' || norm === 'Sales Manager';
+}
+
+/**
+ * Returns true if the user role is authorized to perform administrative write / add / edit operations.
+ * Sub-Admin has full administrative authority like Admin (except Master Import).
  */
 export function canModifyMasterData(role?: string | null): boolean {
   const norm = normalizeRole(role);
   if (!norm) return false;
-  return norm === 'Admin' || norm === 'GM' || norm === 'BDM' || norm === 'Sales Manager';
+  return norm === 'Admin' || norm === 'Sub-Admin' || norm === 'GM' || norm === 'BDM' || norm === 'Sales Manager';
 }
 
 export function getDashboardScope(role?: string | null): DashboardScope {

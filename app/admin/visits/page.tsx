@@ -36,16 +36,21 @@ function TH({ children, right }: { children: React.ReactNode; right?: boolean })
 
 function PageHeader({ title, sub, count }: { title: string; sub: string; count?: number }) {
   return (
-    <div>
-      <div className="flex items-center gap-2">
-        <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-          {title}
-        </h1>
-        {count !== undefined && (
-          <span className="badge badge-accent">{count}</span>
-        )}
+    <div className="flex items-center gap-3">
+      <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center shadow-xs border border-[var(--border)] flex-shrink-0">
+        <img src="/images/dandy-logo.png" alt="Dandy Logo" className="h-full w-auto object-contain" />
       </div>
-      <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{sub}</p>
+      <div>
+        <div className="flex items-center gap-2">
+          <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+            {title}
+          </h1>
+          {count !== undefined && (
+            <span className="badge badge-accent">{count}</span>
+          )}
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{sub}</p>
+      </div>
     </div>
   );
 }

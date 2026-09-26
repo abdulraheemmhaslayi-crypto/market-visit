@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useTheme } from '@/providers/theme-provider';
-import { canModifyMasterData } from '@/lib/roles';
+import { canImportMasterData } from '@/lib/roles';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -144,17 +144,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'A';
   const userName = user?.name || 'Administrator';
   const userRole = user?.role || 'Admin';
-  const canEditMaster = canModifyMasterData(userRole);
+  const canImportMaster = canImportMasterData(userRole);
 
   const filteredNavGroups = navGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => item.path !== '/admin/import' || canEditMaster),
+      items: group.items.filter((item) => item.path !== '/admin/import' || canImportMaster),
     }))
     .filter((group) => group.items.length > 0);
 
   const filteredAdminNavActions = adminNavActions.filter(
-    (action) => action.path !== '/admin/import' || canEditMaster
+    (action) => action.path !== '/admin/import' || canImportMaster
   );
 
   // Close user menu on outside click
@@ -215,23 +215,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         {/* Logo */}
         <div
-          className="flex items-center gap-3 px-5 flex-shrink-0"
+          className="flex items-center gap-2.5 px-4 flex-shrink-0"
           style={{
             height: 'var(--topbar-h)',
             borderBottom: '1px solid var(--border)',
           }}
         >
-          <div
-            className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-black flex-shrink-0"
-            style={{ background: 'var(--accent)' }}
-          >
-            A
+          <div className="h-9 w-9 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center shadow-xs border border-[var(--border)] flex-shrink-0">
+            <img src="/images/dandy-logo.png" alt="Dandy" className="h-full w-auto object-contain" />
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-bold leading-none truncate" style={{ color: 'var(--text-primary)' }}>
-              Field Visit
+            <p className="text-[13px] font-extrabold leading-none truncate" style={{ color: 'var(--text-primary)' }}>
+              Dandy Field Visit
             </p>
-            <p className="text-[10px] font-semibold mt-0.5 uppercase tracking-wider" style={{ color: 'var(--accent)' }}>
+            <p className="text-[10px] font-bold mt-0.5 uppercase tracking-wider text-[#0284c7]">
               Admin Console
             </p>
           </div>
@@ -366,6 +363,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span className="hidden sm:inline text-[11px] font-bold uppercase tracking-wider">Back</span>
             </button>
           )}
+
+          {/* Brand Mark in Topbar */}
+          <Link href="/admin" className="hidden sm:flex items-center gap-2 mr-1 group hover:opacity-90 transition-opacity">
+            <div className="h-8 w-8 rounded-lg bg-white dark:bg-slate-800 p-0.5 flex items-center justify-center border border-[var(--border)] shadow-xs">
+              <img src="/images/dandy-logo.png" alt="Dandy" className="h-full w-auto object-contain" />
+            </div>
+            <span className="text-[12px] font-extrabold text-[var(--text-primary)] hidden xl:inline">
+              Dandy
+            </span>
+          </Link>
 
           {/* Search bar with dropdown actions */}
           <div
@@ -590,7 +597,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
             style={{
               color: pathname === '/admin' ? 'var(--accent)' : 'var(--text-muted)',
-              width: canEditMaster ? '20%' : '25%',
+              width: canImportMaster ? '20%' : '25%',
             }}
           >
             <LayoutDashboard className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname === '/admin' ? 'scale(1.1)' : 'scale(1)' }} />
@@ -606,7 +613,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
             style={{
               color: pathname.startsWith('/admin/visits') ? 'var(--accent)' : 'var(--text-muted)',
-              width: canEditMaster ? '20%' : '25%',
+              width: canImportMaster ? '20%' : '25%',
             }}
           >
             <CalendarCheck className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/visits') ? 'scale(1.1)' : 'scale(1)' }} />
@@ -622,7 +629,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
             style={{
               color: pathname.startsWith('/admin/supervisors') ? 'var(--accent)' : 'var(--text-muted)',
-              width: canEditMaster ? '20%' : '25%',
+              width: canImportMaster ? '20%' : '25%',
             }}
           >
             <Users className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/supervisors') ? 'scale(1.1)' : 'scale(1)' }} />
@@ -638,7 +645,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
             style={{
               color: pathname.startsWith('/admin/reports') ? 'var(--accent)' : 'var(--text-muted)',
-              width: canEditMaster ? '20%' : '25%',
+              width: canImportMaster ? '20%' : '25%',
             }}
           >
             <FileBarChart2 className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/reports') ? 'scale(1.1)' : 'scale(1)' }} />
@@ -649,13 +656,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Link>
 
           {/* Import Tab */}
-          {canEditMaster && (
+          {canImportMaster && (
             <Link
               href="/admin/import"
               className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
               style={{
                 color: pathname.startsWith('/admin/import') ? 'var(--accent)' : 'var(--text-muted)',
-                width: canEditMaster ? '20%' : '25%',
+                width: canImportMaster ? '20%' : '25%',
               }}
             >
               <FileSpreadsheet className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/import') ? 'scale(1.1)' : 'scale(1)' }} />

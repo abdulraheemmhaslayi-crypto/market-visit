@@ -213,24 +213,21 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
       >
         {/* Logo */}
         <div
-          className="flex items-center gap-3 px-5 flex-shrink-0"
+          className="flex items-center gap-2.5 px-4 flex-shrink-0"
           style={{
             height: 'var(--topbar-h)',
             borderBottom: '1px solid var(--border)',
           }}
         >
-          <div
-            className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-black flex-shrink-0"
-            style={{ background: 'var(--accent)' }}
-          >
-            S
+          <div className="h-9 w-9 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center shadow-xs border border-[var(--border)] flex-shrink-0">
+            <img src="/images/dandy-logo.png" alt="Dandy" className="h-full w-auto object-contain" />
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-bold leading-none truncate" style={{ color: 'var(--text-primary)' }}>
-              Supervisor Portal
+            <p className="text-[13px] font-extrabold leading-none truncate" style={{ color: 'var(--text-primary)' }}>
+              Dandy Field Visit
             </p>
-            <p className="text-[10px] font-semibold mt-0.5 uppercase tracking-wider" style={{ color: 'var(--accent)' }}>
-              Field Operations
+            <p className="text-[10px] font-bold mt-0.5 uppercase tracking-wider text-[#0284c7]">
+              Supervisor Portal
             </p>
           </div>
           <button
@@ -363,6 +360,16 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
               <span className="hidden sm:inline text-[11px] font-bold uppercase tracking-wider">Back</span>
             </button>
           )}
+
+          {/* Brand Mark in Topbar */}
+          <Link href="/supervisor" className="hidden sm:flex items-center gap-2 mr-1 group hover:opacity-90 transition-opacity">
+            <div className="h-8 w-8 rounded-lg bg-white dark:bg-slate-800 p-0.5 flex items-center justify-center border border-[var(--border)] shadow-xs">
+              <img src="/images/dandy-logo.png" alt="Dandy" className="h-full w-auto object-contain" />
+            </div>
+            <span className="text-[12px] font-extrabold text-[var(--text-primary)] hidden xl:inline">
+              Dandy
+            </span>
+          </Link>
 
           {/* Search bar with dropdown actions */}
           <div
