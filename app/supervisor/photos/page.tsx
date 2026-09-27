@@ -24,6 +24,8 @@ import {
   Flag,
   AlertTriangle,
   Clock,
+  Eye,
+  X,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
@@ -60,6 +62,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
   // GM / Admin Action Tracking State
   const [actionItemsMap, setActionItemsMap] = useState<Record<string, AuditActionItem>>({});
   const [actionFilter, setActionFilter] = useState<'all' | 'PENDING'>('all');
+  const [isActionDrawerOpen, setIsActionDrawerOpen] = useState<boolean>(false);
 
   const [photos, setPhotos] = useState<AuditPhoto[]>([]);
   const [applications, setApplications] = useState<string[]>([]);
@@ -193,6 +196,32 @@ export default function SupervisorAuditPhotoGalleryPage() {
       ? photos.filter((p) => actionItemsMap[p.photoId]?.actionStatus === 'PENDING')
       : photos;
 
+  const handleInspectAction = (item: AuditActionItem) => {
+    setIsActionDrawerOpen(false);
+    const existingIdx = displayedPhotos.findIndex((p) => p.photoId === item.photoId);
+    if (existingIdx !== -1) {
+      setLightboxIndex(existingIdx);
+    } else {
+      const syntheticPhoto: AuditPhoto = {
+        photoId: item.photoId,
+        visitId: item.visitId || 'VISIT-REF',
+        category: item.category || 'Audit Photo',
+        cloudinaryUrl: item.originalPhotoUrl,
+        publicId: item.photoId,
+        uploadedAt: item.createdAt || new Date().toISOString(),
+        appName: 'Field Audit',
+        outlet: item.outlet,
+        outletCode: item.outletCode || '',
+        route: item.route,
+        supervisor: item.supervisor || 'Field Supervisor',
+        manager: item.manager || '',
+        channel: item.channel || 'GT',
+      };
+      setPhotos((prev) => [syntheticPhoto, ...prev.filter((p) => p.photoId !== item.photoId)]);
+      setLightboxIndex(0);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Top Header Card */}
@@ -248,17 +277,26 @@ export default function SupervisorAuditPhotoGalleryPage() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setActionFilter(actionFilter === 'PENDING' ? 'all' : 'PENDING')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap self-start sm:self-center ${
-              actionFilter === 'PENDING'
-                ? 'bg-amber-500 text-black border-amber-400 shadow-md font-extrabold'
-                : 'bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30'
-            }`}
-          >
-            {actionFilter === 'PENDING' ? 'Show All Photos' : 'Filter Action Directives'}
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-center">
+            <button
+              type="button"
+              onClick={() => setIsActionDrawerOpen(true)}
+              className="text-xs font-extrabold px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black border border-amber-400 shadow-md transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Eye className="h-3.5 w-3.5" /> Review Directives ({pendingActionCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActionFilter(actionFilter === 'PENDING' ? 'all' : 'PENDING')}
+              className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
+                actionFilter === 'PENDING'
+                  ? 'bg-amber-500 text-black border-amber-400 shadow-md font-extrabold'
+                  : 'bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30'
+              }`}
+            >
+              {actionFilter === 'PENDING' ? 'Show All Photos' : 'Filter Directives'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -572,6 +610,132 @@ export default function SupervisorAuditPhotoGalleryPage() {
             >
               <ChevronsRight className="h-4 w-4" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Management Action Directives Drawer for Supervisor */}
+      {isActionDrawerOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden animate-in fade-in duration-200">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity cursor-pointer"
+            onClick={() => setIsActionDrawerOpen(false)}
+          />
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-md bg-[var(--surface)] border-l border-[var(--border)] shadow-2xl p-6 overflow-y-auto flex flex-col justify-between">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+                      <Flag className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-[var(--text-primary)]">
+                        Action Directives
+                      </h3>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Assigned corrective actions awaiting resolution
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsActionDrawerOpen(false)}
+                    className="p-1.5 rounded-xl hover:bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {Object.values(actionItemsMap).length === 0 ? (
+                    <div className="py-12 text-center text-[var(--text-muted)] space-y-2">
+                      <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500 opacity-60" />
+                      <p className="text-sm font-semibold">No action directives</p>
+                      <p className="text-xs opacity-75">All audit photos are in good standing.</p>
+                    </div>
+                  ) : (
+                    Object.values(actionItemsMap).map((item) => (
+                      <div
+                        key={item.id}
+                        className={`p-4 rounded-xl border space-y-3 transition-all ${
+                          item.actionStatus === 'PENDING'
+                            ? 'bg-amber-500/5 border-amber-500/30'
+                            : item.actionStatus === 'SUBMITTED'
+                            ? 'bg-sky-500/5 border-sky-500/30'
+                            : 'bg-emerald-500/5 border-emerald-500/30'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                item.priority === 'Urgent'
+                                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                  : 'bg-slate-700/50 text-slate-300'
+                              }`}
+                            >
+                              {item.priority} Priority
+                            </span>
+                            <h4 className="text-xs font-bold text-[var(--text-primary)] mt-1.5">
+                              {item.outlet}
+                            </h4>
+                            <p className="text-[11px] text-[var(--text-muted)]">
+                              Route: {item.route || 'N/A'} • {item.category}
+                            </p>
+                          </div>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              item.actionStatus === 'RESOLVED'
+                                ? 'bg-emerald-500 text-white'
+                                : item.actionStatus === 'SUBMITTED'
+                                ? 'bg-sky-500 text-white'
+                                : 'bg-amber-500 text-black font-extrabold animate-pulse'
+                            }`}
+                          >
+                            {item.actionStatus === 'RESOLVED'
+                              ? 'Verified'
+                              : item.actionStatus === 'SUBMITTED'
+                              ? 'Submitted'
+                              : 'Pending Action'}
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-xs space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                            Directive from {item.gmName}:
+                          </p>
+                          <p className="text-[var(--text-primary)] italic">"{item.gmComment}"</p>
+                        </div>
+
+                        {item.proofPhotoUrl && (
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/20 border border-emerald-500/30">
+                            <img
+                              src={item.proofPhotoUrl}
+                              alt="Proof Thumbnail"
+                              className="h-10 w-14 object-cover rounded"
+                            />
+                            <div className="text-[10px] truncate">
+                              <p className="font-bold text-emerald-400">Resolution Proof Attached</p>
+                              <p className="text-slate-300 truncate">"{item.supervisorComment}"</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleInspectAction(item)}
+                          className="w-full py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-semibold"
+                        >
+                          <Camera className="h-3.5 w-3.5" />
+                          {item.actionStatus === 'PENDING' ? 'Take Corrective Action & Submit Proof' : 'View Corrective Action'}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

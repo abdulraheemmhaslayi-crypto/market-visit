@@ -21,6 +21,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Minimize2,
   Sparkles,
   Camera,
   Check,
@@ -112,6 +113,7 @@ export default function ImageLightboxModal({
   // Zoom & Rotation States
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
+  const [isStageExpanded, setIsStageExpanded] = useState<boolean>(false);
 
   // Camera & Gallery Proof States
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -284,9 +286,11 @@ export default function ImageLightboxModal({
           photoId: current.photoId,
           visitId: current.visitId || 'VISIT-N/A',
           outlet: current.outlet || 'General Outlet',
+          outletCode: outletCode || '',
           route: current.route || 'N/A',
           supervisor: current.supervisor || 'Field Supervisor',
           manager: current.manager || '',
+          channel: current.channel || '',
           category: current.category || 'Audit Photo',
           originalPhotoUrl: current.cloudinaryUrl || current.url || '',
           gmComment: gmComment.trim(),
@@ -397,62 +401,53 @@ export default function ImageLightboxModal({
   const categoryName = current.category || 'Audit Photo';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
-      {/* Dark Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Main Lightbox Dialog Container */}
-      <div className="relative w-full max-w-6xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col lg:flex-row max-h-[94vh] text-white">
-        
-        {/* Left Side: Image Container */}
-        <div className="flex-1 bg-black/95 relative flex items-center justify-center min-h-[320px] max-h-[55vh] lg:max-h-[92vh] select-none overflow-hidden group">
-          {activeTab === 'before_after' && currentAction?.proofPhotoUrl ? (
-            /* Side-by-Side Comparison Mode */
-            <div className="w-full h-full p-4 grid grid-cols-2 gap-3 items-center justify-center">
-              {/* Left: Original Audit Photo */}
-              <div className="relative h-full flex flex-col items-center justify-center rounded-xl bg-slate-950/80 border border-amber-500/30 overflow-hidden">
-                <span className="absolute top-2.5 left-2.5 z-10 px-2 py-1 rounded text-[10px] font-bold bg-amber-500/90 text-black uppercase tracking-wider shadow">
-                  Before: Audit Issue
-                </span>
-                <img
-                  src={imageUrl}
-                  alt="Original Issue"
-                  className="max-h-[75vh] w-full object-contain"
-                />
-              </div>
-
-              {/* Right: Supervisor Proof Photo */}
-              <div className="relative h-full flex flex-col items-center justify-center rounded-xl bg-slate-950/80 border border-emerald-500/30 overflow-hidden">
-                <span className="absolute top-2.5 left-2.5 z-10 px-2 py-1 rounded text-[10px] font-bold bg-emerald-500 text-white uppercase tracking-wider shadow flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> After: Supervisor Proof
-                </span>
-                <img
-                  src={currentAction.proofPhotoUrl}
-                  alt="Resolution Proof"
-                  className="max-h-[75vh] w-full object-contain"
-                />
-              </div>
-            </div>
-          ) : (
-            /* Standard Single Image View with Zoom & Rotation */
-            <div className="w-full h-full flex items-center justify-center overflow-hidden p-2">
+    <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950 flex flex-col lg:flex-row overflow-hidden animate-in fade-in duration-150 text-white">
+      {/* Left Side: Image Container - Full Screen Stage */}
+      <div className="flex-1 h-full bg-black relative flex items-center justify-center select-none overflow-hidden group">
+        {activeTab === 'before_after' && currentAction?.proofPhotoUrl ? (
+          /* Side-by-Side Comparison Mode */
+          <div className="w-full h-full p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center justify-center">
+            {/* Left: Original Audit Photo */}
+            <div className="relative h-full flex flex-col items-center justify-center rounded-2xl bg-slate-950/80 border border-amber-500/30 overflow-hidden shadow-xl">
+              <span className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/90 text-black uppercase tracking-wider shadow">
+                Before: Audit Issue
+              </span>
               <img
-                key={imageUrl}
                 src={imageUrl}
-                alt={categoryName}
-                style={{
-                  transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                  transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  transformOrigin: 'center center',
-                }}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
-                draggable={false}
+                alt="Original Issue"
+                className="max-h-full max-w-full object-contain p-2"
               />
             </div>
-          )}
+
+            {/* Right: Supervisor Proof Photo */}
+            <div className="relative h-full flex flex-col items-center justify-center rounded-2xl bg-slate-950/80 border border-emerald-500/30 overflow-hidden shadow-xl">
+              <span className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded text-xs font-bold bg-emerald-500 text-white uppercase tracking-wider shadow flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" /> After: Supervisor Proof
+              </span>
+              <img
+                src={currentAction.proofPhotoUrl}
+                alt="Resolution Proof"
+                className="max-h-full max-w-full object-contain p-2"
+              />
+            </div>
+          </div>
+        ) : (
+          /* Standard Single Image View with Zoom & Rotation */
+          <div className="w-full h-full flex items-center justify-center overflow-hidden p-2 sm:p-4">
+            <img
+              key={imageUrl}
+              src={imageUrl}
+              alt={categoryName}
+              style={{
+                transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transformOrigin: 'center center',
+              }}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
+              draggable={false}
+            />
+          </div>
+        )}
 
           {/* Floating Image Zoom & Rotation Controls */}
           {activeTab !== 'before_after' && (
@@ -539,29 +534,49 @@ export default function ImageLightboxModal({
             )}
           </div>
 
-          {/* View Toggle (If proof exists) */}
-          {currentAction?.proofPhotoUrl && (
-            <div className="absolute top-3 right-3 z-20 flex items-center bg-black/60 p-1 rounded-xl border border-slate-700 backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => setActiveTab('details')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === 'details' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Single
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('before_after')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1 ${
-                  activeTab === 'before_after' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Sparkles className="h-3 w-3 text-amber-300" /> Before / After
-              </button>
-            </div>
-          )}
+          {/* Top-Right Stage Controls: Single/Before-After Toggle, Fullscreen Toggle, and Close Button */}
+          <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+            {currentAction?.proofPhotoUrl && (
+              <div className="flex items-center bg-black/70 p-1 rounded-xl border border-slate-700 backdrop-blur-md shadow-md">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('details')}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                    activeTab === 'details' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Single
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('before_after')}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1 ${
+                    activeTab === 'before_after' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="h-3 w-3 text-amber-300" /> Before / After
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsStageExpanded((prev) => !prev)}
+              className="p-2 rounded-xl bg-black/70 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 backdrop-blur-md shadow-md transition-colors cursor-pointer"
+              title={isStageExpanded ? 'Show Metadata Panel' : 'Maximize Image View'}
+            >
+              {isStageExpanded ? <Minimize2 className="h-4 w-4 text-sky-400" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl bg-black/70 hover:bg-red-950/80 text-slate-300 hover:text-red-300 border border-slate-700 hover:border-red-800 backdrop-blur-md shadow-md transition-colors cursor-pointer"
+              title="Close Full Screen (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
 
           {/* Previous Button */}
           <button
@@ -624,7 +639,8 @@ export default function ImageLightboxModal({
         </div>
 
         {/* Right Side: GM Directive, Supervisor Proof & Metadata Panel */}
-        <div className="w-full lg:w-[420px] p-5 sm:p-6 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between space-y-4 overflow-y-auto max-h-[94vh]">
+        {!isStageExpanded && (
+          <div className="w-full lg:w-96 xl:w-[420px] 2xl:w-[450px] p-5 sm:p-6 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between space-y-4 overflow-y-auto h-full flex-shrink-0 z-20">
           <div className="space-y-4">
             {/* Header with Title and Close Button */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -1068,52 +1084,56 @@ export default function ImageLightboxModal({
 
             {/* SECTION 2: METADATA DETAILS */}
             <div className="space-y-3 text-xs pt-1">
-              {current.outlet && (
+              <div>
+                <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                  Outlet / Store
+                </label>
+                <p className="text-sm font-semibold text-slate-100 mt-0.5">
+                  {outletCode ? <span className="font-mono text-sky-400 font-bold mr-1.5">{outletCode} -</span> : null}
+                  {(current.outlet && current.outlet !== 'General Store') ? current.outlet : (currentAction?.outlet || current.outlet || 'Store Attachment')}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                  Supervisor / Manager
+                </label>
+                <p className="text-xs font-medium text-slate-200 mt-0.5">
+                  {(() => {
+                    const sup = (current.supervisor && current.supervisor !== 'UNASSIGNED')
+                      ? current.supervisor
+                      : (currentAction?.supervisor && currentAction.supervisor !== 'UNASSIGNED' ? currentAction.supervisor : (current.supervisor || 'Field Supervisor'));
+                    const mgr = (current.manager && current.manager !== 'UNASSIGNED')
+                      ? current.manager
+                      : (currentAction?.manager && currentAction.manager !== 'UNASSIGNED' ? currentAction.manager : (current.manager || ''));
+                    return (
+                      <>
+                        {sup}{' '}
+                        {mgr && mgr !== 'UNASSIGNED' ? <span className="text-slate-400">({mgr})</span> : null}
+                      </>
+                    );
+                  })()}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                    Outlet / Store
+                    Route
                   </label>
-                  <p className="text-sm font-semibold text-slate-100 mt-0.5">
-                    {outletCode ? <span className="font-mono text-sky-400 font-bold mr-1.5">{outletCode} -</span> : null}
-                    {current.outlet}
+                  <p className="text-xs font-mono font-medium text-slate-300 mt-0.5">
+                    {(current.route && current.route !== 'N/A') ? current.route : (currentAction?.route && currentAction.route !== 'N/A' ? currentAction.route : 'N/A')}
                   </p>
                 </div>
-              )}
-
-              {(current.supervisor || current.manager) && (
                 <div>
                   <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                    Supervisor / Manager
+                    Channel
                   </label>
-                  <p className="text-xs font-medium text-slate-200 mt-0.5">
-                    {current.supervisor || 'N/A'}{' '}
-                    {current.manager && (
-                      <span className="text-slate-400">({current.manager})</span>
-                    )}
+                  <p className="text-xs font-medium text-slate-300 mt-0.5">
+                    {current.channel || currentAction?.channel || 'GT'}
                   </p>
                 </div>
-              )}
-
-              {(current.route || current.channel) && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                      Route
-                    </label>
-                    <p className="text-xs font-mono font-medium text-slate-300 mt-0.5">
-                      {current.route || 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                      Channel
-                    </label>
-                    <p className="text-xs font-medium text-slate-300 mt-0.5">
-                      {current.channel || 'GT'}
-                    </p>
-                  </div>
-                </div>
-              )}
+              </div>
 
               {current.uploadedAt && (
                 <div>
@@ -1177,7 +1197,7 @@ export default function ImageLightboxModal({
             )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
