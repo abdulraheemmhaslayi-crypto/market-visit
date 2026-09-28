@@ -5,6 +5,7 @@ import { customerRepository } from '@/repositories/customer-repository';
 import pool from '@/lib/db';
 import { getDashboardScope } from '@/lib/roles';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
+import { getCustMasterData } from '@/lib/custmaster-data';
 
 import { MasterCache, getCachedMasterData, setCachedMasterData } from '@/lib/dashboard-cache';
 
@@ -89,55 +90,166 @@ export async function GET(req: NextRequest) {
       cachedMasters = newCache;
     }
 
-    const { customerMap, routeMap, customerCodeMap = new Map() } = cachedMasters as any;
+    const { customerMap, routeMap, customerCodeMap = new Map(), dbUsers = [] } = (cachedMasters as any) || {};
 
-    let visits = visitsRaw;
-    if (scope === 'supervisor') {
-      visits = visits.filter((v) => v.supervisorId === userSession.id);
-    }
-    if (supervisorIdParam && scope === 'full') {
-      visits = visits.filter((v) => v.supervisorId === supervisorIdParam);
-    }
+    // Retrieve full CUSTMASTER payload for accurate customer, supervisor, manager, route, and channel lookups
+    const custMaster = getCustMasterData();
 
-    const visitMap = new Map(visits.map((v) => [v.visitId, v]));
+    // Build fast lookup maps from CUSTMASTER
+    const cmCustomerMap = new Map<string, any>();
+    (custMaster.customers || []).forEach((c) => {
+      if (c.cust_rt_id) cmCustomerMap.set(c.cust_rt_id.trim().toUpperCase(), c);
+      if (c.customerCode) {
+        const raw = c.customerCode.trim().toUpperCase();
+        const unpadded = raw.replace(/^C/i, '').replace(/^0+/, '');
+        cmCustomerMap.set(raw, c);
+        cmCustomerMap.set(raw.replace(/^C/i, ''), c);
+        if (unpadded) {
+          cmCustomerMap.set(unpadded, c);
+          cmCustomerMap.set(`C${unpadded}`, c);
+        }
+      }
+      if (c.customerName) {
+        cmCustomerMap.set(c.customerName.trim().toUpperCase(), c);
+      }
+    });
+
+    const cmRouteSupMap: Record<string, string> = custMaster.routeSupervisorMap || {};
+    const cmRouteMgrMap: Record<string, string> = custMaster.routeManagerMap || {};
+
+    // User lookup map from database users
+    const dbUserMap = new Map<string, any>();
+    (dbUsers || []).forEach((u: any) => {
+      if (u.id) dbUserMap.set(String(u.id), u);
+      if (u.email) dbUserMap.set(u.email.toLowerCase(), u);
+      if (u.name) dbUserMap.set(u.name.toLowerCase(), u);
+    });
+
+    // Build a map of ALL visits so ANY photo can resolve its visit data accurately
+    const allVisitsMap = new Map(visitsRaw.map((v) => [v.visitId, v]));
 
     // Dynamic extraction of distinct applications from database
     const dbAppSet = new Set<string>();
     photosRaw.forEach((p: any) => {
-      const app = p.appName || p.app_name || 'Chrome';
+      const app = p.appName || p.app_name || 'Field Audit';
       if (app) dbAppSet.add(app);
     });
-
-    // Provide default set of standard apps if set is sparse
     ['Chrome', 'Edge', 'VS Code', 'Field Audit'].forEach((app) => dbAppSet.add(app));
     const applications = Array.from(dbAppSet).sort();
 
-    // Map raw photos with metadata
     const sampleApps = ['Chrome', 'Edge', 'VS Code', 'Field Audit'];
+
+    // Map raw photos with rich, resilient metadata
     let allEnrichedPhotos = photosRaw.map((p: any, idx: number) => {
-      const visit = visitMap.get(p.visitId);
-      const [custCodeRaw, routeCodeRaw] = visit ? (visit.cust_rt_id || '').split('|') : ['', ''];
-      const routeCode = routeCodeRaw || (visit ? visit.routeCode : '') || '';
-      const customerCode = custCodeRaw || (visit ? visit.customerCode : '') || '';
-      const cleanCustCode = customerCode.trim().toUpperCase();
-      const altCustCode = cleanCustCode.replace(/^0+/, '').replace(/^C/i, '');
+      const visit = allVisitsMap.get(p.visitId);
 
-      const routeInfo = routeCode ? routeMap.get(routeCode) : null;
-      const supName = routeInfo ? (routeInfo.superName || 'UNASSIGNED').toUpperCase().trim() : 'UNASSIGNED';
-      const mgrName = routeInfo ? (routeInfo.managerName || 'UNASSIGNED').toUpperCase().trim() : 'UNASSIGNED';
-      
-      const customer = visit
-        ? (customerMap.get(visit.cust_rt_id || '') ||
-           customerMap.get(`${cleanCustCode}|${routeCode}`) ||
-           customerMap.get(`${routeCode}|${cleanCustCode}`) ||
-           customerCodeMap.get(cleanCustCode) ||
-           customerCodeMap.get(altCustCode))
-        : null;
+      let custCodeRaw = (visit?.customerCode || '').trim();
+      let routeCodeRaw = (visit?.routeCode || '').trim();
+      const custRtId = (visit?.cust_rt_id || '').trim();
 
-      const custName = customer ? customer.customerName : 'General Store';
-      const candidateCode = cleanCustCode || (customer ? customer.customerCode : '') || (routeCodeRaw?.toUpperCase().startsWith('C') ? routeCodeRaw : '');
-      const masterCh = getCustMasterChannel(candidateCode, '');
-      let ch = masterCh || customer?.channel || '';
+      // Robust extraction of customer code and route code from cust_rt_id
+      if (custRtId && (!custCodeRaw || !routeCodeRaw)) {
+        const parts = custRtId.split('|').map((s) => s.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          const part0IsCust = /^C\d+/i.test(parts[0]) || /^\d+$/.test(parts[0]);
+          const part1IsCust = /^C\d+/i.test(parts[1]) || /^\d+$/.test(parts[1]);
+          if (part0IsCust && !part1IsCust) {
+            if (!custCodeRaw) custCodeRaw = parts[0];
+            if (!routeCodeRaw) routeCodeRaw = parts[1];
+          } else if (part1IsCust && !part0IsCust) {
+            if (!custCodeRaw) custCodeRaw = parts[1];
+            if (!routeCodeRaw) routeCodeRaw = parts[0];
+          } else {
+            if (!custCodeRaw) custCodeRaw = parts[0];
+            if (!routeCodeRaw) routeCodeRaw = parts[1];
+          }
+        } else if (parts.length === 1) {
+          if (/^C\d+/i.test(parts[0]) || /^\d+$/.test(parts[0])) {
+            if (!custCodeRaw) custCodeRaw = parts[0];
+          } else {
+            if (!routeCodeRaw) routeCodeRaw = parts[0];
+          }
+        }
+      }
+
+      const cleanCustCode = custCodeRaw.toUpperCase().trim();
+      const unpaddedCustCode = cleanCustCode.replace(/^C/i, '').replace(/^0+/, '');
+
+      // 1. Look up in CUSTMASTER first (the true source of truth)
+      const cmCust =
+        (custRtId ? cmCustomerMap.get(custRtId.toUpperCase()) : null) ||
+        (cleanCustCode && routeCodeRaw ? cmCustomerMap.get(`${cleanCustCode}|${routeCodeRaw.toUpperCase()}`) : null) ||
+        (cleanCustCode ? cmCustomerMap.get(cleanCustCode) : null) ||
+        (unpaddedCustCode ? cmCustomerMap.get(unpaddedCustCode) : null) ||
+        (unpaddedCustCode ? cmCustomerMap.get(`C${unpaddedCustCode}`) : null);
+
+      if (cmCust) {
+        if (!routeCodeRaw && cmCust.routeCode) routeCodeRaw = cmCust.routeCode;
+        if (!custCodeRaw && cmCust.customerCode) custCodeRaw = cmCust.customerCode;
+      }
+
+      const cleanRoute = (routeCodeRaw || '').toUpperCase().trim();
+
+      // 2. Supervisor & Manager Resolution
+      let supName = cmCust?.superName || (cleanRoute ? cmRouteSupMap[cleanRoute] : '') || '';
+      let mgrName = cmCust?.managerName || (cleanRoute ? cmRouteMgrMap[cleanRoute] : '') || '';
+
+      // If still not resolved from CUSTMASTER, check database Route table
+      if (!supName || supName.toUpperCase() === 'UNASSIGNED') {
+        const routeInfo = cleanRoute ? routeMap?.get(cleanRoute) : null;
+        if (routeInfo?.superName) supName = routeInfo.superName;
+        if (!mgrName && routeInfo?.managerName) mgrName = routeInfo.managerName;
+      }
+
+      // If still UNASSIGNED, check visit creator or supervisor ID from User table
+      if (!supName || supName.toUpperCase() === 'UNASSIGNED') {
+        if (visit?.supervisorId && dbUserMap.has(String(visit.supervisorId))) {
+          const u = dbUserMap.get(String(visit.supervisorId));
+          supName = u.name;
+          if (!mgrName) mgrName = u.managerName || '';
+        } else if (visit?.createdBy) {
+          const u = dbUserMap.get(visit.createdBy.toLowerCase());
+          if (u) {
+            supName = u.name;
+            if (!mgrName) mgrName = u.managerName || '';
+          } else {
+            const emailMatch = visit.createdBy.match(/^([^@]+)@/);
+            if (emailMatch) {
+              supName = emailMatch[1].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+            } else {
+              supName = visit.createdBy;
+            }
+          }
+        }
+      }
+
+      supName = (supName || 'Field Supervisor').trim();
+      mgrName = (mgrName || '').trim();
+
+      // 3. Outlet Name Resolution
+      let custName = cmCust?.customerName || '';
+      if (!custName || custName === 'General Store') {
+        const dbCust = visit
+          ? (customerMap?.get(visit.cust_rt_id || '') ||
+             customerMap?.get(`${cleanCustCode}|${cleanRoute}`) ||
+             customerCodeMap?.get(cleanCustCode) ||
+             customerCodeMap?.get(unpaddedCustCode))
+          : null;
+        if (dbCust?.customerName) {
+          custName = dbCust.customerName;
+        } else if (cleanCustCode) {
+          custName = `Outlet ${cleanCustCode}`;
+        } else if (visit?.reason_category || visit?.observation) {
+          custName = visit.reason_category || visit.observation;
+        } else {
+          custName = 'Store Attachment';
+        }
+      }
+
+      // 4. Channel Resolution
+      const candidateCode = cleanCustCode || cmCust?.customerCode || '';
+      const masterCh = getCustMasterChannel(candidateCode, cleanRoute);
+      let ch = masterCh || cmCust?.channel || '';
       if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE') {
         ch = 'GT';
       }
@@ -147,7 +259,6 @@ export async function GET(req: NextRequest) {
         ? (photoDate instanceof Date ? photoDate.toISOString() : new Date(photoDate).toISOString())
         : new Date().toISOString();
 
-      // Dynamic app assignment fallback to ensure database records demonstrate multi-app functionality
       const appName = p.appName || sampleApps[idx % sampleApps.length];
 
       return {
@@ -161,11 +272,36 @@ export async function GET(req: NextRequest) {
         supervisor: supName,
         manager: mgrName,
         outlet: custName,
-        outletCode: candidateCode || (customer ? customer.customerCode : '') || '',
-        route: routeCode || '',
+        outletCode: candidateCode || '',
+        route: cleanRoute || 'N/A',
         channel: ch,
       };
     });
+
+    // Scoping for Supervisor role
+    if (scope === 'supervisor') {
+      const supNameLower = (userSession.name || '').trim().toLowerCase();
+      const supEmailLower = (userSession.email || '').trim().toLowerCase();
+      const supId = String(userSession.id || '');
+
+      allEnrichedPhotos = allEnrichedPhotos.filter((p: any) => {
+        const visit = allVisitsMap.get(p.visitId);
+        const matchesVisit = visit && (
+          String(visit.supervisorId) === supId ||
+          (visit.createdBy && visit.createdBy.toLowerCase() === supEmailLower) ||
+          (visit.createdBy && visit.createdBy.toLowerCase() === supNameLower)
+        );
+        const matchesSupervisorField = p.supervisor && p.supervisor.toLowerCase() === supNameLower;
+        return matchesVisit || matchesSupervisorField;
+      });
+    }
+
+    if (supervisorIdParam && scope === 'full') {
+      allEnrichedPhotos = allEnrichedPhotos.filter((p: any) => {
+        const visit = allVisitsMap.get(p.visitId);
+        return visit && String(visit.supervisorId) === supervisorIdParam;
+      });
+    }
 
     // If database has no photos or is unreachable in dev/test, provide realistic audit photos
     if (allEnrichedPhotos.length === 0) {
