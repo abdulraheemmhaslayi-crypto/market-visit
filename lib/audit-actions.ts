@@ -7,9 +7,11 @@ export interface AuditActionItem {
   photoId: string;
   visitId: string;
   outlet: string;
+  outletCode?: string;
   route: string;
   supervisor: string;
   manager?: string;
+  channel?: string;
   category: string;
   originalPhotoUrl: string;
 
@@ -144,9 +146,11 @@ export const auditActionRepository = {
     photoId: string;
     visitId: string;
     outlet: string;
+    outletCode?: string;
     route: string;
     supervisor: string;
     manager?: string;
+    channel?: string;
     category: string;
     originalPhotoUrl: string;
     gmComment: string;
@@ -160,9 +164,11 @@ export const auditActionRepository = {
       photoId: data.photoId,
       visitId: data.visitId,
       outlet: data.outlet,
+      outletCode: data.outletCode || '',
       route: data.route,
       supervisor: data.supervisor,
       manager: data.manager,
+      channel: data.channel || 'GT',
       category: data.category,
       originalPhotoUrl: data.originalPhotoUrl,
       gmComment: data.gmComment,

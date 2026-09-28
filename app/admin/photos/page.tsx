@@ -817,9 +817,28 @@ export default function AuditPhotoGalleryPage() {
                       type="button"
                       onClick={() => {
                         setIsActionDrawerOpen(false);
-                        const idx = photos.findIndex((p) => p.photoId === item.photoId);
-                        if (idx !== -1) setLightboxIndex(idx);
-                        else if (photos.length > 0) setLightboxIndex(0);
+                        const existingIdx = photos.findIndex((p) => p.photoId === item.photoId);
+                        if (existingIdx !== -1) {
+                          setLightboxIndex(existingIdx);
+                        } else {
+                          const syntheticPhoto: AuditPhoto = {
+                            photoId: item.photoId,
+                            visitId: item.visitId || 'VISIT-REF',
+                            category: (item.category as any) || 'Audit Photo',
+                            cloudinaryUrl: item.originalPhotoUrl,
+                            publicId: item.photoId,
+                            uploadedAt: item.createdAt || new Date().toISOString(),
+                            appName: 'Field Audit',
+                            outlet: item.outlet,
+                            outletCode: item.outletCode || '',
+                            route: item.route,
+                            supervisor: item.supervisor,
+                            manager: item.manager || '',
+                            channel: item.channel || 'GT',
+                          };
+                          setPhotos((prev) => [syntheticPhoto, ...prev.filter((p) => p.photoId !== item.photoId)]);
+                          setLightboxIndex(0);
+                        }
                       }}
                       className="w-full py-1.5 rounded-lg text-xs font-bold bg-accent/10 hover:bg-accent/20 text-accent border border-accent/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
