@@ -25,7 +25,6 @@ import {
   Sparkles,
   Camera,
   Check,
-  Image as ImageIcon,
   FlipHorizontal,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
@@ -121,7 +120,6 @@ export default function ImageLightboxModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
   const nativeCameraInputRef = useRef<HTMLInputElement>(null);
 
   const stopCamera = useCallback(() => {
@@ -156,7 +154,7 @@ export default function ImageLightboxModal({
       }
     } catch (err: any) {
       console.warn('getUserMedia error:', err);
-      setCameraError('Direct camera stream unavailable or blocked. You can use your device camera app or choose from gallery.');
+      setCameraError('Direct camera stream unavailable or blocked. Please use your device camera app.');
     }
   };
 
@@ -185,17 +183,6 @@ export default function ImageLightboxModal({
     }
   };
 
-  const handleGalleryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) setProofPhotoUrl(result);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  };
 
   const handleNativeCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -363,8 +350,8 @@ export default function ImageLightboxModal({
     }
   };
 
-  // Handle GM Verification (Approve or Reject)
-  const handleVerifyAction = async (status: 'RESOLVED' | 'PENDING') => {
+  // Handle GM Verification (Approve & Close only - Reopen option disabled)
+  const handleVerifyAction = async (status: 'RESOLVED') => {
     if (!currentAction?.id) return;
     setIsVerifying(true);
     try {
@@ -375,9 +362,7 @@ export default function ImageLightboxModal({
           id: currentAction.id,
           actionStatus: status,
           gmResolutionNotes:
-            status === 'RESOLVED'
-              ? 'Approved by General Manager. Corrective action verified with photo proof.'
-              : 'Re-opened. Proof insufficient, please rectify and re-submit.',
+            'Approved by General Manager. Corrective action verified with photo proof.',
         }),
       });
       if (res.ok && onActionUpdated) {
@@ -388,11 +373,6 @@ export default function ImageLightboxModal({
     } finally {
       setIsVerifying(false);
     }
-  };
-
-  // Quick Preset Proof Photo for demonstration
-  const handleSelectSampleProof = (url: string) => {
-    setProofPhotoUrl(url);
   };
 
   if (!isOpen || !current || total === 0) return null;
@@ -789,24 +769,16 @@ export default function ImageLightboxModal({
                         />
                       </div>
 
-                      {/* GM Closure Action Buttons */}
+                      {/* GM Closure Action Button (Re-open option disabled) */}
                       {currentAction.actionStatus !== 'RESOLVED' && (
                         <div className="flex items-center gap-2 pt-1">
                           <button
                             type="button"
                             disabled={isVerifying}
                             onClick={() => handleVerifyAction('RESOLVED')}
-                            className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all flex items-center justify-center gap-1 cursor-pointer shadow"
+                            className="w-full py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow"
                           >
                             <Check className="h-3.5 w-3.5" /> {isVerifying ? 'Saving...' : 'Approve & Close'}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isVerifying}
-                            onClick={() => handleVerifyAction('PENDING')}
-                            className="py-1.5 px-3 rounded-lg text-xs font-semibold bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 transition-all cursor-pointer flex items-center gap-1"
-                          >
-                            <RotateCcw className="h-3 w-3" /> Re-open
                           </button>
                         </div>
                       )}
@@ -841,21 +813,14 @@ export default function ImageLightboxModal({
                             />
                           </div>
 
-                          {/* Proof Photo Attachment with 2 distinct options: Camera & Gallery */}
+                          {/* Proof Photo Attachment (Camera Only) */}
                           <div className="space-y-2">
                             <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                               <Camera className="h-3.5 w-3.5 text-sky-400" />
-                              Proof Photo Attachment:
+                              Proof Photo Attachment (Camera Only):
                             </label>
 
-                            {/* Hidden File Inputs for native camera and gallery */}
-                            <input
-                              ref={galleryInputRef}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={handleGalleryFileChange}
-                            />
+                            {/* Hidden File Input for native camera */}
                             <input
                               ref={nativeCameraInputRef}
                               type="file"
@@ -963,21 +928,14 @@ export default function ImageLightboxModal({
                                           setProofPhotoUrl('');
                                           startCamera('environment');
                                         }}
-                                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
+                                        className="text-[10px] font-semibold px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer flex items-center gap-1"
                                       >
-                                        Retake (Camera)
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => galleryInputRef.current?.click()}
-                                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
-                                      >
-                                        Change (Gallery)
+                                        <Camera className="h-3 w-3" /> Retake (Camera)
                                       </button>
                                       <button
                                         type="button"
                                         onClick={() => setProofPhotoUrl('')}
-                                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 cursor-pointer"
+                                        className="text-[10px] font-semibold px-2.5 py-1 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 cursor-pointer"
                                       >
                                         Remove
                                       </button>
@@ -986,64 +944,25 @@ export default function ImageLightboxModal({
                                 </div>
                               </div>
                             ) : (
-                              /* Two Distinct Options: Camera & Gallery */
+                              /* Camera-only capture option (Gallery upload removed) */
                               <div className="space-y-2">
-                                <div className="grid grid-cols-2 gap-2">
-                                  {/* Option 1: Camera */}
-                                  <button
-                                    type="button"
-                                    onClick={() => startCamera('environment')}
-                                    className="p-3 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700 hover:border-sky-500/50 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group hover:-translate-y-0.5 shadow-sm text-left"
-                                  >
-                                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:bg-sky-500 group-hover:text-black transition-all">
-                                      <Camera className="h-5 w-5" />
-                                    </div>
-                                    <span className="text-xs font-bold text-slate-100">
-                                      1. Camera
+                                <button
+                                  type="button"
+                                  onClick={() => startCamera('environment')}
+                                  className="w-full p-4 rounded-xl bg-gradient-to-r from-sky-600/20 to-blue-600/20 hover:from-sky-600/30 hover:to-blue-600/30 border border-sky-500/50 hover:border-sky-400 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group shadow-sm text-center"
+                                >
+                                  <div className="p-2.5 rounded-full bg-sky-500 text-black group-hover:scale-105 transition-all shadow-md shadow-sky-500/30">
+                                    <Camera className="h-5 w-5" />
+                                  </div>
+                                  <div>
+                                    <span className="text-xs font-bold text-slate-100 block">
+                                      Take Photo Proof from Camera
                                     </span>
-                                    <span className="text-[9.5px] text-slate-400 text-center leading-tight">
-                                      Front & Back Switch
+                                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                                      Live camera capture only (Gallery upload disabled)
                                     </span>
-                                  </button>
-
-                                  {/* Option 2: Gallery */}
-                                  <button
-                                    type="button"
-                                    onClick={() => galleryInputRef.current?.click()}
-                                    className="p-3 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700 hover:border-sky-500/50 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group hover:-translate-y-0.5 shadow-sm text-left"
-                                  >
-                                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:bg-sky-500 group-hover:text-black transition-all">
-                                      <ImageIcon className="h-5 w-5" />
-                                    </div>
-                                    <span className="text-xs font-bold text-slate-100">
-                                      2. Upload Gallery
-                                    </span>
-                                    <span className="text-[9.5px] text-slate-400 text-center leading-tight">
-                                      Pick from device files
-                                    </span>
-                                  </button>
-                                </div>
-
-                                {/* Testing Preset Samples */}
-                                <div className="flex items-center gap-1.5 pt-0.5">
-                                  <span className="text-[9.5px] text-slate-500 uppercase tracking-wider font-semibold">
-                                    Presets:
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSelectSampleProof('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80')}
-                                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
-                                  >
-                                    Clean Shelf
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSelectSampleProof('https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?auto=format&fit=crop&w=800&q=80')}
-                                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
-                                  >
-                                    Rectified Display
-                                  </button>
-                                </div>
+                                  </div>
+                                </button>
                               </div>
                             )}
                           </div>

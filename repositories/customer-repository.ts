@@ -3,14 +3,19 @@ import pool from '@/lib/db';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
 
 let customerSchemaChecked = false;
+let customerSchemaPromise: Promise<void> | null = null;
 
 async function ensureCustomerTableSchema(): Promise<void> {
   if (customerSchemaChecked) return;
-  try {
-    const [columnsResult]: any = await pool.execute(
-      "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Customer'"
-    );
-    const existingColumns = new Set((columnsResult as any[]).map((row: any) => row.COLUMN_NAME));
+  if (customerSchemaPromise) return customerSchemaPromise;
+
+  customerSchemaChecked = true;
+  customerSchemaPromise = (async () => {
+    try {
+      const [columnsResult]: any = await pool.execute(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Customer'"
+      );
+      const existingColumns = new Set((columnsResult as any[]).map((row: any) => row.COLUMN_NAME));
 
     const migrations: string[] = [];
     if (!existingColumns.has('cust_rt_id')) {
@@ -130,11 +135,15 @@ async function ensureCustomerTableSchema(): Promise<void> {
     } catch (e) {
       // Non-blocking sync
     }
-
-    customerSchemaChecked = true;
   } catch (err) {
     console.error('Failed to ensure Customer table schema:', err);
+  } finally {
+    customerSchemaChecked = true;
+    customerSchemaPromise = null;
   }
+  })();
+
+  return customerSchemaPromise;
 }
 
 function mapRowToCustomer(row: any): Customer {

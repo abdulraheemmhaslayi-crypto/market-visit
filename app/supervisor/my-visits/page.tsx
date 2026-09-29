@@ -97,8 +97,8 @@ export default function MyVisitsPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-soft)', background: 'var(--surface-2)' }}>
-                {['Visit ID', 'Date', 'Type', 'Route', 'Customer', 'Action'].map((h, i) => (
-                  <th key={h} className={`px-5 py-3 ${i === 5 ? 'text-right' : 'text-left'}`} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                {['Date', 'Type', 'Route', 'Customer', 'Action'].map((h, i) => (
+                  <th key={h} className={`px-5 py-3 ${i === 4 ? 'text-right' : 'text-left'}`} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                     {h}
                   </th>
                 ))}
@@ -108,14 +108,14 @@ export default function MyVisitsPage() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--border-soft)' }}>
-                    {Array.from({ length: 6 }).map((_, j) => (
+                    {Array.from({ length: 5 }).map((_, j) => (
                       <td key={j} className="px-5 py-3.5"><Skeleton className="h-4 w-20" /></td>
                     ))}
                   </tr>
                 ))
               ) : visits.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>
+                  <td colSpan={5} className="px-5 py-12 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>
                     No submitted audits found.
                   </td>
                 </tr>
@@ -124,9 +124,6 @@ export default function MyVisitsPage() {
                   const display = getVisitDisplay(v);
                   return (
                     <tr key={v.visitId} style={{ borderBottom: '1px solid var(--border-soft)' }} className="hover:bg-[var(--surface-2)] transition-colors">
-                      <td className="px-5 py-3.5 font-mono text-[12px] font-semibold" style={{ color: 'var(--accent)' }}>
-                        {v.visitId}
-                      </td>
                       <td className="px-5 py-3.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
                         {new Date(v.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
@@ -181,8 +178,7 @@ export default function MyVisitsPage() {
                 <div key={v.visitId} onClick={() => handleOpenReview(v.visitId)} className="py-3.5 px-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-[var(--surface-2)] transition-colors">
                   <div className="min-w-0 flex-grow">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] font-bold text-[var(--accent)]">{v.visitId}</span>
-                      <span className="text-[10px] text-[var(--text-muted)]">
+                      <span className="text-[11px] font-semibold text-[var(--text-muted)]">
                         {new Date(v.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                       </span>
                     </div>
@@ -220,7 +216,6 @@ export default function MyVisitsPage() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-soft)]">
               <div>
                 <h3 className="text-[16px] font-bold" style={{ color: 'var(--text-primary)' }}>Audit Details</h3>
-                <p className="font-mono text-[11px] text-[var(--text-muted)] mt-0.5">ID: {reviewId}</p>
               </div>
               <button onClick={() => { setReviewId(null); setReviewData(null); }} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-2)] transition-colors" style={{ color: 'var(--text-muted)' }}>
                 <X className="h-4.5 w-4.5" />

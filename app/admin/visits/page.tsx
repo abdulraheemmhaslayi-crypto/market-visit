@@ -207,7 +207,6 @@ export default function VisitLogsPage() {
       filterSummary: search ? `Search: "${search}" | Status: ${statusFilter}` : `Status: ${statusFilter}`,
       columns: [
         { header: 'Visit Date', key: 'visit_datetime', formatter: (val: any, row: any) => val ? new Date(val).toLocaleString() : (row.createdAt ? new Date(row.createdAt).toLocaleString() : '—') },
-        { header: 'Visit ID', key: 'visitId' },
         { header: 'Supervisor ID', key: 'supervisorId' },
         { header: 'Customer / Shop Code', key: 'customerCode' },
         { header: 'Route Code', key: 'routeCode' },
@@ -284,7 +283,6 @@ export default function VisitLogsPage() {
           <table className="w-full">
             <thead>
               <tr>
-                <TH>Visit ID</TH>
                 <TH>Supervisor</TH>
                 <TH>Route</TH>
                 <TH>Type</TH>
@@ -299,7 +297,7 @@ export default function VisitLogsPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--border-soft)' }}>
-                    {Array.from({ length: 9 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-5 py-3.5"><Skeleton className="h-4 w-20" /></td>
                     ))}
                   </tr>
@@ -321,9 +319,6 @@ export default function VisitLogsPage() {
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       className="transition-colors"
                     >
-                      <td className="px-5 py-3.5">
-                        <span className="font-mono text-[12px] font-medium" style={{ color: 'var(--accent)' }}>{v.visitId}</span>
-                      </td>
                       <td className="px-5 py-3.5">
                         <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>{v.supervisorId}</span>
                       </td>

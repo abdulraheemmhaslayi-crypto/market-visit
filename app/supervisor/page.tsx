@@ -123,18 +123,25 @@ export default function SupervisorDashboard() {
     }
   };
 
+  // Immediate drafts retrieval on mount
+  useEffect(() => {
+    loadDrafts();
+  }, []);
+
   const refreshAll = (silent: boolean = false) => {
     if (!silent) {
       setLoading(true);
-      setIsAnalyticsLoading(true);
+      if (rows.length === 0) {
+        setIsAnalyticsLoading(true);
+      }
     }
-    Promise.all([fetchVisits(), fetchAnalytics()])
-      .finally(() => {
-        loadDrafts();
-        if (!silent) {
-          setLoading(false);
-        }
-      });
+    loadDrafts();
+    fetchVisits().finally(() => {
+      if (!silent) {
+        setLoading(false);
+      }
+    });
+    fetchAnalytics();
   };
 
   useEffect(() => {
@@ -418,6 +425,26 @@ export default function SupervisorDashboard() {
     });
   }, [reportRows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical, fFrom, fTo]);
 
+  // Power SKU rows matching all active filters (date, manager, supervisor, channel, classification, outlet, route, SKU, business vertical)
+  const filteredPskuRows = useMemo(() => {
+    return (reportRows.psku || []).filter((r: any) => {
+      const rowDate = new Date(r.date);
+      const from = normalizeDate(fFrom);
+      const to = normalizeDate(fTo);
+      const fromOk = !from || rowDate >= from;
+      const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
+      return fromOk && toOk
+        && (!fMgr || r.manager === fMgr)
+        && (!fSuper || r.supervisor === fSuper)
+        && (!fChannel || r.channel === fChannel)
+        && (!fClass || r.classification === fClass)
+        && (!fCust || r.outletName === fCust)
+        && (!fRoute || r.routeCode === fRoute)
+        && (!fSku || r.skuName === fSku)
+        && (!fVertical || r.businessVertical === fVertical);
+    });
+  }, [reportRows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical, fFrom, fTo]);
+
   // Filtered rows matching selection
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -481,15 +508,21 @@ export default function SupervisorDashboard() {
     filterFn: (row: any) => boolean,
     chipLabel?: string
   ) => {
-    const visitLookup = new Map(filtered.map((row) => [row.visitId, row]));
     if (!allowedReports.includes(reportType)) return;
-    const matched = (reportRows[reportType] || []).filter((row: any) => {
-      if (reportType === 'cold-chain') {
-        return filterFn(row);
-      }
-      const visit = visitLookup.get(row.visitId);
-      return visit ? filterFn(visit) : false;
-    });
+    const visitLookup = new Map(filtered.map((row) => [row.visitId, row]));
+    let matched: any[] = [];
+    if (reportType === 'cold-chain') {
+      matched = filteredColdChainRows.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
+    } else if (reportType === 'npd') {
+      matched = filteredNpdRows.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
+    } else if (reportType === 'psku') {
+      matched = filteredPskuRows.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
+    } else {
+      matched = (reportRows[reportType] || []).filter((row: any) => {
+        const visit = visitLookup.get(row.visitId);
+        return visit ? filterFn(visit) : false;
+      });
+    }
     setReportModalType(reportType);
     setReportModalSource(reportType);
     setReportModalTitle(chartTitle);
@@ -499,29 +532,31 @@ export default function SupervisorDashboard() {
   };
 
   const handleClearReportFilter = () => {
+    const visitLookup = new Map(filtered.map((row) => [row.visitId, row]));
     if (reportModalSource === 'npd') {
-      setReportModalRows(filteredNpdRows);
+      setReportModalRows(filteredNpdRows.filter((r: any) => !r.visitId || visitLookup.has(r.visitId)));
       setReportFilterChip(null);
       return;
     }
-    if (reportModalSource === 'classificationDairy' || reportModalSource === 'classificationIceCream') {
-      const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
-      const sourceRows = reportModalSource === 'classificationDairy' ? reportRows.classificationDairy : reportRows.classificationIceCream;
-      const matched = (sourceRows || []).filter((row: any) => visitLookup.has(row.visitId));
-      setReportModalRows(matched);
+    if (reportModalSource === 'psku') {
+      setReportModalRows(filteredPskuRows.filter((r: any) => !r.visitId || visitLookup.has(r.visitId)));
       setReportFilterChip(null);
       return;
     }
     if (reportModalSource === 'cold-chain') {
-      setReportModalRows(filteredColdChainRows);
+      setReportModalRows(filteredColdChainRows.filter((r: any) => !r.visitId || visitLookup.has(r.visitId)));
       setReportFilterChip(null);
       return;
     }
-    const visitLookup = new Map(filtered.map((row) => [row.visitId, row]));
-    const matched = (reportRows[reportModalSource] || []).filter((row: any) => {
-      const visit = visitLookup.get(row.visitId);
-      return visit ? true : false;
-    });
+    if (reportModalSource === 'classificationDairy' || reportModalSource === 'classificationIceCream') {
+      const classLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
+      const sourceRows = reportModalSource === 'classificationDairy' ? reportRows.classificationDairy : reportRows.classificationIceCream;
+      const matched = (sourceRows || []).filter((row: any) => classLookup.has(row.visitId));
+      setReportModalRows(matched);
+      setReportFilterChip(null);
+      return;
+    }
+    const matched = (reportRows[reportModalSource] || []).filter((row: any) => visitLookup.has(row.visitId));
     setReportModalRows(matched);
     setReportFilterChip(null);
   };
@@ -583,7 +618,6 @@ export default function SupervisorDashboard() {
       userRole: userRole || 'Supervisor',
       columns: [
         { header: 'Visit Date', key: 'createdAt', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Visit ID', key: 'visitId' },
         { header: 'Manager', key: 'mgr' },
         { header: 'Supervisor', key: 'sup' },
         { header: 'Channel', key: 'ch' },
@@ -634,17 +668,16 @@ export default function SupervisorDashboard() {
 
   const detailedVisitColumns = [
     { header: 'Date', key: 'createdAt', formatter: (val: any) => val ? new Date(val).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
-    { header: 'Visit ID', key: 'visitId' },
-    { header: 'Manager', key: 'mgr' },
-    { header: 'Supervisor', key: 'sup' },
-    { header: 'Outlet Name', key: 'cust' },
-    { header: 'Shop Code', key: 'code' },
-    { header: 'Route', key: 'rt' },
-    { header: 'Channel', key: 'ch' },
-    { header: 'Class', key: 'gr' },
-    { header: 'Asset', key: 'atype' },
+    { header: 'Channel', key: 'channel', formatter: (val: any, row: any) => val || row.ch || '—' },
+    { header: 'Manager', key: 'manager', formatter: (val: any, row: any) => val || row.mgr || '—' },
+    { header: 'Supervisor', key: 'supervisor', formatter: (val: any, row: any) => val || row.sup || '—' },
+    { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.rt || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
+    { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || row.code || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
+    { header: 'Outlet Name', key: 'outletName', formatter: (val: any, row: any) => val || row.cust || '—' },
+    { header: 'Classification', key: 'classification', formatter: (val: any, row: any) => val || row.gr || '—' },
+    { header: 'Asset Type', key: 'assetType', formatter: (val: any, row: any) => val || row.atype || '—' },
     { header: 'Temp (°C)', key: 'temp', formatter: (val: any) => val !== undefined && val !== null ? `${val}°C` : '—' },
-    { header: 'Status', key: 'ok', formatter: (val: any) => val ? 'OK' : 'Breach' },
+    { header: 'Temp Status', key: 'ok', formatter: (val: any) => val ? 'OK' : 'Breach' },
     { header: 'Action Required', key: 'action', formatter: (val: any) => val || 'None' },
   ];
 
@@ -683,17 +716,17 @@ export default function SupervisorDashboard() {
       userRole: userRole || 'Supervisor',
       columns: [
         { header: 'Inspection Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Visit ID', key: 'visitId' },
-        { header: 'Manager', key: 'manager' },
-        { header: 'Supervisor', key: 'supervisor' },
-        { header: 'Route Code', key: 'routeCode' },
-        { header: 'Channel', key: 'channel' },
-        { header: 'Outlet Name', key: 'outletName' },
-        { header: 'Classification', key: 'classification' },
-        { header: 'Asset Type', key: 'assetType' },
+        { header: 'Channel', key: 'channel', formatter: (val: any, row: any) => val || row.ch || '—' },
+        { header: 'Manager', key: 'manager', formatter: (val: any, row: any) => val || row.mgr || '—' },
+        { header: 'Supervisor', key: 'supervisor', formatter: (val: any, row: any) => val || row.sup || '—' },
+        { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
+        { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
+        { header: 'Outlet Name', key: 'outletName', formatter: (val: any, row: any) => val || row.cust || '—' },
+        { header: 'Classification', key: 'classification', formatter: (val: any, row: any) => val || row.gr || '—' },
+        { header: 'Asset Type', key: 'assetType', formatter: (val: any, row: any) => val || row.atype || '—' },
         { header: 'Asset Temp', key: 'assetTemp', formatter: (val: any, row: any) => val || (row.temperature !== undefined ? `${row.temperature}°C` : '—') },
         { header: 'Temp Status', key: 'tempStatus', formatter: (val: any, row: any) => val || (isColdChainOk(row) ? 'In Range' : 'Breach') },
-        { header: 'Action / Remarks', key: 'actionRemarks' },
+        { header: 'Action / Remarks', key: 'actionRemarks', formatter: (val: any, row: any) => val || row.actionRequired || '—' },
       ],
       data: coldChainData,
     });
@@ -706,14 +739,14 @@ export default function SupervisorDashboard() {
           const [cCode, rCode] = (r.cust_rt_id || '').split('|');
           return {
             date: r.createdAt,
-            visitId: r.visitId,
+            channel: r.ch || r.channel || 'GT',
+            manager: r.mgr || r.manager || '—',
+            supervisor: r.sup || r.supervisor || '—',
             routeCode: r.rt || rCode || '',
-            manager: r.mgr,
-            supervisor: r.sup,
-            channel: r.ch,
-            outletCode: r.custCode || cCode || '',
-            outletName: r.cust,
-            classification: r.gr,
+            outletCode: r.outletCode || r.custCode || cCode || '',
+            outletName: r.cust || r.outletName || '',
+            classification: r.gr || r.classification || 'C',
+            businessVertical: r.businessVertical || 'Dairy',
             skuName: 'All NPD SKUs',
             availability: r.npd === 'A' || r.npd === 'YES' ? 'YES' : 'NO',
           };
@@ -727,14 +760,14 @@ export default function SupervisorDashboard() {
       userRole: userRole || 'Supervisor',
       columns: [
         { header: 'Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Visit ID', key: 'visitId' },
-        { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
+        { header: 'Channel', key: 'channel' },
         { header: 'Manager', key: 'manager' },
         { header: 'Supervisor', key: 'supervisor' },
-        { header: 'Channel', key: 'channel' },
+        { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
         { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
         { header: 'Outlet Name', key: 'outletName' },
         { header: 'Classification', key: 'classification' },
+        { header: 'Business Vertical', key: 'businessVertical' },
         { header: 'SKU Name', key: 'skuName' },
         { header: 'NPD Availability', key: 'availability', formatter: (val: any, row: any) => val || row.status || '—' },
       ],
@@ -743,21 +776,20 @@ export default function SupervisorDashboard() {
   };
 
   const handleExportPowerSkuChart = () => {
-    const pskuReportRows = reportRows.psku || [];
-    const dataToExport = pskuReportRows.length > 0
-      ? pskuReportRows
+    const dataToExport = filteredPskuRows.length > 0
+      ? filteredPskuRows
       : filtered.map((r) => {
           const [cCode, rCode] = (r.cust_rt_id || '').split('|');
           return {
             date: r.createdAt,
-            visitId: r.visitId,
+            channel: r.ch || r.channel || 'GT',
+            manager: r.mgr || r.manager || '—',
+            supervisor: r.sup || r.supervisor || '—',
             routeCode: r.rt || rCode || '',
-            manager: r.mgr,
-            supervisor: r.sup,
-            channel: r.ch,
-            outletCode: r.custCode || cCode || '',
-            outletName: r.cust,
-            classification: r.gr,
+            outletCode: r.outletCode || r.custCode || cCode || '',
+            outletName: r.cust || r.outletName || '',
+            classification: r.gr || r.classification || 'C',
+            businessVertical: 'Dairy',
             skuName: 'All Power SKUs',
             availability: r.psku === 'A' || r.psku === 'YES' ? 'YES' : 'NO',
           };
@@ -771,14 +803,14 @@ export default function SupervisorDashboard() {
       userRole: userRole || 'Supervisor',
       columns: [
         { header: 'Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Visit ID', key: 'visitId' },
-        { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
+        { header: 'Channel', key: 'channel' },
         { header: 'Manager', key: 'manager' },
         { header: 'Supervisor', key: 'supervisor' },
-        { header: 'Channel', key: 'channel' },
+        { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
         { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
         { header: 'Outlet Name', key: 'outletName' },
         { header: 'Classification', key: 'classification' },
+        { header: 'Business Vertical', key: 'businessVertical' },
         { header: 'SKU Name', key: 'skuName' },
         { header: 'Power SKU Availability', key: 'availability', formatter: (val: any, row: any) => val || row.status || '—' },
       ],
@@ -835,18 +867,18 @@ export default function SupervisorDashboard() {
         { header: 'Classification Grade', key: 'class' },
         { header: 'Visit Status', key: 'status' },
         { header: 'Last Visit Date', key: 'lastVisitDate' },
-        { header: 'Route', key: 'routeCode' },
+        { header: 'Route Code', key: 'routeCode' },
+        { header: 'Channel', key: 'channel' },
         { header: 'Supervisor', key: 'supervisor' },
         { header: 'Manager', key: 'manager' },
-        { header: 'Channel', key: 'channel' },
       ] : [
         { header: 'Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Visit ID', key: 'visitId' },
-        { header: 'Manager', key: 'manager' },
-        { header: 'Supervisor', key: 'supervisor' },
-        { header: 'Channel', key: 'channel' },
-        { header: 'Outlet Code', key: 'outletCode' },
-        { header: 'Outlet Name', key: 'outletName' },
+        { header: 'Channel', key: 'channel', formatter: (val: any, row: any) => val || row.ch || '—' },
+        { header: 'Manager', key: 'manager', formatter: (val: any, row: any) => val || row.mgr || '—' },
+        { header: 'Supervisor', key: 'supervisor', formatter: (val: any, row: any) => val || row.sup || '—' },
+        { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
+        { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
+        { header: 'Outlet Name', key: 'outletName', formatter: (val: any, row: any) => val || row.cust || '—' },
         { header: 'Classification Grade', key: 'class', formatter: (val: any, row: any) => val || row.gr || 'Not classified' },
       ],
       data: dataToExport,
@@ -866,12 +898,12 @@ export default function SupervisorDashboard() {
       userRole: userRole || 'Supervisor',
       columns: [
         { header: 'Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Visit ID', key: 'visitId' },
-        { header: 'Manager', key: 'manager' },
-        { header: 'Supervisor', key: 'supervisor' },
-        { header: 'Channel', key: 'channel' },
-        { header: 'Outlet Code', key: 'outletCode' },
-        { header: 'Outlet Name', key: 'outletName' },
+        { header: 'Channel', key: 'channel', formatter: (val: any, row: any) => val || row.ch || '—' },
+        { header: 'Manager', key: 'manager', formatter: (val: any, row: any) => val || row.mgr || '—' },
+        { header: 'Supervisor', key: 'supervisor', formatter: (val: any, row: any) => val || row.sup || '—' },
+        { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
+        { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
+        { header: 'Outlet Name', key: 'outletName', formatter: (val: any, row: any) => val || row.cust || '—' },
         { header: 'Classification Grade', key: 'class', formatter: (val: any, row: any) => val || row.gr || 'Not classified' },
       ],
       data: dataToExport,
@@ -981,11 +1013,24 @@ export default function SupervisorDashboard() {
     if (canvasTrendRef.current) {
       if (chartsRef.current.cTrend) chartsRef.current.cTrend.destroy();
 
+      const formatLocalDateKey = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+
       const getDateKey = (r: any) => {
         const raw = r.createdAt || r.date;
         if (!raw) return '';
-        if (raw instanceof Date) return raw.toISOString().split('T')[0];
-        return String(raw).split('T')[0];
+        if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
+          return raw.trim();
+        }
+        const dt = new Date(raw);
+        if (isNaN(dt.getTime())) {
+          return String(raw).split('T')[0];
+        }
+        return formatLocalDateKey(dt);
       };
 
       const dateCounts: Record<string, number> = {};
@@ -999,12 +1044,14 @@ export default function SupervisorDashboard() {
       // Build sorted date sequence
       let sortedDates: string[] = [];
       if (fFrom && fTo && fFrom <= fTo) {
-        const curr = new Date(fFrom + 'T00:00:00');
-        const end = new Date(fTo + 'T00:00:00');
+        const [fy, fm, fd] = fFrom.split('-').map(Number);
+        const [ty, tm, td] = fTo.split('-').map(Number);
+        const curr = new Date(fy, fm - 1, fd);
+        const end = new Date(ty, tm - 1, td);
         const diffDays = Math.round((end.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays >= 0 && diffDays <= 90) {
           while (curr <= end) {
-            sortedDates.push(curr.toISOString().split('T')[0]);
+            sortedDates.push(formatLocalDateKey(curr));
             curr.setDate(curr.getDate() + 1);
           }
         } else {
@@ -1015,7 +1062,11 @@ export default function SupervisorDashboard() {
       }
 
       if (sortedDates.length === 0) {
-        sortedDates = [new Date().toISOString().split('T')[0]];
+        if (fFrom && fTo && fFrom === fTo) {
+          sortedDates = [fFrom];
+        } else {
+          sortedDates = [formatLocalDateKey(new Date())];
+        }
       }
 
       const formatDateShort = (dStr: string) => {
@@ -1053,6 +1104,7 @@ export default function SupervisorDashboard() {
               backgroundColor: BLUE,
               hoverBackgroundColor: '#4338ca',
               borderRadius: 6,
+              maxBarThickness: 48,
             },
           ],
         },
@@ -1122,6 +1174,7 @@ export default function SupervisorDashboard() {
               grid: { color: gridColor },
               ticks: {
                 color: textColor,
+                font: { weight: 'bold' },
                 maxRotation: 45,
                 minRotation: 45,
                 autoSkip: false,
@@ -1183,7 +1236,7 @@ export default function SupervisorDashboard() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: 'bold' } } },
             y: { beginAtZero: true, grace: '15%', grid: { color: gridColor }, ticks: { color: textColor, precision: 0 } },
           },
         },
@@ -1363,7 +1416,7 @@ export default function SupervisorDashboard() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: 'bold' } } },
             y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: (v: any) => `${v}%` } },
           },
         },
@@ -1408,7 +1461,7 @@ export default function SupervisorDashboard() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: 'bold' } } },
             y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: (v: any) => `${v}%` } },
           },
         },
@@ -1691,7 +1744,7 @@ export default function SupervisorDashboard() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: 'bold' } } },
             y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: (v: any) => `${v}%` } },
           },
         },
@@ -1699,14 +1752,6 @@ export default function SupervisorDashboard() {
     }
     */
   }, [filtered, filteredForClassCharts, filteredNpdRows, filteredColdChainRows, isAnalyticsLoading, theme, masters, fSuper, fMgr, fChannel, fRoute, fCust, session]);
-
-  if (isAnalyticsLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[var(--bg)]">
-        <p className="text-sm font-bold text-[var(--text-secondary)]">Loading Supervisor Dashboard...</p>
-      </div>
-    );
-  }
 
   if (isFleetRole(userRole)) {
     const fleetTotalAssets = filteredColdChainRows.length;
@@ -2363,6 +2408,13 @@ export default function SupervisorDashboard() {
           {/* <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" /> */}
         </div>
 
+        {isAnalyticsLoading && (
+          <div className="flex items-center justify-center gap-2 p-3 mb-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-[var(--accent)] animate-pulse">
+            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+            <span>Updating analytics and chart performance metrics in background...</span>
+          </div>
+        )}
+
         {/* Active description */}
         <div className="flex items-center justify-between gap-3 mb-3">
           <div className="active-note flex-grow" dangerouslySetInnerHTML={{ __html: activeNote }} />
@@ -2547,7 +2599,6 @@ export default function SupervisorDashboard() {
               <table className="w-full">
                 <thead>
                   <tr>
-                    <th>Visit ID</th>
                     <th>Date</th>
                     <th>Customer</th>
                     <th>Route</th>
@@ -2557,7 +2608,6 @@ export default function SupervisorDashboard() {
                 <tbody>
                   {submittedVisits.slice(0, 20).map((v) => (
                     <tr key={v.visitId} onClick={() => handleOpenReview(v.visitId)} style={{ cursor: 'pointer' }}>
-                      <td className="font-mono text-xs text-[#4F46E5] font-semibold">{v.visitId}</td>
                       <td>{new Date(v.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</td>
                       <td className="font-bold">{v.customerCode}</td>
                       <td className="font-mono">{v.routeCode}</td>

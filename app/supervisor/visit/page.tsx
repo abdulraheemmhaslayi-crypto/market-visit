@@ -419,20 +419,24 @@ function VisitWizardContent() {
       showToast('Please select a reason category for no-visit reports.', 'warning');
       return;
     }
-    // Auto-default any unselected Power SKU or NPD checklist items to 'Not Available'
-    const finalPowerSkuResults = { ...powerSkuResults };
-    powerSkus.forEach((s) => {
-      if (!finalPowerSkuResults[s.skuCode]) {
-        finalPowerSkuResults[s.skuCode] = 'Not Available';
-      }
-    });
+    // Auto-default any unselected Power SKU or NPD checklist items to 'Not Available' ONLY for regular visits
+    const finalPowerSkuResults = visitType === 'No Visit' ? {} : { ...powerSkuResults };
+    if (visitType !== 'No Visit') {
+      powerSkus.forEach((s) => {
+        if (!finalPowerSkuResults[s.skuCode]) {
+          finalPowerSkuResults[s.skuCode] = 'Not Available';
+        }
+      });
+    }
 
-    const finalNpdResponses = { ...npdResponses };
-    npdSkus.forEach((s) => {
-      if (!finalNpdResponses[s.skuCode]) {
-        finalNpdResponses[s.skuCode] = 'Not Available';
-      }
-    });
+    const finalNpdResponses = visitType === 'No Visit' ? {} : { ...npdResponses };
+    if (visitType !== 'No Visit') {
+      npdSkus.forEach((s) => {
+        if (!finalNpdResponses[s.skuCode]) {
+          finalNpdResponses[s.skuCode] = 'Not Available';
+        }
+      });
+    }
 
     setSubmittingVisit(true);
     try {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Camera,
   Calendar,
@@ -54,7 +54,13 @@ export interface AuditPhoto {
 
 export default function AuditPhotoGalleryPage() {
   // Today's date YYYY-MM-DD by default
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getTodayStr = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
   const [selectedApp, setSelectedApp] = useState<string>('all');
@@ -175,15 +181,13 @@ export default function AuditPhotoGalleryPage() {
       title: 'Audit Photo Gallery Metadata Log',
       filterSummary: `Date: ${selectedDate || 'All'} | App: ${selectedApp} | Supervisor: ${selectedSupervisor} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
       columns: [
-        { header: 'Upload Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Photo ID', key: 'photoId' },
-        { header: 'Visit ID', key: 'visitId' },
+        { header: 'Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
+        { header: 'Manager', key: 'manager', formatter: (val: any) => val || '—' },
+        { header: 'Supervisor', key: 'supervisor', formatter: (val: any) => val || '—' },
+        { header: 'Route Code', key: 'route', formatter: (val: any) => val || '—' },
+        { header: 'Outlet Name', key: 'outlet', formatter: (val: any) => val || '—' },
         { header: 'Category / Asset', key: 'category' },
-        { header: 'Manager', key: 'manager' },
-        { header: 'Supervisor', key: 'supervisor' },
-        { header: 'Outlet', key: 'outlet' },
-        { header: 'Route', key: 'route' },
-        { header: 'Channel', key: 'channel' },
         { header: 'Application', key: 'appName' },
         { header: 'Action Status', key: 'photoId', formatter: (val: any) => actionItemsMap[val]?.actionStatus || 'None' },
         { header: 'Image URL', key: 'cloudinaryUrl' },
@@ -214,19 +218,81 @@ export default function AuditPhotoGalleryPage() {
     return { bg: 'rgba(99, 102, 241, 0.15)', text: '#6366f1', border: 'rgba(99, 102, 241, 0.3)' };
   };
 
-  // Action Items KPI Calculations
-  const allActionItemsList = Object.values(actionItemsMap);
-  const pendingCount = allActionItemsList.filter((a) => a.actionStatus === 'PENDING').length;
-  const submittedCount = allActionItemsList.filter((a) => a.actionStatus === 'SUBMITTED').length;
-  const resolvedCount = allActionItemsList.filter((a) => a.actionStatus === 'RESOLVED').length;
+  // Action Items KPI Calculations filtered by active dropdown selections
+  const filteredActionItems = useMemo(() => {
+    return Object.values(actionItemsMap).filter((item) => {
+      if (selectedSupervisor !== 'all' && (item.supervisor || '').toLowerCase() !== selectedSupervisor.toLowerCase()) {
+        return false;
+      }
+      if (selectedRoute !== 'all' && (item.route || '').toLowerCase() !== selectedRoute.toLowerCase()) {
+        return false;
+      }
+      if (selectedOutlet !== 'all' && (item.outlet || '').toLowerCase() !== selectedOutlet.toLowerCase()) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const matches =
+          (item.outlet || '').toLowerCase().includes(q) ||
+          (item.supervisor || '').toLowerCase().includes(q) ||
+          (item.manager || '').toLowerCase().includes(q) ||
+          (item.route || '').toLowerCase().includes(q) ||
+          (item.category || '').toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [actionItemsMap, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery]);
 
-  // Filter photos by action status if selected
-  const displayedPhotos = photos.filter((photo) => {
-    if (actionFilter === 'all') return true;
-    const action = actionItemsMap[photo.photoId];
-    if (!action) return false;
-    return action.actionStatus === actionFilter;
-  });
+  const pendingActionItems = useMemo(
+    () => filteredActionItems.filter((a) => a.actionStatus === 'PENDING'),
+    [filteredActionItems]
+  );
+  const submittedActionItems = useMemo(
+    () => filteredActionItems.filter((a) => a.actionStatus === 'SUBMITTED'),
+    [filteredActionItems]
+  );
+  const resolvedActionItems = useMemo(
+    () => filteredActionItems.filter((a) => a.actionStatus === 'RESOLVED'),
+    [filteredActionItems]
+  );
+
+  const pendingCount = pendingActionItems.length;
+  const submittedCount = submittedActionItems.length;
+  const resolvedCount = resolvedActionItems.length;
+
+  // Accurately display photos matching the selected GM action status
+  const displayedPhotos = useMemo(() => {
+    if (actionFilter === 'all') return photos;
+
+    const targetActionItems =
+      actionFilter === 'PENDING'
+        ? pendingActionItems
+        : actionFilter === 'SUBMITTED'
+        ? submittedActionItems
+        : resolvedActionItems;
+
+    return targetActionItems.map((item) => {
+      const existing = photos.find((p) => p.photoId === item.photoId);
+      if (existing) return existing;
+      const syntheticPhoto: AuditPhoto = {
+        photoId: item.photoId,
+        visitId: item.visitId || 'VISIT-REF',
+        category: (item.category as any) || 'Audit Photo',
+        cloudinaryUrl: item.originalPhotoUrl,
+        publicId: item.photoId,
+        uploadedAt: item.createdAt || new Date().toISOString(),
+        appName: 'Field Audit',
+        outlet: item.outlet,
+        outletCode: item.outletCode || '',
+        route: item.route,
+        supervisor: item.supervisor || 'Field Supervisor',
+        manager: item.manager || '',
+        channel: item.channel || 'GT',
+      };
+      return syntheticPhoto;
+    });
+  }, [actionFilter, photos, pendingActionItems, submittedActionItems, resolvedActionItems]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -299,7 +365,7 @@ export default function AuditPhotoGalleryPage() {
               : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)]'
           }`}
         >
-          All Photos ({photos.length})
+          All Photos ({pagination.totalCount || photos.length})
         </button>
         <button
           onClick={() => setActionFilter('PENDING')}
@@ -544,7 +610,7 @@ export default function AuditPhotoGalleryPage() {
               <div
                 key={photo.photoId}
                 onClick={() => {
-                  const idx = photos.findIndex((p) => p.photoId === photo.photoId);
+                  const idx = displayedPhotos.findIndex((p) => p.photoId === photo.photoId);
                   setLightboxIndex(idx !== -1 ? idx : 0);
                 }}
                 className={`group relative rounded-2xl border bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col ${
@@ -643,7 +709,7 @@ export default function AuditPhotoGalleryPage() {
       )}
 
       {/* Pagination Footer */}
-      {pagination.totalPages > 1 && (
+      {actionFilter === 'all' && pagination.totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)] text-xs text-[var(--text-secondary)]">
           <p>
             Showing Page <strong className="text-[var(--text-primary)]">{pagination.currentPage}</strong> of{' '}
@@ -759,13 +825,13 @@ export default function AuditPhotoGalleryPage() {
 
             {/* List of Action Items */}
             <div className="space-y-3">
-              {allActionItemsList.length === 0 ? (
+              {filteredActionItems.length === 0 ? (
                 <div className="py-12 text-center text-xs text-[var(--text-muted)]">
                   <Flag className="h-8 w-8 mx-auto opacity-30 mb-2" />
                   No action directives assigned yet. Click on any photo in the gallery to flag an issue!
                 </div>
               ) : (
-                allActionItemsList.map((item) => (
+                filteredActionItems.map((item) => (
                   <div
                     key={item.id}
                     className="p-4 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] space-y-3 text-xs"
@@ -854,7 +920,7 @@ export default function AuditPhotoGalleryPage() {
 
       {/* Lightbox Metadata Modal with GM Directive & Proof Verification */}
       <ImageLightboxModal
-        photos={photos}
+        photos={displayedPhotos}
         currentIndex={lightboxIndex ?? 0}
         isOpen={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}
