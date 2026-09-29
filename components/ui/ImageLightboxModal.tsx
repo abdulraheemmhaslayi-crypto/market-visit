@@ -26,6 +26,7 @@ import {
   Camera,
   Check,
   FlipHorizontal,
+  Loader2,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { AuditActionItem } from '@/lib/audit-actions';
@@ -189,11 +190,40 @@ export default function ImageLightboxModal({
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setProofPhotoUrl(result);
+      const rawUrl = event.target?.result as string;
+      if (!rawUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1280;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.82);
+          setProofPhotoUrl(compressed);
+        } else {
+          setProofPhotoUrl(rawUrl);
+        }
         stopCamera();
-      }
+      };
+      img.onerror = () => {
+        setProofPhotoUrl(rawUrl);
+        stopCamera();
+      };
+      img.src = rawUrl;
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -301,16 +331,22 @@ export default function ImageLightboxModal({
   // Handle Supervisor Proof Submission
   const handleSubmitSupervisorProof = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentAction?.id) return;
+    if (!currentAction?.id) {
+      alert('Unable to identify action directive to update.');
+      return;
+    }
+
+    if (!proofPhotoUrl) {
+      alert('Please capture a photo proof using the camera first.');
+      return;
+    }
 
     setIsSavingProof(true);
     try {
-      let finalProofUrl =
-        proofPhotoUrl ||
-        'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80';
+      let finalProofUrl = proofPhotoUrl;
 
       // If proofPhotoUrl is a base64 data URL, upload to /api/upload
-      if (proofPhotoUrl && proofPhotoUrl.startsWith('data:image')) {
+      if (proofPhotoUrl.startsWith('data:image')) {
         try {
           const upRes = await fetch('/api/upload', {
             method: 'POST',
@@ -332,7 +368,7 @@ export default function ImageLightboxModal({
         body: JSON.stringify({
           id: currentAction.id,
           actionStatus: 'SUBMITTED',
-          supervisorComment: supervisorComment.trim() || 'Corrective action executed as instructed.',
+          supervisorComment: supervisorComment.trim() || 'Corrective action verified with camera photo proof.',
           proofPhotoUrl: finalProofUrl,
         }),
       });
@@ -342,9 +378,13 @@ export default function ImageLightboxModal({
         stopCamera();
         setActiveTab('before_after');
         if (onActionUpdated) onActionUpdated();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(`Failed to save resolution proof: ${errData.error || res.statusText || 'Server error'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to submit proof:', err);
+      alert(`Submission error: ${err.message || 'Network error'}`);
     } finally {
       setIsSavingProof(false);
     }
@@ -801,15 +841,14 @@ export default function ImageLightboxModal({
                           </p>
                           <div>
                             <label className="text-[10px] text-slate-400 block mb-1">
-                              Action Taken Notes:
+                              Action Taken Notes (Optional):
                             </label>
                             <textarea
                               rows={2}
-                              required
                               value={supervisorComment}
                               onChange={(e) => setSupervisorComment(e.target.value)}
-                              placeholder="e.g. Cleaned chiller shelf, re-arranged Dandy 2L milk facing and verified expiry."
-                              className="w-full text-xs p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100"
+                              placeholder="Type optional resolution notes (or submit photo proof directly)..."
+                              className="w-full text-xs p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-sky-500"
                             />
                           </div>
 
@@ -970,15 +1009,24 @@ export default function ImageLightboxModal({
                           <div className="flex items-center gap-2 pt-1">
                             <button
                               type="submit"
-                              disabled={isSavingProof || !supervisorComment.trim()}
-                              className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-black transition-all cursor-pointer"
+                              disabled={isSavingProof || !proofPhotoUrl}
+                              className="flex-1 py-2 px-3 rounded-lg text-xs font-extrabold bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-black transition-all cursor-pointer shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                             >
-                              {isSavingProof ? 'Submitting...' : 'Confirm Resolution'}
+                              {isSavingProof ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Submitting...
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="h-3.5 w-3.5" /> Confirm Resolution
+                                </>
+                              )}
                             </button>
                             <button
                               type="button"
+                              disabled={isSavingProof}
                               onClick={() => setIsSubmittingProof(false)}
-                              className="py-1.5 px-2.5 rounded-lg text-xs bg-slate-800 text-slate-300"
+                              className="py-2 px-3 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40"
                             >
                               Cancel
                             </button>
