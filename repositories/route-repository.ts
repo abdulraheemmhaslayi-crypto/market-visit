@@ -13,11 +13,16 @@ function mapRowToRoute(row: any): Route {
 }
 
 let routeSchemaChecked = false;
+let routeSchemaPromise: Promise<void> | null = null;
 
 async function ensureRouteTableSchema(): Promise<void> {
   if (routeSchemaChecked) return;
-  try {
-    await pool.execute(`
+  if (routeSchemaPromise) return routeSchemaPromise;
+
+  routeSchemaChecked = true;
+  routeSchemaPromise = (async () => {
+    try {
+      await pool.execute(`
       CREATE TABLE IF NOT EXISTS \`Manager\` (
         \`id\` VARCHAR(191) PRIMARY KEY,
         \`name\` VARCHAR(191) UNIQUE NOT NULL
@@ -64,10 +69,15 @@ async function ensureRouteTableSchema(): Promise<void> {
       }
     }
 
-    routeSchemaChecked = true;
   } catch (err) {
     console.error('Failed to ensure Route table schema:', err);
+  } finally {
+    routeSchemaChecked = true;
+    routeSchemaPromise = null;
   }
+  })();
+
+  return routeSchemaPromise;
 }
 
 export const routeRepository = {

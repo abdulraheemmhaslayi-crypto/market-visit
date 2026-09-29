@@ -25,7 +25,6 @@ const GCOL: Record<string, string> = {
 const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   npd: [
     { key: 'date', label: 'Date' },
-    { key: 'visitId', label: 'Visit ID' },
     { key: 'channel', label: 'Channel' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
@@ -39,7 +38,6 @@ const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   psku: [
     { key: 'date', label: 'Date' },
-    { key: 'visitId', label: 'Visit ID' },
     { key: 'channel', label: 'Channel' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
@@ -53,7 +51,6 @@ const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   'cold-chain': [
     { key: 'date', label: 'Date' },
-    { key: 'visitId', label: 'Visit ID' },
     { key: 'channel', label: 'Channel' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
@@ -68,7 +65,6 @@ const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   classification: [
     { key: 'date', label: 'Date' },
-    { key: 'visitId', label: 'Visit ID' },
     { key: 'channel', label: 'Channel' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
@@ -95,12 +91,24 @@ function formatDisplayDate(value?: string) {
 }
 
 function getCellValue(row: Record<string, unknown>, key: string) {
-  if (key === 'date') return formatDisplayDate(row.date as string | undefined);
-  if (key === 'classification') return (row.classification as string) || '—';
+  if (key === 'date') return formatDisplayDate((row.date || row.createdAt) as string | undefined);
+  if (key === 'channel') return (row.channel || row.ch || 'GT') as string;
+  if (key === 'manager') return (row.manager || row.mgr || '—') as string;
+  if (key === 'supervisor') return (row.supervisor || row.sup || '—') as string;
+  if (key === 'routeCode') {
+    return (row.routeCode || row.route || row.rt || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[1] || String(row.cust_rt_id).split('|')[0] : '—')) as string;
+  }
+  if (key === 'outletCode') {
+    return (row.outletCode || row.custCode || row.code || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[0] : '—')) as string;
+  }
+  if (key === 'outletName') return (row.outletName || row.cust || '—') as string;
+  if (key === 'classification') return (row.classification || row.class || row.gr || '—') as string;
   if (key === 'class') {
-    const classVal = (row.class as string) || '—';
+    const classVal = (row.class || row.classification || row.gr || '—') as string;
     return classVal === '-' ? 'Not classified' : classVal;
   }
+  if (key === 'businessVertical') return (row.businessVertical || row.vertical || (row.category === 'Ice Cream' ? 'Ice Cream' : 'Dairy') || '—') as string;
+  if (key === 'assetType') return (row.assetType || row.atype || '—') as string;
   if (key === 'availability') {
     if (row.availability) return row.availability as string;
     if (row.status) {
@@ -596,9 +604,9 @@ export default function DrilldownReportModal({
           </div>
           <div className="md:hidden divide-y divide-[var(--border-soft)] h-full overflow-y-auto">
             {paginatedData.length > 0 ? paginatedData.map((row, index) => (
-              <div key={`${row.visitId}-${index}`} className="p-4 bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors space-y-2">
+              <div key={`${row.outletCode || row.outletName || index}-${index}`} className="p-4 bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="font-mono text-[11px] font-bold text-[var(--accent)]">{row.visitId as string}</div>
+                  <div className="font-semibold text-[12px] text-[var(--accent)]">{row.outletName as string || 'Outlet'}</div>
                   <div className="text-[11px] text-[var(--text-muted)]">{formatDisplayDate(row.date as string | undefined)}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11.5px] text-[var(--text-muted)]">

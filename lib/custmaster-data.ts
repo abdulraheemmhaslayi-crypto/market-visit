@@ -17,6 +17,8 @@ export interface CustMasterCustomer {
   managerName: string;
   superName: string;
   classification: string;
+  dairyClassification?: string;
+  iceCreamClassification?: string;
   channel: string;
 }
 
@@ -36,7 +38,9 @@ export interface CustMasterPayload {
 
 let cachedCustMaster: CustMasterPayload | null = null;
 let lastCacheTime = 0;
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
+let cachedClassMap: Map<string, CustomerClassificationInfo> | null = null;
+let lastClassMapTime = 0;
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes cache
 
 function findCustMasterFile(): string | null {
   const candidatePaths = [
@@ -55,8 +59,53 @@ function findCustMasterFile(): string | null {
   return null;
 }
 
-function loadCustomerClassifications(): Map<string, string> {
-  const map = new Map<string, string>();
+interface CustomerClassificationInfo {
+  classification: string;
+  dairyClassification?: string;
+  iceCreamClassification?: string;
+  channel?: string;
+}
+
+function getVariants(code: string): string[] {
+  const clean = String(code || '').trim().toUpperCase();
+  if (!clean) return [];
+  const rawNum = clean.replace(/^C/i, '');
+  const unpadded = rawNum.replace(/^0+/, '');
+  const padded5 = rawNum.padStart(5, '0');
+
+  return Array.from(
+    new Set([
+      clean,
+      rawNum,
+      unpadded,
+      `C${rawNum}`,
+      `C${unpadded}`,
+      padded5,
+      `C${padded5}`,
+    ].filter(Boolean))
+  );
+}
+
+function loadCustomerClassifications(forceReload = false): Map<string, CustomerClassificationInfo> {
+  const now = Date.now();
+  if (!forceReload && cachedClassMap && now - lastClassMapTime < CACHE_TTL_MS) {
+    return cachedClassMap;
+  }
+  const map = new Map<string, CustomerClassificationInfo>();
+
+  const setVariantInfo = (code: string, info: Partial<CustomerClassificationInfo>) => {
+    const variants = getVariants(code);
+    for (const v of variants) {
+      const existing = map.get(v) || { classification: 'C' };
+      if (info.classification) existing.classification = info.classification;
+      if (info.dairyClassification) existing.dairyClassification = info.dairyClassification;
+      if (info.iceCreamClassification) existing.iceCreamClassification = info.iceCreamClassification;
+      if (info.channel) existing.channel = info.channel;
+      map.set(v, existing);
+    }
+  };
+
+  // 1. Load from data/customers.json
   const jsonPath = path.join(process.cwd(), 'data', 'customers.json');
   if (fs.existsSync(jsonPath)) {
     try {
@@ -64,13 +113,13 @@ function loadCustomerClassifications(): Map<string, string> {
       if (Array.isArray(list)) {
         for (const item of list) {
           if (item.customerCode) {
-            const raw = String(item.customerCode).trim().toUpperCase();
             const cls = (item.classification || item.dairyClassification || 'C').trim().toUpperCase();
-            if (cls && cls !== '-') {
-              map.set(raw, cls);
-              map.set(raw.replace(/^C/, ''), cls);
-              map.set(`C${raw.replace(/^C/, '')}`, cls);
-            }
+            setVariantInfo(item.customerCode, {
+              classification: cls && cls !== '-' ? cls : 'C',
+              dairyClassification: item.dairyClassification || undefined,
+              iceCreamClassification: item.iceCreamClassification || undefined,
+              channel: item.channel ? String(item.channel).trim().toUpperCase() : undefined,
+            });
           }
         }
       }
@@ -78,6 +127,81 @@ function loadCustomerClassifications(): Map<string, string> {
       console.error('Error reading customers.json for classification mapping:', e);
     }
   }
+
+  // 2. Load from classification excel files if present
+  const candidateClassFiles: string[] = [
+    path.join(process.cwd(), 'data', 'Customer_Classification_DUMMY.xlsx'),
+    path.join(process.cwd(), 'data', 'Master_Classification.xlsx'),
+    path.join(process.cwd(), 'data', 'Customer_Classification.xlsx'),
+    path.join(process.cwd(), 'public', 'uploads', 'Customer_Classification_DUMMY.xlsx'),
+    path.join(process.cwd(), 'public', 'uploads', 'Master_Classification.xlsx'),
+    path.join(process.cwd(), 'public', 'uploads', 'Customer_Classification.xlsx'),
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/MARKET VISIT- NEW/Customer_Classification.xlsx',
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/MARKET VISIT- NEW/Master_Classification.xlsx',
+  ];
+
+  const searchDirs = [
+    path.join(process.cwd(), 'data'),
+    path.join(process.cwd(), 'public', 'uploads'),
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/MARKET VISIT- NEW',
+  ];
+
+  for (const dir of searchDirs) {
+    if (fs.existsSync(dir)) {
+      try {
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+          if (file.endsWith('.xlsx') && (file.toLowerCase().includes('class') || file.toLowerCase().includes('grade'))) {
+            const fullPath = path.join(dir, file);
+            if (!candidateClassFiles.includes(fullPath)) {
+              candidateClassFiles.push(fullPath);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  for (const cPath of candidateClassFiles) {
+    if (fs.existsSync(cPath)) {
+      try {
+        const buf = fs.readFileSync(cPath);
+        const wb = xlsx.read(buf, { type: 'buffer' });
+        if (wb.SheetNames.length > 0) {
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const rows = xlsx.utils.sheet_to_json(sheet) as any[];
+          for (const row of rows) {
+            const code = row['Customer Code'] || row['CustomerCode'] || row['customercode'] || row['Code'];
+            const cls = row['Classification'] || row['Class'] || row['Grade'];
+            const vert = row['Business Vertical'] || row['BusinessVertical'] || row['Vertical'];
+            const ch = row['Channel'] || row['CHANNEL'];
+
+            if (code && cls) {
+              const codeStr = String(code).trim().toUpperCase();
+              const clsStr = String(cls).trim().toUpperCase();
+              const vertStr = String(vert || '').trim().toLowerCase();
+              const chStr = ch ? String(ch).trim().toUpperCase() : undefined;
+
+              const isDairy = vertStr.includes('dairy');
+              const isIce = vertStr.includes('ice');
+
+              setVariantInfo(codeStr, {
+                classification: clsStr !== '-' ? clsStr : undefined,
+                dairyClassification: isDairy ? clsStr : undefined,
+                iceCreamClassification: isIce ? clsStr : undefined,
+                channel: chStr,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed reading classification excel file:', cPath, err);
+      }
+    }
+  }
+
+  cachedClassMap = map;
+  lastClassMapTime = Date.now();
   return map;
 }
 
@@ -88,7 +212,7 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
   }
 
   const filePath = findCustMasterFile();
-  const classMap = loadCustomerClassifications();
+  const classMap = loadCustomerClassifications(forceReload);
 
   const managerSet = new Set<string>();
   const supervisorSet = new Set<string>();
@@ -162,11 +286,28 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
             }
           }
 
-          // Customer Classification
-          let cls = classMap.get(custCodeRaw) || classMap.get(custCodeRaw.replace(/^C/, '')) || 'C';
+          // Customer Classification & Channel resolution from Customer_Classification
+          let clsInfo: CustomerClassificationInfo | undefined;
+          for (const v of getVariants(custCodeRaw)) {
+            const found = classMap.get(v);
+            if (found) {
+              clsInfo = found;
+              break;
+            }
+          }
+
+          const dairyCls = clsInfo?.dairyClassification;
+          const iceCls = clsInfo?.iceCreamClassification;
+          let cls = clsInfo?.classification || (dairyCls && dairyCls !== '-' ? dairyCls : (iceCls && iceCls !== '-' ? iceCls : 'C'));
           if (!cls || cls === '-') cls = 'C';
           classificationSet.add(cls);
           customerClassificationMap[custCodeRaw] = cls;
+
+          let finalChannel = channelRaw;
+          if (!finalChannel || finalChannel === 'GENERAL TRADE' || finalChannel === 'GENERAL STORE') {
+            finalChannel = clsInfo?.channel || 'GT';
+          }
+          if (!finalChannel) finalChannel = 'GT';
 
           if (custCodeRaw) {
             customerList.push({
@@ -177,7 +318,9 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
               managerName: validManager,
               superName: validSupervisor,
               classification: cls,
-              channel: channelRaw,
+              dairyClassification: dairyCls || undefined,
+              iceCreamClassification: iceCls || undefined,
+              channel: finalChannel,
             });
           }
         }
