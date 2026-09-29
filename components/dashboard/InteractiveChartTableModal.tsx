@@ -145,14 +145,13 @@ export default function InteractiveChartTableModal({
       filterSummary: search ? `Search query: "${search}"` : undefined,
       columns: [
         { header: 'Date', key: 'createdAt', formatter: (val) => val ? new Date(val).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
-        { header: 'Visit ID', key: 'visitId' },
-        { header: 'Manager', key: 'mgr' },
-        { header: 'Supervisor', key: 'sup' },
-        { header: 'Outlet', key: 'cust' },
-        { header: 'Shop Code', key: 'code' },
-        { header: 'Route', key: 'rt' },
-        { header: 'Channel', key: 'ch' },
-        { header: 'Class', key: 'gr' },
+        { header: 'Channel', key: 'ch', formatter: (val, row) => val || row.channel || 'GT' },
+        { header: 'Manager', key: 'mgr', formatter: (val, row) => val || row.manager || '—' },
+        { header: 'Supervisor', key: 'sup', formatter: (val, row) => val || row.supervisor || '—' },
+        { header: 'Route Code', key: 'rt', formatter: (val, row) => val || row.route || row.routeCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] || row.cust_rt_id.split('|')[0] : '—') },
+        { header: 'Outlet Code', key: 'code', formatter: (val, row) => val || row.custCode || row.outletCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
+        { header: 'Outlet Name', key: 'cust', formatter: (val, row) => val || row.outletName || '—' },
+        { header: 'Classification', key: 'gr', formatter: (val, row) => val || row.class || row.classification || '—' },
         { header: 'Asset', key: 'atype' },
         { header: 'Temp (°C)', key: 'temp', formatter: (val) => val !== undefined && val !== null ? `${val}°C` : '—' },
         { header: 'Status', key: 'ok', formatter: (val) => val ? 'OK' : 'Breach' },
@@ -252,12 +251,6 @@ export default function InteractiveChartTableModal({
                     Date {renderSortIcon('createdAt')}
                   </th>
                   <th 
-                    onClick={() => handleSort('visitId')}
-                    className="px-5 py-3 text-left font-bold text-[10.5px] uppercase tracking-wider cursor-pointer hover:bg-[var(--surface-2)]"
-                  >
-                    Visit ID {renderSortIcon('visitId')}
-                  </th>
-                  <th 
                     onClick={() => handleSort('mgr')}
                     className="px-5 py-3 text-left font-bold text-[10.5px] uppercase tracking-wider cursor-pointer hover:bg-[var(--surface-2)]"
                   >
@@ -318,13 +311,10 @@ export default function InteractiveChartTableModal({
               </thead>
               <tbody className="divide-y divide-[var(--border-soft)]">
                 {paginatedData.length > 0 ? (
-                  paginatedData.map((r) => (
-                    <tr key={r.visitId} className="hover:bg-[var(--surface-2)] transition-colors">
+                  paginatedData.map((r, idx) => (
+                    <tr key={r.visitId || idx} className="hover:bg-[var(--surface-2)] transition-colors">
                       <td className="px-5 py-3 text-[12px] whitespace-nowrap text-[var(--text-muted)]">
                         {formatVisitDate(r.createdAt)}
-                      </td>
-                      <td className="px-5 py-3 font-mono text-[11px] font-bold text-[var(--accent)]">
-                        {r.visitId}
                       </td>
                       <td className="px-5 py-3 font-medium">{r.mgr}</td>
                       <td className="px-5 py-3 font-medium">{r.sup}</td>
@@ -351,7 +341,7 @@ export default function InteractiveChartTableModal({
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={12} className="px-5 py-12 text-center text-[13px] text-[var(--text-muted)]">
+                    <td colSpan={11} className="px-5 py-12 text-center text-[13px] text-[var(--text-muted)]">
                       No matching records found.
                     </td>
                   </tr>
@@ -363,12 +353,11 @@ export default function InteractiveChartTableModal({
           {/* Mobile Cards List View */}
           <div className="md:hidden divide-y divide-[var(--border-soft)] h-full overflow-y-auto">
             {paginatedData.length > 0 ? (
-              paginatedData.map((r) => (
-                <div key={r.visitId} className="p-4 bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors space-y-2">
+              paginatedData.map((r, idx) => (
+                <div key={r.visitId || idx} className="p-4 bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] font-bold text-[var(--accent)]">{r.visitId}</span>
-                      <span className="text-[10px] text-[var(--text-muted)]">
+                      <span className="text-[11px] font-semibold text-[var(--text-muted)]">
                         {formatVisitDate(r.createdAt)}
                       </span>
                     </div>

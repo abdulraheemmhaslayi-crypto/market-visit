@@ -239,7 +239,11 @@ export default function ReportsPage() {
                         const d = new Date(clickedDate);
                         const formattedDate = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
                         const matches = ((stats as any)?.rows ?? []).filter((r: any) => {
-                          const rDate = new Date(r.createdAt).toISOString().split('T')[0];
+                          const dt = new Date(r.createdAt);
+                          const y = dt.getFullYear();
+                          const m = String(dt.getMonth() + 1).padStart(2, '0');
+                          const day = String(dt.getDate()).padStart(2, '0');
+                          const rDate = `${y}-${m}-${day}`;
                           return rDate === clickedDate;
                         });
                         setModalTitle(`Visits on ${formattedDate}`);

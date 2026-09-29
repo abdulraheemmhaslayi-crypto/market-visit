@@ -215,12 +215,12 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
     }
 
     const columns = [
-      { header: 'Visit ID', key: 'visitId' },
       {
         header: 'Visit Date & Time',
         key: 'date',
         formatter: (val: string) => (val ? new Date(val).toLocaleString('en-IN') : '—'),
       },
+      { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
       ...(role === 'admin'
         ? [
             { header: 'Supervisor Name', key: 'supervisorName' },
@@ -231,7 +231,6 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
       { header: 'Route Name', key: 'routeName' },
       { header: 'Outlet Code', key: 'customerCode' },
       { header: 'Outlet Name', key: 'customerName' },
-      { header: 'Channel', key: 'channel' },
       { header: 'Reason Category', key: 'reasonCategory' },
       { header: 'Reason Details / Notes', key: 'reason' },
       { header: 'Photos Count', key: 'photos', formatter: (p: any[]) => p?.length || 0 },

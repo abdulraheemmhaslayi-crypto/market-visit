@@ -311,16 +311,24 @@ export default function SupervisorReportsPage() {
       userRole: userRole || "Supervisor",
       columns: [
         {
-          header: "Visit Date",
+          header: "Date",
           key: "createdAt",
-          formatter: (val) => (val ? new Date(val).toLocaleString() : "—"),
+          formatter: (val) =>
+            val
+              ? new Date(val).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "—",
         },
-        { header: "Visit ID", key: "visitId" },
-        { header: "Manager", key: "mgr" },
-        { header: "Supervisor", key: "sup" },
-        { header: "Channel", key: "ch" },
-        { header: "Outlet Name", key: "cust" },
-        { header: "Classification", key: "gr" },
+        { header: "Channel", key: "ch", formatter: (val, row) => val || row.channel || "GT" },
+        { header: "Manager", key: "mgr", formatter: (val, row) => val || row.manager || "—" },
+        { header: "Supervisor", key: "sup", formatter: (val, row) => val || row.supervisor || "—" },
+        { header: "Route Code", key: "rt", formatter: (val, row) => val || row.route || row.routeCode || (row.cust_rt_id ? row.cust_rt_id.split("|")[1] || row.cust_rt_id.split("|")[0] : "—") },
+        { header: "Outlet Code", key: "code", formatter: (val, row) => val || row.custCode || row.outletCode || (row.cust_rt_id ? row.cust_rt_id.split("|")[0] : "—") },
+        { header: "Outlet Name", key: "cust", formatter: (val, row) => val || row.outletName || "—" },
+        { header: "Classification", key: "gr", formatter: (val, row) => val || row.class || row.classification || "—" },
         { header: "Asset Type", key: "atype" },
         {
           header: "Asset Temp (°C)",
@@ -333,11 +341,6 @@ export default function SupervisorReportsPage() {
           key: "ok",
           formatter: (val) => (val ? "OK / In Range" : "Temp Breach"),
         },
-        // {
-        //   header: "FEFO Compliance",
-        //   key: "fefo",
-        //   formatter: (val) => (val ? "Compliant" : "Non-Compliant"),
-        // },
         { header: "Visit Type", key: "visitType" },
         { header: "Action Required", key: "action" },
       ],
@@ -414,14 +417,13 @@ export default function SupervisorReportsPage() {
             })
           : "—",
     },
-    { header: "Visit ID", key: "visitId" },
-    { header: "Manager", key: "mgr" },
-    { header: "Supervisor", key: "sup" },
-    { header: "Outlet Name", key: "cust" },
-    { header: "Shop Code", key: "code" },
-    { header: "Route", key: "rt" },
-    { header: "Channel", key: "ch" },
-    { header: "Class", key: "gr" },
+    { header: "Channel", key: "ch", formatter: (val: any, row: any) => val || row.channel || "GT" },
+    { header: "Manager", key: "mgr", formatter: (val: any, row: any) => val || row.manager || "—" },
+    { header: "Supervisor", key: "sup", formatter: (val: any, row: any) => val || row.supervisor || "—" },
+    { header: "Route Code", key: "rt", formatter: (val: any, row: any) => val || row.route || row.routeCode || (row.cust_rt_id ? row.cust_rt_id.split("|")[1] || row.cust_rt_id.split("|")[0] : "—") },
+    { header: "Outlet Code", key: "code", formatter: (val: any, row: any) => val || row.custCode || row.outletCode || (row.cust_rt_id ? row.cust_rt_id.split("|")[0] : "—") },
+    { header: "Outlet Name", key: "cust", formatter: (val: any, row: any) => val || row.outletName || "—" },
+    { header: "Classification", key: "gr", formatter: (val: any, row: any) => val || row.class || row.classification || "—" },
     { header: "Asset", key: "atype" },
     {
       header: "Temp (°C)",
@@ -530,11 +532,24 @@ export default function SupervisorReportsPage() {
     if (canvasTrendRef.current) {
       if (chartsRef.current.cTrend) chartsRef.current.cTrend.destroy();
 
+      const formatLocalDateKey = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      };
+
       const getDateKey = (r: any) => {
         const raw = r.createdAt || r.date;
         if (!raw) return "";
-        if (raw instanceof Date) return raw.toISOString().split("T")[0];
-        return String(raw).split("T")[0];
+        if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
+          return raw.trim();
+        }
+        const dt = new Date(raw);
+        if (isNaN(dt.getTime())) {
+          return String(raw).split("T")[0];
+        }
+        return formatLocalDateKey(dt);
       };
 
       const dateCounts: Record<string, number> = {};
@@ -548,12 +563,14 @@ export default function SupervisorReportsPage() {
       // Build sorted date sequence
       let sortedDates: string[] = [];
       if (fFrom && fTo && fFrom <= fTo) {
-        const curr = new Date(fFrom + "T00:00:00");
-        const end = new Date(fTo + "T00:00:00");
+        const [fy, fm, fd] = fFrom.split("-").map(Number);
+        const [ty, tm, td] = fTo.split("-").map(Number);
+        const curr = new Date(fy, fm - 1, fd);
+        const end = new Date(ty, tm - 1, td);
         const diffDays = Math.round((end.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays >= 0 && diffDays <= 90) {
           while (curr <= end) {
-            sortedDates.push(curr.toISOString().split("T")[0]);
+            sortedDates.push(formatLocalDateKey(curr));
             curr.setDate(curr.getDate() + 1);
           }
         } else {
@@ -564,7 +581,11 @@ export default function SupervisorReportsPage() {
       }
 
       if (sortedDates.length === 0) {
-        sortedDates = [new Date().toISOString().split("T")[0]];
+        if (fFrom && fTo && fFrom === fTo) {
+          sortedDates = [fFrom];
+        } else {
+          sortedDates = [formatLocalDateKey(new Date())];
+        }
       }
 
       const formatDateShort = (dStr: string) => {
@@ -602,6 +623,7 @@ export default function SupervisorReportsPage() {
               backgroundColor: BLUE,
               hoverBackgroundColor: "#4338ca",
               borderRadius: 6,
+              maxBarThickness: 48,
             },
           ],
         },
@@ -671,6 +693,7 @@ export default function SupervisorReportsPage() {
               grid: { color: gridColor },
               ticks: {
                 color: textColor,
+                font: { weight: "bold" },
                 maxRotation: 45,
                 minRotation: 45,
                 autoSkip: false,
@@ -795,7 +818,7 @@ export default function SupervisorReportsPage() {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: "bold" } } },
             y: {
               beginAtZero: true,
               grace: "15%",
@@ -886,7 +909,7 @@ export default function SupervisorReportsPage() {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: "bold" } } },
             y: {
               beginAtZero: true,
               grid: { color: gridColor },
@@ -936,7 +959,7 @@ export default function SupervisorReportsPage() {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: "bold" } } },
             y: {
               beginAtZero: true,
               grid: { color: gridColor },
@@ -1219,7 +1242,7 @@ export default function SupervisorReportsPage() {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: "bold" } } },
             y: {
               beginAtZero: true,
               grid: { color: gridColor },

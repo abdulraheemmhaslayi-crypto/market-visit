@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Camera,
   Calendar,
@@ -49,7 +49,13 @@ export interface AuditPhoto {
 }
 
 export default function SupervisorAuditPhotoGalleryPage() {
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getTodayStr = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
   const [selectedApp, setSelectedApp] = useState<string>('all');
@@ -162,13 +168,11 @@ export default function SupervisorAuditPhotoGalleryPage() {
       title: 'My Audit Photo Gallery Log',
       filterSummary: `Date: ${selectedDate || 'All'} | App: ${selectedApp} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
       columns: [
-        { header: 'Upload Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Photo ID', key: 'photoId' },
-        { header: 'Visit ID', key: 'visitId' },
+        { header: 'Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
+        { header: 'Route Code', key: 'route', formatter: (val: any) => val || '—' },
+        { header: 'Outlet Name', key: 'outlet', formatter: (val: any) => val || '—' },
         { header: 'Category / Asset', key: 'category' },
-        { header: 'Outlet', key: 'outlet' },
-        { header: 'Route', key: 'route' },
-        { header: 'Channel', key: 'channel' },
         { header: 'Application', key: 'appName' },
         { header: 'Image URL', key: 'cloudinaryUrl' },
       ],
@@ -187,14 +191,35 @@ export default function SupervisorAuditPhotoGalleryPage() {
     return { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' };
   };
 
-  const pendingActionCount = Object.values(actionItemsMap).filter(
-    (a) => a.actionStatus === 'PENDING'
-  ).length;
+  const pendingActionItems = useMemo(
+    () => Object.values(actionItemsMap).filter((a) => a.actionStatus === 'PENDING'),
+    [actionItemsMap]
+  );
+  const pendingActionCount = pendingActionItems.length;
 
-  const displayedPhotos =
-    actionFilter === 'PENDING'
-      ? photos.filter((p) => actionItemsMap[p.photoId]?.actionStatus === 'PENDING')
-      : photos;
+  const displayedPhotos = useMemo(() => {
+    if (actionFilter !== 'PENDING') return photos;
+    return pendingActionItems.map((item) => {
+      const existing = photos.find((p) => p.photoId === item.photoId);
+      if (existing) return existing;
+      const syntheticPhoto: AuditPhoto = {
+        photoId: item.photoId,
+        visitId: item.visitId || 'VISIT-REF',
+        category: (item.category as any) || 'Audit Photo',
+        cloudinaryUrl: item.originalPhotoUrl,
+        publicId: item.photoId,
+        uploadedAt: item.createdAt || new Date().toISOString(),
+        appName: 'Field Audit',
+        outlet: item.outlet,
+        outletCode: item.outletCode || '',
+        route: item.route,
+        supervisor: item.supervisor || 'Field Supervisor',
+        manager: item.manager || '',
+        channel: item.channel || 'GT',
+      };
+      return syntheticPhoto;
+    });
+  }, [actionFilter, photos, pendingActionItems]);
 
   const handleInspectAction = (item: AuditActionItem) => {
     setIsActionDrawerOpen(false);
