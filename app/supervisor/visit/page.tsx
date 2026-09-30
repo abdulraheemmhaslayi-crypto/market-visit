@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/toast';
 import { useGeolocation } from '@/hooks/use-geolocation';
-import { saveVisitDraftAction, submitVisitAction } from '@/actions/visit-actions';
 import { isFleetRole } from '@/lib/roles';
 import { compressImage } from '@/utils/image-compressor';
 import { getSizeModelsForCategory } from '@/utils/asset-config';
@@ -394,9 +393,18 @@ function VisitWizardContent() {
         status: 'Draft' as const,
       };
 
-      await saveVisitDraftAction(draftPayload as any);
-      showToast('Draft successfully synced to server.', 'success');
       saveStateToLocalStorage(currentStep);
+
+      const res = await fetch('/api/visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draftPayload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to sync draft to server.');
+      }
+      showToast('Draft successfully synced to server.', 'success');
       router.push('/supervisor');
     } catch (err: any) {
       showToast(err.message || 'Failed to sync draft to server.', 'error');
@@ -469,7 +477,18 @@ function VisitWizardContent() {
         status: 'Submitted' as const,
       };
 
-      await submitVisitAction(finalPayload as any);
+      // Always ensure local draft is updated in case network drops
+      saveStateToLocalStorage(currentStep);
+
+      const res = await fetch('/api/visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalPayload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Submission failed.');
+      }
       showToast('Visit audit submitted successfully.', 'success');
 
       const stored = localStorage.getItem('supervisor_visit_drafts');

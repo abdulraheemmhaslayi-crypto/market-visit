@@ -84,11 +84,12 @@ const serwist = new Serwist({
         ],
       }),
     },
-    // 6. HTML pages -> Stale While Revalidate
+    // 6. HTML pages -> Network First (ensures latest build assets, falls back to cache when offline)
     {
       matcher: ({ request }) => request.destination === "document",
-      handler: new StaleWhileRevalidate({
+      handler: new NetworkFirst({
         cacheName: CACHE_NAMES.pages,
+        networkTimeoutSeconds: 3,
         plugins: [
           new ExpirationPlugin({
             maxEntries: 50,
