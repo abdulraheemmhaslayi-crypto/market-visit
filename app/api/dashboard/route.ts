@@ -57,7 +57,7 @@ async function getMasterData(): Promise<MasterCache> {
         classification: c.classification,
         dairyClassification: c.dairyClassification || c.classification,
         iceCreamClassification: c.iceCreamClassification || c.classification,
-        channel: c.channel || 'GT',
+        channel: c.channel || 'TT',
         routeCode: c.routeCode,
       }));
 
@@ -590,9 +590,9 @@ export async function GET(req: NextRequest) {
       }
 
       // 5. Resolve Channel (CUSTMASTER Segment_Fin(120MT) is primary source of truth!)
-      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, 'GT') || dbCust?.channel || '';
-      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE') {
-        ch = 'GT';
+      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, 'TT') || dbCust?.channel || '';
+      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
+        ch = 'TT';
       }
       ch = ch.toUpperCase().trim();
 
@@ -679,6 +679,7 @@ export async function GET(req: NextRequest) {
         visitNpd.forEach((item: any) => {
           const skuInfo = skuMap.get(item.skuCode);
           const avail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'YES' : 'NO';
+          const npdCode = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'A' : (item.status === 'Not Available' || item.status === 'NO' || item.status === 'N') ? 'N' : 'X';
           reportRows.npd.push({
             date: visitDate,
             visitId: v.visitId,
@@ -694,6 +695,7 @@ export async function GET(req: NextRequest) {
             skuName: skuInfo ? skuInfo.skuName : item.skuCode,
             status: item.status,
             availability: avail,
+            npd: npdCode,
             businessVertical: skuInfo?.businessVertical || 'General',
           });
         });
@@ -704,6 +706,7 @@ export async function GET(req: NextRequest) {
         visitPsku.forEach((item: any) => {
           const pskuInfo = powerSkuMap.get(item.skuCode) || skuMap.get(item.skuCode);
           const avail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'YES' : 'NO';
+          const pskuCode = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'A' : (item.status === 'Not Available' || item.status === 'NO' || item.status === 'N') ? 'N' : 'X';
           reportRows.psku.push({
             date: visitDate,
             visitId: v.visitId,
@@ -720,6 +723,7 @@ export async function GET(req: NextRequest) {
             skuName: pskuInfo ? pskuInfo.skuName : item.skuCode,
             status: item.status,
             availability: avail,
+            psku: pskuCode,
           });
         });
       }
@@ -848,9 +852,10 @@ export async function GET(req: NextRequest) {
     reportRows.classificationDairy = classificationRowsDairy;
     reportRows.classificationIceCream = classificationRowsIceCream;
 
-    // Photos payload
+    // Photos payload (optimized O(1) visit lookup)
+    const visitsById = new Map<string, any>(filteredVisits.map((v: any) => [v.visitId, v]));
     const photos = photosRaw.map((p: any) => {
-      const visit = filteredVisits.find((v: any) => v.visitId === p.visitId);
+      const visit = visitsById.get(p.visitId);
       const [custCodeRaw, routeCodeRaw] = visit ? (visit.cust_rt_id || '').split('|') : ['', ''];
       const routeCode = routeCodeRaw || (visit ? visit.routeCode : '') || '';
       const customerCode = custCodeRaw || (visit ? visit.customerCode : '') || '';
@@ -868,8 +873,8 @@ export async function GET(req: NextRequest) {
       const candidateCode = cleanCustCode || (customer ? customer.customerCode : '') || (routeCodeRaw?.toUpperCase().startsWith('C') ? routeCodeRaw : '');
       const masterCh = getCustMasterChannel(candidateCode, '');
       let ch = masterCh || customer?.channel || '';
-      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE') {
-        ch = 'GT';
+      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
+        ch = 'TT';
       }
 
       return {
@@ -916,19 +921,36 @@ export async function GET(req: NextRequest) {
     });
     const visitsPerDay = Object.keys(visitsPerDayMap).sort().map(d => ({ date: d, count: visitsPerDayMap[d] }));
 
+    // High performance O(1) indexed maps for routes and supervisors
+    const routeCustomerCountMap = new Map<string, number>();
+    customers.forEach((c: any) => {
+      const rc = (c.routeCode || '').trim().toUpperCase();
+      if (rc) {
+        routeCustomerCountMap.set(rc, (routeCustomerCountMap.get(rc) || 0) + 1);
+      }
+    });
+
     const routeVisitsMap: Record<string, Set<string>> = {};
+    const supVisitsMap = new Map<string, any[]>();
     filteredVisits.forEach((v: any) => {
       const [_, rCode] = (v.cust_rt_id || '').split('|');
-      const rt = rCode || v.routeCode;
+      const rt = (rCode || v.routeCode || '').trim().toUpperCase();
       if (rt) {
         if (!routeVisitsMap[rt]) routeVisitsMap[rt] = new Set();
-        routeVisitsMap[rt].add(v.cust_rt_id);
+        if (v.cust_rt_id) routeVisitsMap[rt].add(v.cust_rt_id);
+      }
+      const routeInfo = routeMap.get(rt);
+      const sName = (routeInfo?.superName || '').trim().toUpperCase();
+      if (sName) {
+        if (!supVisitsMap.has(sName)) supVisitsMap.set(sName, []);
+        supVisitsMap.get(sName)!.push(v);
       }
     });
 
     const coveragePerRoute = routeRows.map((r: any) => {
-      const assigned = customers.filter((c: any) => c.routeCode === r.routeCode).length;
-      const visited = routeVisitsMap[r.routeCode] ? routeVisitsMap[r.routeCode].size : 0;
+      const rc = (r.routeCode || '').trim().toUpperCase();
+      const assigned = routeCustomerCountMap.get(rc) || 0;
+      const visited = (routeVisitsMap[r.routeCode] || routeVisitsMap[rc])?.size || 0;
       const percent = assigned > 0 ? Math.round((visited / assigned) * 100) : 0;
       return {
         routeCode: r.routeCode,
@@ -941,37 +963,24 @@ export async function GET(req: NextRequest) {
 
     const supervisorPerformance = allSupervisors
       .map((supName: string) => {
-        const supVisits = filteredVisits.filter((v: any) => {
-          const [_, rCode] = (v.cust_rt_id || '').split('|');
-          const routeInfo = routeMap.get(rCode || v.routeCode || '');
-          const sName = routeInfo ? (routeInfo.superName || '') : '';
-          return sName.toUpperCase() === supName.toUpperCase();
-        });
-
+        const supUpper = (supName || '').trim().toUpperCase();
+        const supVisits = supVisitsMap.get(supUpper) || [];
         const visitsCount = supVisits.length;
-        const uniqueOutlets = new Set(supVisits.map((v: any) => v.cust_rt_id)).size;
+        const uniqueOutlets = new Set(supVisits.map((v: any) => v.cust_rt_id).filter(Boolean)).size;
 
         const breaches = supVisits.filter((v: any) => {
-          const visitAssets = assetMap.get(v.visitId) || [];
-          return visitAssets.length > 0 ? visitAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
+          const vAssets = assetMap.get(v.visitId) || [];
+          return vAssets.length > 0 ? vAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
         }).length;
 
-        const supRoutes = routeRows.filter((r: any) => (r.superName || '').toUpperCase().trim() === supName.toUpperCase());
-        const totalAssigned = supRoutes.reduce((sum: number, r: any) => {
-          return sum + customers.filter((c: any) => c.routeCode === r.routeCode).length;
-        }, 0);
-
-        const totalVisited = supRoutes.reduce((sum: number, r: any) => {
-          const visitedCustIds = new Set(
-            filteredVisits
-              .filter((v: any) => {
-                const [_, rCode] = (v.cust_rt_id || '').split('|');
-                return rCode === r.routeCode;
-              })
-              .map((v: any) => v.cust_rt_id)
-          );
-          return sum + visitedCustIds.size;
-        }, 0);
+        const supRoutes = routeRows.filter((r: any) => (r.superName || '').toUpperCase().trim() === supUpper);
+        let totalAssigned = 0;
+        let totalVisited = 0;
+        supRoutes.forEach((r: any) => {
+          const rc = (r.routeCode || '').trim().toUpperCase();
+          totalAssigned += routeCustomerCountMap.get(rc) || 0;
+          totalVisited += (routeVisitsMap[r.routeCode] || routeVisitsMap[rc])?.size || 0;
+        });
 
         const coveragePct = totalAssigned > 0 ? Math.round((totalVisited / totalAssigned) * 100) : 0;
 
@@ -1059,7 +1068,7 @@ export async function GET(req: NextRequest) {
             code: c.customerCode,
             name: c.customerName,
             route: c.routeCode,
-            channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE') ? c.channel : 'GT',
+            channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE' && c.channel !== 'GT') ? c.channel : 'TT',
             manager: mgrName,
             supervisor: supName,
             dairyGr: dairyGr || '-',

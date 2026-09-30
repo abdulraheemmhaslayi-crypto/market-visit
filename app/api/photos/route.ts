@@ -250,8 +250,8 @@ export async function GET(req: NextRequest) {
       const candidateCode = cleanCustCode || cmCust?.customerCode || '';
       const masterCh = getCustMasterChannel(candidateCode, cleanRoute);
       let ch = masterCh || cmCust?.channel || '';
-      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE') {
-        ch = 'GT';
+      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
+        ch = 'TT';
       }
 
       const photoDate = p.uploadedAt || (visit ? visit.createdAt : null);

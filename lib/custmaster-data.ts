@@ -304,10 +304,10 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
           customerClassificationMap[custCodeRaw] = cls;
 
           let finalChannel = channelRaw;
-          if (!finalChannel || finalChannel === 'GENERAL TRADE' || finalChannel === 'GENERAL STORE') {
-            finalChannel = clsInfo?.channel || 'GT';
+          if (!finalChannel || finalChannel === 'GENERAL TRADE' || finalChannel === 'GENERAL STORE' || finalChannel === 'GT') {
+            finalChannel = clsInfo?.channel || 'TT';
           }
-          if (!finalChannel) finalChannel = 'GT';
+          if (!finalChannel || finalChannel === 'GT') finalChannel = 'TT';
 
           if (custCodeRaw) {
             customerList.push({

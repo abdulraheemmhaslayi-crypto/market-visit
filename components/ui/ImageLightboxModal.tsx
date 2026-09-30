@@ -96,7 +96,35 @@ export default function ImageLightboxModal({
   const [isVerifying, setIsVerifying] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'before_after'>('details');
 
-  const currentAction = current?.photoId ? actionItems[current.photoId] : null;
+  // Internal Action Item fallback state
+  const [internalActionItem, setInternalActionItem] = useState<AuditActionItem | null>(null);
+
+  // Derive currentAction from passed actionItems dictionary or internal dynamic fetch
+  const currentAction = (current?.photoId ? actionItems[current.photoId] : null) || internalActionItem;
+
+  // Auto-fetch action directive if not already provided in actionItems
+  useEffect(() => {
+    if (!current?.photoId) {
+      setInternalActionItem(null);
+      return;
+    }
+    if (actionItems && actionItems[current.photoId]) {
+      setInternalActionItem(actionItems[current.photoId]);
+      return;
+    }
+    let isMounted = true;
+    fetch(`/api/admin/audit-actions?photoId=${encodeURIComponent(current.photoId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (isMounted && data.success && Array.isArray(data.items) && data.items.length > 0) {
+          setInternalActionItem(data.items[0]);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [current?.photoId, actionItems]);
 
   // Role Detection
   const { data: session } = useSession();
@@ -331,13 +359,20 @@ export default function ImageLightboxModal({
   // Handle Supervisor Proof Submission
   const handleSubmitSupervisorProof = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentAction?.id) {
-      alert('Unable to identify action directive to update.');
+
+    if (!proofPhotoUrl) {
+      alert('Please take a proof photo with your camera first.');
+      if (nativeCameraInputRef.current) {
+        nativeCameraInputRef.current.click();
+      } else {
+        startCamera('environment');
+      }
       return;
     }
 
-    if (!proofPhotoUrl) {
-      alert('Please capture a photo proof using the camera first.');
+    const actionId = currentAction?.id || internalActionItem?.id || current?.photoId;
+    if (!actionId) {
+      alert('Unable to identify action directive to update.');
       return;
     }
 
@@ -366,7 +401,8 @@ export default function ImageLightboxModal({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: currentAction.id,
+          id: actionId,
+          photoId: current?.photoId,
           actionStatus: 'SUBMITTED',
           supervisorComment: supervisorComment.trim() || 'Corrective action verified with camera photo proof.',
           proofPhotoUrl: finalProofUrl,
@@ -374,10 +410,18 @@ export default function ImageLightboxModal({
       });
 
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.item) {
+          setInternalActionItem(data.item);
+          if (actionItems && current?.photoId) {
+            actionItems[current.photoId] = data.item;
+          }
+        }
         setIsSubmittingProof(false);
         stopCamera();
         setActiveTab('before_after');
         if (onActionUpdated) onActionUpdated();
+        alert('Resolution proof submitted successfully! Sent for GM verification.');
       } else {
         const errData = await res.json().catch(() => ({}));
         alert(`Failed to save resolution proof: ${errData.error || res.statusText || 'Server error'}`);
@@ -983,50 +1027,70 @@ export default function ImageLightboxModal({
                                 </div>
                               </div>
                             ) : (
-                              /* Camera-only capture option (Gallery upload removed) */
+                              /* Camera-only capture options (Gallery upload removed per directive) */
                               <div className="space-y-2">
                                 <button
                                   type="button"
-                                  onClick={() => startCamera('environment')}
-                                  className="w-full p-4 rounded-xl bg-gradient-to-r from-sky-600/20 to-blue-600/20 hover:from-sky-600/30 hover:to-blue-600/30 border border-sky-500/50 hover:border-sky-400 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group shadow-sm text-center"
+                                  onClick={() => nativeCameraInputRef.current?.click()}
+                                  className="w-full p-3.5 rounded-xl bg-gradient-to-r from-sky-600/30 to-blue-600/30 hover:from-sky-600/40 hover:to-blue-600/40 border-2 border-sky-400 flex items-center justify-center gap-3 transition-all cursor-pointer group shadow-lg shadow-sky-500/10 active:scale-98"
                                 >
-                                  <div className="p-2.5 rounded-full bg-sky-500 text-black group-hover:scale-105 transition-all shadow-md shadow-sky-500/30">
+                                  <div className="p-2 rounded-full bg-sky-400 text-black group-hover:scale-110 transition-all shadow-md">
                                     <Camera className="h-5 w-5" />
                                   </div>
-                                  <div>
-                                    <span className="text-xs font-bold text-slate-100 block">
-                                      Take Photo Proof from Camera
+                                  <div className="text-left">
+                                    <span className="text-xs font-extrabold text-white block">
+                                      Take Proof Photo (Camera App)
                                     </span>
-                                    <span className="text-[10px] text-slate-400 block mt-0.5">
-                                      Live camera capture only (Gallery upload disabled)
+                                    <span className="text-[10px] text-sky-200 block">
+                                      Tap to open device camera directly (Live Camera Only)
                                     </span>
                                   </div>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => startCamera('environment')}
+                                  className="w-full py-2 px-3 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-medium border border-slate-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                  <Camera className="h-3.5 w-3.5 text-slate-400" />
+                                  Or use in-app live viewfinder
                                 </button>
                               </div>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2 pt-1">
+                          <div className="flex items-center gap-2 pt-2">
                             <button
                               type="submit"
-                              disabled={isSavingProof || !proofPhotoUrl}
-                              className="flex-1 py-2 px-3 rounded-lg text-xs font-extrabold bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-black transition-all cursor-pointer shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                              disabled={isSavingProof}
+                              className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                                proofPhotoUrl
+                                  ? 'bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 text-slate-950 shadow-emerald-500/25 ring-2 ring-emerald-400/50'
+                                  : 'bg-sky-500 hover:bg-sky-400 text-black'
+                              }`}
                             >
                               {isSavingProof ? (
                                 <>
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Submitting...
+                                  <Loader2 className="h-4 w-4 animate-spin" /> Submitting Proof...
+                                </>
+                              ) : proofPhotoUrl ? (
+                                <>
+                                  <Check className="h-4 w-4" /> Confirm & Submit Resolution
                                 </>
                               ) : (
                                 <>
-                                  <Check className="h-3.5 w-3.5" /> Confirm Resolution
+                                  <Camera className="h-4 w-4" /> Snap Photo & Confirm Resolution
                                 </>
                               )}
                             </button>
                             <button
                               type="button"
                               disabled={isSavingProof}
-                              onClick={() => setIsSubmittingProof(false)}
-                              className="py-2 px-3 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40"
+                              onClick={() => {
+                                setIsSubmittingProof(false);
+                                stopCamera();
+                              }}
+                              className="py-2.5 px-3 rounded-xl text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40"
                             >
                               Cancel
                             </button>
