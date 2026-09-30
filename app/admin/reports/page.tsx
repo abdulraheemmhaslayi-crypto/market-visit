@@ -216,11 +216,12 @@ export default function GmExecutiveReportsPage() {
     if (!selectedChannel || selectedChannel === 'all') return allRows;
     const target = selectedChannel.toLowerCase();
     return allRows.filter((r) => {
-      const ch = (r.ch || r.channel || '').toLowerCase();
-      if (target === 'mt') return ch.includes('mt') || ch.includes('modern');
-      if (target === 'gt') return ch.includes('gt') || ch.includes('general');
-      if (target === 'ka') return ch.includes('key') || ch.includes('hyper');
-      return ch === target;
+      const ch = (r.ch || r.channel || '').toUpperCase();
+      if (target === 'mt') return ch.includes('MT') || ch.includes('MODERN');
+      if (target === 'tt') return ch.includes('TT') || ch.includes('TRAD') || ch.includes('GT') || (!ch.includes('MT') && !ch.includes('INST') && !ch.includes('EXPORT'));
+      if (target === 'inst') return ch.includes('INST') || ch.includes('HORECA') || ch.includes('FOOD') || ch.includes('CATERING');
+      if (target === 'export') return ch.includes('EXPORT');
+      return ch === target.toUpperCase();
     });
   }, [allRows, selectedChannel]);
 
@@ -279,31 +280,34 @@ export default function GmExecutiveReportsPage() {
     };
   }, [filteredRows, stats, auditActions]);
 
-  // 2. Commercial & Channel Distribution
+  // 2. Commercial & Channel Distribution (Traditional Trade TT, Modern Trade MT, Institutional INST, Export)
   const channelBreakdown = useMemo(() => {
     const map: Record<string, { channel: string; audits: number; inRange: number; breach: number }> = {
+      'Traditional Trade (TT)': { channel: 'Traditional Trade (TT)', audits: 0, inRange: 0, breach: 0 },
       'Modern Trade (MT)': { channel: 'Modern Trade (MT)', audits: 0, inRange: 0, breach: 0 },
-      'General Trade (GT)': { channel: 'General Trade (GT)', audits: 0, inRange: 0, breach: 0 },
-      'Key Accounts': { channel: 'Key Accounts', audits: 0, inRange: 0, breach: 0 },
-      'Wholesale & Other': { channel: 'Wholesale & Other', audits: 0, inRange: 0, breach: 0 },
+      'Institutional (INST)': { channel: 'Institutional (INST)', audits: 0, inRange: 0, breach: 0 },
+      'Export': { channel: 'Export', audits: 0, inRange: 0, breach: 0 },
     };
 
     allRows.forEach((r) => {
-      const ch = (r.ch || r.channel || '').toUpperCase();
-      let key = 'General Trade (GT)';
+      const ch = (r.ch || r.channel || '').toUpperCase().trim();
+      let key = 'Traditional Trade (TT)';
       if (ch.includes('MT') || ch.includes('MODERN')) key = 'Modern Trade (MT)';
-      else if (ch.includes('KEY') || ch.includes('HYPER')) key = 'Key Accounts';
-      else if (ch.includes('WHOLESALE') || ch.includes('CATERING')) key = 'Wholesale & Other';
+      else if (ch.includes('INST') || ch.includes('HORECA') || ch.includes('CATERING') || ch.includes('FOOD')) key = 'Institutional (INST)';
+      else if (ch.includes('EXPORT')) key = 'Export';
+      else key = 'Traditional Trade (TT)';
 
       map[key].audits++;
       if (r.ok === false || r.tempOk === 'Breach') map[key].breach++;
       else map[key].inRange++;
     });
 
-    return Object.values(map).map((c) => ({
-      ...c,
-      compliancePct: c.audits > 0 ? Math.round(((c.audits - c.breach) / c.audits) * 100) : 100,
-    }));
+    return Object.values(map)
+      .filter((c) => c.audits > 0 || c.channel === 'Traditional Trade (TT)' || c.channel === 'Modern Trade (MT)')
+      .map((c) => ({
+        ...c,
+        compliancePct: c.audits > 0 ? Math.round(((c.audits - c.breach) / c.audits) * 100) : 100,
+      }));
   }, [allRows]);
 
   // Customer Classification Distribution (Class A, B, C, D)
@@ -630,9 +634,10 @@ export default function GmExecutiveReportsPage() {
                 className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500"
               >
                 <option value="all">All Channels</option>
+                <option value="tt">Traditional Trade (TT)</option>
                 <option value="mt">Modern Trade (MT)</option>
-                <option value="gt">General Trade (GT)</option>
-                <option value="ka">Key Accounts</option>
+                <option value="inst">Institutional (INST)</option>
+                <option value="export">Export</option>
               </select>
             </div>
             <div>
@@ -1059,7 +1064,7 @@ export default function GmExecutiveReportsPage() {
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Store className="h-4 w-4 text-sky-400" />
-                  Commercial Channel Breakdown (MT vs GT vs KA)
+                  Commercial Channel Breakdown (MT vs TT vs INST)
                 </h3>
                 <p className="text-[11px] text-slate-400">Comparative field execution and temperature integrity</p>
               </div>
@@ -1134,8 +1139,9 @@ export default function GmExecutiveReportsPage() {
                             const matches = allRows.filter((r) => {
                               const ch = (r.ch || r.channel || '').toUpperCase();
                               if (c.channel.includes('Modern')) return ch.includes('MT') || ch.includes('MODERN');
-                              if (c.channel.includes('Key')) return ch.includes('KEY') || ch.includes('HYPER');
-                              return !ch.includes('MT') && !ch.includes('KEY');
+                              if (c.channel.includes('Institutional')) return ch.includes('INST') || ch.includes('HORECA') || ch.includes('FOOD') || ch.includes('CATERING');
+                              if (c.channel.includes('Export')) return ch.includes('EXPORT');
+                              return ch.includes('TT') || ch.includes('TRAD') || ch.includes('GT') || (!ch.includes('MT') && !ch.includes('INST') && !ch.includes('EXPORT'));
                             });
                             setModalTitle(`${c.channel} Field Audits`);
                             setModalData(matches);
@@ -1324,11 +1330,11 @@ export default function GmExecutiveReportsPage() {
 
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-300">Modern Trade Power SKU Target</span>
+                <span className="font-bold text-slate-300">Modern Trade (MT) Power SKU Target</span>
                 <span className="font-extrabold text-emerald-400">95% Target (Current: 92%)</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-300">General Trade Power SKU Target</span>
+                <span className="font-bold text-slate-300">Traditional Trade (TT) Power SKU Target</span>
                 <span className="font-extrabold text-amber-400">85% Target (Current: 84%)</span>
               </div>
               <div className="p-3 bg-amber-950/20 border border-amber-800/40 rounded-lg text-xs text-amber-200">

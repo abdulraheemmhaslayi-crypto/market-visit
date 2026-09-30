@@ -57,7 +57,7 @@ async function getMasterData(): Promise<MasterCache> {
         classification: c.classification,
         dairyClassification: c.dairyClassification || c.classification,
         iceCreamClassification: c.iceCreamClassification || c.classification,
-        channel: c.channel || 'GT',
+        channel: c.channel || 'TT',
         routeCode: c.routeCode,
       }));
 
@@ -590,9 +590,9 @@ export async function GET(req: NextRequest) {
       }
 
       // 5. Resolve Channel (CUSTMASTER Segment_Fin(120MT) is primary source of truth!)
-      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, 'GT') || dbCust?.channel || '';
-      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE') {
-        ch = 'GT';
+      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, 'TT') || dbCust?.channel || '';
+      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
+        ch = 'TT';
       }
       ch = ch.toUpperCase().trim();
 
@@ -868,8 +868,8 @@ export async function GET(req: NextRequest) {
       const candidateCode = cleanCustCode || (customer ? customer.customerCode : '') || (routeCodeRaw?.toUpperCase().startsWith('C') ? routeCodeRaw : '');
       const masterCh = getCustMasterChannel(candidateCode, '');
       let ch = masterCh || customer?.channel || '';
-      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE') {
-        ch = 'GT';
+      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
+        ch = 'TT';
       }
 
       return {
@@ -1059,7 +1059,7 @@ export async function GET(req: NextRequest) {
             code: c.customerCode,
             name: c.customerName,
             route: c.routeCode,
-            channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE') ? c.channel : 'GT',
+            channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE' && c.channel !== 'GT') ? c.channel : 'TT',
             manager: mgrName,
             supervisor: supName,
             dairyGr: dairyGr || '-',
