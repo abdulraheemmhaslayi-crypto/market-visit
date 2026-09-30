@@ -462,27 +462,18 @@ export default function SupervisorDashboard() {
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
       const mgrOk = !fMgr || (r.manager || r.mgr || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
-      const superOk = !fSuper || (r.supervisor || r.sup || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const superOk = !fSuper || isSupervisorMatch(r.supervisor || r.sup || '', fSuper, fMgr);
       const channelOk = !fChannel || (r.channel || r.ch || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       const classOk = !fClass || (r.classification || r.class || r.gr || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
       const custOk = !fCust || (r.outletName || r.cust || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const routeOk = !fRoute || (r.routeCode || r.route || r.rt || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
       return fromOk && toOk
-<<<<<<< HEAD
         && mgrOk
         && superOk
         && channelOk
         && classOk
         && custOk
         && routeOk
-=======
-        && (!fMgr || r.manager === fMgr)
-        && (!fSuper || isSupervisorMatch(r.supervisor, fSuper, fMgr))
-        && (!fChannel || r.channel === fChannel)
-        && (!fClass || r.classification === fClass)
-        && (!fCust || r.outletName === fCust)
-        && (!fRoute || r.routeCode === fRoute)
->>>>>>> source/development
         && (!fSku || r.skuName === fSku)
         && (!fVertical || r.businessVertical === fVertical);
     });
@@ -542,18 +533,13 @@ export default function SupervisorDashboard() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-<<<<<<< HEAD
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
       const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
-      const superOk = !fSuper || (r.sup || r.supervisor || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const superOk = !fSuper || isSupervisorMatch(r.sup || r.supervisor || '', fSuper, fMgr);
       const classOk = !fClass || (r.gr || r.classification || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       return mgrOk && superOk && channelOk && classOk && custOk && routeOk && fromOk && toOk;
-=======
-      const routeOk = !fRoute || r.rt === fRoute || r.route === fRoute || r.routeCode === fRoute;
-      return (!fMgr || r.mgr === fMgr) && (!fSuper || isSupervisorMatch(r.sup, fSuper, fMgr)) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && routeOk && fromOk && toOk;
->>>>>>> source/development
     });
   }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fFrom, fTo]);
 
@@ -566,16 +552,12 @@ export default function SupervisorDashboard() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-<<<<<<< HEAD
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
       const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
-      const superOk = !fSuper || (r.sup || r.supervisor || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const superOk = !fSuper || isSupervisorMatch(r.sup || r.supervisor || '', fSuper, fMgr);
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       return mgrOk && superOk && channelOk && custOk && routeOk && fromOk && toOk;
-=======
-      return (!fMgr || r.mgr === fMgr) && (!fSuper || isSupervisorMatch(r.sup, fSuper, fMgr)) && (!fChannel || r.ch === fChannel) && (!fCust || r.cust === fCust) && fromOk && toOk;
->>>>>>> source/development
     });
   }, [rows, fMgr, fSuper, fChannel, fCust, fRoute, fFrom, fTo]);
 
