@@ -102,6 +102,24 @@ export default function SupervisorDashboard() {
     } catch { /* ignore */ }
   };
 
+  // Instant restore from sessionStorage to eliminate 0-data flash on dashboard load
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v2');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.rows && parsed.rows.length > 0) {
+          setRows(parsed.rows);
+          if (parsed.reportRows) setReportRows(parsed.reportRows);
+          if (parsed.masters) setMasters(parsed.masters);
+          setIsAnalyticsLoading(false);
+        }
+      }
+    } catch (e) {
+      // Ignore cache parse errors
+    }
+  }, []);
+
   // 2. Fetch Analytics Aggregated Rows
   const fetchAnalytics = async () => {
     try {
@@ -112,9 +130,21 @@ export default function SupervisorDashboard() {
       if (!res.ok) return;
       const data = await res.json();
       if (data.success) {
-        setRows(data.rows);
-        setReportRows(data.reportRows || { npd: [], psku: [], 'cold-chain': [], classification: [], classificationDairy: [], classificationIceCream: [] });
-        setMasters(data.masters || null);
+        const newRows = data.rows || [];
+        const newReportRows = data.reportRows || { npd: [], psku: [], 'cold-chain': [], classification: [], classificationDairy: [], classificationIceCream: [] };
+        const newMasters = data.masters || null;
+        setRows(newRows);
+        setReportRows(newReportRows);
+        setMasters(newMasters);
+        try {
+          sessionStorage.setItem('supervisor_dashboard_cache_v2', JSON.stringify({
+            rows: newRows,
+            reportRows: newReportRows,
+            masters: newMasters,
+          }));
+        } catch (e) {
+          // Ignore storage quota errors
+        }
       }
     } catch (err) {
       console.error('Failed to load dashboard rows:', err);
@@ -427,7 +457,33 @@ export default function SupervisorDashboard() {
 
   // Power SKU rows matching all active filters (date, manager, supervisor, channel, classification, outlet, route, SKU, business vertical)
   const filteredPskuRows = useMemo(() => {
-    return (reportRows.psku || []).filter((r: any) => {
+    const rawPsku = (reportRows.psku && reportRows.psku.length > 0)
+      ? reportRows.psku
+      : rows.map((r: any) => {
+          const [cCode, rCode] = (r.cust_rt_id || '').split('|');
+          const isAvail = r.psku === 'A' || r.psku === 'YES' || r.status === 'Available';
+          const isNotAvail = r.psku === 'N' || r.psku === 'NO' || r.status === 'Not Available';
+          return {
+            date: r.createdAt || r.date,
+            visitId: r.visitId,
+            channel: r.ch || r.channel || 'TT',
+            manager: r.mgr || r.manager || '—',
+            supervisor: r.sup || r.supervisor || '—',
+            routeCode: r.rt || rCode || r.routeCode || '',
+            outletCode: r.outletCode || r.custCode || cCode || '',
+            outletName: r.cust || r.outletName || '',
+            classification: r.gr || r.classification || 'C',
+            class: r.gr || r.class || 'C',
+            businessVertical: 'Dairy',
+            skuName: 'All Power SKUs',
+            skuCode: 'ALL-PSKU',
+            status: isAvail ? 'Available' : isNotAvail ? 'Not Available' : 'Not Applicable',
+            availability: isAvail ? 'YES' : 'NO',
+            psku: isAvail ? 'A' : isNotAvail ? 'N' : 'X',
+          };
+        });
+
+    return rawPsku.filter((r: any) => {
       const rowDate = new Date(r.date);
       const from = normalizeDate(fFrom);
       const to = normalizeDate(fTo);
@@ -443,7 +499,7 @@ export default function SupervisorDashboard() {
         && (!fSku || r.skuName === fSku)
         && (!fVertical || r.businessVertical === fVertical);
     });
-  }, [reportRows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical, fFrom, fTo]);
+  }, [reportRows, rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical, fFrom, fTo]);
 
   // Filtered rows matching selection
   const filtered = useMemo(() => {
@@ -516,7 +572,31 @@ export default function SupervisorDashboard() {
     } else if (reportType === 'npd') {
       matched = filteredNpdRows.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
     } else if (reportType === 'psku') {
-      matched = filteredPskuRows.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
+      const source = (filteredPskuRows && filteredPskuRows.length > 0)
+        ? filteredPskuRows
+        : filtered.map((r: any) => {
+            const [cCode, rCode] = (r.cust_rt_id || '').split('|');
+            const isAvail = r.psku === 'A' || r.psku === 'YES' || r.status === 'Available';
+            const isNotAvail = r.psku === 'N' || r.psku === 'NO' || r.status === 'Not Available';
+            return {
+              date: r.createdAt || r.date,
+              visitId: r.visitId,
+              channel: r.ch || r.channel || 'TT',
+              manager: r.mgr || r.manager || '—',
+              supervisor: r.sup || r.supervisor || '—',
+              routeCode: r.rt || rCode || '',
+              outletCode: r.custCode || cCode || '',
+              outletName: r.cust || r.outletName || '',
+              classification: r.gr || r.classification || 'C',
+              class: r.gr || r.class || 'C',
+              businessVertical: 'Dairy',
+              skuName: 'All Power SKUs',
+              status: isAvail ? 'Available' : isNotAvail ? 'Not Available' : 'Not Applicable',
+              availability: isAvail ? 'YES' : 'NO',
+              psku: isAvail ? 'A' : isNotAvail ? 'N' : 'X',
+            };
+          });
+      matched = source.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
     } else {
       matched = (reportRows[reportType] || []).filter((row: any) => {
         const visit = visitLookup.get(row.visitId);
@@ -539,7 +619,31 @@ export default function SupervisorDashboard() {
       return;
     }
     if (reportModalSource === 'psku') {
-      setReportModalRows(filteredPskuRows.filter((r: any) => !r.visitId || visitLookup.has(r.visitId)));
+      const source = (filteredPskuRows && filteredPskuRows.length > 0)
+        ? filteredPskuRows
+        : filtered.map((r: any) => {
+            const [cCode, rCode] = (r.cust_rt_id || '').split('|');
+            const isAvail = r.psku === 'A' || r.psku === 'YES' || r.status === 'Available';
+            const isNotAvail = r.psku === 'N' || r.psku === 'NO' || r.status === 'Not Available';
+            return {
+              date: r.createdAt || r.date,
+              visitId: r.visitId,
+              channel: r.ch || r.channel || 'TT',
+              manager: r.mgr || r.manager || '—',
+              supervisor: r.sup || r.supervisor || '—',
+              routeCode: r.rt || rCode || '',
+              outletCode: r.custCode || cCode || '',
+              outletName: r.cust || r.outletName || '',
+              classification: r.gr || r.classification || 'C',
+              class: r.gr || r.class || 'C',
+              businessVertical: 'Dairy',
+              skuName: 'All Power SKUs',
+              status: isAvail ? 'Available' : isNotAvail ? 'Not Available' : 'Not Applicable',
+              availability: isAvail ? 'YES' : 'NO',
+              psku: isAvail ? 'A' : isNotAvail ? 'N' : 'X',
+            };
+          });
+      setReportModalRows(source.filter((r: any) => !r.visitId || visitLookup.has(r.visitId)));
       setReportFilterChip(null);
       return;
     }
@@ -739,7 +843,7 @@ export default function SupervisorDashboard() {
           const [cCode, rCode] = (r.cust_rt_id || '').split('|');
           return {
             date: r.createdAt,
-            channel: r.ch || r.channel || 'GT',
+            channel: r.ch || r.channel || 'TT',
             manager: r.mgr || r.manager || '—',
             supervisor: r.sup || r.supervisor || '—',
             routeCode: r.rt || rCode || '',
@@ -782,7 +886,7 @@ export default function SupervisorDashboard() {
           const [cCode, rCode] = (r.cust_rt_id || '').split('|');
           return {
             date: r.createdAt,
-            channel: r.ch || r.channel || 'GT',
+            channel: r.ch || r.channel || 'TT',
             manager: r.mgr || r.manager || '—',
             supervisor: r.sup || r.supervisor || '—',
             routeCode: r.rt || rCode || '',
@@ -1454,7 +1558,18 @@ export default function SupervisorDashboard() {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? '') as string;
               const pskuCode = label === 'Available' ? 'A' : label === 'Not Available' ? 'N' : 'X';
-              handleDrilldownChartClick('psku', `Power SKU Availability · ${label}`, (r) => r.psku === pskuCode, label ? `Status: ${label}` : undefined);
+              handleDrilldownChartClick(
+                'psku',
+                `Power SKU Availability · ${label}`,
+                (r: any) => {
+                  if (r.psku === pskuCode) return true;
+                  const st = (r.status || r.availability || '').toUpperCase();
+                  if (pskuCode === 'A') return st === 'AVAILABLE' || st === 'YES' || st === 'A';
+                  if (pskuCode === 'N') return st === 'NOT AVAILABLE' || st === 'NO' || st === 'N';
+                  return st !== 'AVAILABLE' && st !== 'YES' && st !== 'A' && st !== 'NOT AVAILABLE' && st !== 'NO' && st !== 'N';
+                },
+                label ? `Status: ${label}` : undefined
+              );
             }
           },
           onHover: (e, el, chart) => {
@@ -2425,27 +2540,27 @@ export default function SupervisorDashboard() {
         <div className="kpis">
           <div className="kpi b">
             <div className="lbl">Total Visits</div>
-            <div className="val">{filtered.length}</div>
+            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : filtered.length}</div>
             <div className="delta">visits logged</div>
           </div>
           <div className="kpi g">
             <div className="lbl">Outlets Covered</div>
-            <div className="val">{outletsCount}</div>
+            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : outletsCount}</div>
             <div className="delta">unique outlets</div>
           </div>
           <div className="kpi a">
             <div className="lbl">No Visits</div>
-            <div className="val">{noVisitCount}</div>
+            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : noVisitCount}</div>
             <div className="delta">skipped outlet visits</div>
           </div>
           <div className="kpi a">
             <div className="lbl">Assets Checked</div>
-            <div className="val">{filtered.length}</div>
+            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : filtered.length}</div>
             <div className="delta">chillers/freezers</div>
           </div>
           <div className="kpi r">
             <div className="lbl">Temp Breaches</div>
-            <div className="val">{breachesCount}</div>
+            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : breachesCount}</div>
             <div className="delta">{breachPct}</div>
           </div>
           {/* <div className="kpi g">

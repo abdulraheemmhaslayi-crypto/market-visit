@@ -145,7 +145,7 @@ export default function InteractiveChartTableModal({
       filterSummary: search ? `Search query: "${search}"` : undefined,
       columns: [
         { header: 'Date', key: 'createdAt', formatter: (val) => val ? new Date(val).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
-        { header: 'Channel', key: 'ch', formatter: (val, row) => val || row.channel || 'GT' },
+        { header: 'Channel', key: 'ch', formatter: (val, row) => val || row.channel || 'TT' },
         { header: 'Manager', key: 'mgr', formatter: (val, row) => val || row.manager || '—' },
         { header: 'Supervisor', key: 'sup', formatter: (val, row) => val || row.supervisor || '—' },
         { header: 'Route Code', key: 'rt', formatter: (val, row) => val || row.route || row.routeCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] || row.cust_rt_id.split('|')[0] : '—') },

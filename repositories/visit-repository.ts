@@ -377,6 +377,25 @@ export const visitRepository = {
     }));
   },
 
+  async getAllVisitAssets(): Promise<VisitAsset[]> {
+    try {
+      const [rows]: any = await pool.execute('SELECT * FROM `VisitAsset`');
+      return rows.map((r: any) => ({
+        assetId: r.assetId || `ast_${Math.random().toString(36).substring(2, 9)}`,
+        visitId: r.visitId,
+        assetType: r.assetType as any,
+        temperature: r.temperature,
+        tempInRange: r.tempInRange === 1 || r.tempInRange === true,
+        actionRequired: r.actionRequired as any,
+        observation: r.observation || '',
+        isFirstInFlow: r.isFirstInFlow === 1 || r.isFirstInFlow === true,
+        fefoFollowed: r.fefoFollowed === 1 || r.fefoFollowed === true,
+      }));
+    } catch (e) {
+      return [];
+    }
+  },
+
   async getVisitPowerSkuResults(visitId: string): Promise<VisitPowerSkuResult[]> {
     const [rows]: any = await pool.execute(
       'SELECT * FROM `VisitPowerSkuResult` WHERE `visitId` = ?',

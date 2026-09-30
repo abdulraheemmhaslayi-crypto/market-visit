@@ -154,7 +154,7 @@ function mapRowToCustomer(row: any): Customer {
   const masterCh = getCustMasterChannel(row.customerCode, '');
   let ch = masterCh || row.channel || '';
   if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch === 'GT' || ch.toUpperCase() === 'GENERAL STORE') {
-    ch = 'GT';
+    ch = 'TT';
   }
 
   return {
@@ -340,7 +340,7 @@ export const customerRepository = {
         try {
           await pool.execute(
             `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, ?)`,
-            [cust.routeCode, `Route ${cust.routeCode}`, cust.channel || 'GT']
+            [cust.routeCode, `Route ${cust.routeCode}`, cust.channel || 'TT']
           );
         } catch (e) {}
       }
@@ -397,7 +397,7 @@ export const customerRepository = {
       if (m.routeCode) {
         try {
           await pool.execute(
-            `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, 'GT')`,
+            `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, 'TT')`,
             [m.routeCode, `Route ${m.routeCode}`]
           );
         } catch (e) {}
