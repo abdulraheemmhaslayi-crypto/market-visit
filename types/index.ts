@@ -95,6 +95,8 @@ export interface Visit {
   sosAsPerBda?: boolean | null;
   routeCode: string; // Transient helper
   customerCode: string; // Transient helper
+  customerName?: string; // Transient helper
+  supervisorName?: string; // Transient helper
   temperature?: number;
   tempInRange?: boolean;
   assetType?: AssetType;
