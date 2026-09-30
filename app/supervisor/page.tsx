@@ -30,6 +30,30 @@ const GCOL: Record<string, string> = {
   E: '#c0392b',
 };
 
+function isSupervisorMatch(rowSupervisor: string, selectedSupervisor: string, selectedManager?: string): boolean {
+  if (!selectedSupervisor) return true;
+  const rowSup = (rowSupervisor || '').trim().toUpperCase();
+  const selSup = selectedSupervisor.trim().toUpperCase();
+  const selMgr = (selectedManager || '').trim().toUpperCase();
+
+  if (rowSup === selSup) return true;
+
+  // Modern Trade Supervisor Saifullah (Manager: Adnan)
+  if (selSup === 'SAIFULLAH') {
+    return rowSup === 'SAIFULLAH' || (rowSup === 'SAIF' && (!selMgr || selMgr === 'ADNAN'));
+  }
+
+  // Traditional Trade Supervisor Saif (Manager: Ashfaq)
+  if (selSup === 'SAIF') {
+    if (selMgr === 'ADNAN') {
+      return rowSup === 'SAIFULLAH' || rowSup === 'SAIF';
+    }
+    return rowSup === 'SAIF';
+  }
+
+  return rowSup === selSup;
+}
+
 export default function SupervisorDashboard() {
   const { data: session } = useSession();
   const { showToast } = useToast();
@@ -388,18 +412,18 @@ export default function SupervisorDashboard() {
     const set = new Set<string>();
     if (masters?.routes) {
       masters.routes.forEach((r: any) => {
-        if (!fSuper || (r.superName || '').toUpperCase() === fSuper.toUpperCase()) {
+        if (!fSuper || isSupervisorMatch(r.superName, fSuper, fMgr)) {
           if (r.routeCode) set.add(r.routeCode);
         }
       });
     }
     (reportRows['cold-chain'] || []).forEach((r: any) => {
-      if (!fSuper || (r.supervisor || '').toUpperCase() === fSuper.toUpperCase()) {
+      if (!fSuper || isSupervisorMatch(r.supervisor, fSuper, fMgr)) {
         if (r.routeCode) set.add(r.routeCode);
       }
     });
     rows.forEach((r: any) => {
-      if (!fSuper || (r.sup || r.supervisor || '').toUpperCase() === fSuper.toUpperCase()) {
+      if (!fSuper || isSupervisorMatch(r.sup || r.supervisor, fSuper, fMgr)) {
         const rt = r.rt || r.route || r.routeCode;
         if (rt) set.add(rt);
       }
@@ -444,12 +468,21 @@ export default function SupervisorDashboard() {
       const custOk = !fCust || (r.outletName || r.cust || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const routeOk = !fRoute || (r.routeCode || r.route || r.rt || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
       return fromOk && toOk
+<<<<<<< HEAD
         && mgrOk
         && superOk
         && channelOk
         && classOk
         && custOk
         && routeOk
+=======
+        && (!fMgr || r.manager === fMgr)
+        && (!fSuper || isSupervisorMatch(r.supervisor, fSuper, fMgr))
+        && (!fChannel || r.channel === fChannel)
+        && (!fClass || r.classification === fClass)
+        && (!fCust || r.outletName === fCust)
+        && (!fRoute || r.routeCode === fRoute)
+>>>>>>> source/development
         && (!fSku || r.skuName === fSku)
         && (!fVertical || r.businessVertical === fVertical);
     });
@@ -491,7 +524,7 @@ export default function SupervisorDashboard() {
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
       return fromOk && toOk
         && (!fMgr || r.manager === fMgr)
-        && (!fSuper || r.supervisor === fSuper)
+        && (!fSuper || isSupervisorMatch(r.supervisor, fSuper, fMgr))
         && (!fChannel || r.channel === fChannel)
         && (!fClass || r.classification === fClass)
         && (!fCust || r.outletName === fCust)
@@ -509,6 +542,7 @@ export default function SupervisorDashboard() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
+<<<<<<< HEAD
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
       const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
       const superOk = !fSuper || (r.sup || r.supervisor || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
@@ -516,6 +550,10 @@ export default function SupervisorDashboard() {
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       return mgrOk && superOk && channelOk && classOk && custOk && routeOk && fromOk && toOk;
+=======
+      const routeOk = !fRoute || r.rt === fRoute || r.route === fRoute || r.routeCode === fRoute;
+      return (!fMgr || r.mgr === fMgr) && (!fSuper || isSupervisorMatch(r.sup, fSuper, fMgr)) && (!fChannel || r.ch === fChannel) && (!fClass || r.gr === fClass) && (!fCust || r.cust === fCust) && routeOk && fromOk && toOk;
+>>>>>>> source/development
     });
   }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fFrom, fTo]);
 
@@ -528,12 +566,16 @@ export default function SupervisorDashboard() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
+<<<<<<< HEAD
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
       const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
       const superOk = !fSuper || (r.sup || r.supervisor || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       return mgrOk && superOk && channelOk && custOk && routeOk && fromOk && toOk;
+=======
+      return (!fMgr || r.mgr === fMgr) && (!fSuper || isSupervisorMatch(r.sup, fSuper, fMgr)) && (!fChannel || r.ch === fChannel) && (!fCust || r.cust === fCust) && fromOk && toOk;
+>>>>>>> source/development
     });
   }, [rows, fMgr, fSuper, fChannel, fCust, fRoute, fFrom, fTo]);
 

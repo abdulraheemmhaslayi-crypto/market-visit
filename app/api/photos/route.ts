@@ -222,6 +222,24 @@ export async function GET(req: NextRequest) {
           }
         }
       }
+      // Explicit disambiguation for Saifullah (Adnan / Modern Trade) vs Saif (Ashfaq / Traditional Trade)
+      if (supName.toUpperCase() === 'SAIFULLAH' || supName.toUpperCase() === 'SAIF') {
+        if (
+          mgrName.toUpperCase() === 'ADNAN' ||
+          ['MTD207', 'MTD210', 'MTD213', 'MTD218', 'MTI403'].includes(cleanRoute) ||
+          String(visit?.supervisorId) === 'usr_rqwxav8'
+        ) {
+          supName = 'SAIFULLAH';
+          mgrName = 'ADNAN';
+        } else if (
+          mgrName.toUpperCase() === 'ASHFAQ' ||
+          ['TRD104', 'TRD109', 'TRD129', 'TRD144', 'TRD158', 'TRI308'].includes(cleanRoute) ||
+          String(visit?.supervisorId) === 'usr_tgb2s6h'
+        ) {
+          supName = 'SAIF';
+          mgrName = 'ASHFAQ';
+        }
+      }
 
       supName = (supName || 'Field Supervisor').trim();
       mgrName = (mgrName || '').trim();
