@@ -85,10 +85,11 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, actionStatus, supervisorComment, proofPhotoUrl, gmResolutionNotes } = body;
+    const { id, photoId, actionStatus, supervisorComment, proofPhotoUrl, gmResolutionNotes } = body;
 
-    if (!id) {
-      return NextResponse.json({ error: 'Action item ID is required' }, { status: 400 });
+    const targetId = id || photoId;
+    if (!targetId) {
+      return NextResponse.json({ error: 'Action item ID or Photo ID is required' }, { status: 400 });
     }
 
     const updates: any = {};
@@ -98,20 +99,20 @@ export async function PATCH(req: NextRequest) {
     }
 
     // When supervisor submits proof:
-    if (actionStatus === 'SUBMITTED' || supervisorComment || proofPhotoUrl) {
+    if (actionStatus === 'SUBMITTED' || supervisorComment !== undefined || proofPhotoUrl !== undefined) {
       if (supervisorComment !== undefined) updates.supervisorComment = supervisorComment;
       if (proofPhotoUrl !== undefined) updates.proofPhotoUrl = proofPhotoUrl;
       updates.actionTakenAt = new Date().toISOString();
       if (!actionStatus) updates.actionStatus = 'SUBMITTED';
     }
 
-    // When GM verifies or re-opens:
+    // When GM verifies:
     if (actionStatus === 'RESOLVED') {
       updates.gmVerifiedAt = new Date().toISOString();
       if (gmResolutionNotes !== undefined) updates.gmResolutionNotes = gmResolutionNotes;
     }
 
-    const updated = await auditActionRepository.update(id, updates);
+    const updated = await auditActionRepository.update(targetId, updates, photoId || (id !== targetId ? id : undefined));
     if (!updated) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
