@@ -92,7 +92,7 @@ function formatDisplayDate(value?: string) {
 
 function getCellValue(row: Record<string, unknown>, key: string) {
   if (key === 'date') return formatDisplayDate((row.date || row.createdAt) as string | undefined);
-  if (key === 'channel') return (row.channel || row.ch || 'GT') as string;
+  if (key === 'channel') return (row.channel || row.ch || 'TT') as string;
   if (key === 'manager') return (row.manager || row.mgr || '—') as string;
   if (key === 'supervisor') return (row.supervisor || row.sup || '—') as string;
   if (key === 'routeCode') {
