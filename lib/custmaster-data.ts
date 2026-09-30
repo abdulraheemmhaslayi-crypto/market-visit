@@ -245,8 +245,19 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
           const isInternal = rtRaw === 'DIS001' || mgrRaw === 'INTERNAL' || supRaw === 'INTERNAL';
           const isExcludedMgr = mgrRaw === 'EXP MANAGER' || mgrRaw === 'INST MANAGER' || !mgrRaw;
 
-          const validManager = !isInternal && !isExcludedMgr ? mgrRaw : '';
-          const validSupervisor = !isInternal && supRaw ? supRaw : '';
+          let validManager = !isInternal && !isExcludedMgr ? mgrRaw : '';
+          let validSupervisor = !isInternal && supRaw ? supRaw : '';
+
+          // Disambiguate Saifullah (Manager: Adnan, Modern Trade MTD/MTI) vs Saif (Manager: Ashfaq, Traditional Trade TRD/TRI)
+          if (validSupervisor === 'SAIF' || validSupervisor === 'SAIFULLAH') {
+            if (validManager === 'ADNAN' || rtRaw.startsWith('MT') || ['MTD207', 'MTD210', 'MTD213', 'MTD218'].includes(rtRaw)) {
+              validSupervisor = 'SAIFULLAH';
+              validManager = 'ADNAN';
+            } else if (validManager === 'ASHFAQ' || rtRaw.startsWith('TR') || ['TRD104', 'TRD109', 'TRD129', 'TRD144', 'TRD158', 'TRI308'].includes(rtRaw)) {
+              validSupervisor = 'SAIF';
+              validManager = 'ASHFAQ';
+            }
+          }
 
           if (validManager) managerSet.add(validManager);
           if (validSupervisor) supervisorSet.add(validSupervisor);
@@ -324,11 +335,49 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
             });
           }
         }
+        // Ensure MTI routes under Modern Trade (Adnan) are present
+        const knownMtiRoutes: Record<string, string> = {
+          MTI401: 'MOHSIN',
+          MTI402: 'ASAD',
+          MTI403: 'SAIFULLAH',
+          MTI404: 'KISHAN',
+          MTI405: 'JAVED',
+          MTI406: 'RASHWIN',
+        };
+        Object.entries(knownMtiRoutes).forEach(([mti, sup]) => {
+          if (!routeMap.has(mti)) {
+            routeMap.set(mti, {
+              routeCode: mti,
+              routeName: `Route ${mti}`,
+              managerName: 'ADNAN',
+              superName: sup,
+            });
+            routeManagerMap[mti] = 'ADNAN';
+            routeSupervisorMap[mti] = sup;
+            if (!supervisorRoutesMap[sup]) supervisorRoutesMap[sup] = [];
+            if (!supervisorRoutesMap[sup].includes(mti)) supervisorRoutesMap[sup].push(mti);
+            if (!managerRoutesMap['ADNAN']) managerRoutesMap['ADNAN'] = [];
+            if (!managerRoutesMap['ADNAN'].includes(mti)) managerRoutesMap['ADNAN'].push(mti);
+            supervisorSet.add(sup);
+          }
+        });
       }
     } catch (err) {
       console.error('Failed to parse CUSTMASTER.xlsx:', err);
     }
   }
+
+  // Ensure SAIFULLAH is mapped strictly to ADNAN and SAIF strictly to ASHFAQ
+  if (!managerSupervisorMap['ADNAN']) managerSupervisorMap['ADNAN'] = [];
+  if (!managerSupervisorMap['ADNAN'].includes('SAIFULLAH')) managerSupervisorMap['ADNAN'].push('SAIFULLAH');
+  managerSupervisorMap['ADNAN'] = managerSupervisorMap['ADNAN'].filter((s) => s !== 'SAIF');
+
+  if (!managerSupervisorMap['ASHFAQ']) managerSupervisorMap['ASHFAQ'] = [];
+  if (!managerSupervisorMap['ASHFAQ'].includes('SAIF')) managerSupervisorMap['ASHFAQ'].push('SAIF');
+  managerSupervisorMap['ASHFAQ'] = managerSupervisorMap['ASHFAQ'].filter((s) => s !== 'SAIFULLAH');
+
+  supervisorSet.add('SAIFULLAH');
+  supervisorSet.add('SAIF');
 
   // Sort maps
   Object.keys(managerSupervisorMap).forEach((m) => managerSupervisorMap[m].sort());

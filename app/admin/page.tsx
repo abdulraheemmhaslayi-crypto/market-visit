@@ -23,6 +23,30 @@ const GCOL: Record<string, string> = {
   E: '#c0392b',
 };
 
+function isSupervisorMatch(rowSupervisor: string, selectedSupervisor: string, selectedManager?: string): boolean {
+  if (!selectedSupervisor) return true;
+  const rowSup = (rowSupervisor || '').trim().toUpperCase();
+  const selSup = selectedSupervisor.trim().toUpperCase();
+  const selMgr = (selectedManager || '').trim().toUpperCase();
+
+  if (rowSup === selSup) return true;
+
+  // Modern Trade Supervisor Saifullah (Manager: Adnan)
+  if (selSup === 'SAIFULLAH') {
+    return rowSup === 'SAIFULLAH' || (rowSup === 'SAIF' && (!selMgr || selMgr === 'ADNAN'));
+  }
+
+  // Traditional Trade Supervisor Saif (Manager: Ashfaq)
+  if (selSup === 'SAIF') {
+    if (selMgr === 'ADNAN') {
+      return rowSup === 'SAIFULLAH' || rowSup === 'SAIF';
+    }
+    return rowSup === 'SAIF';
+  }
+
+  return rowSup === selSup;
+}
+
 export default function AdminDashboardPage() {
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role;
@@ -198,7 +222,7 @@ export default function AdminDashboardPage() {
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
       const mgrOk = !fMgr || (r.mgr || '').toUpperCase() === fMgr.toUpperCase();
-      const superOk = !fSuper || (r.sup || '').toUpperCase() === fSuper.toUpperCase();
+      const superOk = isSupervisorMatch(r.sup, fSuper, fMgr);
       return mgrOk && superOk && fromOk && toOk;
     });
     return Array.from(new Set(filteredByMgrSuper.map((r) => r.ch))).sort();
@@ -209,7 +233,7 @@ export default function AdminDashboardPage() {
     if (!masters) return [];
     let routes = masters.routes || [];
     if (fSuper) {
-      routes = routes.filter((r: any) => (r.superName || '').toUpperCase() === fSuper.toUpperCase());
+      routes = routes.filter((r: any) => isSupervisorMatch(r.superName, fSuper, fMgr));
     } else if (fMgr) {
       routes = routes.filter((r: any) => (r.managerName || '').toUpperCase() === fMgr.toUpperCase());
     }
@@ -237,7 +261,7 @@ export default function AdminDashboardPage() {
       } else if (fSuper) {
         const supRoutes = new Set(
           (masters.routes || [])
-            .filter((r: any) => (r.superName || '').toUpperCase() === fSuper.toUpperCase())
+            .filter((r: any) => isSupervisorMatch(r.superName, fSuper, fMgr))
             .map((r: any) => r.routeCode)
         );
         custs = custs.filter((c: any) => supRoutes.has(c.routeCode));
@@ -260,7 +284,7 @@ export default function AdminDashboardPage() {
     if (!masters) return [];
     let routes = masters.routes || [];
     if (fSuper) {
-      routes = routes.filter((r: any) => (r.superName || '').toUpperCase() === fSuper.toUpperCase());
+      routes = routes.filter((r: any) => isSupervisorMatch(r.superName, fSuper, fMgr));
     } else if (fMgr) {
       routes = routes.filter((r: any) => (r.managerName || '').toUpperCase() === fMgr.toUpperCase());
     }
@@ -311,7 +335,7 @@ export default function AdminDashboardPage() {
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
       const mgrOk = !fMgr || (r.manager || r.mgr || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
-      const superOk = !fSuper || (r.supervisor || r.sup || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const superOk = isSupervisorMatch(r.supervisor || r.sup, fSuper, fMgr);
       const channelOk = !fChannel || (r.channel || r.ch || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       const classOk = !fClass || (r.classification || r.class || r.gr || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
       const custOk = !fCust || (r.outletName || r.cust || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
@@ -363,7 +387,7 @@ export default function AdminDashboardPage() {
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
       const mgrOk = !fMgr || (r.manager || r.mgr || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
-      const superOk = !fSuper || (r.supervisor || r.sup || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const superOk = isSupervisorMatch(r.supervisor || r.sup, fSuper, fMgr);
       const channelOk = !fChannel || (r.channel || r.ch || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       const classOk = !fClass || (r.classification || r.class || r.gr || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
       const custOk = !fCust || (r.outletName || r.cust || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
@@ -416,7 +440,7 @@ export default function AdminDashboardPage() {
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
       const mgrOk = !fMgr || (r.manager || '').toUpperCase().trim() === fMgr.toUpperCase().trim();
-      const superOk = !fSuper || (r.supervisor || '').toUpperCase().trim() === fSuper.toUpperCase().trim();
+      const superOk = isSupervisorMatch(r.supervisor, fSuper, fMgr);
       const channelOk = !fChannel || (r.channel || '').toUpperCase().trim() === fChannel.toUpperCase().trim();
       const classOk = !fClass || (r.classification || r.class || '').toUpperCase().trim() === fClass.toUpperCase().trim();
       const custOk = !fCust || (r.outletName || '').toUpperCase().trim() === fCust.toUpperCase().trim();
@@ -448,7 +472,7 @@ export default function AdminDashboardPage() {
 
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
       const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
-      const superOk = !fSuper || (r.sup || r.supervisor || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const superOk = isSupervisorMatch(r.sup || r.supervisor, fSuper, fMgr);
       const classOk = !fClass || (r.gr || r.classification || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
@@ -468,7 +492,7 @@ export default function AdminDashboardPage() {
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
       const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
-      const superOk = !fSuper || (r.sup || r.supervisor || '').toString().trim().toUpperCase() === fSuper.trim().toUpperCase();
+      const superOk = isSupervisorMatch(r.sup || r.supervisor, fSuper, fMgr);
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       return mgrOk && superOk && channelOk && custOk && routeOk && fromOk && toOk;

@@ -323,8 +323,11 @@ export async function GET(req: NextRequest) {
     if (managerParam) {
       filteredVisits = filteredVisits.filter((v: any) => {
         const [_, rCode] = (v.cust_rt_id || '').split('|');
-        const routeInfo = routeMap.get(rCode || v.routeCode || '');
-        const mgrName = routeInfo ? (routeInfo.managerName || '') : '';
+        const cleanR = (rCode || v.routeCode || '').toUpperCase().trim();
+        const routeInfo = routeMap.get(cleanR);
+        let mgrName = routeInfo ? (routeInfo.managerName || '') : '';
+        if (v.supervisorId === 'usr_rqwxav8' || ['MTD207', 'MTD210', 'MTD213', 'MTD218', 'MTI403'].includes(cleanR)) mgrName = 'ADNAN';
+        else if (v.supervisorId === 'usr_tgb2s6h' || ['TRD104', 'TRD109', 'TRD129', 'TRD144', 'TRD158', 'TRI308'].includes(cleanR)) mgrName = 'ASHFAQ';
         return mgrName.toUpperCase() === managerParam.toUpperCase();
       });
     }
@@ -332,8 +335,11 @@ export async function GET(req: NextRequest) {
     if (supervisorIdParam && (scope === 'full' || isFullAccessRole(role))) {
       filteredVisits = filteredVisits.filter((v: any) => {
         const [_, rCode] = (v.cust_rt_id || '').split('|');
-        const routeInfo = routeMap.get(rCode || v.routeCode || '');
-        const supName = routeInfo ? (routeInfo.superName || '') : '';
+        const cleanR = (rCode || v.routeCode || '').toUpperCase().trim();
+        const routeInfo = routeMap.get(cleanR);
+        let supName = routeInfo ? (routeInfo.superName || '') : '';
+        if (v.supervisorId === 'usr_rqwxav8' || ['MTD207', 'MTD210', 'MTD213', 'MTD218', 'MTI403'].includes(cleanR)) supName = 'SAIFULLAH';
+        else if (v.supervisorId === 'usr_tgb2s6h' || ['TRD104', 'TRD109', 'TRD129', 'TRD144', 'TRD158', 'TRI308'].includes(cleanR)) supName = 'SAIF';
         return supName.toUpperCase() === supervisorIdParam.toUpperCase();
       });
     }
@@ -451,6 +457,10 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Explicit supervisor-to-manager mappings
+    cmSupervisorManagerMap['SAIFULLAH'] = 'ADNAN';
+    cmSupervisorManagerMap['SAIF'] = 'ASHFAQ';
+
     const dbCustByCode = new Map<string, any>();
     const dbCustByCustRt = new Map<string, any>();
     customers.forEach((c: any) => {
@@ -553,16 +563,42 @@ export async function GET(req: NextRequest) {
         (cleanRoute ? routeMap.get(cleanRoute)?.managerName : '') ||
         '';
 
-      // Fallback from User table via visit supervisorId or createdBy
-      if (!supName || supName.toUpperCase() === 'UNASSIGNED') {
-        const u =
-          (v.supervisorId ? userMap.get(String(v.supervisorId)) : null) ||
-          (v.createdBy ? userMap.get(String(v.createdBy).toLowerCase().trim()) : null);
-        if (u?.name) {
-          supName = u.name;
+      // Fallback or override from User table via visit supervisorId or createdBy
+      const supUser =
+        (v.supervisorId ? userMap.get(String(v.supervisorId)) : null) ||
+        (v.createdBy ? userMap.get(String(v.createdBy).toLowerCase().trim()) : null);
+
+      if (supUser?.name) {
+        if (supUser.name === 'SAIFULLAH' || String(v.supervisorId) === 'usr_rqwxav8') {
+          supName = 'SAIFULLAH';
+          mgrName = 'ADNAN';
+        } else if (supUser.name === 'SAIF' || String(v.supervisorId) === 'usr_tgb2s6h') {
+          supName = 'SAIF';
+          mgrName = 'ASHFAQ';
+        } else if (!supName || supName.toUpperCase() === 'UNASSIGNED') {
+          supName = supUser.name;
           if (!mgrName || mgrName.toUpperCase() === 'UNASSIGNED') {
-            mgrName = u.managerName || cmSupervisorManagerMap[u.name.toUpperCase()] || '';
+            mgrName = supUser.managerName || cmSupervisorManagerMap[supUser.name.toUpperCase()] || '';
           }
+        }
+      }
+
+      // Explicit disambiguation for Saifullah (Adnan / Modern Trade) vs Saif (Ashfaq / Traditional Trade)
+      if (supName === 'SAIFULLAH' || supName === 'SAIF') {
+        if (
+          mgrName === 'ADNAN' ||
+          ['MTD207', 'MTD210', 'MTD213', 'MTD218', 'MTI403'].includes(cleanRoute) ||
+          String(v.supervisorId) === 'usr_rqwxav8'
+        ) {
+          supName = 'SAIFULLAH';
+          mgrName = 'ADNAN';
+        } else if (
+          mgrName === 'ASHFAQ' ||
+          ['TRD104', 'TRD109', 'TRD129', 'TRD144', 'TRD158', 'TRI308'].includes(cleanRoute) ||
+          String(v.supervisorId) === 'usr_tgb2s6h'
+        ) {
+          supName = 'SAIF';
+          mgrName = 'ASHFAQ';
         }
       }
 
