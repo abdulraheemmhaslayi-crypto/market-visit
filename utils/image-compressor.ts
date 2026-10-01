@@ -21,6 +21,8 @@ export interface ImageCompressionOptions {
 export interface CompressedImageResult {
   /** Base64 Data URL ready for API upload (e.g. data:image/jpeg;base64,...) */
   base64: string;
+  /** Binary Blob ready for FormData upload */
+  blob: Blob;
   /** Final compressed size in bytes */
   size: number;
   /** Original file size in bytes */
@@ -35,18 +37,35 @@ export interface CompressedImageResult {
   originalHeight: number;
   /** Compression ratio (percentage saved, e.g. 92.5) */
   compressionRatio: number;
+  /** Format used (e.g. image/webp or image/jpeg) */
+  mimeType: string;
+}
+
+/**
+ * Checks if the current client browser supports WebP canvas encoding
+ */
+export function isWebpSupported(): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Default configurable compression settings
- * Tuned for fast uploads, minimal VPS disk footprint, and crystal-clear mobile viewing.
+ * Tuned for fast uploads, low mobile data consumption, and crystal-clear audit display.
  */
 export const DEFAULT_COMPRESSION_OPTIONS: Required<ImageCompressionOptions> = {
-  maxWidthOrHeight: 1400, // 1400px provides sharp detail for store products/temperature while saving ~40% space
-  initialQuality: 0.78,   // 78% quality: visually lossless for mobile/desktop, cuts size by half
-  minQuality: 0.55,       // Safe minimum threshold to preserve readability
-  maxSizeBytes: 500 * 1024, // 500 KB maximum cap (typical photos compress to 100KB - 250KB)
-  outputFormat: 'image/jpeg',
+  maxWidthOrHeight: 1024, // 1024px preserves crisp product, brand & thermometer detail while reducing file size drastically
+  initialQuality: 0.70,   // 70% quality: excellent visual fidelity on phones and laptops
+  minQuality: 0.45,       // Safe floor to prevent pixelation of critical text
+  maxSizeBytes: 95 * 1024, // 95 KB cap (typical compressed photos are 35KB - 75KB)
+  outputFormat: 'image/webp',
 };
 
 /**
@@ -102,6 +121,48 @@ async function loadImageSource(file: File): Promise<{
   });
 }
 
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  format: string,
+  quality: number
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          // Fallback if browser toBlob fails for requested format
+          try {
+            const dataUrl = canvas.toDataURL(format, quality);
+            const base64Data = dataUrl.split(',')[1];
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            resolve(new Blob([byteArray], { type: format }));
+          } catch (e) {
+            reject(new Error('Canvas toBlob conversion failed'));
+          }
+        }
+      },
+      format,
+      quality
+    );
+  });
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 /**
  * Compresses and resizes an image file on the client side.
  * 
@@ -150,31 +211,30 @@ export async function compressImage(
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
+    // Auto-detect format: use WebP if supported, fallback to JPEG
+    const chosenFormat =
+      opts.outputFormat === 'image/webp' && !isWebpSupported()
+        ? 'image/jpeg'
+        : opts.outputFormat;
+
     // Fill white background for transparent images converted to JPEG
-    if (opts.outputFormat === 'image/jpeg') {
+    if (chosenFormat === 'image/jpeg') {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, targetWidth, targetHeight);
     }
 
     ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
 
-    // 3. Iterative quality compression to meet target maxSizeBytes
+    // 3. Iterative quality compression to meet target maxSizeBytes using native toBlob
     let quality = opts.initialQuality;
-    let dataUrl = canvas.toDataURL(opts.outputFormat, quality);
-    
-    // Estimate size in bytes from base64 string
-    const getByteSizeFromBase64 = (str: string) => {
-      const base64Part = str.substring(str.indexOf(',') + 1);
-      return Math.round(base64Part.length * 0.75);
-    };
-
-    let currentSize = getByteSizeFromBase64(dataUrl);
+    let currentBlob = await canvasToBlob(canvas, chosenFormat, quality);
+    let currentSize = currentBlob.size;
 
     // Reduce quality iteratively if file size exceeds target limit
     while (currentSize > opts.maxSizeBytes && quality > opts.minQuality) {
       quality = Math.max(opts.minQuality, quality - 0.08);
-      dataUrl = canvas.toDataURL(opts.outputFormat, quality);
-      currentSize = getByteSizeFromBase64(dataUrl);
+      currentBlob = await canvasToBlob(canvas, chosenFormat, quality);
+      currentSize = currentBlob.size;
       // Yield to main thread briefly during multi-pass compression
       await new Promise((r) => setTimeout(r, 0));
     }
@@ -184,6 +244,9 @@ export async function compressImage(
     canvas.width = 1;
     canvas.height = 1;
 
+    // Generate base64 Data URL for backward compatibility and fast preview
+    const dataUrl = await blobToDataUrl(currentBlob);
+
     const originalSize = file.size;
     const compressionRatio = Number(
       (((originalSize - currentSize) / originalSize) * 100).toFixed(1)
@@ -191,6 +254,7 @@ export async function compressImage(
 
     return {
       base64: dataUrl,
+      blob: currentBlob,
       size: currentSize,
       originalSize,
       width: targetWidth,
@@ -198,6 +262,7 @@ export async function compressImage(
       originalWidth,
       originalHeight,
       compressionRatio,
+      mimeType: chosenFormat,
     };
   } finally {
     cleanup();

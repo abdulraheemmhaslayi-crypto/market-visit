@@ -71,9 +71,14 @@ const serwist = new Serwist({
       matcher: ({ url }) => url.pathname.startsWith("/api/auth/"),
       handler: new NetworkOnly(),
     },
-    // 5. General API requests -> Network First
+    // 4b. Uploads -> Network Only (never buffer or intercept photo uploads in Service Worker)
     {
-      matcher: ({ url }) => url.pathname.startsWith("/api/"),
+      matcher: ({ url }) => url.pathname.startsWith("/api/upload"),
+      handler: new NetworkOnly(),
+    },
+    // 5. General API GET requests -> Network First
+    {
+      matcher: ({ url, request }) => url.pathname.startsWith("/api/") && request.method === "GET",
       handler: new NetworkFirst({
         cacheName: CACHE_NAMES.api,
         plugins: [

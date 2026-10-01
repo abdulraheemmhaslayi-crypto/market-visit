@@ -252,63 +252,112 @@ function VisitWizardContent() {
 
       let successCount = 0;
       let failCount = 0;
+      const totalFiles = files.length;
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fileNum = i + 1;
-        const totalFiles = files.length;
+      // Helper function to compress and upload a single photo with timeout and automatic retry
+      const processAndUploadFile = async (file: File, fileIndex: number): Promise<VisitPhoto> => {
+        const fileNum = fileIndex + 1;
         const origSizeMb = (file.size / (1024 * 1024)).toFixed(1);
 
-        try {
-          // 1. Show compression loading indicator
-          setPhotoProcessingStatus(
-            `Compressing photo ${fileNum} of ${totalFiles} (${origSizeMb} MB)...`
-          );
+        setPhotoProcessingStatus(
+          `Compressing photo ${fileNum} of ${totalFiles} (${origSizeMb} MB)...`
+        );
 
-          // 2. Perform client-side compression & resolution scaling
-          const compressed = await compressImage(file);
+        // 1. Client-side compression & WebP/JPEG scaling (drastically reduces payload to ~35KB-75KB)
+        const compressed = await compressImage(file);
+        const compressedSizeKb = (compressed.size / 1024).toFixed(0);
+        const ratio = compressed.compressionRatio;
+        const ext = compressed.mimeType === 'image/webp' ? 'webp' : 'jpg';
 
-          const compressedSizeKb = (compressed.size / 1024).toFixed(0);
-          const ratio = compressed.compressionRatio;
+        // 2. Upload with 25s timeout and 1 auto-retry to prevent indefinite hanging on weak mobile network
+        let lastErr: any = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-          // 3. Show upload status
-          setPhotoProcessingStatus(
-            `Uploading photo ${fileNum} of ${totalFiles} (${compressedSizeKb} KB, -${ratio}%)...`
-          );
+          try {
+            setPhotoProcessingStatus(
+              attempt === 1
+                ? `Uploading photo ${fileNum} of ${totalFiles} (${compressedSizeKb} KB, -${ratio}%)...`
+                : `Retrying photo ${fileNum} of ${totalFiles} (${compressedSizeKb} KB)...`
+            );
 
-          // 4. Send compressed base64 payload to server upload endpoint
-          const res = await fetch('/api/upload', {
-            method: 'POST',
-            body: JSON.stringify({ file: compressed.base64, category }),
-            headers: { 'Content-Type': 'application/json' },
-          });
+            // Use binary multipart/form-data for fastest upload (33% smaller than base64)
+            const formData = new FormData();
+            formData.append(
+              'file',
+              compressed.blob,
+              `photo_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`
+            );
+            formData.append('category', category);
 
-          if (!res.ok) throw new Error('Upload failed');
-          const uploaded = await res.json();
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
+              signal: controller.signal,
+            });
 
-          const newPhoto: VisitPhoto = {
-            photoId: uploaded.public_id,
-            visitId,
-            category,
-            cloudinaryUrl: uploaded.secure_url,
-            publicId: uploaded.public_id,
-            uploadedAt: new Date().toISOString(),
-          };
+            clearTimeout(timeoutId);
 
-          setPhotos((prev) => [...prev, newPhoto]);
-          successCount++;
-        } catch (err) {
-          console.error('Photo compression/upload error:', err);
-          failCount++;
+            if (!res.ok) {
+              const errJson = await res.json().catch(() => ({}));
+              throw new Error(errJson.error || `Upload failed with status ${res.status}`);
+            }
+
+            const uploaded = await res.json();
+            return {
+              photoId: uploaded.public_id,
+              visitId,
+              category,
+              cloudinaryUrl: uploaded.secure_url || uploaded.url,
+              publicId: uploaded.public_id,
+              uploadedAt: new Date().toISOString(),
+            };
+          } catch (err: any) {
+            clearTimeout(timeoutId);
+            lastErr = err;
+            console.warn(`Photo ${fileNum} upload attempt ${attempt} failed:`, err);
+            if (attempt < 2) {
+              // Quick backoff before retrying
+              await new Promise((r) => setTimeout(r, 600));
+            }
+          }
         }
-      }
+
+        throw lastErr || new Error('Upload failed after retries');
+      };
+
+      // Process with concurrency of 2 (uploads up to 2 photos in parallel)
+      const queue = files.map((file, i) => ({ file, i }));
+      const worker = async () => {
+        while (queue.length > 0) {
+          const item = queue.shift();
+          if (!item) break;
+          try {
+            const newPhoto = await processAndUploadFile(item.file, item.i);
+            // Instantly append to state as each photo finishes so user sees progress
+            setPhotos((prev) => [...prev, newPhoto]);
+            successCount++;
+          } catch (err) {
+            console.error('Photo upload error:', err);
+            failCount++;
+          }
+        }
+      };
+
+      // Run 2 parallel workers
+      await Promise.all([worker(), worker()]);
 
       if (successCount > 0) {
-        showToast(`${successCount} photo(s) compressed & uploaded successfully to ${category === 'Vegetables' ? 'Assets' : category}.`, 'success');
+        showToast(
+          `${successCount} photo(s) compressed & uploaded successfully to ${category === 'Vegetables' ? 'Assets' : category}.`,
+          'success'
+        );
       }
       if (failCount > 0) {
-        showToast(`Failed to process/upload ${failCount} photo(s).`, 'error');
+        showToast(`Failed to upload ${failCount} photo(s). Please check your connection and retry.`, 'error');
       }
+
       setUploadingPhoto(false);
       setPhotoProcessingStatus(null);
       e.target.value = '';
