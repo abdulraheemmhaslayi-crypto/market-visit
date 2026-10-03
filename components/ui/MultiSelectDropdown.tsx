@@ -35,12 +35,15 @@ export function MultiSelectDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Filter out any empty option strings
+  const cleanOptions = useMemo(() => options.filter(Boolean), [options]);
+
   // Filter options based on search query
   const filteredOptions = useMemo(() => {
-    if (!searchQuery.trim()) return options;
+    if (!searchQuery.trim()) return cleanOptions;
     const query = searchQuery.toLowerCase().trim();
-    return options.filter((opt) => opt.toLowerCase().includes(query));
-  }, [options, searchQuery]);
+    return cleanOptions.filter((opt) => opt.toLowerCase().includes(query));
+  }, [cleanOptions, searchQuery]);
 
   // Determine "Select all" state for filtered options
   const isAllSelected = useMemo(() => {
@@ -78,8 +81,9 @@ export function MultiSelectDropdown({
   // Trigger button label display
   const getDisplayText = () => {
     if (selectedValues.length === 0) return placeholder;
-    if (options.length > 0 && selectedValues.length === options.length) return 'All Selected';
+    if (cleanOptions.length > 0 && selectedValues.length === cleanOptions.length) return 'All Selected';
     if (selectedValues.length === 1) return selectedValues[0];
+    if (selectedValues.length === 2) return `${selectedValues[0]}, ${selectedValues[1]}`;
     return `${selectedValues.length} Selected`;
   };
 
@@ -92,27 +96,28 @@ export function MultiSelectDropdown({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen((prev) => !prev)}
-        className={`w-full h-9 px-3 text-left rounded-xl border border-solid transition-all flex items-center justify-between text-[12px] font-semibold cursor-pointer ${
-          disabled ? 'opacity-50 cursor-not-allowed bg-[var(--surface-2)]' : 'bg-[var(--surface)] hover:border-[var(--accent)]'
+        className={`w-full min-h-[36px] h-9 px-3 text-left rounded-[11px] border-[1.5px] border-solid transition-all flex items-center justify-between text-[12px] font-semibold cursor-pointer ${
+          disabled ? 'opacity-50 cursor-not-allowed bg-[var(--surface-2)]' : 'bg-[var(--card,var(--surface))] hover:border-[var(--accent,#4F46E5)]'
         }`}
         style={{
-          borderColor: isOpen ? 'var(--accent)' : 'var(--border)',
-          color: selectedValues.length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
-          boxShadow: isOpen ? '0 0 0 2px var(--accent-light)' : 'none',
+          borderColor: isOpen ? 'var(--blue, var(--accent, #4F46E5))' : 'var(--line, var(--border, #E4E9F0))',
+          backgroundColor: 'var(--card, var(--surface, #ffffff))',
+          color: 'var(--ink, var(--text-primary, #0D1117))',
+          boxShadow: isOpen ? '0 0 0 2px var(--accent-light, rgba(79,70,229,0.15))' : 'none',
         }}
       >
-        <span className="truncate pr-2 font-medium">{getDisplayText()}</span>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <span className="truncate pr-1.5 font-semibold text-[12px]">{getDisplayText()}</span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {selectedValues.length > 0 && (
             <span
               onClick={(e) => {
                 e.stopPropagation();
                 onChange([]);
               }}
-              className="p-0.5 rounded-full hover:bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--danger)] cursor-pointer"
+              className="p-0.5 rounded-full hover:bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--danger,#DC2626)] cursor-pointer transition-colors"
               title="Clear selection"
             >
-              <X className="h-3 w-3" />
+              <X className="h-3.5 w-3.5" />
             </span>
           )}
           <ChevronDown className={`h-3.5 w-3.5 text-[var(--text-muted)] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -122,8 +127,8 @@ export function MultiSelectDropdown({
       {/* Dropdown Menu */}
       {isOpen && (
         <div
-          className="absolute left-0 right-0 mt-1 z-[9999] rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-2xl overflow-hidden animate-slide-up"
-          style={{ minWidth: '220px', backgroundColor: 'var(--surface)' }}
+          className="absolute left-0 mt-1 z-[9999] rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-2xl overflow-hidden animate-slide-up"
+          style={{ minWidth: '100%', width: 'max-content', maxWidth: '320px', backgroundColor: 'var(--surface)' }}
         >
           {/* Search Box */}
           <div className="p-2 border-b border-[var(--border-soft)] bg-[var(--surface-2)]">
@@ -160,8 +165,9 @@ export function MultiSelectDropdown({
                 ref={(el) => {
                   if (el) el.indeterminate = isSomeSelected;
                 }}
-                onChange={() => {}} // Handled by parent div onClick
-                className="h-3.5 w-3.5 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer"
+                readOnly
+                tabIndex={-1}
+                className="h-3.5 w-3.5 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer pointer-events-none"
               />
               <span className="text-[11.5px] font-extrabold text-[var(--text-primary)]">Select all</span>
             </div>
@@ -185,10 +191,11 @@ export function MultiSelectDropdown({
                     <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={() => {}} // Handled by parent div onClick
-                      className="h-3.5 w-3.5 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer"
+                      readOnly
+                      tabIndex={-1}
+                      className="h-3.5 w-3.5 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer pointer-events-none"
                     />
-                    <span className={`text-[12px] ${isChecked ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-secondary)]'}`}>
+                    <span className={`text-[12px] truncate ${isChecked ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-secondary)]'}`}>
                       {opt}
                     </span>
                   </div>

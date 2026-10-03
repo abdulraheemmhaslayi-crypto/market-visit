@@ -173,9 +173,8 @@ function buildSummaryText(reportType: string, rows: Record<string, unknown>[]) {
   }
 
   const yes = rows.filter((r) => r.availability === 'YES' || getCellValue(r, 'availability') === 'YES' || getCellValue(r, 'availability') === 'Available').length;
-  const no = rows.filter((r) => r.availability === 'NO' || getCellValue(r, 'availability') === 'NO' || getCellValue(r, 'availability') === 'Not Available').length;
-  const na = rows.filter((r) => r.availability === 'NOT APPLICABLE' || getCellValue(r, 'availability') === 'N/A' || getCellValue(r, 'availability') === 'Not Applicable').length;
-  return `Showing ${rows.length} records · ${yes} YES · ${no} NO · ${na} N/A`;
+  const no = rows.length - yes;
+  return `Showing ${rows.length} records · ${yes} YES · ${no} NO`;
 }
 
 function exportWorkbook(title: string, summary: string, rows: Record<string, unknown>[], reportType: string, filterChip?: { key: string; value: string; label: string } | null) {

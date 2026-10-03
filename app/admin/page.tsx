@@ -23,28 +23,53 @@ const GCOL: Record<string, string> = {
   E: '#c0392b',
 };
 
-function isSupervisorMatch(rowSupervisor: string, selectedSupervisor: string, selectedManager?: string): boolean {
-  if (!selectedSupervisor) return true;
-  const rowSup = (rowSupervisor || '').trim().toUpperCase();
-  const selSup = selectedSupervisor.trim().toUpperCase();
-  const selMgr = (selectedManager || '').trim().toUpperCase();
+function isManagerMatch(rowManager: string | undefined | null, selectedManagers: string[] | string): boolean {
+  const mgrs = Array.isArray(selectedManagers)
+    ? selectedManagers.filter(Boolean)
+    : (selectedManagers ? [selectedManagers] : []);
+  if (mgrs.length === 0) return true;
+  const rowMgr = (rowManager || '').toString().trim().toUpperCase();
+  return mgrs.some((m) => m.trim().toUpperCase() === rowMgr);
+}
 
-  if (rowSup === selSup) return true;
+function matchSingleSupervisor(rowSupervisor: string, selSup: string, selectedManagers: string[] = []): boolean {
+  const rowSup = (rowSupervisor || '').trim().toUpperCase();
+  const targetSup = selSup.trim().toUpperCase();
+  if (rowSup === targetSup) return true;
+
+  const hasAdnan = selectedManagers.length === 0 || selectedManagers.some((m) => m.trim().toUpperCase() === 'ADNAN');
 
   // Modern Trade Supervisor Saifullah (Manager: Adnan)
-  if (selSup === 'SAIFULLAH') {
-    return rowSup === 'SAIFULLAH' || (rowSup === 'SAIF' && (!selMgr || selMgr === 'ADNAN'));
+  if (targetSup === 'SAIFULLAH') {
+    return rowSup === 'SAIFULLAH' || (rowSup === 'SAIF' && hasAdnan);
   }
 
   // Traditional Trade Supervisor Saif (Manager: Ashfaq)
-  if (selSup === 'SAIF') {
-    if (selMgr === 'ADNAN') {
+  if (targetSup === 'SAIF') {
+    if (hasAdnan) {
       return rowSup === 'SAIFULLAH' || rowSup === 'SAIF';
     }
     return rowSup === 'SAIF';
   }
 
-  return rowSup === selSup;
+  return rowSup === targetSup;
+}
+
+function isSupervisorMatch(
+  rowSupervisor: string | undefined | null,
+  selectedSupervisors: string[] | string,
+  selectedManagers?: string[] | string
+): boolean {
+  const sups = Array.isArray(selectedSupervisors)
+    ? selectedSupervisors.filter(Boolean)
+    : (selectedSupervisors ? [selectedSupervisors] : []);
+  if (sups.length === 0) return true;
+
+  const mgrs = Array.isArray(selectedManagers)
+    ? selectedManagers.filter(Boolean)
+    : (selectedManagers ? [selectedManagers] : []);
+
+  return sups.some((s) => matchSingleSupervisor(rowSupervisor || '', s, mgrs));
 }
 
 export default function AdminDashboardPage() {
@@ -62,8 +87,8 @@ export default function AdminDashboardPage() {
   // Filter States
   const [fFrom, setFFrom] = useState('');
   const [fTo, setFTo] = useState('');
-  const [fMgr, setFMgr] = useState('');
-  const [fSuper, setFSuper] = useState('');
+  const [fMgr, setFMgr] = useState<string[]>([]);
+  const [fSuper, setFSuper] = useState<string[]>([]);
   const [fChannel, setFChannel] = useState('');
   const [fClass, setFClass] = useState('');
   const [fCust, setFCust] = useState('');
@@ -91,7 +116,7 @@ export default function AdminDashboardPage() {
   // Initialize cached data immediately from sessionStorage to eliminate skeleton hangs & 0-data flash
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('admin_dashboard_cache_v2');
+      const cached = sessionStorage.getItem('admin_dashboard_cache_v3');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && typeof parsed === 'object' && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
@@ -140,7 +165,7 @@ export default function AdminDashboardPage() {
           setLastUpdated(new Date());
 
           try {
-            sessionStorage.setItem('admin_dashboard_cache_v2', JSON.stringify({
+            sessionStorage.setItem('admin_dashboard_cache_v3', JSON.stringify({
               rows: newRows,
               reportRows: newReportRows,
               managerSupervisorMap: newMgrSupMap,
@@ -199,16 +224,25 @@ export default function AdminDashboardPage() {
   // 2. Supervisor Options: Filtered strictly by Manager if selected, otherwise all supervisors from CUSTMASTER
   const supOptions = useMemo<string[]>(() => {
     if (!masters) return [];
-    if (fMgr) {
-      const mgrUpper = fMgr.toUpperCase();
-      if (masters.managerSupervisorMap && masters.managerSupervisorMap[mgrUpper]) {
-        return (masters.managerSupervisorMap[mgrUpper] as string[]).filter((s) => s !== 'INTERNAL');
-      }
-      const sups = (masters.routes || [])
-        .filter((r: any) => (r.managerName || '').toUpperCase() === mgrUpper)
-        .map((r: any) => r.superName)
-        .filter((s: string) => s && s !== 'INTERNAL');
-      return Array.from(new Set(sups)).sort() as string[];
+    if (fMgr.length > 0) {
+      const mgrUppers = fMgr.map((m) => m.toUpperCase());
+      const supsSet = new Set<string>();
+
+      mgrUppers.forEach((mgrUpper) => {
+        if (masters.managerSupervisorMap && masters.managerSupervisorMap[mgrUpper]) {
+          (masters.managerSupervisorMap[mgrUpper] as string[]).forEach((s) => {
+            if (s && s !== 'INTERNAL') supsSet.add(s);
+          });
+        } else {
+          (masters.routes || [])
+            .filter((r: any) => (r.managerName || '').toUpperCase() === mgrUpper)
+            .map((r: any) => r.superName)
+            .forEach((s: string) => {
+              if (s && s !== 'INTERNAL') supsSet.add(s);
+            });
+        }
+      });
+      return Array.from(supsSet).sort();
     }
     return ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
   }, [masters, fMgr]);
@@ -221,7 +255,7 @@ export default function AdminDashboardPage() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      const mgrOk = !fMgr || (r.mgr || '').toUpperCase() === fMgr.toUpperCase();
+      const mgrOk = isManagerMatch(r.mgr, fMgr);
       const superOk = isSupervisorMatch(r.sup, fSuper, fMgr);
       return mgrOk && superOk && fromOk && toOk;
     });
@@ -232,17 +266,17 @@ export default function AdminDashboardPage() {
   const custOptions = useMemo<string[]>(() => {
     if (!masters) return [];
     let routes = masters.routes || [];
-    if (fSuper) {
+    if (fSuper.length > 0) {
       routes = routes.filter((r: any) => isSupervisorMatch(r.superName, fSuper, fMgr));
-    } else if (fMgr) {
-      routes = routes.filter((r: any) => (r.managerName || '').toUpperCase() === fMgr.toUpperCase());
+    } else if (fMgr.length > 0) {
+      routes = routes.filter((r: any) => isManagerMatch(r.managerName, fMgr));
     }
     const routeCodes = new Set(routes.map((r: any) => r.routeCode));
 
     let customersList = masters.customers || [];
     if (fRoute) {
       customersList = customersList.filter((c: any) => c.routeCode === fRoute);
-    } else if (fSuper || fMgr) {
+    } else if (fSuper.length > 0 || fMgr.length > 0) {
       customersList = customersList.filter((c: any) => routeCodes.has(c.routeCode));
     }
     if (fClass) {
@@ -254,21 +288,21 @@ export default function AdminDashboardPage() {
   // 5. Classification Options: Strictly from CUSTMASTER, cascaded by Route, Supervisor, or Manager if selected
   const classOptions = useMemo<string[]>(() => {
     if (!masters) return ['A', 'B', 'C', 'D', 'E'];
-    if (fRoute || fSuper || fMgr) {
+    if (fRoute || fSuper.length > 0 || fMgr.length > 0) {
       let custs = masters.customers || [];
       if (fRoute) {
         custs = custs.filter((c: any) => c.routeCode === fRoute);
-      } else if (fSuper) {
+      } else if (fSuper.length > 0) {
         const supRoutes = new Set(
           (masters.routes || [])
             .filter((r: any) => isSupervisorMatch(r.superName, fSuper, fMgr))
             .map((r: any) => r.routeCode)
         );
         custs = custs.filter((c: any) => supRoutes.has(c.routeCode));
-      } else if (fMgr) {
+      } else if (fMgr.length > 0) {
         const mgrRoutes = new Set(
           (masters.routes || [])
-            .filter((r: any) => (r.managerName || '').toUpperCase() === fMgr.toUpperCase())
+            .filter((r: any) => isManagerMatch(r.managerName, fMgr))
             .map((r: any) => r.routeCode)
         );
         custs = custs.filter((c: any) => mgrRoutes.has(c.routeCode));
@@ -283,10 +317,10 @@ export default function AdminDashboardPage() {
   const routeOptions = useMemo<string[]>(() => {
     if (!masters) return [];
     let routes = masters.routes || [];
-    if (fSuper) {
+    if (fSuper.length > 0) {
       routes = routes.filter((r: any) => isSupervisorMatch(r.superName, fSuper, fMgr));
-    } else if (fMgr) {
-      routes = routes.filter((r: any) => (r.managerName || '').toUpperCase() === fMgr.toUpperCase());
+    } else if (fMgr.length > 0) {
+      routes = routes.filter((r: any) => isManagerMatch(r.managerName, fMgr));
     }
     return Array.from(new Set(routes.map((r: any) => r.routeCode).filter((rt: string) => rt && rt !== 'DIS001'))).sort((a: any, b: any) => a.localeCompare(b, undefined, { numeric: true })) as string[];
   }, [masters, fSuper, fMgr]);
@@ -300,8 +334,8 @@ export default function AdminDashboardPage() {
   const resetFilters = () => {
     setFFrom('');
     setFTo('');
-    setFMgr('');
-    setFSuper('');
+    setFMgr([]);
+    setFSuper([]);
     setFChannel('');
     setFClass('');
     setFCust('');
@@ -334,7 +368,7 @@ export default function AdminDashboardPage() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      const mgrOk = !fMgr || (r.manager || r.mgr || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
+      const mgrOk = isManagerMatch(r.manager || r.mgr, fMgr);
       const superOk = isSupervisorMatch(r.supervisor || r.sup, fSuper, fMgr);
       const channelOk = !fChannel || (r.channel || r.ch || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       const classOk = !fClass || (r.classification || r.class || r.gr || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
@@ -374,9 +408,9 @@ export default function AdminDashboardPage() {
             businessVertical: 'Dairy',
             skuName: 'All Power SKUs',
             skuCode: 'ALL-PSKU',
-            status: isAvail ? 'Available' : isNotAvail ? 'Not Available' : 'Not Applicable',
+            status: isAvail ? 'Available' : 'Not Available',
             availability: isAvail ? 'YES' : 'NO',
-            psku: isAvail ? 'A' : isNotAvail ? 'N' : 'X',
+            psku: isAvail ? 'A' : 'N',
           };
         });
 
@@ -386,7 +420,7 @@ export default function AdminDashboardPage() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      const mgrOk = !fMgr || (r.manager || r.mgr || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
+      const mgrOk = isManagerMatch(r.manager || r.mgr, fMgr);
       const superOk = isSupervisorMatch(r.supervisor || r.sup, fSuper, fMgr);
       const channelOk = !fChannel || (r.channel || r.ch || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       const classOk = !fClass || (r.classification || r.class || r.gr || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
@@ -439,7 +473,7 @@ export default function AdminDashboardPage() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      const mgrOk = !fMgr || (r.manager || '').toUpperCase().trim() === fMgr.toUpperCase().trim();
+      const mgrOk = isManagerMatch(r.manager, fMgr);
       const superOk = isSupervisorMatch(r.supervisor, fSuper, fMgr);
       const channelOk = !fChannel || (r.channel || '').toUpperCase().trim() === fChannel.toUpperCase().trim();
       const classOk = !fClass || (r.classification || r.class || '').toUpperCase().trim() === fClass.toUpperCase().trim();
@@ -471,7 +505,7 @@ export default function AdminDashboardPage() {
         || (r.allAssets && r.allAssets.some((a: any) => a.sizeModel && fSizeModels.includes(a.sizeModel)));
 
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
-      const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
+      const mgrOk = isManagerMatch(r.mgr || r.manager, fMgr);
       const superOk = isSupervisorMatch(r.sup || r.supervisor, fSuper, fMgr);
       const classOk = !fClass || (r.gr || r.classification || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
@@ -491,7 +525,7 @@ export default function AdminDashboardPage() {
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
-      const mgrOk = !fMgr || (r.mgr || r.manager || '').toString().trim().toUpperCase() === fMgr.trim().toUpperCase();
+      const mgrOk = isManagerMatch(r.mgr || r.manager, fMgr);
       const superOk = isSupervisorMatch(r.sup || r.supervisor, fSuper, fMgr);
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
@@ -552,9 +586,9 @@ export default function AdminDashboardPage() {
               class: r.gr || r.class || 'C',
               businessVertical: 'Dairy',
               skuName: 'All Power SKUs',
-              status: isAvail ? 'Available' : isNotAvail ? 'Not Available' : 'Not Applicable',
+              status: isAvail ? 'Available' : 'Not Available',
               availability: isAvail ? 'YES' : 'NO',
-              psku: isAvail ? 'A' : isNotAvail ? 'N' : 'X',
+              psku: isAvail ? 'A' : 'N',
             };
           });
       matched = source.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
@@ -599,9 +633,9 @@ export default function AdminDashboardPage() {
               class: r.gr || r.class || 'C',
               businessVertical: 'Dairy',
               skuName: 'All Power SKUs',
-              status: isAvail ? 'Available' : isNotAvail ? 'Not Available' : 'Not Applicable',
+              status: isAvail ? 'Available' : 'Not Available',
               availability: isAvail ? 'YES' : 'NO',
-              psku: isAvail ? 'A' : isNotAvail ? 'N' : 'X',
+              psku: isAvail ? 'A' : 'N',
             };
           });
       setReportModalRows(source.filter((r: any) => !r.visitId || visitLookup.has(r.visitId)));
@@ -662,8 +696,8 @@ export default function AdminDashboardPage() {
   const activeNote = useMemo(() => {
     const parts = [];
     if (fFrom || fTo) parts.push(`Date: <b>${fFrom || 'Start'} → ${fTo || 'Now'}</b>`);
-    if (fMgr) parts.push(`Manager: <b>${fMgr}</b>`);
-    if (fSuper) parts.push(`Supervisor: <b>${fSuper}</b>`);
+    if (fMgr.length > 0) parts.push(`Manager: <b>${fMgr.join(', ')}</b>`);
+    if (fSuper.length > 0) parts.push(`Supervisor: <b>${fSuper.join(', ')}</b>`);
     if (fChannel) parts.push(`Channel: <b>${fChannel}</b>`);
     if (fClass) parts.push(`Classification: <b>${fClass}</b>`);
     if (fCust) parts.push(`Outlet: <b>${fCust}</b>`);
@@ -908,8 +942,8 @@ export default function AdminDashboardPage() {
     });
 
     const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
-      const mgrOk = !fMgr || (o.manager || '').toUpperCase() === fMgr.toUpperCase();
-      const supOk = !fSuper || (o.supervisor || '').toUpperCase() === fSuper.toUpperCase();
+      const mgrOk = isManagerMatch(o.manager, fMgr);
+      const supOk = isSupervisorMatch(o.supervisor, fSuper, fMgr);
       const chOk = !fChannel || (o.channel || '').toLowerCase() === fChannel.toLowerCase();
       const rtOk = !fRoute || o.route === fRoute;
       const custOk = !fCust || o.name === fCust || o.code === fCust;
@@ -1557,11 +1591,11 @@ export default function AdminDashboardPage() {
       chartsRef.current.cNpd = new Chart(canvasNpdRef.current, {
         type: 'bar',
         data: {
-          labels: ['Available', 'Not Available', 'Not Applicable'],
+          labels: ['Available', 'Not Available'],
           datasets: [
             {
-              data: [npdPct(availCount), npdPct(notAvailCount), npdPct(notReqCount)],
-              backgroundColor: [GREEN, RED, GREY],
+              data: [npdPct(availCount), npdPct(notAvailCount + notReqCount)],
+              backgroundColor: [GREEN, RED],
               borderRadius: 6,
             },
           ],
@@ -1580,7 +1614,7 @@ export default function AdminDashboardPage() {
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? '') as string;
-              const targetCode = label === 'Available' ? 'Available' : label === 'Not Available' ? 'Not Available' : 'Not Applicable';
+              const targetCode = label === 'Available' ? 'Available' : 'Not Available';
               const matched = filteredNpdRows.length > 0
                 ? filteredNpdRows.filter((r: any) => {
                     const st = (r.status || r.availability || '').toUpperCase();
@@ -1618,18 +1652,24 @@ export default function AdminDashboardPage() {
     // 6. Focus SKU Availability Bar Chart (percentage-based)
     if (canvasPskuRef.current) {
       if (chartsRef.current.cPsku) chartsRef.current.cPsku.destroy();
-      const psku = countFreq(filtered, (r) => r.psku);
+      let availCount = 0;
+      let notAvailCount = 0;
+      filtered.forEach((r) => {
+        const isA = r.psku === 'A' || (r.status || r.availability || '').toUpperCase() === 'AVAILABLE' || (r.status || r.availability || '').toUpperCase() === 'YES';
+        if (isA) availCount++;
+        else notAvailCount++;
+      });
       const pskuTotal = filtered.length;
       const pskuPct = (count: number) => (pskuTotal ? Math.round((count / pskuTotal) * 100) : 0);
 
       chartsRef.current.cPsku = new Chart(canvasPskuRef.current, {
         type: 'bar',
         data: {
-          labels: ['Available', 'Not Available', 'Not Applicable'],
+          labels: ['Available', 'Not Available'],
           datasets: [
             {
-              data: [pskuPct(psku.A || 0), pskuPct(psku.N || 0), pskuPct(psku.X || 0)],
-              backgroundColor: [GREEN, RED, GREY],
+              data: [pskuPct(availCount), pskuPct(notAvailCount)],
+              backgroundColor: [GREEN, RED],
               borderRadius: 6,
             },
           ],
@@ -1644,16 +1684,13 @@ export default function AdminDashboardPage() {
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? '') as string;
-              const pskuCode = label === 'Available' ? 'A' : label === 'Not Available' ? 'N' : 'X';
+              const pskuCode = label === 'Available' ? 'A' : 'N';
               handleDrilldownChartClick(
                 'psku',
                 `Power SKU Availability · ${label}`,
                 (r: any) => {
-                  if (r.psku === pskuCode) return true;
-                  const st = (r.status || r.availability || '').toUpperCase();
-                  if (pskuCode === 'A') return st === 'AVAILABLE' || st === 'YES' || st === 'A';
-                  if (pskuCode === 'N') return st === 'NOT AVAILABLE' || st === 'NO' || st === 'N';
-                  return st !== 'AVAILABLE' && st !== 'YES' && st !== 'A' && st !== 'NOT AVAILABLE' && st !== 'NO' && st !== 'N';
+                  const isA = r.psku === 'A' || (r.status || r.availability || '').toUpperCase() === 'AVAILABLE' || (r.status || r.availability || '').toUpperCase() === 'YES';
+                  return pskuCode === 'A' ? isA : !isA;
                 },
                 label ? `Status: ${label}` : undefined
               );
@@ -1676,8 +1713,8 @@ export default function AdminDashboardPage() {
 
       // Master outlets matching active upstream filters
       const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
-        const mgrOk = !fMgr || (o.manager || '').toUpperCase() === fMgr.toUpperCase();
-        const supOk = !fSuper || (o.supervisor || '').toUpperCase() === fSuper.toUpperCase();
+        const mgrOk = isManagerMatch(o.manager, fMgr);
+        const supOk = isSupervisorMatch(o.supervisor, fSuper, fMgr);
         const chOk = !fChannel || (o.channel || '').toLowerCase() === fChannel.toLowerCase();
         const rtOk = !fRoute || o.route === fRoute;
         const custOk = !fCust || o.name === fCust || o.code === fCust;
@@ -2313,47 +2350,61 @@ export default function AdminDashboardPage() {
 
 
 
-          <div className="fld">
+          <div className="fld min-w-[155px]">
             <label>Manager</label>
-            <select value={fMgr} onChange={(e) => {
-              setFMgr(e.target.value);
-              setFSuper('');
-              setFChannel('');
-              setFClass('');
-              setFCust('');
-              setFRoute('');
-            }}>
-              <option value="">All Managers</option>
-              {mgrOptions.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+            <MultiSelectDropdown
+              placeholder="All Managers"
+              options={mgrOptions}
+              selectedValues={fMgr}
+              onChange={(selected) => {
+                setFMgr(selected);
+                // Retain only supervisors that belong to selected managers, if any managers are selected
+                if (selected.length > 0 && masters) {
+                  const validSups = new Set<string>();
+                  selected.forEach((m) => {
+                    const mUpper = m.toUpperCase();
+                    if (masters.managerSupervisorMap && masters.managerSupervisorMap[mUpper]) {
+                      (masters.managerSupervisorMap[mUpper] as string[]).forEach((s) => validSups.add(s));
+                    } else {
+                      (masters.routes || [])
+                        .filter((r: any) => (r.managerName || '').toUpperCase() === mUpper)
+                        .forEach((r: any) => { if (r.superName) validSups.add(r.superName); });
+                    }
+                  });
+                  setFSuper((prev) => prev.filter((s) => validSups.has(s)));
+                }
+                setFChannel('');
+                setFClass('');
+                setFCust('');
+                setFRoute('');
+              }}
+            />
           </div>
 
-          <div className="fld">
+          <div className="fld min-w-[165px]">
             <label>Supervisor</label>
-            <select value={fSuper} onChange={(e) => {
-              const val = e.target.value;
-              setFSuper(val);
-              setFChannel('');
-              setFClass('');
-              setFCust('');
-              setFRoute('');
-              if (val && masters?.routes && !fMgr) {
-                const matchingRoutes = (masters.routes as any[]).filter(
-                  (r) => (r.superName || '').toUpperCase() === val.toUpperCase()
-                );
-                const mgrs = Array.from(new Set(matchingRoutes.map((r) => r.managerName).filter(Boolean)));
-                if (mgrs.length === 1) {
-                  setFMgr(mgrs[0]);
+            <MultiSelectDropdown
+              placeholder="All Supervisors"
+              options={supOptions}
+              selectedValues={fSuper}
+              onChange={(selected) => {
+                setFSuper(selected);
+                setFChannel('');
+                setFClass('');
+                setFCust('');
+                setFRoute('');
+                // If user selected supervisors and no manager was selected, check if they all belong to a single manager
+                if (selected.length > 0 && masters?.routes && fMgr.length === 0) {
+                  const matchingRoutes = (masters.routes as any[]).filter(
+                    (r) => selected.some((s) => (r.superName || '').toUpperCase() === s.toUpperCase())
+                  );
+                  const mgrs = Array.from(new Set(matchingRoutes.map((r) => r.managerName).filter(Boolean)));
+                  if (mgrs.length === 1) {
+                    setFMgr([mgrs[0]]);
+                  }
                 }
-              }
-            }}>
-              <option value="">All Supervisors</option>
-              {supOptions.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+              }}
+            />
           </div>
 
           {/* <div className="fld">
@@ -2402,8 +2453,8 @@ export default function AdminDashboardPage() {
               if (val && masters?.routes) {
                 const rtInfo = (masters.routes as any[]).find((r) => r.routeCode === val);
                 if (rtInfo) {
-                  if (rtInfo.managerName && !fMgr) setFMgr(rtInfo.managerName);
-                  if (rtInfo.superName && !fSuper) setFSuper(rtInfo.superName);
+                  if (rtInfo.managerName && fMgr.length === 0) setFMgr([rtInfo.managerName]);
+                  if (rtInfo.superName && fSuper.length === 0) setFSuper([rtInfo.superName]);
                 }
               }
             }}>

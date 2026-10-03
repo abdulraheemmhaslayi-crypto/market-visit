@@ -165,8 +165,19 @@ function VisitWizardContent() {
         setVisitObservation(localMatch.observation || '');
         setAssets((localMatch.assets || []).map((a: any) => ({ ...a, visitId: resumeId })));
         setPhotos((localMatch.photos || []).map((p: any) => ({ ...p, visitId: resumeId })));
-        setPowerSkuResults(localMatch.powerSkuResults || {});
-        setNpdResponses(localMatch.npdResponses || {});
+        const cleanPowerSku: Record<string, string> = {};
+        Object.entries(localMatch.powerSkuResults || {}).forEach(([k, v]) => {
+          const val = String(v);
+          cleanPowerSku[k] = (val === 'Not Required' || val === 'Not Applicable') ? 'Not Available' : val;
+        });
+        setPowerSkuResults(cleanPowerSku);
+
+        const cleanNpd: Record<string, string> = {};
+        Object.entries(localMatch.npdResponses || {}).forEach(([k, v]) => {
+          const val = String(v);
+          cleanNpd[k] = (val === 'Not Required' || val === 'Not Applicable') ? 'Not Available' : val;
+        });
+        setNpdResponses(cleanNpd);
         setSosAsPerBda(localMatch.sosAsPerBda !== undefined ? localMatch.sosAsPerBda : null);
         setCurrentStep(localMatch.currentStep || 0);
       } else {
@@ -918,29 +929,25 @@ function VisitWizardContent() {
                       <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{sku.skuCode}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {['Available', 'Not Available', 'Not Required'].map((opt) => {
+                      {['Available', 'Not Available'].map((opt) => {
                         const isChecked = currentStatus === opt;
                         const col = opt === 'Available'
                           ? 'var(--success)'
-                          : opt === 'Not Available'
-                            ? 'var(--danger)'
-                            : '#d97706';
+                          : 'var(--danger)';
                         const bg = opt === 'Available'
                           ? 'var(--success-light)'
-                          : opt === 'Not Available'
-                            ? 'var(--danger-light)'
-                            : '#fef3c7';
+                          : 'var(--danger-light)';
                         return (
                           <button key={opt} type="button"
                             onClick={() => setPowerSkuResults((prev) => ({ ...prev, [sku.skuCode]: opt }))}
-                            className="flex-grow h-9 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                            className="flex-grow h-9 text-[11px] font-bold rounded-lg transition-all cursor-pointer"
                             style={{
                               background: isChecked ? bg : 'transparent',
                               color: isChecked ? col : 'var(--text-muted)',
                               border: `1px solid ${isChecked ? col : 'var(--border)'}`,
                             }}
                           >
-                            {opt === 'Not Required' ? 'Not Applicable' : opt}
+                            {opt}
                           </button>
                         );
                       })}
@@ -970,29 +977,25 @@ function VisitWizardContent() {
                       <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{sku.skuCode}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {['Available', 'Not Available', 'Not Required'].map((opt) => {
+                      {['Available', 'Not Available'].map((opt) => {
                         const isChecked = currentStatus === opt;
                         const col = opt === 'Available'
                           ? 'var(--success)'
-                          : opt === 'Not Available'
-                            ? 'var(--danger)'
-                            : '#d97706';
+                          : 'var(--danger)';
                         const bg = opt === 'Available'
                           ? 'var(--success-light)'
-                          : opt === 'Not Available'
-                            ? 'var(--danger-light)'
-                            : '#fef3c7';
+                          : 'var(--danger-light)';
                         return (
                           <button key={opt} type="button"
                             onClick={() => setNpdResponses((prev) => ({ ...prev, [sku.skuCode]: opt }))}
-                            className="flex-grow h-9 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                            className="flex-grow h-9 text-[11px] font-bold rounded-lg transition-all cursor-pointer"
                             style={{
                               background: isChecked ? bg : 'transparent',
                               color: isChecked ? col : 'var(--text-muted)',
                               border: `1px solid ${isChecked ? col : 'var(--border)'}`,
                             }}
                           >
-                            {opt === 'Not Required' ? 'Not Applicable' : opt}
+                            {opt}
                           </button>
                         );
                       })}

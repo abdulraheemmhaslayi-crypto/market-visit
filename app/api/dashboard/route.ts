@@ -662,9 +662,8 @@ export async function GET(req: NextRequest) {
       else if (visitNpd.some((r: any) => r.status === 'Not Available')) npd = 'N';
 
       const visitPsku = pskuMap.get(v.visitId) || [];
-      let psku = 'X';
-      if (visitPsku.some((r: any) => r.status === 'Available')) psku = 'A';
-      else if (visitPsku.some((r: any) => r.status === 'Not Available')) psku = 'N';
+      const hasAvail = visitPsku.some((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A');
+      const psku = hasAvail ? 'A' : 'N';
 
       const fefo = ok;
       const action = visitAssets.map((a: any) => a.actionRequired !== 'None' ? `${a.assetType}: ${a.actionRequired}` : '').filter(Boolean).join(', ') || 'None';
@@ -741,8 +740,10 @@ export async function GET(req: NextRequest) {
       if (v.visit_type !== 'No Visit') {
         visitPsku.forEach((item: any) => {
           const pskuInfo = powerSkuMap.get(item.skuCode) || skuMap.get(item.skuCode);
-          const avail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'YES' : 'NO';
-          const pskuCode = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'A' : (item.status === 'Not Available' || item.status === 'NO' || item.status === 'N') ? 'N' : 'X';
+          const isAvail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A');
+          const avail = isAvail ? 'YES' : 'NO';
+          const pskuCode = isAvail ? 'A' : 'N';
+          const statusText = isAvail ? 'Available' : 'Not Available';
           reportRows.psku.push({
             date: visitDate,
             visitId: v.visitId,
@@ -757,7 +758,7 @@ export async function GET(req: NextRequest) {
             businessVertical: pskuInfo?.businessVertical || (pskuInfo?.type ? pskuInfo.type : 'General'),
             skuCode: item.skuCode,
             skuName: pskuInfo ? pskuInfo.skuName : item.skuCode,
-            status: item.status,
+            status: statusText,
             availability: avail,
             psku: pskuCode,
           });

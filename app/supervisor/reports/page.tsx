@@ -924,15 +924,20 @@ export default function SupervisorReportsPage() {
     // 6. Focus SKU Availability Bar Chart
     if (canvasPskuRef.current) {
       if (chartsRef.current.cPsku) chartsRef.current.cPsku.destroy();
-      const psku = countFreq(filtered, (r) => r.psku);
+      let availCount = 0;
+      let notAvailCount = 0;
+      filtered.forEach((r) => {
+        if (r.psku === "A") availCount++;
+        else notAvailCount++;
+      });
       chartsRef.current.cPsku = new Chart(canvasPskuRef.current, {
         type: "bar",
         data: {
-          labels: ["Available", "Not avail.", "Not req."],
+          labels: ["Available", "Not Available"],
           datasets: [
             {
-              data: [psku.A || 0, psku.N || 0, psku.X || 0],
-              backgroundColor: [GREEN, RED, GREY],
+              data: [availCount, notAvailCount],
+              backgroundColor: [GREEN, RED],
               borderRadius: 6,
             },
           ],
@@ -943,15 +948,10 @@ export default function SupervisorReportsPage() {
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? "") as string;
-              const pskuCode =
-                label === "Available"
-                  ? "A"
-                  : label === "Not avail."
-                    ? "N"
-                    : "X";
+              const pskuCode = label === "Available" ? "A" : "N";
               handleChartClick(
                 `Visits with Power SKU Status: ${label}`,
-                (r) => r.psku === pskuCode,
+                (r) => (pskuCode === "A" ? r.psku === "A" : r.psku !== "A"),
               );
             }
           },

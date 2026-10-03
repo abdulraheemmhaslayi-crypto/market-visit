@@ -129,7 +129,7 @@ export default function SupervisorDashboard() {
   // Instant restore from sessionStorage to eliminate 0-data flash on dashboard load
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v2');
+      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v3');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.rows && parsed.rows.length > 0) {
@@ -161,7 +161,7 @@ export default function SupervisorDashboard() {
         setReportRows(newReportRows);
         setMasters(newMasters);
         try {
-          sessionStorage.setItem('supervisor_dashboard_cache_v2', JSON.stringify({
+          sessionStorage.setItem('supervisor_dashboard_cache_v3', JSON.stringify({
             rows: newRows,
             reportRows: newReportRows,
             masters: newMasters,
@@ -501,9 +501,9 @@ export default function SupervisorDashboard() {
             businessVertical: 'Dairy',
             skuName: 'All Power SKUs',
             skuCode: 'ALL-PSKU',
-            status: isAvail ? 'Available' : isNotAvail ? 'Not Available' : 'Not Applicable',
+            status: isAvail ? 'Available' : 'Not Available',
             availability: isAvail ? 'YES' : 'NO',
-            psku: isAvail ? 'A' : isNotAvail ? 'N' : 'X',
+            psku: isAvail ? 'A' : 'N',
           };
         });
 
@@ -615,9 +615,9 @@ export default function SupervisorDashboard() {
               class: r.gr || r.class || 'C',
               businessVertical: 'Dairy',
               skuName: 'All Power SKUs',
-              status: isAvail ? 'Available' : isNotAvail ? 'Not Available' : 'Not Applicable',
+              status: isAvail ? 'Available' : 'Not Available',
               availability: isAvail ? 'YES' : 'NO',
-              psku: isAvail ? 'A' : isNotAvail ? 'N' : 'X',
+              psku: isAvail ? 'A' : 'N',
             };
           });
       matched = source.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
@@ -662,9 +662,9 @@ export default function SupervisorDashboard() {
               class: r.gr || r.class || 'C',
               businessVertical: 'Dairy',
               skuName: 'All Power SKUs',
-              status: isAvail ? 'Available' : isNotAvail ? 'Not Available' : 'Not Applicable',
+              status: isAvail ? 'Available' : 'Not Available',
               availability: isAvail ? 'YES' : 'NO',
-              psku: isAvail ? 'A' : isNotAvail ? 'N' : 'X',
+              psku: isAvail ? 'A' : 'N',
             };
           });
       setReportModalRows(source.filter((r: any) => !r.visitId || visitLookup.has(r.visitId)));
@@ -1494,11 +1494,11 @@ export default function SupervisorDashboard() {
       chartsRef.current.cNpd = new Chart(canvasNpdRef.current, {
         type: 'bar',
         data: {
-          labels: ['Available', 'Not Available', 'Not Applicable'],
+          labels: ['Available', 'Not Available'],
           datasets: [
             {
-              data: [npdPct(availCount), npdPct(notAvailCount), npdPct(notReqCount)],
-              backgroundColor: [GREEN, RED, GREY],
+              data: [npdPct(availCount), npdPct(notAvailCount + notReqCount)],
+              backgroundColor: [GREEN, RED],
               borderRadius: 6,
             },
           ],
@@ -1517,7 +1517,7 @@ export default function SupervisorDashboard() {
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? '') as string;
-              const targetCode = label === 'Available' ? 'Available' : label === 'Not Available' ? 'Not Available' : 'Not Applicable';
+              const targetCode = label === 'Available' ? 'Available' : 'Not Available';
               const matched = filteredNpdRows.length > 0
                 ? filteredNpdRows.filter((r: any) => {
                     const st = (r.status || r.availability || '').toUpperCase();
@@ -1555,18 +1555,24 @@ export default function SupervisorDashboard() {
     // 6. Focus SKU Availability Bar Chart (percentage-based)
     if (canvasPskuRef.current) {
       if (chartsRef.current.cPsku) chartsRef.current.cPsku.destroy();
-      const psku = countFreq(filtered, (r) => r.psku);
+      let availCount = 0;
+      let notAvailCount = 0;
+      filtered.forEach((r) => {
+        const isA = r.psku === 'A' || (r.status || r.availability || '').toUpperCase() === 'AVAILABLE' || (r.status || r.availability || '').toUpperCase() === 'YES';
+        if (isA) availCount++;
+        else notAvailCount++;
+      });
       const pskuTotal = filtered.length;
       const pskuPct = (count: number) => (pskuTotal ? Math.round((count / pskuTotal) * 100) : 0);
 
       chartsRef.current.cPsku = new Chart(canvasPskuRef.current, {
         type: 'bar',
         data: {
-          labels: ['Available', 'Not Available', 'Not Applicable'],
+          labels: ['Available', 'Not Available'],
           datasets: [
             {
-              data: [pskuPct(psku.A || 0), pskuPct(psku.N || 0), pskuPct(psku.X || 0)],
-              backgroundColor: [GREEN, RED, GREY],
+              data: [pskuPct(availCount), pskuPct(notAvailCount)],
+              backgroundColor: [GREEN, RED],
               borderRadius: 6,
             },
           ],
@@ -1581,16 +1587,13 @@ export default function SupervisorDashboard() {
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? '') as string;
-              const pskuCode = label === 'Available' ? 'A' : label === 'Not Available' ? 'N' : 'X';
+              const pskuCode = label === 'Available' ? 'A' : 'N';
               handleDrilldownChartClick(
                 'psku',
                 `Power SKU Availability · ${label}`,
                 (r: any) => {
-                  if (r.psku === pskuCode) return true;
-                  const st = (r.status || r.availability || '').toUpperCase();
-                  if (pskuCode === 'A') return st === 'AVAILABLE' || st === 'YES' || st === 'A';
-                  if (pskuCode === 'N') return st === 'NOT AVAILABLE' || st === 'NO' || st === 'N';
-                  return st !== 'AVAILABLE' && st !== 'YES' && st !== 'A' && st !== 'NOT AVAILABLE' && st !== 'NO' && st !== 'N';
+                  const isA = r.psku === 'A' || (r.status || r.availability || '').toUpperCase() === 'AVAILABLE' || (r.status || r.availability || '').toUpperCase() === 'YES';
+                  return pskuCode === 'A' ? isA : !isA;
                 },
                 label ? `Status: ${label}` : undefined
               );
