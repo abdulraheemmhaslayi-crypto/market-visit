@@ -257,6 +257,30 @@ export async function GET(req: NextRequest) {
 
     let filteredVisits: any[] = visits.filter((v: any) => v.status === 'Submitted');
 
+    // Calculate latest date from submitted visits for default dashboard slicer
+    let latestDate = '';
+    for (const v of visits) {
+      if (v.status === 'Submitted' && v.createdAt) {
+        const d = new Date(v.createdAt);
+        if (!isNaN(d.getTime())) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          const dateStr = `${y}-${m}-${day}`;
+          if (!latestDate || dateStr > latestDate) {
+            latestDate = dateStr;
+          }
+        }
+      }
+    }
+    if (!latestDate) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      latestDate = `${y}-${m}-${day}`;
+    }
+
     if (filteredVisits.length === 0) {
       const nowIso = new Date().toISOString();
       filteredVisits = [
@@ -672,6 +696,7 @@ export async function GET(req: NextRequest) {
         date: visitDate,
         visitId: v.visitId,
         channel: ch,
+        rtm: ch,
         manager: mgrName,
         supervisor: supName,
         routeCode: cleanRoute,
@@ -685,6 +710,7 @@ export async function GET(req: NextRequest) {
           date: visitDate,
           visitId: v.visitId,
           channel: ch,
+          rtm: ch,
           manager: mgrName,
           supervisor: supName,
           routeCode: cleanRoute,
@@ -698,6 +724,7 @@ export async function GET(req: NextRequest) {
           date: visitDate,
           visitId: v.visitId,
           channel: ch,
+          rtm: ch,
           manager: mgrName,
           supervisor: supName,
           routeCode: cleanRoute,
@@ -719,6 +746,7 @@ export async function GET(req: NextRequest) {
             date: visitDate,
             visitId: v.visitId,
             channel: ch,
+            rtm: ch,
             manager: mgrName,
             supervisor: supName,
             routeCode: cleanRoute,
@@ -748,6 +776,7 @@ export async function GET(req: NextRequest) {
             date: visitDate,
             visitId: v.visitId,
             channel: ch,
+            rtm: ch,
             manager: mgrName,
             supervisor: supName,
             routeCode: cleanRoute,
@@ -774,6 +803,7 @@ export async function GET(req: NextRequest) {
             date: visitDate,
             visitId: v.visitId,
             channel: ch,
+            rtm: ch,
             manager: mgrName,
             supervisor: supName,
             routeCode: cleanRoute,
@@ -804,6 +834,7 @@ export async function GET(req: NextRequest) {
           date: visitDate,
           visitId: v.visitId,
           channel: ch,
+          rtm: ch,
           manager: mgrName,
           supervisor: supName,
           routeCode: cleanRoute,
@@ -842,6 +873,7 @@ export async function GET(req: NextRequest) {
         supervisor: supName,
         ch,
         channel: ch,
+        rtm: ch,
         gr,
         classification: gr,
         dairyGr: dairyGr || gr || '-',
@@ -1065,6 +1097,8 @@ export async function GET(req: NextRequest) {
       masters: {
         managers: allManagers,
         supervisors: allSupervisors,
+        rtms: custMaster?.rtms?.length ? custMaster.rtms : ['INST', 'MT', 'TT'],
+        channels: custMaster?.rtms?.length ? custMaster.rtms : ['INST', 'MT', 'TT'],
         classifications: custMaster?.classifications?.length ? custMaster.classifications : ['A', 'B', 'C', 'D', 'E'],
         routes: custMaster?.routes?.length > 0
           ? custMaster.routes.map((r: any) => ({
@@ -1082,8 +1116,13 @@ export async function GET(req: NextRequest) {
         customers: custMaster?.customers?.length > 0
           ? custMaster.customers.map((c: any) => ({
               customerName: c.customerName,
+              customerCode: c.customerCode,
               routeCode: c.routeCode,
               classification: c.classification,
+              channel: c.channel,
+              rtm: c.rtm || c.channel,
+              managerName: c.managerName,
+              superName: c.superName,
             }))
           : uniqueCustomers,
         managerSupervisorMap,
@@ -1122,6 +1161,7 @@ export async function GET(req: NextRequest) {
       coveragePerRoute,
       supervisorPerformance,
       temperatureBreaches,
+      latestDate,
     };
 
     cacheStore.set(cacheKey, { timestamp: Date.now(), data: payload });

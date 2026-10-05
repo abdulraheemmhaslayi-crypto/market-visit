@@ -99,6 +99,35 @@ export default function AdminDashboardPage() {
   const [fSizeModels, setFSizeModels] = useState<string[]>([]);
   const [masters, setMasters] = useState<any>(null);
 
+  const latestDateRef = useRef<string>('');
+  const initialDateApplied = useRef<boolean>(false);
+
+  // Helper to extract YYYY-MM-DD from row date
+  const getRowDateStr = (r: any): string => {
+    const raw = r.createdAt || r.date;
+    if (!raw) return '';
+    if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
+      return raw.trim();
+    }
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return String(raw).split('T')[0];
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getLatestDateFromRows = (rowList: any[]): string => {
+    let latest = '';
+    for (const r of rowList) {
+      const dStr = getRowDateStr(r);
+      if (dStr && (!latest || dStr > latest)) {
+        latest = dStr;
+      }
+    }
+    return latest;
+  };
+
   // Canvas Refs
   const canvasTrendRef = useRef<HTMLCanvasElement>(null);
   const canvasChannelRef = useRef<HTMLCanvasElement>(null);
@@ -125,6 +154,15 @@ export default function AdminDashboardPage() {
           if (parsed.managerSupervisorMap) setManagerSupervisorMap(parsed.managerSupervisorMap);
           if (parsed.photos) setPhotos(parsed.photos);
           if (parsed.masters) setMasters(parsed.masters);
+          const cLatest = parsed.latestDate || getLatestDateFromRows(parsed.rows);
+          if (cLatest) {
+            latestDateRef.current = cLatest;
+            if (!initialDateApplied.current) {
+              setFFrom(cLatest);
+              setFTo(cLatest);
+              initialDateApplied.current = true;
+            }
+          }
           setIsLoading(false);
         }
       }
@@ -156,6 +194,16 @@ export default function AdminDashboardPage() {
           const newMgrSupMap = data.managerSupervisorMap || {};
           const newPhotos = data.photos || [];
           const newMasters = data.masters || null;
+          const foundLatestDate = data.latestDate || getLatestDateFromRows(newRows);
+
+          if (foundLatestDate) {
+            latestDateRef.current = foundLatestDate;
+            if (!initialDateApplied.current) {
+              setFFrom(foundLatestDate);
+              setFTo(foundLatestDate);
+              initialDateApplied.current = true;
+            }
+          }
 
           setRows(newRows);
           setReportRows(newReportRows);
@@ -171,6 +219,7 @@ export default function AdminDashboardPage() {
               managerSupervisorMap: newMgrSupMap,
               photos: newPhotos,
               masters: newMasters,
+              latestDate: foundLatestDate || latestDateRef.current,
             }));
           } catch (e) {
             // Ignore quota errors
@@ -247,22 +296,21 @@ export default function AdminDashboardPage() {
     return ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
   }, [masters, fMgr]);
 
-  // 3. Channel Options: filtered by Manager and Supervisor
-  const channelOptions = useMemo(() => {
-    const filteredByMgrSuper = rows.filter(r => {
-      const rowDate = new Date(r.createdAt);
-      const from = normalizeDate(fFrom);
-      const to = normalizeDate(fTo);
-      const fromOk = !from || rowDate >= from;
-      const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      const mgrOk = isManagerMatch(r.mgr, fMgr);
-      const superOk = isSupervisorMatch(r.sup, fSuper, fMgr);
-      return mgrOk && superOk && fromOk && toOk;
-    });
-    return Array.from(new Set(filteredByMgrSuper.map((r) => r.ch))).sort();
-  }, [rows, fMgr, fSuper, fFrom, fTo]);
+  // 3. RTM Options: Strictly from CUSTMASTER Segment_Fin(120MT), filtered by selected Manager/Supervisor if applicable
+  const rtmOptions = useMemo<string[]>(() => {
+    if (!masters) return ['INST', 'MT', 'TT'];
+    let custs = masters.customers || [];
+    if (fSuper.length > 0) {
+      custs = custs.filter((c: any) => isSupervisorMatch(c.superName, fSuper, fMgr));
+    } else if (fMgr.length > 0) {
+      custs = custs.filter((c: any) => isManagerMatch(c.managerName, fMgr));
+    }
+    const rtmList = Array.from(new Set(custs.map((c: any) => c.rtm || c.channel).filter(Boolean))).sort() as string[];
+    if (rtmList.length > 0) return rtmList;
+    return ((masters.rtms || masters.channels || ['INST', 'MT', 'TT']) as string[]);
+  }, [masters, fSuper, fMgr]);
 
-  // 4. Customer / Outlet Options: From CUSTMASTER, cascaded by Route, Supervisor, Manager, and Classification
+  // 4. Customer / Outlet Options: From CUSTMASTER, cascaded by Route, Supervisor, Manager, RTM, and Classification
   const custOptions = useMemo<string[]>(() => {
     if (!masters) return [];
     let routes = masters.routes || [];
@@ -279,11 +327,14 @@ export default function AdminDashboardPage() {
     } else if (fSuper.length > 0 || fMgr.length > 0) {
       customersList = customersList.filter((c: any) => routeCodes.has(c.routeCode));
     }
+    if (fChannel) {
+      customersList = customersList.filter((c: any) => (c.rtm || c.channel) === fChannel);
+    }
     if (fClass) {
       customersList = customersList.filter((c: any) => c.classification === fClass);
     }
     return Array.from(new Set(customersList.map((c: any) => c.customerName).filter(Boolean))).sort() as string[];
-  }, [masters, fRoute, fSuper, fMgr, fClass]);
+  }, [masters, fRoute, fSuper, fMgr, fChannel, fClass]);
 
   // 5. Classification Options: Strictly from CUSTMASTER, cascaded by Route, Supervisor, or Manager if selected
   const classOptions = useMemo<string[]>(() => {
@@ -307,13 +358,16 @@ export default function AdminDashboardPage() {
         );
         custs = custs.filter((c: any) => mgrRoutes.has(c.routeCode));
       }
+      if (fChannel) {
+        custs = custs.filter((c: any) => (c.rtm || c.channel) === fChannel);
+      }
       const classes = Array.from(new Set(custs.map((c: any) => c.classification).filter(Boolean))).sort();
       return classes.length > 0 ? (classes as string[]) : ['A', 'B', 'C', 'D', 'E'];
     }
     return (masters.classifications || ['A', 'B', 'C', 'D', 'E']) as string[];
-  }, [masters, fRoute, fSuper, fMgr]);
+  }, [masters, fRoute, fSuper, fMgr, fChannel]);
 
-  // 6. Route Options: Strictly from CUSTMASTER, cascaded by Supervisor or Manager if selected
+  // 6. Route Options: Strictly from CUSTMASTER, cascaded by Supervisor, Manager, or RTM if selected
   const routeOptions = useMemo<string[]>(() => {
     if (!masters) return [];
     let routes = masters.routes || [];
@@ -322,8 +376,16 @@ export default function AdminDashboardPage() {
     } else if (fMgr.length > 0) {
       routes = routes.filter((r: any) => isManagerMatch(r.managerName, fMgr));
     }
+    if (fChannel && masters.customers) {
+      const validRouteCodes = new Set(
+        masters.customers
+          .filter((c: any) => (c.rtm || c.channel) === fChannel)
+          .map((c: any) => c.routeCode)
+      );
+      routes = routes.filter((r: any) => validRouteCodes.has(r.routeCode));
+    }
     return Array.from(new Set(routes.map((r: any) => r.routeCode).filter((rt: string) => rt && rt !== 'DIS001'))).sort((a: any, b: any) => a.localeCompare(b, undefined, { numeric: true })) as string[];
-  }, [masters, fSuper, fMgr]);
+  }, [masters, fSuper, fMgr, fChannel]);
 
   // Dynamic Size/Model options based on selected Asset Category
   const availableSizeModels = useMemo(() => {
@@ -332,8 +394,9 @@ export default function AdminDashboardPage() {
 
   // Reset helper
   const resetFilters = () => {
-    setFFrom('');
-    setFTo('');
+    const defaultDate = latestDateRef.current || '';
+    setFFrom(defaultDate);
+    setFTo(defaultDate);
     setFMgr([]);
     setFSuper([]);
     setFChannel('');
@@ -698,7 +761,7 @@ export default function AdminDashboardPage() {
     if (fFrom || fTo) parts.push(`Date: <b>${fFrom || 'Start'} → ${fTo || 'Now'}</b>`);
     if (fMgr.length > 0) parts.push(`Manager: <b>${fMgr.join(', ')}</b>`);
     if (fSuper.length > 0) parts.push(`Supervisor: <b>${fSuper.join(', ')}</b>`);
-    if (fChannel) parts.push(`Channel: <b>${fChannel}</b>`);
+    if (fChannel) parts.push(`RTM: <b>${fChannel}</b>`);
     if (fClass) parts.push(`Classification: <b>${fClass}</b>`);
     if (fCust) parts.push(`Outlet: <b>${fCust}</b>`);
     if (fRoute) parts.push(`Route: <b>${fRoute}</b>`);
@@ -717,7 +780,7 @@ export default function AdminDashboardPage() {
       userRole,
       columns: [
         { header: 'Visit Date', key: 'createdAt', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Channel', key: 'channel', formatter: (val: any, row: any) => val || row.ch || '—' },
+        { header: 'RTM', key: 'channel', formatter: (val: any, row: any) => val || row.ch || row.rtm || '—' },
         { header: 'Manager', key: 'manager', formatter: (val: any, row: any) => val || row.mgr || '—' },
         { header: 'Supervisor', key: 'supervisor', formatter: (val: any, row: any) => val || row.sup || '—' },
         { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.rt || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
@@ -960,7 +1023,7 @@ export default function AdminDashboardPage() {
             manager: o.manager,
             supervisor: o.supervisor,
             channel: o.channel,
-            class: o.dairyGr === '-' ? 'Not Classified' : o.dairyGr,
+            class: ['A', 'B', 'C', 'D'].includes(o.dairyGr) ? o.dairyGr : 'E',
             status: visited ? 'Visited' : 'Unvisited',
             lastVisitDate: visited?.date ? new Date(visited.date).toLocaleDateString() : '—',
           };
@@ -991,7 +1054,10 @@ export default function AdminDashboardPage() {
         { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
         { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
         { header: 'Outlet Name', key: 'outletName', formatter: (val: any, row: any) => val || row.cust || '—' },
-        { header: 'Classification Grade', key: 'class', formatter: (val: any, row: any) => val || row.gr || 'Not classified' },
+        { header: 'Classification Grade', key: 'class', formatter: (val: any, row: any) => {
+          const g = val || row.gr || row.class || 'E';
+          return ['A', 'B', 'C', 'D'].includes(g) ? g : 'E';
+        } },
       ],
       data: dataToExport,
     });
@@ -1016,7 +1082,10 @@ export default function AdminDashboardPage() {
         { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
         { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
         { header: 'Outlet Name', key: 'outletName', formatter: (val: any, row: any) => val || row.cust || '—' },
-        { header: 'Classification Grade', key: 'class', formatter: (val: any, row: any) => val || row.gr || 'Not classified' },
+        { header: 'Classification Grade', key: 'class', formatter: (val: any, row: any) => {
+          const g = val || row.gr || row.class || 'E';
+          return ['A', 'B', 'C', 'D'].includes(g) ? g : 'E';
+        } },
       ],
       data: dataToExport,
     });
@@ -1726,26 +1795,26 @@ export default function AdminDashboardPage() {
       const dairyVisitRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
 
       const visitedOutletKeys = new Set<string>();
-      const visitedByGrade: Record<string, Set<string>> = { A: new Set(), B: new Set(), C: new Set(), D: new Set(), E: new Set(), '-': new Set() };
+      const visitedByGrade: Record<string, Set<string>> = { A: new Set(), B: new Set(), C: new Set(), D: new Set(), E: new Set() };
 
       dairyVisitRows.forEach((r: any) => {
         const key = r.outletCode || r.outletName;
         if (key) {
           visitedOutletKeys.add(key);
-          const gr = r.class || r.classification || '-';
-          const normalizedGr = ['A', 'B', 'C', 'D', 'E'].includes(gr) ? gr : '-';
+          const gr = r.class || r.classification;
+          const normalizedGr = ['A', 'B', 'C', 'D'].includes(gr) ? gr : 'E';
           if (!visitedByGrade[normalizedGr]) visitedByGrade[normalizedGr] = new Set();
           visitedByGrade[normalizedGr].add(key);
         }
       });
 
-      const allGrades = ['A', 'B', 'C', 'D', 'E', '-'];
-      const gradeLabels: (string | string[])[] = ['A', 'B', 'C', 'D', 'E', ['Not', 'Classified']];
+      const allGrades = ['A', 'B', 'C', 'D', 'E'];
+      const gradeLabels = ['A', 'B', 'C', 'D', 'E'];
 
       const stats: Record<string, { total: number; visited: number; unvisited: number; coveragePct: number }> = {};
       allGrades.forEach((g) => {
         const outletsInGrade = masterOutlets.filter((o: any) => {
-          const ogr = ['A', 'B', 'C', 'D', 'E'].includes(o.dairyGr) ? o.dairyGr : '-';
+          const ogr = ['A', 'B', 'C', 'D'].includes(o.dairyGr) ? o.dairyGr : 'E';
           return ogr === g;
         });
 
@@ -1863,7 +1932,7 @@ export default function AdminDashboardPage() {
                 title: (items: any[]) => {
                   const raw = items[0]?.label;
                   const label = Array.isArray(raw) ? raw.join(' ') : String(raw || '');
-                  return `Classification · Dairy: ${label === 'Not Classified' ? 'Not Classified' : `Class ${label}`}`;
+                  return `Classification · Dairy: Class ${label}`;
                 },
                 label: (ctx: any) => {
                   const g = allGrades[ctx.dataIndex];
@@ -1891,11 +1960,14 @@ export default function AdminDashboardPage() {
             if (el.length > 0 && allowedReports.includes('classification')) {
               const rawLabel = chart.data.labels?.[el[0].index];
               const label = Array.isArray(rawLabel) ? rawLabel.join(' ') : String(rawLabel ?? '');
-              const classValue = label === 'Not Classified' ? '-' : label;
-              const matched = (reportRows.classificationDairy || []).filter((row: any) => row.class === classValue && visitLookup.has(row.visitId));
+              const matched = (reportRows.classificationDairy || []).filter((row: any) => {
+                const rClass = row.class || row.classification;
+                const norm = ['A', 'B', 'C', 'D'].includes(rClass) ? rClass : 'E';
+                return norm === label && visitLookup.has(row.visitId);
+              });
               setReportModalType('classification');
               setReportModalSource('classificationDairy');
-              setReportModalTitle(`Outlets by Classification · Dairy · ${label}`);
+              setReportModalTitle(`Outlets by Classification · Dairy · Class ${label}`);
               setReportModalRows(matched);
               setReportFilterChip({ key: 'segment', value: `Class: ${label}`, label: `Class: ${label}` });
               setReportModalOpen(true);
@@ -1937,9 +2009,13 @@ export default function AdminDashboardPage() {
       if (chartsRef.current.cClassIce) chartsRef.current.cClassIce.destroy();
       const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
       const iceRows = (reportRows.classificationIceCream || []).filter((r: any) => visitLookup.has(r.visitId));
-      const cli = countFreq(iceRows, (r) => r.class);
-      const allGrades = ['A', 'B', 'C', 'D', 'E', '-'];
-      const gradeLabels = ['A', 'B', 'C', 'D', 'E', 'Not Classified'];
+      const allGrades = ['A', 'B', 'C', 'D', 'E'];
+      const gradeLabels = ['A', 'B', 'C', 'D', 'E'];
+      const cli: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+      iceRows.forEach((r: any) => {
+        const norm = ['A', 'B', 'C', 'D'].includes(r.class) ? r.class : 'E';
+        cli[norm] = (cli[norm] || 0) + 1;
+      });
       const classTotalIce = iceRows.length;
       const classPctIce = (count: number) => (classTotalIce ? Math.round((count / classTotalIce) * 100) : 0);
 
@@ -1951,7 +2027,7 @@ export default function AdminDashboardPage() {
             {
               label: 'Visits',
               data: allGrades.map((g) => classPctIce(cli[g] || 0)),
-              backgroundColor: allGrades.map((g) => g === '-' ? '#9aa9b4' : GCOL[g]),
+              backgroundColor: allGrades.map((g) => GCOL[g] || '#9aa9b4'),
               borderRadius: 6,
             },
           ],
@@ -1966,11 +2042,14 @@ export default function AdminDashboardPage() {
           onClick: (e, el, chart) => {
             if (el.length > 0 && allowedReports.includes('classification')) {
               const label = (chart.data.labels?.[el[0].index] ?? '') as string;
-              const classValue = label === 'Not Classified' ? '-' : label;
-              const matched = (reportRows.classificationIceCream || []).filter((row: any) => row.class === classValue && visitLookup.has(row.visitId));
+              const matched = (reportRows.classificationIceCream || []).filter((row: any) => {
+                const rClass = row.class || row.classification;
+                const norm = ['A', 'B', 'C', 'D'].includes(rClass) ? rClass : 'E';
+                return norm === label && visitLookup.has(row.visitId);
+              });
               setReportModalType('classification');
               setReportModalSource('classificationIceCream');
-              setReportModalTitle(`Outlets by Classification · Ice Cream · ${label}`);
+              setReportModalTitle(`Outlets by Classification · Ice Cream · Class ${label}`);
               setReportModalRows(matched);
               setReportFilterChip({ key: 'segment', value: `Class: ${label}`, label: `Class: ${label}` });
               setReportModalOpen(true);
@@ -2407,19 +2486,22 @@ export default function AdminDashboardPage() {
             />
           </div>
 
-          {/* <div className="fld">
-            <label>Channel</label>
-            <select value={fChannel} onChange={(e) => {
-              setFChannel(e.target.value);
-              setFClass('');
-              setFCust('');
-            }}>
-              <option value="">All Channels</option>
-              {channelOptions.map((c) => (
+          <div className="fld min-w-[120px]">
+            <label>RTM</label>
+            <select
+              value={fChannel}
+              onChange={(e) => {
+                setFChannel(e.target.value);
+                setFClass('');
+                setFCust('');
+              }}
+            >
+              <option value="">All RTM</option>
+              {rtmOptions.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-          </div> */}
+          </div>
 
           <div className="fld">
             <label>Classification</label>

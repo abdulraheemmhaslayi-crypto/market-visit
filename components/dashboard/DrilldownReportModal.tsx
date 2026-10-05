@@ -25,7 +25,7 @@ const GCOL: Record<string, string> = {
 const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   npd: [
     { key: 'date', label: 'Date' },
-    { key: 'channel', label: 'Channel' },
+    { key: 'channel', label: 'RTM' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
     { key: 'routeCode', label: 'Route Code' },
@@ -38,7 +38,7 @@ const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   psku: [
     { key: 'date', label: 'Date' },
-    { key: 'channel', label: 'Channel' },
+    { key: 'channel', label: 'RTM' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
     { key: 'routeCode', label: 'Route Code' },
@@ -51,7 +51,7 @@ const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   'cold-chain': [
     { key: 'date', label: 'Date' },
-    { key: 'channel', label: 'Channel' },
+    { key: 'channel', label: 'RTM' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
     { key: 'routeCode', label: 'Route Code' },
@@ -65,7 +65,7 @@ const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   classification: [
     { key: 'date', label: 'Date' },
-    { key: 'channel', label: 'Channel' },
+    { key: 'channel', label: 'RTM' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
     { key: 'routeCode', label: 'Route Code' },
@@ -102,10 +102,13 @@ function getCellValue(row: Record<string, unknown>, key: string) {
     return (row.outletCode || row.custCode || row.code || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[0] : '—')) as string;
   }
   if (key === 'outletName') return (row.outletName || row.cust || '—') as string;
-  if (key === 'classification') return (row.classification || row.class || row.gr || '—') as string;
+  if (key === 'classification') {
+    const val = (row.classification || row.class || row.gr || '—') as string;
+    return val === '-' ? 'E' : val;
+  }
   if (key === 'class') {
     const classVal = (row.class || row.classification || row.gr || '—') as string;
-    return classVal === '-' ? 'Not classified' : classVal;
+    return classVal === '-' ? 'E' : classVal;
   }
   if (key === 'businessVertical') return (row.businessVertical || row.vertical || (row.category === 'Ice Cream' ? 'Ice Cream' : 'Dairy') || '—') as string;
   if (key === 'assetType') return (row.assetType || row.atype || '—') as string;
@@ -568,17 +571,13 @@ export default function DrilldownReportModal({
                     {columns.map((column) => (
                       <td key={column.key} className="px-3 py-3 text-[12px] whitespace-nowrap text-[var(--text-primary)]">
                         {column.key === 'classification' && row.classification ? (
-                          <span className="inline-grid place-items-center w-6 h-6 rounded-md text-white font-bold text-[10px]" style={{ background: GCOL[row.classification as string] || '#9aa9b4' }}>
-                            {row.classification as string}
+                          <span className="inline-grid place-items-center w-6 h-6 rounded-md text-white font-bold text-[10px]" style={{ background: GCOL[row.classification === '-' ? 'E' : (row.classification as string)] || '#9aa9b4' }}>
+                            {row.classification === '-' ? 'E' : (row.classification as string)}
                           </span>
                         ) : column.key === 'class' && row.class ? (
-                          row.class === '-' ? (
-                            <span className="text-[11px] text-[var(--text-secondary)]">Not classified</span>
-                          ) : (
-                            <span className="inline-grid place-items-center w-6 h-6 rounded-md text-white font-bold text-[10px]" style={{ background: GCOL[row.class as string] || '#9aa9b4' }}>
-                              {row.class as string}
-                            </span>
-                          )
+                          <span className="inline-grid place-items-center w-6 h-6 rounded-md text-white font-bold text-[10px]" style={{ background: GCOL[row.class === '-' ? 'E' : (row.class as string)] || '#9aa9b4' }}>
+                            {row.class === '-' ? 'E' : (row.class as string)}
+                          </span>
                         ) : column.key === 'availability' && (getCellValue(row, column.key) === 'NO' || getCellValue(row, column.key) === 'Not Available') ? (
                           <span className="inline-flex items-center rounded-full bg-red-500/12 px-2.5 py-1 text-[10px] font-semibold text-red-600">{getCellValue(row, column.key)}</span>
                         ) : column.key === 'availability' && (getCellValue(row, column.key) === 'YES' || getCellValue(row, column.key) === 'Available') ? (

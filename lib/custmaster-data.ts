@@ -20,6 +20,7 @@ export interface CustMasterCustomer {
   dairyClassification?: string;
   iceCreamClassification?: string;
   channel: string;
+  rtm?: string;
 }
 
 export interface CustMasterPayload {
@@ -34,6 +35,7 @@ export interface CustMasterPayload {
   routeManagerMap: Record<string, string>;
   routeSupervisorMap: Record<string, string>;
   customerClassificationMap: Record<string, string>;
+  rtms?: string[];
 }
 
 let cachedCustMaster: CustMasterPayload | null = null;
@@ -217,6 +219,7 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
   const managerSet = new Set<string>();
   const supervisorSet = new Set<string>();
   const classificationSet = new Set<string>(['A', 'B', 'C', 'D', 'E']);
+  const rtmSet = new Set<string>();
   const routeMap = new Map<string, CustMasterRoute>();
   const customerList: CustMasterCustomer[] = [];
   const managerSupervisorMap: Record<string, string[]> = {};
@@ -240,7 +243,26 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
           const custName = String(r['Customer Name'] || '').trim();
           const mgrRaw = String(r['MANAGER'] || r['NEW MANAGER'] || '').trim().toUpperCase();
           const supRaw = String(r['Supervisor'] || r['SV'] || '').trim().toUpperCase();
-          const channelRaw = String(r['Segment_Fin(120MT)'] || r['CHANNEL'] || 'GT').trim().toUpperCase();
+          
+          let segFin =
+            r['Segment_Fin(120MT)'] ||
+            r['Segment_Fin'] ||
+            r['Segment Fin'] ||
+            r['segment_fin(120mt)'] ||
+            r['segment fin 120'] ||
+            r['CHANNEL'] ||
+            '';
+          if (!segFin) {
+            const matchingKey = Object.keys(r).find((k) => {
+              const lower = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return lower.includes('segmentfin') || (lower.includes('segment') && lower.includes('fin')) || lower.includes('120mt');
+            });
+            if (matchingKey) segFin = r[matchingKey];
+          }
+          const channelRaw = String(segFin || 'GT').trim().toUpperCase();
+          if (channelRaw && channelRaw !== 'GENERAL TRADE' && channelRaw !== 'GENERAL STORE' && channelRaw !== 'GT') {
+            rtmSet.add(channelRaw);
+          }
 
           const isInternal = rtRaw === 'DIS001' || mgrRaw === 'INTERNAL' || supRaw === 'INTERNAL';
           const isExcludedMgr = mgrRaw === 'EXP MANAGER' || mgrRaw === 'INST MANAGER' || !mgrRaw;
@@ -332,6 +354,7 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
               dairyClassification: dairyCls || undefined,
               iceCreamClassification: iceCls || undefined,
               channel: finalChannel,
+              rtm: finalChannel,
             });
           }
         }
@@ -388,6 +411,7 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
   const supervisors = Array.from(supervisorSet).sort();
   const classifications = Array.from(classificationSet).sort();
   const routes = Array.from(routeMap.values()).sort((a, b) => a.routeCode.localeCompare(b.routeCode));
+  const rtms = rtmSet.size > 0 ? Array.from(rtmSet).sort() : ['INST', 'MT', 'TT'];
 
   cachedCustMaster = {
     managers,
@@ -401,6 +425,7 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
     routeManagerMap,
     routeSupervisorMap,
     customerClassificationMap,
+    rtms,
   };
 
   lastCacheTime = now;

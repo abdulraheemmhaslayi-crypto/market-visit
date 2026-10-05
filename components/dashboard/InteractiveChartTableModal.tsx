@@ -145,7 +145,7 @@ export default function InteractiveChartTableModal({
       filterSummary: search ? `Search query: "${search}"` : undefined,
       columns: [
         { header: 'Date', key: 'createdAt', formatter: (val) => val ? new Date(val).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
-        { header: 'Channel', key: 'ch', formatter: (val, row) => val || row.channel || 'TT' },
+        { header: 'RTM', key: 'ch', formatter: (val, row) => val || row.rtm || row.channel || 'TT' },
         { header: 'Manager', key: 'mgr', formatter: (val, row) => val || row.manager || '—' },
         { header: 'Supervisor', key: 'sup', formatter: (val, row) => val || row.supervisor || '—' },
         { header: 'Route Code', key: 'rt', formatter: (val, row) => val || row.route || row.routeCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] || row.cust_rt_id.split('|')[0] : '—') },
@@ -278,7 +278,7 @@ export default function InteractiveChartTableModal({
                     onClick={() => handleSort('ch')}
                     className="px-5 py-3 text-left font-bold text-[10.5px] uppercase tracking-wider cursor-pointer hover:bg-[var(--surface-2)]"
                   >
-                    Ch {renderSortIcon('ch')}
+                    RTM {renderSortIcon('ch')}
                   </th>
                   <th 
                     onClick={() => handleSort('gr')}
