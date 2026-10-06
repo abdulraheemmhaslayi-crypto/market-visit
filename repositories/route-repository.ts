@@ -98,14 +98,41 @@ export const routeRepository = {
       params.push(normalizedName);
     }
     const [rows]: any = await pool.execute(sql, params);
-    return rows.map(mapRowToRoute);
+    let mapped = rows.map(mapRowToRoute);
+
+    const sName = (supervisorName || '').trim().toUpperCase();
+    if (sName === 'SAIFULLAH' || supervisorId === 'usr_rqwxav8') {
+      mapped = mapped.filter((r: Route) => !r.routeCode.startsWith('TR'));
+    } else if (sName === 'SAIF' || supervisorId === 'usr_tgb2s6h') {
+      mapped = mapped.filter((r: Route) => !r.routeCode.startsWith('MT'));
+    }
+
+    return mapped;
   },
 
   async isRouteAssignedToSupervisor(routeCode: string, supervisorId: string, supervisorName?: string): Promise<boolean> {
     await ensureRouteTableSchema();
+    const cleanRoute = (routeCode || '').trim().toUpperCase();
+
+    // Check CUSTMASTER first as source of truth
+    const { getCustMasterData } = await import('@/lib/custmaster-data');
+    const custMaster = getCustMasterData();
+    const assignedSup = custMaster.routeSupervisorMap[cleanRoute];
+
+    if (assignedSup && supervisorName) {
+      const sName = supervisorName.trim().toUpperCase();
+      // Handle SAIFULLAH vs SAIF explicitly
+      if (sName === 'SAIFULLAH' || supervisorId === 'usr_rqwxav8') {
+        return assignedSup === 'SAIFULLAH';
+      }
+      if (sName === 'SAIF' || supervisorId === 'usr_tgb2s6h') {
+        return assignedSup === 'SAIF';
+      }
+      return assignedSup === sName;
+    }
 
     // Check if route exists in DB
-    const [routeRows]: any = await pool.execute('SELECT * FROM `Route` WHERE `routeCode` = ? LIMIT 1', [routeCode]);
+    const [routeRows]: any = await pool.execute('SELECT * FROM `Route` WHERE `routeCode` = ? LIMIT 1', [cleanRoute]);
     if (routeRows.length === 0) return true;
 
     const route = routeRows[0];
@@ -116,7 +143,7 @@ export const routeRepository = {
     if (supervisorName && route.superName) {
       const norm1 = supervisorName.trim().toLowerCase().replace(/\s+/g, '');
       const norm2 = route.superName.trim().toLowerCase().replace(/\s+/g, '');
-      if (norm1 === norm2 || norm1.includes(norm2) || norm2.includes(norm1)) return true;
+      if (norm1 === norm2) return true;
     }
 
     try {
@@ -126,7 +153,7 @@ export const routeRepository = {
       }
     } catch (e) {}
 
-    return true;
+    return false;
   },
 
   async upsertRoutes(routes: Route[]): Promise<{ inserted: number; updated: number }> {

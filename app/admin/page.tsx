@@ -32,26 +32,9 @@ function isManagerMatch(rowManager: string | undefined | null, selectedManagers:
   return mgrs.some((m) => m.trim().toUpperCase() === rowMgr);
 }
 
-function matchSingleSupervisor(rowSupervisor: string, selSup: string, selectedManagers: string[] = []): boolean {
+function matchSingleSupervisor(rowSupervisor: string, selSup: string): boolean {
   const rowSup = (rowSupervisor || '').trim().toUpperCase();
   const targetSup = selSup.trim().toUpperCase();
-  if (rowSup === targetSup) return true;
-
-  const hasAdnan = selectedManagers.length === 0 || selectedManagers.some((m) => m.trim().toUpperCase() === 'ADNAN');
-
-  // Modern Trade Supervisor Saifullah (Manager: Adnan)
-  if (targetSup === 'SAIFULLAH') {
-    return rowSup === 'SAIFULLAH' || (rowSup === 'SAIF' && hasAdnan);
-  }
-
-  // Traditional Trade Supervisor Saif (Manager: Ashfaq)
-  if (targetSup === 'SAIF') {
-    if (hasAdnan) {
-      return rowSup === 'SAIFULLAH' || rowSup === 'SAIF';
-    }
-    return rowSup === 'SAIF';
-  }
-
   return rowSup === targetSup;
 }
 
@@ -69,7 +52,7 @@ function isSupervisorMatch(
     ? selectedManagers.filter(Boolean)
     : (selectedManagers ? [selectedManagers] : []);
 
-  return sups.some((s) => matchSingleSupervisor(rowSupervisor || '', s, mgrs));
+  return sups.some((s) => matchSingleSupervisor(rowSupervisor || '', s));
 }
 
 export default function AdminDashboardPage() {
@@ -145,7 +128,7 @@ export default function AdminDashboardPage() {
   // Initialize cached data immediately from sessionStorage to eliminate skeleton hangs & 0-data flash
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('admin_dashboard_cache_v3');
+      const cached = sessionStorage.getItem('admin_dashboard_cache_v4');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && typeof parsed === 'object' && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
@@ -213,7 +196,7 @@ export default function AdminDashboardPage() {
           setLastUpdated(new Date());
 
           try {
-            sessionStorage.setItem('admin_dashboard_cache_v3', JSON.stringify({
+            sessionStorage.setItem('admin_dashboard_cache_v4', JSON.stringify({
               rows: newRows,
               reportRows: newReportRows,
               managerSupervisorMap: newMgrSupMap,

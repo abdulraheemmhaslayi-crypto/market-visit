@@ -358,29 +358,30 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
             });
           }
         }
-        // Ensure MTI routes under Modern Trade (Adnan) are present
-        const knownMtiRoutes: Record<string, string> = {
+        // Ensure MTI and known Modern Trade routes under Adnan are present
+        const knownExtraRoutes: Record<string, string> = {
           MTI401: 'MOHSIN',
           MTI402: 'ASAD',
           MTI403: 'SAIFULLAH',
           MTI404: 'KISHAN',
           MTI405: 'JAVED',
           MTI406: 'RASHWIN',
+          MTD216: 'ASAD',
         };
-        Object.entries(knownMtiRoutes).forEach(([mti, sup]) => {
-          if (!routeMap.has(mti)) {
-            routeMap.set(mti, {
-              routeCode: mti,
-              routeName: `Route ${mti}`,
+        Object.entries(knownExtraRoutes).forEach(([rtCode, sup]) => {
+          if (!routeMap.has(rtCode)) {
+            routeMap.set(rtCode, {
+              routeCode: rtCode,
+              routeName: `Route ${rtCode}`,
               managerName: 'ADNAN',
               superName: sup,
             });
-            routeManagerMap[mti] = 'ADNAN';
-            routeSupervisorMap[mti] = sup;
+            routeManagerMap[rtCode] = 'ADNAN';
+            routeSupervisorMap[rtCode] = sup;
             if (!supervisorRoutesMap[sup]) supervisorRoutesMap[sup] = [];
-            if (!supervisorRoutesMap[sup].includes(mti)) supervisorRoutesMap[sup].push(mti);
+            if (!supervisorRoutesMap[sup].includes(rtCode)) supervisorRoutesMap[sup].push(rtCode);
             if (!managerRoutesMap['ADNAN']) managerRoutesMap['ADNAN'] = [];
-            if (!managerRoutesMap['ADNAN'].includes(mti)) managerRoutesMap['ADNAN'].push(mti);
+            if (!managerRoutesMap['ADNAN'].includes(rtCode)) managerRoutesMap['ADNAN'].push(rtCode);
             supervisorSet.add(sup);
           }
         });
@@ -401,6 +402,14 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
 
   supervisorSet.add('SAIFULLAH');
   supervisorSet.add('SAIF');
+
+  // Strictly partition routes between SAIFULLAH (Modern Trade only) and SAIF (Traditional Trade only)
+  if (supervisorRoutesMap['SAIFULLAH']) {
+    supervisorRoutesMap['SAIFULLAH'] = supervisorRoutesMap['SAIFULLAH'].filter((r) => !r.startsWith('TR'));
+  }
+  if (supervisorRoutesMap['SAIF']) {
+    supervisorRoutesMap['SAIF'] = supervisorRoutesMap['SAIF'].filter((r) => !r.startsWith('MT'));
+  }
 
   // Sort maps
   Object.keys(managerSupervisorMap).forEach((m) => managerSupervisorMap[m].sort());
