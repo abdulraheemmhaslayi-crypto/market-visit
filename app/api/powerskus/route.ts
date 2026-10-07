@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     // 2. Validate route ownership for supervisor
     if (user.role !== 'Admin') {
-      const isAssigned = await routeRepository.isRouteAssignedToSupervisor(routeCode, user.id);
+      const isAssigned = await routeRepository.isRouteAssignedToSupervisor(routeCode, user.id, user.name);
       if (!isAssigned) {
         return NextResponse.json({ error: 'Forbidden. You do not have access to this route.' }, { status: 403 });
       }
