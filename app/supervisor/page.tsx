@@ -141,7 +141,7 @@ export default function SupervisorDashboard() {
   // Instant restore from sessionStorage to eliminate 0-data flash on dashboard load
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v4');
+      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v5');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.rows && parsed.rows.length > 0) {
@@ -193,7 +193,7 @@ export default function SupervisorDashboard() {
         setReportRows(newReportRows);
         setMasters(newMasters);
         try {
-          sessionStorage.setItem('supervisor_dashboard_cache_v4', JSON.stringify({
+          sessionStorage.setItem('supervisor_dashboard_cache_v5', JSON.stringify({
             rows: newRows,
             reportRows: newReportRows,
             masters: newMasters,
