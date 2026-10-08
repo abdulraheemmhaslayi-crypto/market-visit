@@ -246,15 +246,23 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
     sosAsPerBda: input.sosAsPerBda === undefined ? null : input.sosAsPerBda,
     routeCode: routeCode || '',
     customerCode: customerCode || '',
+    customerName: (payload as any).customerName || '',
     dairyClassification: undefined,
     iceCreamClassification: undefined,
   };
 
-  // Attach customer classifications (dairy / ice-cream) if available
+  // Attach customer classifications (dairy / ice-cream) and customerName if available
   try {
     const allCustomers = await customerRepository.getAllCustomers();
-    const matchedCust = allCustomers.find(c => c.cust_rt_id === visitRecord.cust_rt_id || (c.customerCode === customerCode && c.routeCode === routeCode));
+    const matchedCust = allCustomers.find(c => 
+      c.cust_rt_id === visitRecord.cust_rt_id || 
+      (c.customerCode === customerCode && c.routeCode === routeCode) ||
+      (customerCode && c.customerCode === customerCode)
+    );
     if (matchedCust) {
+      if (!visitRecord.customerName && matchedCust.customerName) {
+        visitRecord.customerName = matchedCust.customerName;
+      }
       visitRecord.dairyClassification = matchedCust.dairyClassification || undefined;
       visitRecord.iceCreamClassification = matchedCust.iceCreamClassification || undefined;
     }
@@ -306,7 +314,11 @@ export async function submitVisitAction(data: VisitInput) {
   }
 
   const allCustomers = await customerRepository.getAllCustomers();
-  const matchedCust = allCustomers.find(c => c.cust_rt_id === input.cust_rt_id || (c.customerCode === customerCode && c.routeCode === routeCode));
+  const matchedCust = allCustomers.find(c => 
+    c.cust_rt_id === input.cust_rt_id || 
+    (c.customerCode === customerCode && c.routeCode === routeCode) ||
+    (customerCode && c.customerCode === customerCode)
+  );
 
   if (input.visit_type !== 'No Visit') {
     const npdSkus = await skuRepository.getSkusByType('NPD');
@@ -413,12 +425,16 @@ export async function submitVisitAction(data: VisitInput) {
     sosAsPerBda: input.sosAsPerBda === undefined ? null : input.sosAsPerBda,
     routeCode: routeCode || '',
     customerCode: customerCode || '',
+    customerName: (payload as any).customerName || matchedCust?.customerName || '',
     dairyClassification: undefined,
     iceCreamClassification: undefined,
   };
 
   // Attach customer classifications (dairy / ice-cream) if available
   if (matchedCust) {
+    if (!visitRecord.customerName && matchedCust.customerName) {
+      visitRecord.customerName = matchedCust.customerName;
+    }
     visitRecord.dairyClassification = matchedCust.dairyClassification || undefined;
     visitRecord.iceCreamClassification = matchedCust.iceCreamClassification || undefined;
   }

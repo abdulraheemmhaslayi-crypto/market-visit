@@ -3063,7 +3063,7 @@ export default function SupervisorDashboard() {
                           <div key={npd.responseId} className="flex items-center justify-between px-3.5 py-2.5 rounded-lg"
                             style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)' }}>
                             <span className="font-mono text-[12px] text-[var(--text-secondary)]">{npd.skuCode}</span>
-                            <span className={`badge ${npd.status === 'Available' ? 'badge-success' : npd.status === 'Not Available' ? 'badge-danger' : 'badge-info'}`}>
+                            <span className={`badge ${npd.status === 'Available' ? 'badge-success' : npd.status === 'Not Available' ? 'badge-danger' : 'badge-warning'}`}>
                               {npd.status}
                             </span>
                           </div>

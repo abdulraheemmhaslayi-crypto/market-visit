@@ -21,7 +21,7 @@ export type ActionRequiredType =
   | "No Dandy Asset"
   | "Others"
   | "None";
-export type NPDStatus = "Available" | "Not Available" | "Not Required";
+export type NPDStatus = "Available" | "Not Available" | "Not Applicable" | "Not Required";
 
 export interface User {
   id: string;
