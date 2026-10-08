@@ -652,6 +652,24 @@ export async function GET(req: NextRequest) {
       const visitPsku = pskuMap.get(v.visitId) || [];
       const hasAvail = visitPsku.some((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A');
       const psku = hasAvail ? 'A' : 'N';
+      const pskuAvailableCount = visitPsku.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
+      const npdAvailableCount = visitNpd.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
+
+      const chillerAsset = visitAssets.find((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
+      const freezerAsset = visitAssets.find((a: any) => (a.assetType || '').toLowerCase() === 'freezer');
+      const chillerModel = chillerAsset?.sizeModel || (chillerAsset ? 'Standard' : '—');
+      const freezerModel = freezerAsset?.sizeModel || (freezerAsset ? 'Standard' : '—');
+
+      let tempDisplay = '—';
+      if (chillerAsset && freezerAsset) {
+        tempDisplay = `C: ${chillerAsset.temperature}°C | F: ${freezerAsset.temperature}°C`;
+      } else if (chillerAsset) {
+        tempDisplay = `${chillerAsset.temperature}°C`;
+      } else if (freezerAsset) {
+        tempDisplay = `${freezerAsset.temperature}°C`;
+      } else if (temperature !== undefined && temperature !== null && !isNaN(Number(temperature))) {
+        tempDisplay = `${temperature}°C`;
+      }
 
       const fefo = ok;
       const action = visitAssets.map((a: any) => a.actionRequired !== 'None' ? `${a.assetType}: ${a.actionRequired}` : '').filter(Boolean).join(', ') || 'None';
@@ -854,7 +872,16 @@ export async function GET(req: NextRequest) {
         sos: v.sosAsPerBda === 1 ? 'Y' : 'N',
         plan: v.planogramCompliance === 1 ? 'Y' : 'N',
         npd,
+        npdAvailableCount,
+        totalNpdCount: visitNpd.length,
         psku,
+        pskuAvailableCount,
+        totalPskuCount: visitPsku.length,
+        chillerModel,
+        freezerModel,
+        tempDisplay,
+        chillerTemp: chillerAsset ? chillerAsset.temperature : null,
+        freezerTemp: freezerAsset ? freezerAsset.temperature : null,
         ok,
         temp: ok ? 'OK' : 'Breach',
         tempVal: temperature,

@@ -361,8 +361,8 @@ export default function AuditPhotoGalleryPage() {
           onClick={() => setActionFilter('all')}
           className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'all'
-              ? 'bg-accent text-white shadow'
-              : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)]'
+              ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-md border border-indigo-700/60 font-extrabold'
+              : 'bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--border-soft)]'
           }`}
         >
           All Photos ({pagination.totalCount || photos.length})
@@ -371,8 +371,8 @@ export default function AuditPhotoGalleryPage() {
           onClick={() => setActionFilter('PENDING')}
           className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'PENDING'
-              ? 'bg-amber-500 text-black shadow'
-              : 'bg-[var(--surface)] text-amber-400 border border-amber-500/30 hover:bg-amber-500/10'
+              ? 'bg-amber-500 text-slate-950 shadow-md border border-amber-600 font-extrabold'
+              : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20'
           }`}
         >
           <AlertTriangle className="h-3.5 w-3.5" />
@@ -382,8 +382,8 @@ export default function AuditPhotoGalleryPage() {
           onClick={() => setActionFilter('SUBMITTED')}
           className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'SUBMITTED'
-              ? 'bg-sky-500 text-white shadow'
-              : 'bg-[var(--surface)] text-sky-400 border border-sky-500/30 hover:bg-sky-500/10'
+              ? 'bg-sky-600 text-white shadow-md border border-sky-700 font-extrabold'
+              : 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/30 hover:bg-sky-500/20'
           }`}
         >
           <Upload className="h-3.5 w-3.5" />
@@ -393,8 +393,8 @@ export default function AuditPhotoGalleryPage() {
           onClick={() => setActionFilter('RESOLVED')}
           className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'RESOLVED'
-              ? 'bg-emerald-500 text-white shadow'
-              : 'bg-[var(--surface)] text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10'
+              ? 'bg-emerald-600 text-white shadow-md border border-emerald-700 font-extrabold'
+              : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'
           }`}
         >
           <CheckCircle2 className="h-3.5 w-3.5" />
@@ -544,7 +544,7 @@ export default function AuditPhotoGalleryPage() {
               }}
               className={`text-[11px] font-semibold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
                 selectedDate === getTodayStr()
-                  ? 'bg-accent text-white border-accent'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                   : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
               }`}
             >
@@ -557,7 +557,7 @@ export default function AuditPhotoGalleryPage() {
               }}
               className={`text-[11px] font-semibold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
                 !selectedDate
-                  ? 'bg-accent text-white border-accent'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                   : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
               }`}
             >
@@ -584,7 +584,7 @@ export default function AuditPhotoGalleryPage() {
           </p>
           <button
             onClick={handleResetFilters}
-            className="mt-2 text-xs font-semibold px-4 py-2 rounded-xl bg-accent text-white hover:bg-accent/90 transition-all cursor-pointer inline-flex items-center gap-1.5"
+            className="mt-2 text-xs font-semibold px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all cursor-pointer inline-flex items-center gap-1.5"
           >
             Reset All Filters
           </button>
@@ -751,7 +751,7 @@ export default function AuditPhotoGalleryPage() {
                     onClick={() => setCurrentPage(pNum)}
                     className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-accent text-white shadow-md shadow-accent/20 scale-105'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-105'
                         : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)] hover:text-[var(--text-primary)]'
                     }`}
                   >

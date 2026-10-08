@@ -20,6 +20,8 @@ import {
   RotateCw,
   ZoomIn,
   ZoomOut,
+  ChevronUp,
+  ChevronDown,
   Maximize2,
   Minimize2,
   Sparkles,
@@ -143,6 +145,19 @@ export default function ImageLightboxModal({
   const [rotation, setRotation] = useState<number>(0);
   const [isStageExpanded, setIsStageExpanded] = useState<boolean>(false);
 
+  // Horizontal & Vertical Pan Sliders
+  const [sliderX, setSliderX] = useState<number>(0); // -100 to 100, 0 = center
+  const [sliderY, setSliderY] = useState<number>(0); // -100 to 100, 0 = center
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; sliderX: number; sliderY: number }>({ x: 0, y: 0, sliderX: 0, sliderY: 0 });
+
+  // Reset zoom, rotation and pan when switching photos
+  useEffect(() => {
+    setSliderX(0);
+    setSliderY(0);
+  }, [currentIndex]);
+
   // Camera & Gallery Proof States
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
@@ -171,8 +186,8 @@ export default function ImageLightboxModal({
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: mode },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
         },
         audio: false,
       });
@@ -206,7 +221,7 @@ export default function ImageLightboxModal({
         ctx.scale(-1, 1);
       }
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       setProofPhotoUrl(dataUrl);
       stopCamera();
     }
@@ -222,7 +237,7 @@ export default function ImageLightboxModal({
       if (!rawUrl) return;
       const img = new Image();
       img.onload = () => {
-        const maxDim = 1600;
+        const maxDim = 1920;
         let width = img.width;
         let height = img.height;
         if (width > maxDim || height > maxDim) {
@@ -239,8 +254,10 @@ export default function ImageLightboxModal({
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, width, height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.82);
+          const compressed = canvas.toDataURL('image/jpeg', 0.86);
           setProofPhotoUrl(compressed);
         } else {
           setProofPhotoUrl(rawUrl);
@@ -496,22 +513,181 @@ export default function ImageLightboxModal({
             </div>
           </div>
         ) : (
-          /* Standard Single Image View with Zoom & Rotation */
-          <div className="w-full h-full flex items-center justify-center overflow-hidden p-2 sm:p-4">
-            <img
-              key={imageUrl}
-              src={imageUrl}
-              alt={categoryName}
-              style={{
-                transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                transformOrigin: 'center center',
-              }}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
-              draggable={false}
-            />
+          /* Standard Single Image View with Zoom, Pan & Rotation */
+          <div
+            ref={stageRef}
+            className="w-full h-full flex items-center justify-center overflow-hidden p-2 sm:p-4 relative"
+            onPointerDown={(e) => {
+              if (activeTab === 'before_after') return;
+              setIsDragging(true);
+              dragStartRef.current = {
+                x: e.clientX,
+                y: e.clientY,
+                sliderX,
+                sliderY,
+              };
+              try {
+                (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+              } catch {}
+            }}
+            onPointerMove={(e) => {
+              if (!isDragging) return;
+              const dx = e.clientX - dragStartRef.current.x;
+              const dy = e.clientY - dragStartRef.current.y;
+              const w = stageRef.current?.clientWidth || 800;
+              const h = stageRef.current?.clientHeight || 600;
+              const sensX = 100 / Math.max(80, (w * (zoom - 1)) / 2 || w * 0.4);
+              const sensY = 100 / Math.max(80, (h * (zoom - 1)) / 2 || h * 0.4);
+              const nextX = Math.max(-100, Math.min(100, Math.round(dragStartRef.current.sliderX - dx * sensX)));
+              const nextY = Math.max(-100, Math.min(100, Math.round(dragStartRef.current.sliderY - dy * sensY)));
+              setSliderX(nextX);
+              setSliderY(nextY);
+            }}
+            onPointerUp={(e) => {
+              setIsDragging(false);
+              try {
+                (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+              } catch {}
+            }}
+            onPointerCancel={() => setIsDragging(false)}
+          >
+            {(() => {
+              const stageWidth = stageRef.current?.clientWidth || 900;
+              const stageHeight = stageRef.current?.clientHeight || 700;
+              const maxPanX = Math.max(30, (stageWidth * Math.max(0.15, zoom - 1)) / 2);
+              const maxPanY = Math.max(30, (stageHeight * Math.max(0.15, zoom - 1)) / 2);
+              const panX = -(sliderX / 100) * maxPanX;
+              const panY = -(sliderY / 100) * maxPanY;
+
+              return (
+                <img
+                  key={imageUrl}
+                  src={imageUrl}
+                  alt={categoryName}
+                  style={{
+                    transform: `translate(${panX}px, ${panY}px) scale(${zoom}) rotate(${rotation}deg)`,
+                    transition: isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transformOrigin: 'center center',
+                    imageRendering: 'auto',
+                    cursor: isDragging ? 'grabbing' : zoom > 1 ? 'grab' : 'default',
+                  }}
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
+                  draggable={false}
+                />
+              );
+            })()}
           </div>
         )}
+
+          {/* Vertical Pan Slider (Right Side of Stage) */}
+          {activeTab !== 'before_after' && (
+            <div
+              className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-slate-950/85 border border-slate-700/80 backdrop-blur-md shadow-2xl pointer-events-auto select-none"
+              title="Vertical Pan Slider: Slide to inspect top/bottom shelves"
+            >
+              <button
+                type="button"
+                onClick={() => setSliderY((y) => Math.max(-100, y - 20))}
+                className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-white/10 cursor-pointer"
+                title="Pan Up (Top Shelves)"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+
+              <div className="relative flex items-center justify-center my-1" style={{ height: '140px', width: '28px' }}>
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={sliderY}
+                  onChange={(e) => setSliderY(Number(e.target.value))}
+                  className="cursor-pointer"
+                  style={{
+                    writingMode: 'vertical-lr',
+                    direction: 'rtl',
+                    width: '24px',
+                    height: '140px',
+                    accentColor: '#6366F1',
+                  }}
+                  title={`Vertical Position: ${sliderY === 0 ? 'Center' : sliderY < 0 ? `${Math.abs(sliderY)}% Up` : `${sliderY}% Down`}`}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSliderY((y) => Math.min(100, y + 20))}
+                className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-white/10 cursor-pointer"
+                title="Pan Down (Bottom Shelves)"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+
+              <span className="text-[9px] font-mono font-bold text-slate-400 select-none">
+                {sliderY === 0 ? '0' : sliderY < 0 ? `↑${Math.abs(sliderY)}` : `↓${sliderY}`}
+              </span>
+
+              {sliderY !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSliderY(0)}
+                  className="text-[8px] font-bold text-amber-300 hover:text-amber-200 px-1 py-0.5 rounded bg-white/10 mt-0.5"
+                  title="Center Vertical"
+                >
+                  Mid
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Horizontal Pan Slider (Bottom of Stage, Above Zoom Controls) */}
+          {activeTab !== 'before_after' && (
+            <div className="absolute bottom-24 inset-x-0 z-30 flex items-center justify-center pointer-events-none">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-950/85 border border-slate-700/80 backdrop-blur-md shadow-2xl pointer-events-auto text-slate-200 max-w-xs sm:max-w-md w-full mx-4 select-none">
+                <button
+                  type="button"
+                  onClick={() => setSliderX((x) => Math.max(-100, x - 20))}
+                  className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-white/10 cursor-pointer"
+                  title="Pan Left"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                <span className="text-[10px] font-mono font-bold text-slate-400 whitespace-nowrap min-w-[28px] text-center select-none">
+                  {sliderX === 0 ? '0' : sliderX < 0 ? `←${Math.abs(sliderX)}` : `→${sliderX}`}
+                </span>
+
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={sliderX}
+                  onChange={(e) => setSliderX(Number(e.target.value))}
+                  className="w-full h-1.5 rounded-lg bg-slate-800 accent-indigo-500 cursor-pointer"
+                  title={`Horizontal Position: ${sliderX === 0 ? 'Center' : sliderX < 0 ? `${Math.abs(sliderX)}% Left` : `${sliderX}% Right`}`}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setSliderX((x) => Math.min(100, x + 20))}
+                  className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-white/10 cursor-pointer"
+                  title="Pan Right"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                {sliderX !== 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSliderX(0)}
+                    className="text-[9px] font-bold text-amber-300 hover:text-amber-200 px-1.5 py-0.5 rounded bg-white/10 whitespace-nowrap"
+                    title="Center Horizontal"
+                  >
+                    Center
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Floating Image Zoom & Rotation Controls */}
           {activeTab !== 'before_after' && (
@@ -553,7 +729,7 @@ export default function ImageLightboxModal({
                 >
                   <RotateCw className="h-3.5 w-3.5" />
                 </button>
-                {(zoom !== 1 || rotation !== 0) && (
+                {(zoom !== 1 || rotation !== 0 || sliderX !== 0 || sliderY !== 0) && (
                   <>
                     <div className="h-3.5 w-px bg-slate-700 mx-1" />
                     <button
@@ -561,8 +737,10 @@ export default function ImageLightboxModal({
                       onClick={() => {
                         setZoom(1);
                         setRotation(0);
+                        setSliderX(0);
+                        setSliderY(0);
                       }}
-                      title="Reset Zoom & Rotation"
+                      title="Reset Zoom, Pan & Rotation"
                       className="px-2 py-0.5 text-[10px] font-bold bg-white/10 hover:bg-white/20 rounded-md text-amber-300 transition-colors"
                     >
                       Reset

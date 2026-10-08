@@ -61,10 +61,10 @@ export function isWebpSupported(): boolean {
  * Tuned for fast uploads, low mobile data consumption, and crystal-clear audit display.
  */
 export const DEFAULT_COMPRESSION_OPTIONS: Required<ImageCompressionOptions> = {
-  maxWidthOrHeight: 1600, // 1600px preserves crystal-clear product, brand & thermometer detail while keeping payload small
-  initialQuality: 0.80,   // 80% quality: crisp visual fidelity with negligible compression artifacts
-  minQuality: 0.65,       // Safe floor to prevent blurriness or pixelation of critical text and temperature readings
-  maxSizeBytes: 250 * 1024, // 250 KB cap (typical compressed photos are 110KB - 200KB, uploading in milliseconds)
+  maxWidthOrHeight: 1920, // 1920px Full HD ensures razor-sharp product details, brand logos, and price tags
+  initialQuality: 0.86,   // 86% high fidelity: preserves crisp typography and eliminates quantization blur
+  minQuality: 0.74,       // 74% strict quality floor: guarantees images are NEVER blurry or smudged
+  maxSizeBytes: 480 * 1024, // 480 KB cap: keeps mobile data usage minimal (~200KB-400KB typical) with crystal clarity
   outputFormat: 'image/webp',
 };
 
@@ -164,6 +164,59 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 /**
+ * Applies a fast unsharp-mask sharpening filter to canvas image data.
+ * Restores edge contrast, text readability, and product contours lost during
+ * downsampling from high-resolution mobile camera sensors.
+ */
+function applyUnsharpSharpening(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  amount = 0.20
+) {
+  try {
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+    const copy = new Uint8ClampedArray(data);
+    const w = width;
+    const h = height;
+
+    const s = amount;
+    const centerWeight = 1 + 4 * s;
+
+    for (let y = 1; y < h - 1; y++) {
+      const yOffset = y * w * 4;
+      const yPrev = (y - 1) * w * 4;
+      const yNext = (y + 1) * w * 4;
+
+      for (let x = 1; x < w - 1; x++) {
+        const idx = yOffset + x * 4;
+        const top = yPrev + x * 4;
+        const bottom = yNext + x * 4;
+        const left = yOffset + (x - 1) * 4;
+        const right = yOffset + (x + 1) * 4;
+
+        // R
+        data[idx] = Math.min(255, Math.max(0,
+          centerWeight * copy[idx] - s * (copy[top] + copy[bottom] + copy[left] + copy[right])
+        ));
+        // G
+        data[idx + 1] = Math.min(255, Math.max(0,
+          centerWeight * copy[idx + 1] - s * (copy[top + 1] + copy[bottom + 1] + copy[left + 1] + copy[right + 1])
+        ));
+        // B
+        data[idx + 2] = Math.min(255, Math.max(0,
+          centerWeight * copy[idx + 2] - s * (copy[top + 2] + copy[bottom + 2] + copy[left + 2] + copy[right + 2])
+        ));
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  } catch (e) {
+    // Non-blocking fallback if security context blocks getImageData
+  }
+}
+
+/**
  * Compresses and resizes an image file on the client side.
  * 
  * @param file - Input File object from file input / camera capture
@@ -224,6 +277,9 @@ export async function compressImage(
     }
 
     ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
+
+    // Apply edge sharpening pass to eliminate downsampling blur on labels & text
+    applyUnsharpSharpening(ctx, targetWidth, targetHeight, 0.20);
 
     // 3. Iterative quality compression to meet target maxSizeBytes using native toBlob
     let quality = opts.initialQuality;

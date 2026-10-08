@@ -609,7 +609,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     onClick={() => setCurrentPage(pNum)}
                     className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-accent text-white shadow-md shadow-accent/20 scale-105'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-105'
                         : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)] hover:text-[var(--text-primary)]'
                     }`}
                   >
