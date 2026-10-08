@@ -331,7 +331,7 @@ export default function MyVisitsPage() {
                               <p className="font-bold text-[13px]" style={{ color: 'var(--text-primary)' }}>{r.skuCode}</p>
                               <p className="text-[11px] text-[var(--text-muted)]">NPD Status Audit</p>
                             </div>
-                            <span className={`badge ${r.status === 'Available' ? 'badge-success' : r.status === 'Not Available' ? 'badge-danger' : 'badge-info'}`}>
+                            <span className={`badge ${r.status === 'Available' ? 'badge-success' : r.status === 'Not Available' ? 'badge-danger' : 'badge-warning'}`}>
                               {r.status}
                             </span>
                           </div>

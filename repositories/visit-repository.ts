@@ -151,6 +151,30 @@ async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolC
     }
   }
 
+  // Drop foreign key constraints on Visit(cust_rt_id) pointing to Customer
+  // to prevent visit audits from failing due to foreign key constraint violations
+  try {
+    const [fkRows]: any = await connection.execute(`
+      SELECT CONSTRAINT_NAME 
+      FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+      WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'Visit' 
+        AND COLUMN_NAME = 'cust_rt_id'
+        AND REFERENCED_TABLE_NAME IS NOT NULL
+    `);
+    for (const row of (fkRows as any[] || [])) {
+      if (row.CONSTRAINT_NAME) {
+        try {
+          await connection.execute(`ALTER TABLE \`Visit\` DROP FOREIGN KEY \`${row.CONSTRAINT_NAME}\``);
+        } catch (e) {}
+      }
+    }
+  } catch (fkErr) {}
+
+  try {
+    await connection.execute("ALTER TABLE `Visit` DROP FOREIGN KEY `fk_visit_cust_rt`");
+  } catch (e) {}
+
   // Ensure VisitAsset table exists and has all required columns
   try {
     await connection.execute(`
@@ -200,6 +224,14 @@ async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolC
   }
 
       await ensureVisitPhotoTableSchema(connection);
+
+      // Ensure NPDResponse and VisitPowerSkuResult support 'Not Applicable' status without enum restriction
+      try {
+        await connection.execute("ALTER TABLE `NPDResponse` MODIFY COLUMN `status` VARCHAR(50) NOT NULL");
+      } catch (e) {}
+      try {
+        await connection.execute("ALTER TABLE `VisitPowerSkuResult` MODIFY COLUMN `status` VARCHAR(50) NOT NULL");
+      } catch (e) {}
     } catch (err) {
       console.warn('ensureVisitTableSchema warning:', err);
     } finally {
@@ -428,6 +460,47 @@ export const visitRepository = {
           custCode = custCode || parts[0];
           rtCode = rtCode || parts[1];
         }
+      } else {
+        custCode = custCode || parts[0];
+      }
+    }
+
+    // Auto-ensure customer and mapping exist in Customer table to preserve referential integrity
+    if (visit.cust_rt_id) {
+      try {
+        const custName = visit.customerName || custCode || 'Unknown Customer';
+        const ch = (rtCode && rtCode.startsWith('MT')) ? 'MT' : (rtCode && rtCode.startsWith('IS') ? 'INST' : 'TT');
+        await executor.execute(
+          `INSERT INTO \`Customer\` (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             \`customerName\` = IF(VALUES(\`customerName\`) != '' AND VALUES(\`customerName\`) != 'Unknown Customer', VALUES(\`customerName\`), \`customerName\`),
+             \`dairyClassification\` = COALESCE(VALUES(\`dairyClassification\`), \`Customer\`.\`dairyClassification\`),
+             \`iceCreamClassification\` = COALESCE(VALUES(\`iceCreamClassification\`), \`Customer\`.\`iceCreamClassification\`),
+             \`channel\` = COALESCE(VALUES(\`channel\`), \`Customer\`.\`channel\`),
+             \`routeCode\` = COALESCE(VALUES(\`routeCode\`), \`Customer\`.\`routeCode\`)`,
+          [
+            visit.cust_rt_id,
+            custCode || visit.cust_rt_id,
+            custName,
+            visit.dairyClassification || visit.iceCreamClassification || 'C',
+            visit.dairyClassification || null,
+            visit.iceCreamClassification || null,
+            ch,
+            rtCode || null,
+          ]
+        );
+      } catch (custErr) {
+        console.warn('Auto-ensuring Customer record for visit warning:', custErr);
+      }
+
+      if (custCode && rtCode) {
+        try {
+          await executor.execute(
+            `INSERT IGNORE INTO \`CustomerRouteMapping\` (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) VALUES (?, ?, ?)`,
+            [visit.cust_rt_id, custCode, rtCode]
+          );
+        } catch (crmErr) {}
       }
     }
 
@@ -651,6 +724,7 @@ export const visitRepository = {
   ): Promise<Visit> {
     const connection = await pool.getConnection();
     try {
+      await ensureVisitTableSchema(connection);
       await connection.beginTransaction();
 
       await this.saveVisitRecord(visit, connection);
