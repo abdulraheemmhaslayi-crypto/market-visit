@@ -23,35 +23,36 @@ const GCOL: Record<string, string> = {
   E: '#c0392b',
 };
 
-function isManagerMatch(rowManager: string | undefined | null, selectedManagers: string[] | string): boolean {
+function isManagerMatch(
+  rowManager: string | undefined | null,
+  selectedManagers: string[] | string,
+  rowSupervisor?: string | undefined | null,
+  managerSupervisorMap?: Record<string, string[]>
+): boolean {
   const mgrs = Array.isArray(selectedManagers)
     ? selectedManagers.filter(Boolean)
     : (selectedManagers ? [selectedManagers] : []);
   if (mgrs.length === 0) return true;
   const rowMgr = (rowManager || '').toString().trim().toUpperCase();
-  return mgrs.some((m) => m.trim().toUpperCase() === rowMgr);
+  if (mgrs.some((m) => m.trim().toUpperCase() === rowMgr)) return true;
+
+  // Fallback: check if row supervisor belongs to one of the selected managers
+  if (rowSupervisor && managerSupervisorMap) {
+    const rowSup = (rowSupervisor || '').toString().trim().toUpperCase();
+    for (const m of mgrs) {
+      const supsForMgr = managerSupervisorMap[m.trim().toUpperCase()] || [];
+      if (supsForMgr.some((s) => s.trim().toUpperCase() === rowSup)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
-function matchSingleSupervisor(rowSupervisor: string, selSup: string, selectedManagers: string[] = []): boolean {
+function matchSingleSupervisor(rowSupervisor: string, selSup: string): boolean {
   const rowSup = (rowSupervisor || '').trim().toUpperCase();
   const targetSup = selSup.trim().toUpperCase();
-  if (rowSup === targetSup) return true;
-
-  const hasAdnan = selectedManagers.length === 0 || selectedManagers.some((m) => m.trim().toUpperCase() === 'ADNAN');
-
-  // Modern Trade Supervisor Saifullah (Manager: Adnan)
-  if (targetSup === 'SAIFULLAH') {
-    return rowSup === 'SAIFULLAH' || (rowSup === 'SAIF' && hasAdnan);
-  }
-
-  // Traditional Trade Supervisor Saif (Manager: Ashfaq)
-  if (targetSup === 'SAIF') {
-    if (hasAdnan) {
-      return rowSup === 'SAIFULLAH' || rowSup === 'SAIF';
-    }
-    return rowSup === 'SAIF';
-  }
-
   return rowSup === targetSup;
 }
 
@@ -69,7 +70,7 @@ function isSupervisorMatch(
     ? selectedManagers.filter(Boolean)
     : (selectedManagers ? [selectedManagers] : []);
 
-  return sups.some((s) => matchSingleSupervisor(rowSupervisor || '', s, mgrs));
+  return sups.some((s) => matchSingleSupervisor(rowSupervisor || '', s));
 }
 
 export default function AdminDashboardPage() {
@@ -95,7 +96,7 @@ export default function AdminDashboardPage() {
   const [fRoute, setFRoute] = useState('');
   const [fSku, setFSku] = useState('');
   const [fVertical, setFVertical] = useState('');
-  const [fAssetCategory, setFAssetCategory] = useState('Chillers');
+  const [fAssetCategory, setFAssetCategory] = useState('All');
   const [fSizeModels, setFSizeModels] = useState<string[]>([]);
   const [masters, setMasters] = useState<any>(null);
 
@@ -145,7 +146,7 @@ export default function AdminDashboardPage() {
   // Initialize cached data immediately from sessionStorage to eliminate skeleton hangs & 0-data flash
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('admin_dashboard_cache_v3');
+      const cached = sessionStorage.getItem('admin_dashboard_cache_v5');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && typeof parsed === 'object' && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
@@ -213,7 +214,7 @@ export default function AdminDashboardPage() {
           setLastUpdated(new Date());
 
           try {
-            sessionStorage.setItem('admin_dashboard_cache_v3', JSON.stringify({
+            sessionStorage.setItem('admin_dashboard_cache_v5', JSON.stringify({
               rows: newRows,
               reportRows: newReportRows,
               managerSupervisorMap: newMgrSupMap,
@@ -405,7 +406,7 @@ export default function AdminDashboardPage() {
     setFRoute('');
     setFSku('');
     setFVertical('');
-    setFAssetCategory('Chillers');
+    setFAssetCategory('All');
     setFSizeModels([]);
   };
 
@@ -549,7 +550,7 @@ export default function AdminDashboardPage() {
     });
   }, [reportRows, rows, fFrom, fTo, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fAssetCategory, fSizeModels]);
 
-  // Filtered rows matching selection
+  // Filtered rows matching selection (General market visits: not filtered by Cold Chain asset category)
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       const rowDate = new Date(r.createdAt);
@@ -557,26 +558,17 @@ export default function AdminDashboardPage() {
       const to = normalizeDate(fTo);
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
-      const catSearch = (fAssetCategory || '').toLowerCase().replace(/s$/, '');
-      const catOk = !fAssetCategory || fAssetCategory === 'All'
-        || (r.atype && r.atype.toLowerCase().includes(catSearch))
-        || (r.assetType && r.assetType.toLowerCase().includes(catSearch))
-        || (r.allAssets && r.allAssets.some((a: any) => a.assetType && a.assetType.toLowerCase().includes(catSearch)));
-      const modelOk = fSizeModels.length === 0
-        || (r.observation && fSizeModels.some(sm => (r.observation as string).toLowerCase().includes(sm.toLowerCase())))
-        || (r.sizeModel && fSizeModels.includes(r.sizeModel))
-        || (r.allAssets && r.allAssets.some((a: any) => a.sizeModel && fSizeModels.includes(a.sizeModel)));
 
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
-      const mgrOk = isManagerMatch(r.mgr || r.manager, fMgr);
+      const mgrOk = isManagerMatch(r.mgr || r.manager, fMgr, r.sup || r.supervisor, managerSupervisorMap);
       const superOk = isSupervisorMatch(r.sup || r.supervisor, fSuper, fMgr);
       const classOk = !fClass || (r.gr || r.classification || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
 
-      return mgrOk && superOk && channelOk && classOk && custOk && routeOk && catOk && modelOk && fromOk && toOk;
+      return mgrOk && superOk && channelOk && classOk && custOk && routeOk && fromOk && toOk;
     });
-  }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fAssetCategory, fSizeModels, fFrom, fTo]);
+  }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fFrom, fTo, managerSupervisorMap]);
 
   // Visit set for the two per-vertical Classification charts: respects Manager,
   // Supervisor, Channel, Outlet/Customer, and Route Code.
@@ -588,13 +580,13 @@ export default function AdminDashboardPage() {
       const fromOk = !from || rowDate >= from;
       const toOk = !to || rowDate <= new Date(`${fTo}T23:59:59`);
       const routeOk = !fRoute || (r.rt || r.route || r.routeCode || '').toString().trim().toUpperCase() === fRoute.trim().toUpperCase();
-      const mgrOk = isManagerMatch(r.mgr || r.manager, fMgr);
+      const mgrOk = isManagerMatch(r.mgr || r.manager, fMgr, r.sup || r.supervisor, managerSupervisorMap);
       const superOk = isSupervisorMatch(r.sup || r.supervisor, fSuper, fMgr);
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
       return mgrOk && superOk && channelOk && custOk && routeOk && fromOk && toOk;
     });
-  }, [rows, fMgr, fSuper, fChannel, fCust, fRoute, fFrom, fTo]);
+  }, [rows, fMgr, fSuper, fChannel, fCust, fRoute, fFrom, fTo, managerSupervisorMap]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');

@@ -207,7 +207,7 @@ export const customerRepository = {
       if (altCode) setVert(altCode);
     });
 
-    return customers.map((c: any) => {
+    const dbMapped = customers.map((c: any) => {
       const codeClean = c.customerCode ? c.customerCode.trim().toUpperCase() : '';
       const altClean = codeClean.replace(/^0+/, '').replace(/^C/, '');
       const mapped = classMap.get(codeClean) || classMap.get(altClean) || {};
@@ -221,18 +221,43 @@ export const customerRepository = {
         iceCreamClassification: ice,
       });
     });
+
+    // Merge CUSTMASTER customers
+    try {
+      const { getCustMasterData } = await import('@/lib/custmaster-data');
+      const custMaster = getCustMasterData();
+      const seenCustRt = new Set(dbMapped.map((c: Customer) => (c.cust_rt_id || '').toUpperCase().trim()));
+
+      (custMaster.customers || []).forEach((c) => {
+        const key = (c.cust_rt_id || `${c.customerCode}|${c.routeCode}`).toUpperCase().trim();
+        if (!seenCustRt.has(key)) {
+          seenCustRt.add(key);
+          const codeClean = c.customerCode ? c.customerCode.trim().toUpperCase() : '';
+          const altClean = codeClean.replace(/^0+/, '').replace(/^C/, '');
+          const mapped = classMap.get(codeClean) || classMap.get(altClean) || {};
+
+          dbMapped.push({
+            cust_rt_id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
+            customerCode: c.customerCode,
+            customerName: c.customerName,
+            classification: c.classification || 'C',
+            dairyClassification: mapped.dairy || c.dairyClassification || c.classification || 'C',
+            iceCreamClassification: mapped.iceCream || c.iceCreamClassification || c.classification || 'C',
+            channel: c.channel || (c.routeCode.startsWith('MT') ? 'MT' : (c.routeCode.startsWith('IS') ? 'INST' : 'TT')),
+            routeCode: c.routeCode,
+          });
+        }
+      });
+    } catch (e) {}
+
+    return dbMapped;
   },
 
   async getCustomersByRoute(routeCode: string): Promise<Customer[]> {
     await ensureCustomerTableSchema();
-    const [rows]: any = await pool.execute(
-      `SELECT c.*, m.\`routeCode\` as mappedRouteCode
-       FROM \`Customer\` c
-       INNER JOIN \`CustomerRouteMapping\` m ON (c.\`cust_rt_id\` = m.\`cust_rt_id\` OR c.\`customerCode\` = m.\`customerCode\`)
-       WHERE m.\`routeCode\` = ?`,
-      [routeCode]
-    );
+    const cleanRoute = (routeCode || '').trim().toUpperCase();
 
+    // 1. Fetch classifications from Customer_Classification table if available
     let classifications: any[] = [];
     try {
       const [ccRows]: any = await pool.execute('SELECT * FROM `Customer_Classification`');
@@ -259,6 +284,41 @@ export const customerRepository = {
       if (altCode) setVert(altCode);
     });
 
+    // 2. Single source of truth: CUSTMASTER file
+    const { getCustMasterData } = await import('@/lib/custmaster-data');
+    const custMaster = getCustMasterData();
+    const cmList = (custMaster.customers || []).filter(
+      (c) => (c.routeCode || '').trim().toUpperCase() === cleanRoute
+    );
+
+    if (cmList.length > 0) {
+      return cmList.map((c) => {
+        const codeClean = c.customerCode ? c.customerCode.trim().toUpperCase() : '';
+        const altClean = codeClean.replace(/^0+/, '').replace(/^C/, '');
+        const mapped = classMap.get(codeClean) || classMap.get(altClean) || {};
+
+        return {
+          cust_rt_id: c.cust_rt_id || `${c.customerCode}|${cleanRoute}`,
+          customerCode: c.customerCode,
+          customerName: c.customerName,
+          classification: c.classification || 'C',
+          dairyClassification: mapped.dairy || c.dairyClassification || c.classification || 'C',
+          iceCreamClassification: mapped.iceCream || c.iceCreamClassification || c.classification || 'C',
+          channel: c.channel || (cleanRoute.startsWith('MT') ? 'MT' : (cleanRoute.startsWith('IS') ? 'INST' : 'TT')),
+          routeCode: cleanRoute,
+        };
+      });
+    }
+
+    // 3. Fallback to Database Customer table
+    const [rows]: any = await pool.execute(
+      `SELECT c.*, m.\`routeCode\` as mappedRouteCode
+       FROM \`Customer\` c
+       INNER JOIN \`CustomerRouteMapping\` m ON (c.\`cust_rt_id\` = m.\`cust_rt_id\` OR c.\`customerCode\` = m.\`customerCode\`)
+       WHERE m.\`routeCode\` = ?`,
+      [cleanRoute]
+    );
+
     return rows.map((c: any) => {
       const codeClean = c.customerCode ? c.customerCode.trim().toUpperCase() : '';
       const altClean = codeClean.replace(/^0+/, '').replace(/^C/, '');
@@ -266,15 +326,57 @@ export const customerRepository = {
 
       return mapRowToCustomer({
         ...c,
-        routeCode: c.mappedRouteCode || c.routeCode,
+        routeCode: c.mappedRouteCode || c.routeCode || cleanRoute,
         dairyClassification: mapped.dairy || c.dairyClassification || c.classification,
         iceCreamClassification: mapped.iceCream || c.iceCreamClassification || c.classification,
       });
     });
   },
 
-  async getCustomersBySupervisor(supervisorId: string): Promise<Customer[]> {
+  async getCustomersBySupervisor(supervisorId: string, supervisorName?: string): Promise<Customer[]> {
     await ensureCustomerTableSchema();
+
+    // 1. Resolve supervisor name
+    let sName = (supervisorName || '').trim().toUpperCase();
+    if (!sName && supervisorId) {
+      if (supervisorId === 'usr_rqwxav8') sName = 'SAIFULLAH';
+      else if (supervisorId === 'usr_tgb2s6h') sName = 'SAIF';
+      else {
+        try {
+          const [uRows]: any = await pool.execute('SELECT name FROM `User` WHERE `id` = ? LIMIT 1', [supervisorId]);
+          if (uRows.length > 0 && uRows[0].name) {
+            sName = uRows[0].name.trim().toUpperCase();
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 2. Single source of truth: CUSTMASTER file
+    const { getCustMasterData } = await import('@/lib/custmaster-data');
+    const custMaster = getCustMasterData();
+    const supRoutes = sName ? (custMaster.supervisorRoutesMap[sName] || []) : [];
+
+    if (supRoutes.length > 0) {
+      const routeSet = new Set(supRoutes.map((r: string) => r.toUpperCase().trim()));
+      const cmCustomers = (custMaster.customers || []).filter((c) =>
+        routeSet.has((c.routeCode || '').toUpperCase().trim())
+      );
+
+      if (cmCustomers.length > 0) {
+        return cmCustomers.map((c) => ({
+          cust_rt_id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
+          customerCode: c.customerCode,
+          customerName: c.customerName,
+          classification: c.classification || 'C',
+          dairyClassification: c.dairyClassification || c.classification || 'C',
+          iceCreamClassification: c.iceCreamClassification || c.classification || 'C',
+          channel: c.channel || (c.routeCode.startsWith('MT') ? 'MT' : (c.routeCode.startsWith('IS') ? 'INST' : 'TT')),
+          routeCode: c.routeCode,
+        }));
+      }
+    }
+
+    // 3. Fallback to DB
     const [rows]: any = await pool.execute(
       `SELECT c.*, m.\`routeCode\` as mappedRouteCode
        FROM \`Customer\` c 
@@ -284,44 +386,7 @@ export const customerRepository = {
       [supervisorId]
     );
 
-    let classifications: any[] = [];
-    try {
-      const [ccRows]: any = await pool.execute('SELECT * FROM `Customer_Classification`');
-      classifications = ccRows;
-    } catch (e) {}
-
-    const classMap = new Map<string, { dairy?: string; iceCream?: string }>();
-    classifications.forEach((cc: any) => {
-      const code = cc.customerCode ? cc.customerCode.trim().toUpperCase() : '';
-      const altCode = code.replace(/^0+/, '').replace(/^C/, '');
-      const vert = (cc.businessVertical || '').toLowerCase();
-
-      const setVert = (key: string) => {
-        let entry = classMap.get(key);
-        if (!entry) {
-          entry = {};
-          classMap.set(key, entry);
-        }
-        if (vert === 'dairy') entry.dairy = cc.classification;
-        if (vert.includes('ice')) entry.iceCream = cc.classification;
-      };
-
-      if (code) setVert(code);
-      if (altCode) setVert(altCode);
-    });
-
-    return rows.map((c: any) => {
-      const codeClean = c.customerCode ? c.customerCode.trim().toUpperCase() : '';
-      const altClean = codeClean.replace(/^0+/, '').replace(/^C/, '');
-      const mapped = classMap.get(codeClean) || classMap.get(altClean) || {};
-
-      return mapRowToCustomer({
-        ...c,
-        routeCode: c.mappedRouteCode || c.routeCode,
-        dairyClassification: mapped.dairy || c.dairyClassification || c.classification,
-        iceCreamClassification: mapped.iceCream || c.iceCreamClassification || c.classification,
-      });
-    });
+    return rows.map((c: any) => mapRowToCustomer({ ...c, routeCode: c.mappedRouteCode || c.routeCode }));
   },
 
   async getMappings(): Promise<CustomerRouteMapping[]> {

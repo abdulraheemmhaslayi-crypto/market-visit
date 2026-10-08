@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { routeRepository } from '@/repositories/route-repository';
+import { getCustMasterData } from '@/lib/custmaster-data';
 
 export async function GET() {
   try {
@@ -9,12 +9,30 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const user = session.user as any;
+    const custMaster = getCustMasterData();
+
+    // Map routes strictly from CUSTMASTER
+    const allCmRoutes = (custMaster.routes || []).map((r: any) => ({
+      routeCode: r.routeCode,
+      routeName: r.routeName || `Route ${r.routeCode}`,
+      channel: r.routeCode.startsWith('MT') ? 'MT' : r.routeCode.startsWith('IS') ? 'INST' : r.routeCode.startsWith('EX') ? 'EXPORT' : 'TT',
+      superName: r.superName,
+      managerName: r.managerName,
+      supervisorId: user.name === r.superName ? user.id : undefined,
+    }));
 
     let routes;
     if (user.role === 'Admin') {
-      routes = await routeRepository.getAllRoutes();
+      routes = allCmRoutes;
     } else {
-      routes = await routeRepository.getRoutesBySupervisor(user.id, user.name);
+      const uName = (user.name || '').trim().toUpperCase();
+      // Handle SAIFULLAH vs SAIF explicitly
+      let targetSup = uName;
+      if (user.id === 'usr_rqwxav8' || uName === 'SAIFULLAH') targetSup = 'SAIFULLAH';
+      else if (user.id === 'usr_tgb2s6h' || uName === 'SAIF') targetSup = 'SAIF';
+
+      const myRouteCodes = new Set(custMaster.supervisorRoutesMap[targetSup] || []);
+      routes = allCmRoutes.filter((r) => myRouteCodes.has(r.routeCode) || (r.superName && r.superName.toUpperCase() === targetSup));
     }
 
     return NextResponse.json(routes);

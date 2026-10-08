@@ -222,7 +222,7 @@ export default function ImageLightboxModal({
       if (!rawUrl) return;
       const img = new Image();
       img.onload = () => {
-        const maxDim = 1280;
+        const maxDim = 1600;
         let width = img.width;
         let height = img.height;
         if (width > maxDim || height > maxDim) {

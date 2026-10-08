@@ -6,15 +6,15 @@
  */
 
 export interface ImageCompressionOptions {
-  /** Maximum width or height on the longest side in pixels (default: 1800) */
+  /** Maximum width or height on the longest side in pixels (default: 1600) */
   maxWidthOrHeight?: number;
-  /** Initial compression quality from 0.0 to 1.0 (default: 0.82) */
+  /** Initial compression quality from 0.0 to 1.0 (default: 0.80) */
   initialQuality?: number;
-  /** Minimum quality threshold to preserve visual detail (default: 0.50) */
+  /** Minimum quality threshold to preserve visual detail (default: 0.65) */
   minQuality?: number;
-  /** Target maximum file size in bytes (default: 1.5 MB = 1,572,864 bytes) */
+  /** Target maximum file size in bytes (default: 250 KB = 256,000 bytes) */
   maxSizeBytes?: number;
-  /** Export image format (default: 'image/jpeg') */
+  /** Export image format (default: 'image/webp') */
   outputFormat?: 'image/jpeg' | 'image/webp';
 }
 
@@ -61,10 +61,10 @@ export function isWebpSupported(): boolean {
  * Tuned for fast uploads, low mobile data consumption, and crystal-clear audit display.
  */
 export const DEFAULT_COMPRESSION_OPTIONS: Required<ImageCompressionOptions> = {
-  maxWidthOrHeight: 1024, // 1024px preserves crisp product, brand & thermometer detail while reducing file size drastically
-  initialQuality: 0.70,   // 70% quality: excellent visual fidelity on phones and laptops
-  minQuality: 0.45,       // Safe floor to prevent pixelation of critical text
-  maxSizeBytes: 95 * 1024, // 95 KB cap (typical compressed photos are 35KB - 75KB)
+  maxWidthOrHeight: 1600, // 1600px preserves crystal-clear product, brand & thermometer detail while keeping payload small
+  initialQuality: 0.80,   // 80% quality: crisp visual fidelity with negligible compression artifacts
+  minQuality: 0.65,       // Safe floor to prevent blurriness or pixelation of critical text and temperature readings
+  maxSizeBytes: 250 * 1024, // 250 KB cap (typical compressed photos are 110KB - 200KB, uploading in milliseconds)
   outputFormat: 'image/webp',
 };
 

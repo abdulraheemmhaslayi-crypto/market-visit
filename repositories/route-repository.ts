@@ -83,29 +83,141 @@ async function ensureRouteTableSchema(): Promise<void> {
 export const routeRepository = {
   async getAllRoutes(): Promise<Route[]> {
     await ensureRouteTableSchema();
-    const [rows]: any = await pool.execute('SELECT * FROM `Route`');
-    return rows.map(mapRowToRoute);
+    const { getCustMasterData } = await import('@/lib/custmaster-data');
+    const custMaster = getCustMasterData();
+
+    let dbRoutes: Route[] = [];
+    try {
+      const [rows]: any = await pool.execute('SELECT * FROM `Route`');
+      dbRoutes = rows.map(mapRowToRoute);
+    } catch (e) {}
+
+    const routeMap = new Map<string, Route>();
+    // First, populate from DB
+    dbRoutes.forEach((r) => {
+      routeMap.set(r.routeCode.toUpperCase().trim(), r);
+    });
+
+    // CUSTMASTER is the source of truth for all valid routes
+    (custMaster.routes || []).forEach((r) => {
+      const cleanCode = r.routeCode.toUpperCase().trim();
+      const existing = routeMap.get(cleanCode);
+      const channel = cleanCode.startsWith('MT') ? 'MT' : (cleanCode.startsWith('IS') ? 'INST' : 'TT');
+      if (existing) {
+        existing.superName = r.superName || existing.superName;
+        existing.managerName = r.managerName || existing.managerName;
+        existing.channel = channel;
+      } else {
+        routeMap.set(cleanCode, {
+          routeCode: r.routeCode,
+          routeName: r.routeName || `Route ${r.routeCode}`,
+          channel,
+          superName: r.superName,
+          managerName: r.managerName,
+        });
+      }
+    });
+
+    return Array.from(routeMap.values());
   },
 
   async getRoutesBySupervisor(supervisorId: string, supervisorName?: string): Promise<Route[]> {
     await ensureRouteTableSchema();
+    const { getCustMasterData } = await import('@/lib/custmaster-data');
+    const custMaster = getCustMasterData();
+
+    // 1. Resolve supervisor name
+    let sName = (supervisorName || '').trim().toUpperCase();
+    if (!sName && supervisorId) {
+      if (supervisorId === 'usr_rqwxav8') sName = 'SAIFULLAH';
+      else if (supervisorId === 'usr_tgb2s6h') sName = 'SAIF';
+      else {
+        try {
+          const [uRows]: any = await pool.execute('SELECT name FROM `User` WHERE `id` = ? LIMIT 1', [supervisorId]);
+          if (uRows.length > 0 && uRows[0].name) {
+            sName = uRows[0].name.trim().toUpperCase();
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 2. If CUSTMASTER has routes for this supervisor, return them directly
+    if (sName) {
+      const supRoutes = custMaster.supervisorRoutesMap[sName] || [];
+      if (supRoutes.length > 0) {
+        return supRoutes.map((rtCode: string) => {
+          const cleanCode = rtCode.toUpperCase().trim();
+          const rObj = (custMaster.routes || []).find((r) => r.routeCode.toUpperCase().trim() === cleanCode);
+          const channel = cleanCode.startsWith('MT') ? 'MT' : (cleanCode.startsWith('IS') ? 'INST' : 'TT');
+          return {
+            routeCode: cleanCode,
+            routeName: rObj?.routeName || `Route ${cleanCode}`,
+            channel,
+            superName: sName,
+            managerName: rObj?.managerName || custMaster.routeManagerMap[cleanCode] || '',
+          };
+        });
+      }
+    }
+
+    // Fallback to database Route table
     let sql = 'SELECT * FROM `Route` WHERE `supervisorId` = ?';
     const params: any[] = [supervisorId];
 
-    if (supervisorName) {
-      const normalizedName = supervisorName.trim().toLowerCase().replace(/\s+/g, '');
+    if (sName) {
+      const normalizedName = sName.toLowerCase().replace(/\s+/g, '');
       sql += ' OR (LOWER(REPLACE(IFNULL(`superName`, \'\'), \' \', \'\')) = ?)';
       params.push(normalizedName);
     }
     const [rows]: any = await pool.execute(sql, params);
-    return rows.map(mapRowToRoute);
+    let mapped = rows.map(mapRowToRoute);
+
+    if (sName === 'SAIFULLAH' || supervisorId === 'usr_rqwxav8') {
+      mapped = mapped.filter((r: Route) => !r.routeCode.startsWith('TR'));
+    } else if (sName === 'SAIF' || supervisorId === 'usr_tgb2s6h') {
+      mapped = mapped.filter((r: Route) => !r.routeCode.startsWith('MT'));
+    }
+
+    return mapped;
   },
 
   async isRouteAssignedToSupervisor(routeCode: string, supervisorId: string, supervisorName?: string): Promise<boolean> {
     await ensureRouteTableSchema();
+    const cleanRoute = (routeCode || '').trim().toUpperCase();
 
-    // Check if route exists in DB
-    const [routeRows]: any = await pool.execute('SELECT * FROM `Route` WHERE `routeCode` = ? LIMIT 1', [routeCode]);
+    // 1. Resolve supervisor name reliably
+    let sName = (supervisorName || '').trim().toUpperCase();
+    if (!sName && supervisorId) {
+      if (supervisorId === 'usr_rqwxav8') sName = 'SAIFULLAH';
+      else if (supervisorId === 'usr_tgb2s6h') sName = 'SAIF';
+      else {
+        try {
+          const [uRows]: any = await pool.execute('SELECT name FROM `User` WHERE `id` = ? LIMIT 1', [supervisorId]);
+          if (uRows.length > 0 && uRows[0].name) {
+            sName = uRows[0].name.trim().toUpperCase();
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 2. Check CUSTMASTER first as the single source of truth
+    const { getCustMasterData } = await import('@/lib/custmaster-data');
+    const custMaster = getCustMasterData();
+    const assignedSup = (custMaster.routeSupervisorMap[cleanRoute] || '').trim().toUpperCase();
+
+    if (assignedSup && sName) {
+      // Disambiguate SAIFULLAH (Modern Trade) vs SAIF (Traditional Trade)
+      if (sName === 'SAIFULLAH' || supervisorId === 'usr_rqwxav8') {
+        return assignedSup === 'SAIFULLAH';
+      }
+      if (sName === 'SAIF' || supervisorId === 'usr_tgb2s6h') {
+        return assignedSup === 'SAIF';
+      }
+      return assignedSup === sName;
+    }
+
+    // 3. Check if route exists in DB
+    const [routeRows]: any = await pool.execute('SELECT * FROM `Route` WHERE `routeCode` = ? LIMIT 1', [cleanRoute]);
     if (routeRows.length === 0) return true;
 
     const route = routeRows[0];
@@ -113,10 +225,10 @@ export const routeRepository = {
 
     if (route.supervisorId === supervisorId) return true;
 
-    if (supervisorName && route.superName) {
-      const norm1 = supervisorName.trim().toLowerCase().replace(/\s+/g, '');
+    if (sName && route.superName) {
+      const norm1 = sName.toLowerCase().replace(/\s+/g, '');
       const norm2 = route.superName.trim().toLowerCase().replace(/\s+/g, '');
-      if (norm1 === norm2 || norm1.includes(norm2) || norm2.includes(norm1)) return true;
+      if (norm1 === norm2) return true;
     }
 
     try {
@@ -126,7 +238,7 @@ export const routeRepository = {
       }
     } catch (e) {}
 
-    return true;
+    return false;
   },
 
   async upsertRoutes(routes: Route[]): Promise<{ inserted: number; updated: number }> {

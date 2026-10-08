@@ -61,55 +61,23 @@ async function getMasterData(): Promise<MasterCache> {
         routeCode: c.routeCode,
       }));
 
-  const routeRows = routeRowsRaw && routeRowsRaw.length > 0
-    ? routeRowsRaw
-    : custMaster.routes.map((r: any) => ({
+  const routeRows = custMaster.routes.length > 0
+    ? custMaster.routes.map((r: any) => ({
+        routeCode: r.routeCode,
+        routeName: r.routeName || `Route ${r.routeCode}`,
+        superName: r.superName,
+        managerName: r.managerName,
+      }))
+    : (routeRowsRaw || []).map((r: any) => ({
         routeCode: r.routeCode,
         routeName: r.routeName,
         superName: r.superName,
         managerName: r.managerName,
       }));
 
-  const isExcluded = (name: string) => {
-    const n = (name || '').toUpperCase().trim();
-    return n === 'CLOSED' || n === 'INTERNAL' || n === '' || n === 'EXP MANAGER' || n === 'INST MANAGER';
-  };
-
-  const allManagers = custMaster.managers.length > 0
-    ? custMaster.managers
-    : Array.from(
-        new Set<string>(
-          routeRows
-            .map((r: any) => (r.managerName || '').trim())
-            .filter((name: string) => !isExcluded(name))
-        )
-      ).sort() as string[];
-
-  const allSupervisors = custMaster.supervisors.length > 0
-    ? custMaster.supervisors
-    : Array.from(
-        new Set<string>(
-          routeRows
-            .map((r: any) => (r.superName || '').trim())
-            .filter((name: string) => !isExcluded(name))
-        )
-      ).sort() as string[];
-
-  const managerSupervisorMap: Record<string, string[]> =
-    Object.keys(custMaster.managerSupervisorMap).length > 0
-      ? custMaster.managerSupervisorMap
-      : {};
-  if (Object.keys(managerSupervisorMap).length === 0) {
-    routeRows.forEach((r: any) => {
-      const sup = (r.superName || '').trim();
-      const mgr = (r.managerName || '').trim();
-      if (sup && !isExcluded(sup) && mgr && !isExcluded(mgr)) {
-        if (!managerSupervisorMap[mgr]) managerSupervisorMap[mgr] = [];
-        if (!managerSupervisorMap[mgr].includes(sup)) managerSupervisorMap[mgr].push(sup);
-      }
-    });
-    Object.keys(managerSupervisorMap).forEach((m) => managerSupervisorMap[m].sort());
-  }
+  const allManagers = custMaster.managers;
+  const allSupervisors = custMaster.supervisors;
+  const managerSupervisorMap = custMaster.managerSupervisorMap;
 
   const skuMap = new Map<string, any>(skuRows.map((sku: any) => [sku.skuCode, sku]));
   const powerSkuMap = new Map<string, any>(powerSkuRows.map((sku: any) => [sku.skuCode, sku]));
@@ -346,25 +314,36 @@ export async function GET(req: NextRequest) {
     // Filter by Manager parameter (if passed)
     if (managerParam) {
       filteredVisits = filteredVisits.filter((v: any) => {
-        const [_, rCode] = (v.cust_rt_id || '').split('|');
-        const cleanR = (rCode || v.routeCode || '').toUpperCase().trim();
-        const routeInfo = routeMap.get(cleanR);
-        let mgrName = routeInfo ? (routeInfo.managerName || '') : '';
-        if (v.supervisorId === 'usr_rqwxav8' || ['MTD207', 'MTD210', 'MTD213', 'MTD218', 'MTI403'].includes(cleanR)) mgrName = 'ADNAN';
-        else if (v.supervisorId === 'usr_tgb2s6h' || ['TRD104', 'TRD109', 'TRD129', 'TRD144', 'TRD158', 'TRI308'].includes(cleanR)) mgrName = 'ASHFAQ';
-        return mgrName.toUpperCase() === managerParam.toUpperCase();
+        const supUser = (v.supervisorId ? userMap.get(String(v.supervisorId)) : null) || (v.createdBy ? userMap.get(String(v.createdBy).toLowerCase().trim()) : null);
+        let sName = supUser?.name ? supUser.name.toUpperCase().trim() : '';
+        if (v.supervisorId === 'usr_rqwxav8') sName = 'SAIFULLAH';
+        else if (v.supervisorId === 'usr_tgb2s6h') sName = 'SAIF';
+
+        let mName = sName ? (cmSupervisorManagerMap[sName] || supUser?.managerName || '') : '';
+        if (!mName) {
+          const parts = (v.cust_rt_id || '').split('|').map((s: string) => s.trim()).filter(Boolean);
+          const rCode = v.routeCode || parts.find((p: string) => /^(MT|TR|IS|EX|DIS|R\d)/i.test(p)) || parts[1] || parts[0] || '';
+          const cleanR = rCode.toUpperCase().trim();
+          mName = cmRouteMgrMap[cleanR] || custMaster?.routeManagerMap?.[cleanR] || routeMap.get(cleanR)?.managerName || '';
+        }
+        return (mName || '').toUpperCase() === managerParam.toUpperCase();
       });
     }
 
     if (supervisorIdParam && (scope === 'full' || isFullAccessRole(role))) {
       filteredVisits = filteredVisits.filter((v: any) => {
-        const [_, rCode] = (v.cust_rt_id || '').split('|');
-        const cleanR = (rCode || v.routeCode || '').toUpperCase().trim();
-        const routeInfo = routeMap.get(cleanR);
-        let supName = routeInfo ? (routeInfo.superName || '') : '';
-        if (v.supervisorId === 'usr_rqwxav8' || ['MTD207', 'MTD210', 'MTD213', 'MTD218', 'MTI403'].includes(cleanR)) supName = 'SAIFULLAH';
-        else if (v.supervisorId === 'usr_tgb2s6h' || ['TRD104', 'TRD109', 'TRD129', 'TRD144', 'TRD158', 'TRI308'].includes(cleanR)) supName = 'SAIF';
-        return supName.toUpperCase() === supervisorIdParam.toUpperCase();
+        const supUser = (v.supervisorId ? userMap.get(String(v.supervisorId)) : null) || (v.createdBy ? userMap.get(String(v.createdBy).toLowerCase().trim()) : null);
+        let sName = supUser?.name ? supUser.name.toUpperCase().trim() : '';
+        if (v.supervisorId === 'usr_rqwxav8') sName = 'SAIFULLAH';
+        else if (v.supervisorId === 'usr_tgb2s6h') sName = 'SAIF';
+
+        if (!sName) {
+          const parts = (v.cust_rt_id || '').split('|').map((s: string) => s.trim()).filter(Boolean);
+          const rCode = v.routeCode || parts.find((p: string) => /^(MT|TR|IS|EX|DIS|R\d)/i.test(p)) || parts[1] || parts[0] || '';
+          const cleanR = rCode.toUpperCase().trim();
+          sName = cmRouteSupMap[cleanR] || custMaster?.routeSupervisorMap?.[cleanR] || routeMap.get(cleanR)?.superName || '';
+        }
+        return (sName || '').toUpperCase() === supervisorIdParam.toUpperCase();
       });
     }
     if (routeCodeParam) {
@@ -573,61 +552,46 @@ export async function GET(req: NextRequest) {
       const cleanRoute = (routeCodeRaw || '').toUpperCase().trim();
 
       // 3. Resolve Supervisor & Manager
-      let supName =
-        cmCust?.superName ||
-        (cleanRoute ? cmRouteSupMap[cleanRoute] : '') ||
-        (cleanRoute ? custMaster?.routeSupervisorMap?.[cleanRoute] : '') ||
-        (cleanRoute ? routeMap.get(cleanRoute)?.superName : '') ||
-        '';
-
-      let mgrName =
-        cmCust?.managerName ||
-        (cleanRoute ? cmRouteMgrMap[cleanRoute] : '') ||
-        (cleanRoute ? custMaster?.routeManagerMap?.[cleanRoute] : '') ||
-        (cleanRoute ? routeMap.get(cleanRoute)?.managerName : '') ||
-        '';
-
-      // Fallback or override from User table via visit supervisorId or createdBy
+      // The supervisor who logged and performed the visit is the primary source of truth for who conducted the visit
       const supUser =
         (v.supervisorId ? userMap.get(String(v.supervisorId)) : null) ||
         (v.createdBy ? userMap.get(String(v.createdBy).toLowerCase().trim()) : null);
 
+      let supName = '';
+      let mgrName = '';
+
       if (supUser?.name) {
-        if (supUser.name === 'SAIFULLAH' || String(v.supervisorId) === 'usr_rqwxav8') {
-          supName = 'SAIFULLAH';
-          mgrName = 'ADNAN';
-        } else if (supUser.name === 'SAIF' || String(v.supervisorId) === 'usr_tgb2s6h') {
-          supName = 'SAIF';
-          mgrName = 'ASHFAQ';
-        } else if (!supName || supName.toUpperCase() === 'UNASSIGNED') {
-          supName = supUser.name;
-          if (!mgrName || mgrName.toUpperCase() === 'UNASSIGNED') {
-            mgrName = supUser.managerName || cmSupervisorManagerMap[supUser.name.toUpperCase()] || '';
-          }
-        }
+        supName = supUser.name.toUpperCase().trim();
+        mgrName = cmSupervisorManagerMap[supName] || supUser.managerName || '';
       }
 
       // Explicit disambiguation for Saifullah (Adnan / Modern Trade) vs Saif (Ashfaq / Traditional Trade)
-      if (supName === 'SAIFULLAH' || supName === 'SAIF') {
-        if (
-          mgrName === 'ADNAN' ||
-          ['MTD207', 'MTD210', 'MTD213', 'MTD218', 'MTI403'].includes(cleanRoute) ||
-          String(v.supervisorId) === 'usr_rqwxav8'
-        ) {
-          supName = 'SAIFULLAH';
-          mgrName = 'ADNAN';
-        } else if (
-          mgrName === 'ASHFAQ' ||
-          ['TRD104', 'TRD109', 'TRD129', 'TRD144', 'TRD158', 'TRI308'].includes(cleanRoute) ||
-          String(v.supervisorId) === 'usr_tgb2s6h'
-        ) {
-          supName = 'SAIF';
-          mgrName = 'ASHFAQ';
-        }
+      if (supName === 'SAIFULLAH' || String(v.supervisorId) === 'usr_rqwxav8') {
+        supName = 'SAIFULLAH';
+        mgrName = 'ADNAN';
+      } else if (supName === 'SAIF' || String(v.supervisorId) === 'usr_tgb2s6h') {
+        supName = 'SAIF';
+        mgrName = 'ASHFAQ';
       }
 
-      if ((!mgrName || mgrName.toUpperCase() === 'UNASSIGNED') && supName && supName.toUpperCase() !== 'UNASSIGNED') {
-        mgrName = cmSupervisorManagerMap[supName.toUpperCase()] || '';
+      // If supervisor was not identified from the user account, fall back to CUSTMASTER route supervisor or customer supervisor
+      if (!supName || supName === 'UNASSIGNED') {
+        supName =
+          (cleanRoute ? cmRouteSupMap[cleanRoute] : '') ||
+          (cleanRoute ? custMaster?.routeSupervisorMap?.[cleanRoute] : '') ||
+          (cleanRoute ? routeMap.get(cleanRoute)?.superName : '') ||
+          cmCust?.superName ||
+          'UNASSIGNED';
+      }
+
+      if (!mgrName || mgrName === 'UNASSIGNED') {
+        mgrName =
+          (supName && supName !== 'UNASSIGNED' ? cmSupervisorManagerMap[supName.toUpperCase()] : '') ||
+          (cleanRoute ? cmRouteMgrMap[cleanRoute] : '') ||
+          (cleanRoute ? custMaster?.routeManagerMap?.[cleanRoute] : '') ||
+          (cleanRoute ? routeMap.get(cleanRoute)?.managerName : '') ||
+          cmCust?.managerName ||
+          'UNASSIGNED';
       }
 
       supName = (supName || 'UNASSIGNED').toUpperCase().trim();

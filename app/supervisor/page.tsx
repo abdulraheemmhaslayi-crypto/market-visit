@@ -30,27 +30,10 @@ const GCOL: Record<string, string> = {
   E: '#c0392b',
 };
 
-function isSupervisorMatch(rowSupervisor: string, selectedSupervisor: string, selectedManager?: string): boolean {
+function isSupervisorMatch(rowSupervisor: string, selectedSupervisor: string, _selectedManager?: string): boolean {
   if (!selectedSupervisor) return true;
   const rowSup = (rowSupervisor || '').trim().toUpperCase();
   const selSup = selectedSupervisor.trim().toUpperCase();
-  const selMgr = (selectedManager || '').trim().toUpperCase();
-
-  if (rowSup === selSup) return true;
-
-  // Modern Trade Supervisor Saifullah (Manager: Adnan)
-  if (selSup === 'SAIFULLAH') {
-    return rowSup === 'SAIFULLAH' || (rowSup === 'SAIF' && (!selMgr || selMgr === 'ADNAN'));
-  }
-
-  // Traditional Trade Supervisor Saif (Manager: Ashfaq)
-  if (selSup === 'SAIF') {
-    if (selMgr === 'ADNAN') {
-      return rowSup === 'SAIFULLAH' || rowSup === 'SAIF';
-    }
-    return rowSup === 'SAIF';
-  }
-
   return rowSup === selSup;
 }
 
@@ -158,7 +141,7 @@ export default function SupervisorDashboard() {
   // Instant restore from sessionStorage to eliminate 0-data flash on dashboard load
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v3');
+      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v5');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.rows && parsed.rows.length > 0) {
@@ -210,7 +193,7 @@ export default function SupervisorDashboard() {
         setReportRows(newReportRows);
         setMasters(newMasters);
         try {
-          sessionStorage.setItem('supervisor_dashboard_cache_v3', JSON.stringify({
+          sessionStorage.setItem('supervisor_dashboard_cache_v5', JSON.stringify({
             rows: newRows,
             reportRows: newReportRows,
             masters: newMasters,
