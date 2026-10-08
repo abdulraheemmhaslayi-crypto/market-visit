@@ -13,6 +13,7 @@ import { ExportButton } from '@/components/ui/ExportButton';
 import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
 import { getSizeModelsForCategory, ASSET_CATEGORIES } from '@/utils/asset-config';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
+import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
 import { RefreshCw } from 'lucide-react';
 
 const GCOL: Record<string, string> = {
@@ -2727,120 +2728,13 @@ export default function AdminDashboardPage() {
           </div> */}
         </div>
 
-        {/* Manager Table */}
-        <div className="panel tbl" style={{ marginBottom: '16px' }}>
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3>Manager Performance Summary</h3>
-              <div className="psub">Visits, coverage & compliance per manager (filtered)</div>
-            </div>
-            <ExportButton onClick={handleExportManagerTable} label="Export Table" variant="compact" />
-          </div>
-          <div className="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Manager</th>
-                  <th>Visits</th>
-                  <th>Outlets</th>
-                  <th>Temp Breach</th>
-                  {/* <th>FEFO %</th> */}
-                </tr>
-              </thead>
-              <tbody>
-                {mgrTableData.length > 0 ? (
-                  mgrTableData.map(([m, x]: any) => (
-                    <tr key={m}>
-                      <td style={{ fontWeight: 700 }}>{m}</td>
-                      <td>{x.v}</td>
-                      <td>{x.o.size}</td>
-                      <td>
-                        {x.b ? (
-                          <span className="pill r">{x.b}</span>
-                        ) : (
-                          <span className="pill g">0</span>
-                        )}
-                      </td>
-                      {/* <td>{x.v ? Math.round((x.f / x.v) * 100) : 0}%</td> */}
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', color: '#5a7085', padding: '20px' }}>
-                      No data for this filter
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-
-
-        {/* Visit Details Table */}
-        <div className="panel tbl">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3>Visit Details</h3>
-              <div className="psub">Outlet-level records (filtered) — GM drill-down view</div>
-            </div>
-            <ExportButton onClick={handleExportAllFilteredVisits} label="Export All Visits" variant="compact" />
-          </div>
-          <div className="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Manager</th>
-                  <th>Supervisor</th>
-                  <th>Outlet</th>
-                  <th>Ch</th>
-                  <th>Class</th>
-                  <th>Asset</th>
-                  <th>Temp</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length > 0 ? (
-                  filtered.slice(0, 40).map((r, idx) => (
-                    <tr key={idx}>
-                      <td>{r.mgr}</td>
-                      <td>{r.sup}</td>
-                      <td>{r.cust}</td>
-                      <td>{r.ch}</td>
-                      <td>
-                        <span
-                          className="grade"
-                          style={{ background: GCOL[r.gr] || '#9aa9b4' }}
-                        >
-                          {r.gr}
-                        </span>
-                      </td>
-                      <td>{r.atype}</td>
-                      <td>{r.temp}°C</td>
-                      <td>
-                        {r.ok ? (
-                          <span className="pill g">OK</span>
-                        ) : (
-                          <span className="pill r">Breach</span>
-                        )}
-                      </td>
-                      <td>{r.action || '—'}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', color: '#5a7085', padding: '20px' }}>
-                      No data for this filter
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Visit Summary Visual Table (Replaces Manager Table and Visit Details) */}
+        <VisitSummaryTable
+          rows={filtered}
+          reportRows={reportRows}
+          title="Visit Execution & Asset Summary"
+          subtitle="Outlet-level audit details, SKU availability counts, and cold chain asset models"
+        />
 
         {/* Audit Photo Gallery Section with Pagination */}
         {/* <PhotoGallerySection
