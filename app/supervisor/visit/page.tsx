@@ -274,7 +274,7 @@ function VisitWizardContent() {
           `Compressing photo ${fileNum} of ${totalFiles} (${origSizeMb} MB)...`
         );
 
-        // 1. Client-side compression & WebP/JPEG scaling (drastically reduces payload to ~35KB-75KB)
+        // 1. Client-side compression & WebP/JPEG scaling (preserves crisp detail at ~110KB-200KB)
         const compressed = await compressImage(file);
         const compressedSizeKb = (compressed.size / 1024).toFixed(0);
         const ratio = compressed.compressionRatio;
