@@ -197,6 +197,7 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
       observation: ast.observation || '',
       isFirstInFlow: ast.isFirstInFlow === true || (ast.isFirstInFlow as any) === 1,
       fefoFollowed: ast.fefoFollowed === true || (ast.fefoFollowed as any) === 1,
+      sizeModel: (ast as any).sizeModel || '',
     };
   });
 
@@ -381,6 +382,7 @@ export async function submitVisitAction(data: VisitInput) {
       observation: ast.observation || '',
       isFirstInFlow: ast.isFirstInFlow === true || (ast.isFirstInFlow as any) === 1,
       fefoFollowed: ast.fefoFollowed === true || (ast.fefoFollowed as any) === 1,
+      sizeModel: (ast as any).sizeModel || '',
     };
   });
 
