@@ -17,6 +17,7 @@ export const visitAssetSchema = z.object({
   observation: z.string().optional().default(''),
   isFirstInFlow: z.boolean().optional().default(false),
   fefoFollowed: z.boolean().optional().default(false),
+  sizeModel: z.string().optional().default(''),
 });
 
 export const visitSchema = z.object({

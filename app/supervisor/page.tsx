@@ -2764,11 +2764,9 @@ export default function SupervisorDashboard() {
           </div> */}
         </div>
 
-        {/* Operational Cards Row (Pending Drafts & Submitted Audits List to fully retain components) */}
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-          
-          {/* Pending Drafts Panel */}
-          {drafts.length > 0 && (
+        {/* Operational Cards Row (Pending Drafts only if any exist) */}
+        {drafts.length > 0 && (
+          <div className="grid" style={{ gridTemplateColumns: '1fr', marginBottom: '16px' }}>
             <div className="panel tbl">
               <h3>Pending Drafts ({drafts.length})</h3>
               <div className="psub">Saved local drafts that require completion</div>
@@ -2802,40 +2800,8 @@ export default function SupervisorDashboard() {
                 </table>
               </div>
             </div>
-          )}
-
-          {/* Submitted Audits Panel */}
-          <div className="panel tbl">
-            <h3>Submitted Audits Log ({submittedVisits.length})</h3>
-            <div className="psub">List of submitted supervisor visit audits</div>
-            <div className="tbl-wrap" style={{ maxHeight: '240px' }}>
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Customer</th>
-                    <th>Route</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {submittedVisits.slice(0, 20).map((v) => (
-                    <tr key={v.visitId} onClick={() => handleOpenReview(v.visitId)} style={{ cursor: 'pointer' }}>
-                      <td>{new Date(v.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</td>
-                      <td className="font-bold">{v.customerCode}</td>
-                      <td className="font-mono">{v.routeCode}</td>
-                      <td>
-                        <span className={`pill ${v.tempInRange ? 'g' : 'r'}`}>
-                          {v.temperature}°C {v.tempInRange ? '✓' : '⚠'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
-        </div>
+        )}
 
         {/* Visit Summary Visual Table (Replaces Manager Table and Visit Details) */}
         <VisitSummaryTable

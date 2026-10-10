@@ -26,6 +26,7 @@ import {
   Thermometer,
   Camera,
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import { isFleetRole } from '@/lib/roles';
 
@@ -50,7 +51,7 @@ const navGroups = [
   {
     label: 'Analytics',
     items: [
-      { name: 'Reports', path: '/supervisor/reports', icon: BarChart3 },
+      { name: 'AI Dashboard', path: '/supervisor/reports', icon: Sparkles },
       { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
       { name: 'Data Usage', path: '/supervisor/data-usage', icon: Activity },
     ],
@@ -83,7 +84,7 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
     { name: 'My Visits', path: '/supervisor/my-visits', icon: MapPin },
     { name: 'No Visits', path: '/supervisor/no-visits', icon: AlertTriangle },
     { name: 'New Audit Wizard', path: '/supervisor/visit', icon: Plus },
-    { name: 'Reports & Stats', path: '/supervisor/reports', icon: BarChart3 },
+    { name: 'AI Dashboard & Recommendations', path: '/supervisor/reports', icon: Sparkles },
     { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
     { name: 'My Profile', path: '/supervisor/profile', icon: User },
     { name: 'Toggle Light/Dark Theme', action: 'theme', icon: Moon },
@@ -658,7 +659,7 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
           );
         })()}
 
-        {/* Reports Tab */}
+        {/* AI Dashboard Tab */}
         <Link
           href="/supervisor/reports"
           className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
@@ -667,8 +668,8 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
             width: '20%',
           }}
         >
-          <BarChart3 className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/supervisor/reports') ? 'scale(1.1)' : 'scale(1)' }} />
-          <span className="text-[9px] tracking-wide font-semibold" style={{ fontWeight: pathname.startsWith('/supervisor/reports') ? 700 : 500 }}>Reports</span>
+          <Sparkles className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/supervisor/reports') ? 'scale(1.1)' : 'scale(1)' }} />
+          <span className="text-[9px] tracking-wide font-semibold" style={{ fontWeight: pathname.startsWith('/supervisor/reports') ? 700 : 500 }}>AI Dashboard</span>
           {pathname.startsWith('/supervisor/reports') && (
             <span className="absolute bottom-0 w-1 h-1 rounded-full bg-[var(--accent)]" />
           )}

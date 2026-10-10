@@ -206,6 +206,9 @@ async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolC
     if (!existingVaColumns.has('fefoFollowed')) {
       await connection.execute("ALTER TABLE `VisitAsset` ADD COLUMN `fefoFollowed` TINYINT(1) NULL DEFAULT 0");
     }
+    if (!existingVaColumns.has('sizeModel')) {
+      await connection.execute("ALTER TABLE `VisitAsset` ADD COLUMN `sizeModel` VARCHAR(255) NULL");
+    }
 
     // Migrate PRIMARY KEY if table was created with legacy composite (visitId, assetType)
     try {
@@ -669,8 +672,8 @@ export const visitRepository = {
       const assetIdVal = ast.assetId || `ast_${ast.visitId}_${ast.assetType}_${Math.random().toString(36).substring(2, 9)}`;
       try {
         await executor.execute(
-          `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
              \`assetType\` = VALUES(\`assetType\`),
              \`temperature\` = VALUES(\`temperature\`),
@@ -678,8 +681,9 @@ export const visitRepository = {
              \`actionRequired\` = VALUES(\`actionRequired\`),
              \`observation\` = VALUES(\`observation\`),
              \`isFirstInFlow\` = VALUES(\`isFirstInFlow\`),
-             \`fefoFollowed\` = VALUES(\`fefoFollowed\`)`,
-          [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0]
+             \`fefoFollowed\` = VALUES(\`fefoFollowed\`),
+             \`sizeModel\` = VALUES(\`sizeModel\`)`,
+          [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0, ast.sizeModel || null]
         );
       } catch (err: any) {
         if (err.message && err.message.includes('Unknown column')) {

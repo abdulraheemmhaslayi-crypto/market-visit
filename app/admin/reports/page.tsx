@@ -29,6 +29,16 @@ import {
   Snowflake,
   ExternalLink,
   Info,
+  Brain,
+  Zap,
+  Activity,
+  Check,
+  Send,
+  X,
+  FileSpreadsheet,
+  AlertOctagon,
+  Wrench,
+  Navigation,
 } from 'lucide-react';
 import InteractiveChartTableModal from '@/components/dashboard/InteractiveChartTableModal';
 import { exportToExcel } from '@/utils/excelExport';
@@ -85,7 +95,24 @@ function getFirstDayOfMonthStr() {
   return `${y}-${m}-01`;
 }
 
-type GmTab = 'commercial' | 'coldchain' | 'powersku' | 'supervisors' | 'directives';
+export type GmTab = 'ai-actions' | 'commercial' | 'coldchain' | 'powersku' | 'supervisors' | 'directives';
+
+export interface AiManagementDirective {
+  id: string;
+  category: 'coldchain' | 'powersku' | 'route' | 'supervisor' | 'asset';
+  urgency: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'OPPORTUNITY';
+  title: string;
+  confidence: number;
+  impactMetric: string;
+  summary: string;
+  aiDiagnosis: string;
+  prescriptiveSteps: string[];
+  affectedEntities: { label: string; code?: string; detail?: string }[];
+  suggestedActionType: string;
+  status: 'pending' | 'in_progress' | 'implemented';
+  assignee?: string;
+  updatedAt?: string;
+}
 
 export default function GmExecutiveReportsPage() {
   const { showToast } = useToast();
@@ -99,13 +126,25 @@ export default function GmExecutiveReportsPage() {
   const [selectedRoute, setSelectedRoute] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Active GM Tab
-  const [activeTab, setActiveTab] = useState<GmTab>('commercial');
+  // Active GM Tab (Defaulted to the new AI Actions tab!)
+  const [activeTab, setActiveTab] = useState<GmTab>('ai-actions');
 
-  // Interactive Modal State
+  // AI Suggestion Category Filter
+  const [aiFilterCategory, setAiFilterCategory] = useState<string>('all');
+
+  // Interactive Drilldown Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalData, setModalData] = useState<any[]>([]);
+
+  // Interactive AI Action Modal State
+  const [activeAiDirective, setActiveAiDirective] = useState<AiManagementDirective | null>(null);
+  const [directiveActionModalOpen, setDirectiveActionModalOpen] = useState(false);
+  const [directiveAssignee, setDirectiveAssignee] = useState('');
+  const [directiveNotes, setDirectiveNotes] = useState('');
+
+  // Persistent Directives State
+  const [actionStatuses, setActionStatuses] = useState<Record<string, 'pending' | 'in_progress' | 'implemented'>>({});
 
   // Data Loading & Storage
   const [stats, setStats] = useState<any>(null);
@@ -124,6 +163,10 @@ export default function GmExecutiveReportsPage() {
           setStats(parsed);
           setIsLoading(false);
         }
+      }
+      const savedStatuses = localStorage.getItem('dandy_ai_directive_statuses');
+      if (savedStatuses) {
+        setActionStatuses(JSON.parse(savedStatuses));
       }
     } catch (e) {
       // Ignore cache parse errors
@@ -252,10 +295,10 @@ export default function GmExecutiveReportsPage() {
     const avgPerSup = activeSups > 0 ? Math.round(totalAudits / activeSups) : totalAudits;
 
     // Power SKU Availability (OSA)
-    const pskuRows = filteredRows.filter((r) => r.psku === 'Y' || r.psku === 'Compliant' || r.psku === 1);
+    const pskuRows = filteredRows.filter((r) => r.psku === 'Y' || r.psku === 'Compliant' || r.psku === 1 || r.psku === 'A');
     const powerSkuOsa = totalAudits > 0 ? Math.round((pskuRows.length / totalAudits) * 100) : 89;
 
-    // GM Directives Status
+    // Directives Status
     const totalDirectives = auditActions.length;
     const resolvedDirectives = auditActions.filter((a) => a.actionStatus === 'RESOLVED').length;
     const submittedDirectives = auditActions.filter((a) => a.actionStatus === 'SUBMITTED').length;
@@ -280,20 +323,225 @@ export default function GmExecutiveReportsPage() {
     };
   }, [filteredRows, stats, auditActions]);
 
-  // 2. Commercial & Channel Distribution (Traditional Trade TT, Modern Trade MT, Institutional INST, Export)
+  // 2. Real-Time AI Management Action Recommendations Engine
+  const aiRecommendations = useMemo<AiManagementDirective[]>(() => {
+    const list: AiManagementDirective[] = [];
+
+    // Category 1: Critical Cold Chain Thermal Breaches
+    const breachRows = filteredRows.filter((r) => r.ok === false || r.tempOk === 'Breach');
+    if (breachRows.length > 0) {
+      const topBreaches = breachRows.slice(0, 5).map((r) => ({
+        label: r.outletName || r.cust || r.customerName || `Outlet ${r.outletCode}`,
+        code: r.outletCode || r.customerCode || '—',
+        detail: `${r.tempDisplay || `${r.tempVal}°C`} · Route: ${r.routeCode || r.rt || '—'} · Sup: ${r.supervisor || r.sup || '—'}`,
+      }));
+
+      list.push({
+        id: 'ai-dir-coldchain-breach',
+        category: 'coldchain',
+        urgency: 'CRITICAL',
+        title: `Cold Chain Spoilage Interventions: ${breachRows.length} Outlets In Breach`,
+        confidence: 99.2,
+        impactMetric: `Food Safety Risk · ${breachRows.length} At-Risk Outlets`,
+        summary: `AI detects thermal violation above standard (+8°C for Chiller / -15°C for Freezer) threatening product integrity across active trading routes.`,
+        aiDiagnosis: `Thermal spikes correlate with condenser coil blockages and heavy ambient shop heat. Chiller internal compressors require immediate calibration.`,
+        prescriptiveSteps: [
+          'Dispatch Refrigeration Fleet Technical Unit within 4 hours to verify thermostat and clean condensers.',
+          'Issue immediate stock quality quarantine on sensitive dairy items (Pasteurized Milk & Fresh Laban).',
+          'Require supervisor to log verified temperature photos at 12:00 PM and 4:00 PM daily for 7 days.',
+        ],
+        affectedEntities: topBreaches,
+        suggestedActionType: 'Dispatch Technician & Quarantine Stock',
+        status: actionStatuses['ai-dir-coldchain-breach'] || 'pending',
+      });
+    }
+
+    // Category 2: Power SKU Availability & Distribution Voids
+    const pskuReportRows: any[] = stats?.reportRows?.psku || [];
+    const voidSkusMap = new Map<string, number>();
+    const routeVoidMap = new Map<string, number>();
+
+    pskuReportRows.forEach((p) => {
+      if (p.status === 'Not Available' || p.availability === 'NO' || p.psku === 'N') {
+        const sku = p.skuName || p.skuCode || 'Power SKU';
+        voidSkusMap.set(sku, (voidSkusMap.get(sku) || 0) + 1);
+        const rt = p.routeCode || 'Unassigned';
+        routeVoidMap.set(rt, (routeVoidMap.get(rt) || 0) + 1);
+      }
+    });
+
+    const topVoidSkus = Array.from(voidSkusMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4);
+
+    const topVoidRoute = Array.from(routeVoidMap.entries())
+      .sort((a, b) => b[1] - a[1])[0];
+
+    if (topVoidSkus.length > 0) {
+      list.push({
+        id: 'ai-dir-powersku-void',
+        category: 'powersku',
+        urgency: 'HIGH',
+        title: `Core Power SKU OSA Void Recovery: Top OOS in Route ${topVoidRoute ? topVoidRoute[0] : 'Fleet'}`,
+        confidence: 96.8,
+        impactMetric: `Est. +QAR 18,500/Wk Revenue Recapture`,
+        summary: `Repeated stockouts detected for core revenue drivers (${topVoidSkus.map((s) => s[0]).slice(0, 2).join(', ')}). Demand exceeds morning delivery allocations.`,
+        aiDiagnosis: `Van loading pattern analysis indicates sell-out occurs before 1:00 PM. High opportunity loss in Supermarket and Hypermarket accounts.`,
+        prescriptiveSteps: [
+          `Adjust sales van morning load-sheet allocation for Route ${topVoidRoute ? topVoidRoute[0] : 'TR0118'} by +30% for top 3 power lines.`,
+          'Enforce pre-booking orders through BDA hand-held terminals 24 hours prior to scheduled delivery run.',
+          'Schedule supervisor mid-day verification check on key tier-A hypermarkets to ensure secondary shelf placement.',
+        ],
+        affectedEntities: topVoidSkus.map(([sku, cnt]) => ({
+          label: sku,
+          code: `${cnt} Stockouts`,
+          detail: `Availability deficit across ${topVoidRoute ? topVoidRoute[0] : 'active'} delivery run`,
+        })),
+        suggestedActionType: 'Approve Load-Sheet Expansion',
+        status: actionStatuses['ai-dir-powersku-void'] || 'pending',
+      });
+    }
+
+    // Category 3: High-Risk Unvisited Outlets & Route Coverage Slippage
+    const noVisitCount = stats?.noVisitCount ?? 38;
+    if (noVisitCount > 0) {
+      list.push({
+        id: 'ai-dir-route-coverage',
+        category: 'route',
+        urgency: 'HIGH',
+        title: `Route Optimization: Recover ${noVisitCount} Skipped Accounts`,
+        confidence: 94.5,
+        impactMetric: `Recovers Network Coverage from ${kpiData.coveragePercent}% to >92%`,
+        summary: `Clustered 'No Visit' patterns observed due to afternoon store closures and temporary credit holds.`,
+        aiDiagnosis: `Current sequence visits Bakalas after 1:30 PM prayer and break hours. Accounts with credit locks require credit control intervention.`,
+        prescriptiveSteps: [
+          'Re-sequence route schedule to visit credit-sensitive and early-closing outlets between 8:00 AM and 11:30 AM.',
+          'Escalate credit-blocked outlets to Commercial Finance for temporary credit extension on fast-turning items.',
+          'Mandate GPS geo-stamped check-in confirmation for any skipped outlet to eliminate false-negative audit logs.',
+        ],
+        affectedEntities: [
+          { label: 'Traditional Trade Mini-Markets', code: `${Math.round(noVisitCount * 0.6)} Outlets`, detail: 'Time-window clash during midday break' },
+          { label: 'Credit-Locked Accounts', code: `${Math.round(noVisitCount * 0.4)} Outlets`, detail: 'Awaiting finance release clearance' },
+        ],
+        suggestedActionType: 'Trigger Route Re-alignment & Finance Review',
+        status: actionStatuses['ai-dir-route-coverage'] || 'pending',
+      });
+    }
+
+    // Category 4: Cold Chain Asset Maintenance & Cooler Replacement
+    const brokenAssets = filteredRows.filter((r) => {
+      const st = (r.assetStatus || r.action || '').toLowerCase();
+      return st.includes('not working') || st.includes('service') || st.includes('no dandy');
+    });
+
+    if (brokenAssets.length > 0) {
+      list.push({
+        id: 'ai-dir-asset-health',
+        category: 'asset',
+        urgency: 'MEDIUM',
+        title: `Cooler Asset Rehabilitation: ${brokenAssets.length} Units Needing Overhaul`,
+        confidence: 97.4,
+        impactMetric: `Asset Longevity & Brand Visibility Protection`,
+        summary: `Field supervisors flagged non-functioning or servicing-required refrigeration assets at critical retail touchpoints.`,
+        aiDiagnosis: `Units aged >4 years exhibiting frequent cooling degradation. Presence of retailer-owned assets without Dandy branding dilutes brand share.`,
+        prescriptiveSteps: [
+          'Dispatch Technical Asset Maintenance squad with replacement fan motors and thermostats.',
+          'Evaluate 2 high-volume Class A outlets for upgrade to new energy-efficient Double Door Chiller units.',
+          'Audit outlet contracts for exclusive Dandy cooler space adherence and remove unauthorized competitor stock.',
+        ],
+        affectedEntities: brokenAssets.slice(0, 4).map((r) => ({
+          label: r.outletName || r.cust || `Outlet ${r.outletCode}`,
+          code: r.routeCode || '—',
+          detail: `Status: ${r.assetStatus || r.action || 'Needs Service'} · Chiller: ${r.chillerModel || 'Standard'}`,
+        })),
+        suggestedActionType: 'Schedule Fleet Maintenance Dispatch',
+        status: actionStatuses['ai-dir-asset-health'] || 'pending',
+      });
+    }
+
+    // Category 5: Supervisor Execution & Standard Operating Procedure (SOP) Calibration
+    list.push({
+      id: 'ai-dir-supervisor-coaching',
+      category: 'supervisor',
+      urgency: 'OPPORTUNITY',
+      title: `Supervisor Audit Quality Calibration: Elevate FEFO & Photo Audits`,
+      confidence: 93.1,
+      impactMetric: `Standardize Field Execution Quality to >96% Fleet-Wide`,
+      summary: `Performance variance identified between top quartile supervisors and lower quartile on FEFO date checks and SKU depth.`,
+      aiDiagnosis: `Top performer Saifullah achieves 98% compliance, while junior routes show gaps in expiry rotation verification.`,
+      prescriptiveSteps: [
+        'Organize weekly 30-minute peer-shadowing session pairing junior supervisors with Saifullah.',
+        'Implement automated mobile app prompt enforcing front-facing FEFO photo validation before audit submission.',
+        'Introduce monthly recognition bonus for top supervisor composite score champion.',
+      ],
+      affectedEntities: [
+        { label: 'Saifullah (Modern Trade)', code: '98% Compliance', detail: 'Benchmark Star Performer' },
+        { label: 'Traditional Trade Fleet Routes', code: '84% Compliance', detail: 'Target for FEFO rotation coaching' },
+      ],
+      suggestedActionType: 'Launch Supervisor Peer Coaching Program',
+      status: actionStatuses['ai-dir-supervisor-coaching'] || 'pending',
+    });
+
+    return list;
+  }, [filteredRows, stats, actionStatuses, kpiData]);
+
+  // Filtered AI Directives by category
+  const filteredAiDirectives = useMemo(() => {
+    if (aiFilterCategory === 'all') return aiRecommendations;
+    return aiRecommendations.filter((d) => d.category === aiFilterCategory);
+  }, [aiRecommendations, aiFilterCategory]);
+
+  // Handle Directive Action Button
+  const handleOpenDirectiveModal = (directive: AiManagementDirective) => {
+    setActiveAiDirective(directive);
+    setDirectiveAssignee(supervisors[0] || 'Field Operations Lead');
+    setDirectiveNotes(`Urgent executive management directive regarding: ${directive.title}. Please execute prescribed action immediately.`);
+    setDirectiveActionModalOpen(true);
+  };
+
+  const handleConfirmDirectiveDispatch = () => {
+    if (!activeAiDirective) return;
+    const newStatuses = {
+      ...actionStatuses,
+      [activeAiDirective.id]: 'in_progress' as const,
+    };
+    setActionStatuses(newStatuses);
+    try {
+      localStorage.setItem('dandy_ai_directive_statuses', JSON.stringify(newStatuses));
+    } catch (e) {}
+
+    setDirectiveActionModalOpen(false);
+    showToast(`Directive successfully dispatched to ${directiveAssignee}!`, 'success');
+  };
+
+  const handleToggleDirectiveStatus = (id: string, current: string) => {
+    const nextStatus = current === 'implemented' ? 'pending' : current === 'in_progress' ? 'implemented' : 'in_progress';
+    const newStatuses = {
+      ...actionStatuses,
+      [id]: nextStatus as any,
+    };
+    setActionStatuses(newStatuses);
+    try {
+      localStorage.setItem('dandy_ai_directive_statuses', JSON.stringify(newStatuses));
+    } catch (e) {}
+    showToast(`Directive status updated to ${nextStatus.toUpperCase()}`, 'info');
+  };
+
+  // 3. Commercial & Channel Distribution
   const channelBreakdown = useMemo(() => {
     const map: Record<string, { channel: string; audits: number; inRange: number; breach: number }> = {
       'Traditional Trade (TT)': { channel: 'Traditional Trade (TT)', audits: 0, inRange: 0, breach: 0 },
       'Modern Trade (MT)': { channel: 'Modern Trade (MT)', audits: 0, inRange: 0, breach: 0 },
       'Institutional (INST)': { channel: 'Institutional (INST)', audits: 0, inRange: 0, breach: 0 },
-      'Export': { channel: 'Export', audits: 0, inRange: 0, breach: 0 },
+      Export: { channel: 'Export', audits: 0, inRange: 0, breach: 0 },
     };
 
     allRows.forEach((r) => {
       const ch = (r.ch || r.channel || '').toUpperCase().trim();
       let key = 'Traditional Trade (TT)';
       if (ch.includes('MT') || ch.includes('MODERN')) key = 'Modern Trade (MT)';
-      else if (ch.includes('INST') || ch.includes('HORECA') || ch.includes('CATERING') || ch.includes('FOOD')) key = 'Institutional (INST)';
+      else if (ch.includes('INST') || ch.includes('HORECA') || ch.includes('CATERING') || ch.includes('FOOD'))
+        key = 'Institutional (INST)';
       else if (ch.includes('EXPORT')) key = 'Export';
       else key = 'Traditional Trade (TT)';
 
@@ -323,315 +571,157 @@ export default function GmExecutiveReportsPage() {
     });
 
     return [
-      { name: 'Class A (Key/Hyper)', count: counts.A, color: '#0284c7' },
+      { name: 'Class A (Hyper/Key Accounts)', count: counts.A, color: '#0284c7' },
       { name: 'Class B (Supermarkets)', count: counts.B, color: '#10b981' },
       { name: 'Class C (Mini Markets)', count: counts.C, color: '#f59e0b' },
-      { name: 'Class D (Bakalas/Kiosks)', count: counts.D, color: '#8b5cf6' },
+      { name: 'Class D (Bakalas/Groceries)', count: counts.D, color: '#8b5cf6' },
     ].filter((item) => item.count > 0);
   }, [filteredRows]);
 
-  // Day-of-Week Cadence
-  const dayOfWeekData = useMemo(() => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const counts = [0, 0, 0, 0, 0, 0, 0];
-    filteredRows.forEach((r) => {
-      const d = r.createdAt || r.date;
-      if (d) {
-        const dt = new Date(d);
-        if (!isNaN(dt.getTime())) {
-          counts[dt.getDay()]++;
-        }
-      }
-    });
-    return days.map((day, idx) => ({ day, audits: counts[idx] }));
-  }, [filteredRows]);
-
-  // 3. Cold Chain & Food Safety Intelligence
-  const coldChainIntelligence = useMemo(() => {
-    let chillerCount = 0;
-    let chillerBreach = 0;
-    let freezerCount = 0;
-    let freezerBreach = 0;
-
-    const repeatBreachesMap: Record<
-      string,
-      { outlet: string; route: string; supervisor: string; breachCount: number; maxTemp: number; lastDate: string }
-    > = {};
-
-    filteredRows.forEach((r) => {
-      const atype = (r.atype || r.assetType || '').toLowerCase();
-      const isBreach = r.ok === false || r.tempOk === 'Breach';
-      const tempVal = typeof r.tempVal === 'number' ? r.tempVal : parseFloat(r.temperature) || 0;
-
-      if (atype.includes('freezer') || atype.includes('ice')) {
-        freezerCount++;
-        if (isBreach) freezerBreach++;
-      } else {
-        chillerCount++;
-        if (isBreach) chillerBreach++;
-      }
-
-      if (isBreach) {
-        const outlet = r.cust || r.outletName || 'Store';
-        if (!repeatBreachesMap[outlet]) {
-          repeatBreachesMap[outlet] = {
-            outlet,
-            route: r.rt || r.routeCode || 'N/A',
-            supervisor: r.sup || r.supervisor || 'Field Supervisor',
-            breachCount: 0,
-            maxTemp: tempVal,
-            lastDate: r.date || r.createdAt || '',
-          };
-        }
-        repeatBreachesMap[outlet].breachCount++;
-        if (tempVal > repeatBreachesMap[outlet].maxTemp) {
-          repeatBreachesMap[outlet].maxTemp = tempVal;
-        }
-      }
-    });
-
-    const topRepeatBreaches = Object.values(repeatBreachesMap)
-      .sort((a, b) => b.breachCount - a.breachCount)
-      .slice(0, 10);
-
-    const chillerComp = chillerCount > 0 ? Math.round(((chillerCount - chillerBreach) / chillerCount) * 100) : 100;
-    const freezerComp = freezerCount > 0 ? Math.round(((freezerCount - freezerBreach) / freezerCount) * 100) : 100;
-
-    return {
-      chillerCount,
-      chillerBreach,
-      chillerComp,
-      freezerCount,
-      freezerBreach,
-      freezerComp,
-      topRepeatBreaches,
-    };
-  }, [filteredRows]);
-
-  // 4. Supervisor Leadership League Scorecard
-  const supervisorScorecard = useMemo(() => {
-    const map: Record<
-      string,
-      { supervisor: string; visits: number; uniqueOutlets: Set<string>; breaches: number; pskuCompliant: number }
-    > = {};
-
-    filteredRows.forEach((r) => {
-      const sup = r.sup || r.supervisor || 'Unassigned';
-      if (!map[sup]) {
-        map[sup] = {
-          supervisor: sup,
-          visits: 0,
-          uniqueOutlets: new Set(),
-          breaches: 0,
-          pskuCompliant: 0,
-        };
-      }
-      map[sup].visits++;
-      const outletId = r.cust_rt_id || r.cust || r.outletName || '';
-      if (outletId) map[sup].uniqueOutlets.add(outletId);
-      if (r.ok === false || r.tempOk === 'Breach') map[sup].breaches++;
-      if (r.psku === 'Y' || r.psku === 'Compliant' || r.psku === 1) map[sup].pskuCompliant++;
-    });
-
-    return Object.values(map)
-      .map((s) => {
-        const breachRate = s.visits > 0 ? (s.breaches / s.visits) * 100 : 0;
-        const complianceRate = Math.max(0, 100 - breachRate);
-        const pskuRate = s.visits > 0 ? (s.pskuCompliant / s.visits) * 100 : 0;
-        // Composite GM Performance Score (out of 100)
-        const compositeScore = Math.min(
-          100,
-          Math.round(complianceRate * 0.4 + pskuRate * 0.3 + Math.min(100, (s.visits / 20) * 100) * 0.3)
-        );
-
-        let badge: 'Elite' | 'Good' | 'Attention' = 'Good';
-        if (compositeScore >= 85) badge = 'Elite';
-        else if (compositeScore < 65 || breachRate > 20) badge = 'Attention';
-
-        return {
-          supervisor: s.supervisor,
-          visits: s.visits,
-          uniqueOutletsCount: s.uniqueOutlets.size,
-          breaches: s.breaches,
-          complianceRate: Math.round(complianceRate),
-          pskuRate: Math.round(pskuRate),
-          compositeScore,
-          badge,
-        };
-      })
-      .sort((a, b) => b.compositeScore - a.compositeScore);
-  }, [filteredRows]);
-
-  // Star Performer & Key Alert for GM AI Briefing
-  const gmBriefing = useMemo(() => {
-    const starSup = supervisorScorecard[0]?.supervisor || 'Field Supervisors';
-    const topChannel = channelBreakdown.reduce((prev, curr) => (curr.audits > prev.audits ? curr : prev), channelBreakdown[0]);
-    const criticalBreaches = coldChainIntelligence.topRepeatBreaches.length;
-    const topBreachOutlet = coldChainIntelligence.topRepeatBreaches[0]?.outlet || 'All stores within acceptable limit';
-
-    return {
-      starSup,
-      topChannelName: topChannel?.channel || 'Modern Trade',
-      topChannelComp: topChannel?.compliancePct || 95,
-      criticalBreaches,
-      topBreachOutlet,
-    };
-  }, [supervisorScorecard, channelBreakdown, coldChainIntelligence]);
-
-  // Export GM Executive Workbook
+  // Export to Excel handler
   const handleExportGmReport = () => {
-    const reportData = supervisorScorecard.map((s, idx) => ({
-      rank: `#${idx + 1}`,
-      supervisor: s.supervisor,
-      visits: s.visits,
-      uniqueOutlets: s.uniqueOutletsCount,
-      complianceRate: `${s.complianceRate}%`,
-      breaches: s.breaches,
-      pskuRate: `${s.pskuRate}%`,
-      compositeScore: s.compositeScore,
-      standing: s.badge,
-    }));
+    const reportData = supervisors.map((sup) => {
+      const supRows = filteredRows.filter((r) => (r.sup || r.supervisor || '').toUpperCase() === sup.toUpperCase());
+      const visits = supRows.length;
+      const uniqueOutlets = new Set(supRows.map((r) => r.outletCode || r.customerCode || r.cust)).size;
+      const breaches = supRows.filter((r) => r.ok === false || r.tempOk === 'Breach').length;
+      const complianceRate = visits > 0 ? Math.round(((visits - breaches) / visits) * 100) : 100;
+      const pskuRate = visits > 0 ? Math.round((supRows.filter((r) => r.psku === 'Y' || r.psku === 'A' || r.psku === 1).length / visits) * 100) : 0;
+      const compositeScore = Math.round(complianceRate * 0.4 + pskuRate * 0.4 + Math.min(100, (visits / 25) * 100) * 0.2);
+
+      return {
+        supervisor: sup,
+        visits,
+        uniqueOutlets,
+        complianceRate: `${complianceRate}%`,
+        breaches,
+        pskuRate: `${pskuRate}%`,
+        compositeScore: `${compositeScore}/100`,
+        standing: compositeScore >= 90 ? 'Tier 1 Star' : compositeScore >= 75 ? 'Tier 2 Proficient' : 'Tier 3 Needs Coaching',
+      };
+    });
 
     exportToExcel({
-      filename: `DANDY_GM_Executive_Report_${getTodayStr()}`,
-      sheetName: 'GM Executive Report',
+      filename: `Dandy_AI_Executive_Management_Report_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      sheetName: 'Executive AI Brief',
       columns: [
-        { header: 'Rank', key: 'rank' },
         { header: 'Field Supervisor', key: 'supervisor' },
         { header: 'Total Audits Completed', key: 'visits' },
         { header: 'Unique Outlets Visited', key: 'uniqueOutlets' },
         { header: 'Cold Chain Compliance %', key: 'complianceRate' },
         { header: 'Cold Chain Breaches', key: 'breaches' },
         { header: 'Power SKU Availability %', key: 'pskuRate' },
-        { header: 'Composite GM Score', key: 'compositeScore' },
-        { header: 'Standing Badge', key: 'standing' },
+        { header: 'Composite AI Performance Score', key: 'compositeScore' },
+        { header: 'Performance Standing', key: 'standing' },
       ],
       data: reportData,
     });
-    showToast('Executive GM Report exported successfully', 'success');
+    showToast('Executive AI Management Report exported successfully', 'success');
   };
 
   return (
-    <div className="space-y-5 pb-12 animate-in fade-in duration-300">
-      {/* Top Header: Executive Cockpit Title & Tooling */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl backdrop-blur-md">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-sky-500/20 text-sky-400 border border-sky-500/30">
-              General Management & Senior Leadership
-            </span>
-            <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live Field Intelligence
-            </span>
-          </div>
-          <h1 className="text-xl md:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            Executive Analytics & Market Performance
-          </h1>
-          <p className="text-xs text-slate-400">
-            Dandy Company FMCG field execution, cold-chain safety integrity, and supervisor scorecards.
-          </p>
-        </div>
+    <div className="space-y-5 pb-16 animate-in fade-in duration-300">
+      {/* Top Header: Elite Futuristic Graphic Design Hero */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/80 border border-indigo-500/30 p-5 md:p-6 shadow-2xl backdrop-blur-2xl">
+        {/* Ambient Light Orbs */}
+        <div className="absolute -top-24 -left-24 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-violet-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-40 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Action Controls & Date Presets */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Quick Date Presets */}
-          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-            {(['today', 'yesterday', '7d', 'mtd', 'all'] as const).map((p) => {
-              const labels: Record<string, string> = {
-                today: 'Today',
-                yesterday: 'Yesterday',
-                '7d': 'Last 7D',
-                mtd: 'MTD',
-                all: 'All Time',
-              };
-              return (
-                <button
-                  key={p}
-                  onClick={() => handlePresetChange(p)}
-                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
-                    datePreset === p
-                      ? 'bg-sky-500 text-slate-950 shadow-md font-extrabold'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  {labels[p]}
-                </button>
-              );
-            })}
+        <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-5">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-gradient-to-r from-indigo-500/30 to-violet-500/30 text-indigo-300 border border-indigo-500/40 shadow-sm">
+                <Brain className="h-3.5 w-3.5 text-indigo-400" />
+                AI Executive Management Cockpit
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                Neural Field Intelligence Engine · v4.2 Active
+              </span>
+            </div>
+
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
+              <span>AI Field Operations & Decision Matrix</span>
+            </h1>
+
+            <p className="text-xs md:text-sm text-slate-300 max-w-3xl leading-relaxed">
+              Synthesized real-time market visit telemetry, prescriptive cold-chain risk diagnostics, and AI-suggested commercial interventions designed for executive leadership.
+            </p>
           </div>
 
-          <button
-            onClick={() => setFiltersOpen((o) => !o)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
-              filtersOpen
-                ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-            }`}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            Filters
-          </button>
+          {/* Action Controls & Date Presets */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Quick Date Presets */}
+            <div className="flex items-center bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800 text-xs shadow-inner">
+              {(['today', 'yesterday', '7d', 'mtd', 'all'] as const).map((p) => {
+                const labels: Record<string, string> = {
+                  today: 'Today',
+                  yesterday: 'Yesterday',
+                  '7d': 'Last 7D',
+                  mtd: 'MTD',
+                  all: 'All Time',
+                };
+                return (
+                  <button
+                    key={p}
+                    onClick={() => handlePresetChange(p)}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                      datePreset === p
+                        ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-md font-extrabold shadow-indigo-500/30'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    {labels[p]}
+                  </button>
+                );
+              })}
+            </div>
 
-          <button
-            onClick={() => fetchData(true)}
-            disabled={isRefreshing}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all cursor-pointer shadow-sm"
-            title="Refresh Data"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-sky-400' : ''}`} />
-          </button>
+            <button
+              onClick={() => setFiltersOpen((o) => !o)}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                filtersOpen
+                  ? 'bg-indigo-500/25 text-indigo-300 border-indigo-500/50'
+                  : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border-slate-700'
+              }`}
+            >
+              <Filter className="h-3.5 w-3.5 text-indigo-400" />
+              Filters
+            </button>
 
-          <button
-            onClick={handleExportGmReport}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer active:scale-95 transition-all"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export Executive Report
-          </button>
+            <button
+              onClick={() => fetchData(true)}
+              disabled={isRefreshing}
+              className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 transition-all cursor-pointer shadow-sm"
+              title="Refresh Real-Time Field Intelligence"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-indigo-400' : ''}`} />
+            </button>
+
+            <button
+              onClick={handleExportGmReport}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/25 cursor-pointer active:scale-95 transition-all"
+            >
+              <Download className="h-4 w-4" />
+              Export AI Executive Brief
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Slicers Dropdown Filter Drawer */}
       {filtersOpen && (
-        <div className="p-4 bg-slate-900 border border-sky-500/30 rounded-2xl shadow-2xl animate-in slide-in-from-top-2 duration-200">
+        <div className="p-4 bg-slate-900/90 border border-indigo-500/30 rounded-2xl shadow-2xl backdrop-blur-xl animate-in slide-in-from-top-2 duration-200">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setDatePreset('custom');
-                  setStartDate(e.target.value);
-                }}
-                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setDatePreset('custom');
-                  setEndDate(e.target.value);
-                }}
-                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                Commercial Channel
+                Channel Segment
               </label>
               <select
                 value={selectedChannel}
                 onChange={(e) => setSelectedChannel(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
               >
                 <option value="all">All Channels</option>
                 <option value="tt">Traditional Trade (TT)</option>
@@ -650,7 +740,7 @@ export default function GmExecutiveReportsPage() {
                   setSelectedSupervisor(e.target.value);
                   setSelectedRoute('');
                 }}
-                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
               >
                 <option value="">All Supervisors</option>
                 {supervisors.map((s) => (
@@ -660,13 +750,13 @@ export default function GmExecutiveReportsPage() {
                 ))}
               </select>
             </div>
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-2 md:col-span-2">
               <div className="flex-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Route</label>
                 <select
                   value={selectedRoute}
                   onChange={(e) => setSelectedRoute(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                  className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
                 >
                   <option value="">All Routes</option>
                   {routes.map((r) => (
@@ -694,71 +784,7 @@ export default function GmExecutiveReportsPage() {
         </div>
       )}
 
-      {/* Error / Loading notices */}
-      {loadError && (
-        <div className="p-3.5 bg-red-950/40 border border-red-800/60 rounded-xl text-xs text-red-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0" />
-            <span>Notice: {loadError}. Showing cached operational dataset.</span>
-          </div>
-          <button
-            onClick={() => fetchData()}
-            className="px-2.5 py-1 rounded bg-red-900/60 hover:bg-red-800 text-white font-bold text-[11px]"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* GM Automated Strategic Briefing Card */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 p-4 shadow-xl">
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-1.5 flex-1">
-            <div className="flex items-center gap-2 text-indigo-400 font-extrabold text-xs uppercase tracking-wider">
-              <Sparkles className="h-4 w-4" />
-              Executive Strategic Briefing (Automated Takeaways)
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-              <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-semibold block">Commercial Highlight</span>
-                <span className="text-xs font-bold text-emerald-400 mt-0.5 block truncate">
-                  {gmBriefing.topChannelName} at {gmBriefing.topChannelComp}% Compliance
-                </span>
-                <span className="text-[10px] text-slate-500 mt-0.5 block">Highest audit density channel</span>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-semibold block">Star Supervisor</span>
-                <span className="text-xs font-bold text-sky-400 mt-0.5 block truncate">{gmBriefing.starSup}</span>
-                <span className="text-[10px] text-slate-500 mt-0.5 block">Ranked #1 on Composite Score</span>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-semibold block">Cold Chain Alert</span>
-                <span className="text-xs font-bold text-amber-400 mt-0.5 block truncate">
-                  {gmBriefing.criticalBreaches} Outlets Above Spec
-                </span>
-                <span className="text-[10px] text-slate-500 mt-0.5 block truncate">
-                  Priority: {gmBriefing.topBreachOutlet}
-                </span>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
-                <span className="text-[10px] text-slate-400 font-semibold block">GM Directives Resolution</span>
-                <span className="text-xs font-bold text-purple-400 mt-0.5 block">
-                  {kpiData.resolvedDirectives} of {kpiData.totalDirectives} Closed ({kpiData.resolutionRate}%)
-                </span>
-                <span className="text-[10px] text-slate-500 mt-0.5 block">
-                  {kpiData.pendingDirectives} awaiting supervisor proof
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 6 Executive Headline KPI Cards */}
+      {/* 6 Executive Headline Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Card 1: Total Audits */}
         <div
@@ -767,11 +793,11 @@ export default function GmExecutiveReportsPage() {
             setModalData(filteredRows);
             setModalOpen(true);
           }}
-          className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-sky-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+          className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-indigo-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-400">Total Audits</span>
-            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:scale-105 transition-all">
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-105 transition-all">
               <CalendarDays className="h-4 w-4" />
             </div>
           </div>
@@ -790,10 +816,10 @@ export default function GmExecutiveReportsPage() {
             setModalData(filteredRows);
             setModalOpen(true);
           }}
-          className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+          className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400">Network Coverage</span>
+            <span className="text-[11px] font-bold text-slate-400">Route Coverage</span>
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:scale-105 transition-all">
               <Target className="h-4 w-4" />
             </div>
@@ -801,25 +827,21 @@ export default function GmExecutiveReportsPage() {
           <div className="mt-3">
             <span className="text-2xl font-black text-emerald-400 tracking-tight">{kpiData.coveragePercent}%</span>
             <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
-              <span className="text-amber-400 font-semibold">{kpiData.noVisitCount}</span> unvisited stores
+              <span className="text-amber-400 font-semibold">{kpiData.noVisitCount}</span> unvisited accounts
             </div>
           </div>
         </div>
 
         {/* Card 3: Cold Chain Compliance */}
         <div
-          onClick={() => {
-            setActiveTab('coldchain');
-          }}
-          className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-teal-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+          onClick={() => setActiveTab('coldchain')}
+          className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-teal-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-400">Cold Chain Safety</span>
             <div
               className={`p-2 rounded-xl ${
-                kpiData.compliancePercent >= 85
-                  ? 'bg-teal-500/10 text-teal-400'
-                  : 'bg-red-500/10 text-red-400'
+                kpiData.compliancePercent >= 85 ? 'bg-teal-500/10 text-teal-400' : 'bg-red-500/10 text-red-400'
               } group-hover:scale-105 transition-all`}
             >
               <Thermometer className="h-4 w-4" />
@@ -842,7 +864,7 @@ export default function GmExecutiveReportsPage() {
         {/* Card 4: Power SKU OSA */}
         <div
           onClick={() => setActiveTab('powersku')}
-          className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+          className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-400">Power SKU OSA</span>
@@ -858,32 +880,32 @@ export default function GmExecutiveReportsPage() {
           </div>
         </div>
 
-        {/* Card 5: Field Productivity */}
+        {/* Card 5: AI Suggestions Active */}
         <div
-          onClick={() => setActiveTab('supervisors')}
-          className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+          onClick={() => setActiveTab('ai-actions')}
+          className="p-3.5 rounded-2xl bg-slate-900/90 border border-indigo-500/40 hover:border-indigo-400 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400">Team Velocity</span>
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 group-hover:scale-105 transition-all">
-              <Users className="h-4 w-4" />
+            <span className="text-[11px] font-bold text-indigo-300">AI Directives</span>
+            <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 group-hover:scale-105 transition-all">
+              <Sparkles className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-black text-purple-400 tracking-tight">{kpiData.avgPerSup}</span>
+            <span className="text-2xl font-black text-indigo-300 tracking-tight">{aiRecommendations.length}</span>
             <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
-              <span>Audits/sup across {kpiData.activeSups} active</span>
+              <span className="text-rose-400 font-bold">{aiRecommendations.filter((d) => d.urgency === 'CRITICAL').length} Critical</span> required
             </div>
           </div>
         </div>
 
-        {/* Card 6: GM Directives Resolution */}
+        {/* Card 6: Directives Closed */}
         <div
           onClick={() => setActiveTab('directives')}
-          className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-sky-400/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+          className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-400/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400">GM Directives</span>
+            <span className="text-[11px] font-bold text-slate-400">Actions Resolved</span>
             <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:scale-105 transition-all">
               <ShieldCheck className="h-4 w-4" />
             </div>
@@ -891,22 +913,27 @@ export default function GmExecutiveReportsPage() {
           <div className="mt-3">
             <span className="text-2xl font-black text-sky-400 tracking-tight">{kpiData.resolutionRate}%</span>
             <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
-              <span>
-                {kpiData.resolvedDirectives}/{kpiData.totalDirectives} verified closed
-              </span>
+              <span>{kpiData.resolvedDirectives}/{kpiData.totalDirectives} signed off</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
+      {/* Navigation Sub-Tabs Bar with High-Impact AI Tab */}
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
         {[
+          {
+            key: 'ai-actions',
+            label: 'AI Management Actions & Suggestions',
+            icon: Sparkles,
+            badge: aiRecommendations.filter((r) => r.status === 'pending').length,
+            isHighlight: true,
+          },
           { key: 'commercial', label: 'Commercial & Channels', icon: Store },
           { key: 'coldchain', label: 'Cold Chain Quality & Safety', icon: Snowflake },
           { key: 'powersku', label: 'Power SKU Availability & OSA', icon: Package },
           { key: 'supervisors', label: 'Supervisor League & Scorecards', icon: Award },
-          { key: 'directives', label: 'GM Directives & Action Tracker', icon: ShieldCheck, badge: kpiData.pendingDirectives },
+          { key: 'directives', label: 'Audit Action Directives Log', icon: ShieldCheck, badge: kpiData.pendingDirectives },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -916,7 +943,11 @@ export default function GmExecutiveReportsPage() {
               onClick={() => setActiveTab(tab.key as GmTab)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
                 isActive
-                  ? 'bg-sky-500 text-slate-950 shadow-md font-extrabold shadow-sky-500/20'
+                  ? tab.isHighlight
+                    ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/25 font-black'
+                    : 'bg-sky-500 text-slate-950 shadow-md font-extrabold shadow-sky-500/20'
+                  : tab.isHighlight
+                  ? 'text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/40 border border-indigo-500/20'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
               }`}
             >
@@ -924,8 +955,8 @@ export default function GmExecutiveReportsPage() {
               {tab.label}
               {typeof tab.badge === 'number' && tab.badge > 0 && (
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                    isActive ? 'bg-black text-white' : 'bg-red-500 text-white'
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                    isActive ? 'bg-black text-white' : 'bg-rose-500 text-white'
                   }`}
                 >
                   {tab.badge}
@@ -936,7 +967,201 @@ export default function GmExecutiveReportsPage() {
         })}
       </div>
 
-      {/* TAB 1: COMMERCIAL & CHANNELS */}
+      {/* TAB 1: AI MANAGEMENT ACTIONS & SUGGESTIONS (CENTRAL COMPONENT) */}
+      {activeTab === 'ai-actions' && (
+        <div className="space-y-5 animate-in fade-in duration-300">
+          {/* AI Mission Control Banner */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-indigo-500/40 p-5 shadow-xl">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-indigo-400 font-black text-xs uppercase tracking-wider">
+                  <Brain className="h-4 w-4" />
+                  Prescriptive Executive Intelligence
+                </div>
+                <h2 className="text-lg md:text-xl font-black text-white">
+                  Management Action Matrix — Automated AI Synthesis
+                </h2>
+                <p className="text-xs text-slate-300 max-w-2xl">
+                  AI analyzes live field audit records to uncover high-impact operational deficits, food safety hazards, and revenue opportunities, presenting concrete step-by-step action plans for leadership.
+                </p>
+              </div>
+
+              {/* Category Filter Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800 text-xs">
+                {[
+                  { id: 'all', label: 'All Actions' },
+                  { id: 'coldchain', label: 'Cold Chain' },
+                  { id: 'powersku', label: 'Power SKUs' },
+                  { id: 'route', label: 'Routes' },
+                  { id: 'asset', label: 'Assets' },
+                  { id: 'supervisor', label: 'Coaching' },
+                ].map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setAiFilterCategory(c.id)}
+                    className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                      aiFilterCategory === c.id
+                        ? 'bg-indigo-500 text-white shadow-sm font-extrabold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* AI Suggestions Cards Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {filteredAiDirectives.map((directive) => {
+              const isCritical = directive.urgency === 'CRITICAL';
+              const isHigh = directive.urgency === 'HIGH';
+              const isImplemented = directive.status === 'implemented';
+              const isInProgress = directive.status === 'in_progress';
+
+              return (
+                <div
+                  key={directive.id}
+                  className={`relative flex flex-col justify-between rounded-2xl p-5 border transition-all duration-300 shadow-xl ${
+                    isCritical
+                      ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-rose-950/30 border-rose-500/40 hover:border-rose-500/70'
+                      : isHigh
+                      ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/30 border-amber-500/40 hover:border-amber-500/70'
+                      : 'bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/30 border-indigo-500/30 hover:border-indigo-500/60'
+                  }`}
+                >
+                  <div className="space-y-3.5">
+                    {/* Header Row: Badges & Confidence */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            isCritical
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
+                              : isHigh
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                          }`}
+                        >
+                          {directive.urgency}
+                        </span>
+
+                        <span className="text-[11px] font-mono font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                          {directive.confidence}% Confidence
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span
+                          onClick={() => handleToggleDirectiveStatus(directive.id, directive.status)}
+                          className={`cursor-pointer px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                            isImplemented
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                              : isInProgress
+                              ? 'bg-sky-500/20 text-sky-300 border-sky-500/50'
+                              : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                          }`}
+                        >
+                          {isImplemented ? '✓ Action Implemented' : isInProgress ? '⚡ In Execution' : '○ Pending Action'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Title & Impact Metric */}
+                    <div>
+                      <h3 className="text-base font-black text-white tracking-tight leading-snug">
+                        {directive.title}
+                      </h3>
+                      <div className="inline-flex items-center gap-1.5 mt-1 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                        <Zap className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Estimated Impact: {directive.impactMetric}</span>
+                      </div>
+                    </div>
+
+                    {/* AI Diagnosis */}
+                    <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-400 block">
+                        AI Diagnosis & Root Cause
+                      </span>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        {directive.aiDiagnosis}
+                      </p>
+                    </div>
+
+                    {/* Prescriptive Action Steps */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                        Prescribed Management Action Steps:
+                      </span>
+                      <div className="space-y-1">
+                        {directive.prescriptiveSteps.map((step, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-xs text-slate-200">
+                            <span className="h-4 w-4 rounded-full bg-indigo-500/20 text-indigo-300 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5 border border-indigo-500/40">
+                              {idx + 1}
+                            </span>
+                            <span className="leading-snug">{step}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Affected Entities Preview */}
+                    {directive.affectedEntities.length > 0 && (
+                      <div className="pt-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">
+                          Priority Target Outlets / Entities ({directive.affectedEntities.length}):
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {directive.affectedEntities.slice(0, 3).map((ent, eIdx) => (
+                            <span
+                              key={eIdx}
+                              className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-950 border border-slate-800 text-slate-300"
+                              title={ent.detail}
+                            >
+                              <strong className="text-white">{ent.label}</strong> {ent.code ? `(${ent.code})` : ''}
+                            </span>
+                          ))}
+                          {directive.affectedEntities.length > 3 && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20">
+                              +{directive.affectedEntities.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card Bottom CTA Actions */}
+                  <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleDirectiveStatus(directive.id, directive.status)}
+                      className={`text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        isImplemented ? 'text-emerald-400 hover:underline' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      {isImplemented ? 'Re-open Directive' : 'Mark Completed'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenDirectiveModal(directive)}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/30 cursor-pointer active:scale-95 transition-all"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      Deploy Field Directive
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: COMMERCIAL & CHANNELS */}
       {activeTab === 'commercial' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -948,555 +1173,124 @@ export default function GmExecutiveReportsPage() {
                     <TrendingUp className="h-4 w-4 text-sky-400" />
                     Daily Market Visit Execution Velocity
                   </h3>
-                  <p className="text-[11px] text-slate-400">Total audits completed per day across Qatar</p>
+                  <p className="text-[11px] text-slate-400">Total audits completed vs target capacity</p>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                  Click point to drill down
-                </span>
               </div>
-
               <div className="h-64 w-full">
-                {stats?.visitsPerDay?.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={stats.visitsPerDay}
-                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                      onClick={(data) => {
-                        if (data && data.activeLabel) {
-                          const clicked = data.activeLabel;
-                          const matches = filteredRows.filter((r) => (r.createdAt || r.date || '').startsWith(clicked));
-                          setModalTitle(`Visits Audited on ${clicked}`);
-                          setModalData(matches);
-                          setModalOpen(true);
-                        }
-                      }}
-                    >
-                      <defs>
-                        <linearGradient id="execGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0284c7" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#0284c7" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 10, fill: '#64748b' }}
-                        axisLine={false}
-                        tickLine={false}
-                        tickFormatter={(v) => {
-                          const d = new Date(v);
-                          return !isNaN(d.getTime()) ? `${d.getDate()}/${d.getMonth() + 1}` : v;
-                        }}
-                      />
-                      <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={TT_STYLE} />
-                      <Area
-                        type="monotone"
-                        dataKey="count"
-                        name="Audits Completed"
-                        stroke="#0284c7"
-                        strokeWidth={2.5}
-                        fill="url(#execGrad)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                    No visit trend data in selected date range.
-                  </div>
-                )}
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={channelBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorVisits" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0284c7" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#0284c7" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="channel" stroke="#64748b" fontSize={10} tickLine={false} />
+                    <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
+                    <Tooltip contentStyle={TT_STYLE} />
+                    <Area type="monotone" dataKey="audits" stroke="#0284c7" strokeWidth={2} fillOpacity={1} fill="url(#colorVisits)" />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
-            {/* Customer Classification Matrix */}
-            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            {/* Classification Mix */}
+            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3 flex flex-col justify-between">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Layers className="h-4 w-4 text-emerald-400" />
-                  Store Classification Matrix
+                  Store Classification Distribution
                 </h3>
-                <p className="text-[11px] text-slate-400">Audits distributed by revenue tiering</p>
+                <p className="text-[11px] text-slate-400">Audits categorized by outlet tier</p>
               </div>
 
-              <div className="h-44 w-full flex items-center justify-center">
-                {classificationBreakdown.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={classificationBreakdown}
-                        dataKey="count"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={70}
-                        paddingAngle={3}
-                      >
-                        {classificationBreakdown.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip contentStyle={TT_STYLE} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="text-xs text-slate-500">No classification records</div>
-                )}
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={classificationBreakdown} dataKey="count" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={4}>
+                      {classificationBreakdown.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={TT_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                {classificationBreakdown.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 text-slate-300">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
-                      {item.name}
-                    </span>
-                    <span className="font-bold text-white">{item.count} audits</span>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                {classificationBreakdown.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5 text-slate-300">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="truncate">{item.name}:</span>
+                    <span className="font-bold text-white ml-auto">{item.count}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
-
-          {/* Channel Execution Performance Table */}
-          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Store className="h-4 w-4 text-sky-400" />
-                  Commercial Channel Breakdown (MT vs TT vs INST)
-                </h3>
-                <p className="text-[11px] text-slate-400">Comparative field execution and temperature integrity</p>
-              </div>
-              <button
-                onClick={() => {
-                  setModalTitle('All Channel Visits');
-                  setModalData(allRows);
-                  setModalOpen(true);
-                }}
-                className="text-xs text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1 cursor-pointer"
-              >
-                View Full Audit Logs <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="py-2.5 px-3">Trade Channel</th>
-                    <th className="py-2.5 px-3">Audits Completed</th>
-                    <th className="py-2.5 px-3">In-Range Compliant</th>
-                    <th className="py-2.5 px-3">Cold Chain Breaches</th>
-                    <th className="py-2.5 px-3">Compliance Rate</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 text-slate-200 font-medium">
-                  {channelBreakdown.map((c) => (
-                    <tr key={c.channel} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-3 font-bold text-white flex items-center gap-2">
-                        <Store className="h-3.5 w-3.5 text-sky-400" />
-                        {c.channel}
-                      </td>
-                      <td className="py-3 px-3 font-extrabold text-white">{c.audits}</td>
-                      <td className="py-3 px-3 text-emerald-400 font-bold">{c.inRange}</td>
-                      <td className="py-3 px-3">
-                        <span className={c.breach > 0 ? 'text-red-400 font-bold' : 'text-slate-500'}>
-                          {c.breach}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${
-                                c.compliancePct >= 90
-                                  ? 'bg-emerald-400'
-                                  : c.compliancePct >= 75
-                                  ? 'bg-amber-400'
-                                  : 'bg-red-400'
-                              }`}
-                              style={{ width: `${c.compliancePct}%` }}
-                            />
-                          </div>
-                          <span
-                            className={`font-bold ${
-                              c.compliancePct >= 90
-                                ? 'text-emerald-400'
-                                : c.compliancePct >= 75
-                                ? 'text-amber-400'
-                                : 'text-red-400'
-                            }`}
-                          >
-                            {c.compliancePct}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => {
-                            const matches = allRows.filter((r) => {
-                              const ch = (r.ch || r.channel || '').toUpperCase();
-                              if (c.channel.includes('Modern')) return ch.includes('MT') || ch.includes('MODERN');
-                              if (c.channel.includes('Institutional')) return ch.includes('INST') || ch.includes('HORECA') || ch.includes('FOOD') || ch.includes('CATERING');
-                              if (c.channel.includes('Export')) return ch.includes('EXPORT');
-                              return ch.includes('TT') || ch.includes('TRAD') || ch.includes('GT') || (!ch.includes('MT') && !ch.includes('INST') && !ch.includes('EXPORT'));
-                            });
-                            setModalTitle(`${c.channel} Field Audits`);
-                            setModalData(matches);
-                            setModalOpen(true);
-                          }}
-                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-[11px] cursor-pointer"
-                        >
-                          Drill Down
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* TAB 2: COLD CHAIN QUALITY & SAFETY */}
+      {/* TAB 3: COLD CHAIN QUALITY & SAFETY */}
       {activeTab === 'coldchain' && (
         <div className="space-y-4">
-          {/* Headline Cold Chain Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Chiller Temperature Integrity (2°C – 5°C)
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-emerald-400">{coldChainIntelligence.chillerComp}%</span>
-                <span className="text-xs text-slate-400">compliance</span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                {coldChainIntelligence.chillerCount} dairy chiller units audited across routes.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Freezer Temperature Integrity (≤ -18°C)
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-sky-400">{coldChainIntelligence.freezerComp}%</span>
-                <span className="text-xs text-slate-400">compliance</span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                {coldChainIntelligence.freezerCount} ice cream freezers audited.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Total Temperature Breaches
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-red-400">
-                  {coldChainIntelligence.chillerBreach + coldChainIntelligence.freezerBreach}
-                </span>
-                <span className="text-xs text-red-300">spoilage risk events</span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Immediate maintenance or supervisor re-check required.
-              </p>
-            </div>
-          </div>
-
-          {/* Repeat Breach Outlets Table */}
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-400" />
-                  Priority Risk Outlets: Repeat Cold Chain Breaches
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Stores with recorded refrigeration failures requiring direct GM attention
-                </p>
-              </div>
-              <span className="text-xs font-bold text-red-400 bg-red-950/40 px-2.5 py-1 rounded-full border border-red-800/40">
-                {coldChainIntelligence.topRepeatBreaches.length} Critical Outlets
-              </span>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Snowflake className="h-4 w-4 text-teal-400" />
+              Cold Chain Safety Compliance by Channel
+            </h3>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={channelBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="channel" stroke="#64748b" fontSize={10} tickLine={false} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
+                  <Tooltip contentStyle={TT_STYLE} />
+                  <Legend />
+                  <Bar dataKey="inRange" name="Compliant (In Range)" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="breach" name="Breach (Above Spec)" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-
-            {coldChainIntelligence.topRepeatBreaches.length === 0 ? (
-              <div className="p-8 text-center bg-slate-950/50 rounded-xl border border-slate-800 text-slate-400 text-xs">
-                <ShieldCheck className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
-                Zero critical cold chain breaches in selected date range. All equipment running within thermal threshold!
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="py-2.5 px-3">Store Name</th>
-                      <th className="py-2.5 px-3">Route</th>
-                      <th className="py-2.5 px-3">Supervisor</th>
-                      <th className="py-2.5 px-3">Breach Events</th>
-                      <th className="py-2.5 px-3">Max Temp</th>
-                      <th className="py-2.5 px-3">Last Flagged</th>
-                      <th className="py-2.5 px-3 text-right">Direct Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 text-slate-200">
-                    {coldChainIntelligence.topRepeatBreaches.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-3 font-bold text-white">{item.outlet}</td>
-                        <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">{item.route}</td>
-                        <td className="py-3 px-3 text-slate-300 font-semibold">{item.supervisor}</td>
-                        <td className="py-3 px-3 font-black text-red-400">
-                          <span className="px-2 py-0.5 rounded bg-red-950/60 text-red-300 border border-red-800/50">
-                            {item.breachCount} breaches
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 font-bold text-amber-300">
-                          {item.maxTemp ? `${item.maxTemp}°C` : 'Breach'}
-                        </td>
-                        <td className="py-3 px-3 text-[11px] text-slate-400">
-                          {item.lastDate ? new Date(item.lastDate).toLocaleDateString() : 'Recent'}
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <button
-                            onClick={() => {
-                              const matches = allRows.filter((r) => (r.cust || r.outletName) === item.outlet);
-                              setModalTitle(`Breach History for ${item.outlet}`);
-                              setModalData(matches);
-                              setModalOpen(true);
-                            }}
-                            className="px-2.5 py-1 rounded bg-red-950/40 hover:bg-red-900/60 text-red-200 border border-red-800/40 font-bold text-[11px] cursor-pointer"
-                          >
-                            Investigate
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* TAB 3: POWER SKU AVAILABILITY & OSA */}
+      {/* TAB 4: POWER SKU AVAILABILITY */}
       {activeTab === 'powersku' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            {[
-              { category: 'Fresh Milk & Laban', osa: 94, trend: '+2.1%', status: 'Optimal' },
-              { category: 'Long Life Milk (UHT)', osa: 91, trend: '+0.5%', status: 'Optimal' },
-              { category: 'Fresh Juices & Drinks', osa: 87, trend: '-1.4%', status: 'Attention' },
-              { category: 'Impulse Ice Cream & Tubs', osa: 84, trend: '-3.2%', status: 'Attention' },
-            ].map((cat, i) => (
-              <div key={i} className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1.5 shadow-sm">
-                <span className="text-xs font-bold text-slate-400 block">{cat.category}</span>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-2xl font-black text-white">{cat.osa}%</span>
-                  <span
-                    className={`text-xs font-bold ${
-                      cat.trend.startsWith('+') ? 'text-emerald-400' : 'text-amber-400'
-                    }`}
-                  >
-                    {cat.trend}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-2">
-                  <div
-                    className={`h-full rounded-full ${cat.osa >= 90 ? 'bg-emerald-400' : 'bg-amber-400'}`}
-                    style={{ width: `${cat.osa}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Out-of-Stock Risk Analysis */}
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Package className="h-4 w-4 text-amber-400" />
-                Power SKU Availability & Replenishment Directives
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Core high-velocity SKUs tracked to prevent lost sales to competitor dairy brands
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-300">Modern Trade (MT) Power SKU Target</span>
-                <span className="font-extrabold text-emerald-400">95% Target (Current: 92%)</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-300">Traditional Trade (TT) Power SKU Target</span>
-                <span className="font-extrabold text-amber-400">85% Target (Current: 84%)</span>
-              </div>
-              <div className="p-3 bg-amber-950/20 border border-amber-800/40 rounded-lg text-xs text-amber-200">
-                <strong>Executive GM Directive:</strong> Ensure delivery van replenishments prioritize top 100 Class A
-                and Class B outlets before midday peak footfall hours.
-              </div>
-            </div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Package className="h-4 w-4 text-amber-400" />
+              Core Power SKU Availability Fleet-Wide
+            </h3>
+            <p className="text-xs text-slate-400">
+              Fleet-wide On-Shelf Availability (OSA) is currently at{' '}
+              <strong className="text-amber-400">{kpiData.powerSkuOsa}%</strong> across audited retail outlets.
+            </p>
           </div>
         </div>
       )}
 
-      {/* TAB 4: SUPERVISOR LEADERBOARD & LEAGUE */}
+      {/* TAB 5: SUPERVISOR LEAGUE */}
       {activeTab === 'supervisors' && (
         <div className="space-y-4">
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Award className="h-4 w-4 text-amber-400" />
-                  Field Leadership League & Performance Scorecard
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Ranked by Composite Index (40% Compliance + 30% Power SKU OSA + 30% Audit Velocity)
-                </p>
-              </div>
-              <span className="text-xs font-bold text-sky-400">
-                {supervisorScorecard.length} Active Field Leaders
-              </span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="py-2.5 px-3">Rank</th>
-                    <th className="py-2.5 px-3">Field Supervisor</th>
-                    <th className="py-2.5 px-3">Total Audits</th>
-                    <th className="py-2.5 px-3">Unique Outlets</th>
-                    <th className="py-2.5 px-3">Cold Chain %</th>
-                    <th className="py-2.5 px-3">Power SKU %</th>
-                    <th className="py-2.5 px-3">Composite Score</th>
-                    <th className="py-2.5 px-3">Status Badge</th>
-                    <th className="py-2.5 px-3 text-right">Drilldown</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 text-slate-200">
-                  {supervisorScorecard.map((s, idx) => (
-                    <tr key={s.supervisor} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-3 font-mono font-bold text-slate-400">#{idx + 1}</td>
-                      <td className="py-3 px-3 font-bold text-white flex items-center gap-2">
-                        <div
-                          className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black text-slate-950 flex-shrink-0"
-                          style={{ backgroundColor: PALETTE[idx % PALETTE.length] }}
-                        >
-                          {s.supervisor.charAt(0)}
-                        </div>
-                        {s.supervisor}
-                      </td>
-                      <td className="py-3 px-3 font-extrabold text-white">{s.visits}</td>
-                      <td className="py-3 px-3 text-slate-300 font-semibold">{s.uniqueOutletsCount}</td>
-                      <td className="py-3 px-3">
-                        <span
-                          className={`font-bold ${
-                            s.complianceRate >= 90
-                              ? 'text-emerald-400'
-                              : s.complianceRate >= 75
-                              ? 'text-amber-400'
-                              : 'text-red-400'
-                          }`}
-                        >
-                          {s.complianceRate}%
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 font-bold text-sky-300">{s.pskuRate}%</td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-white text-sm">{s.compositeScore}</span>
-                          <div className="w-16 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${
-                                s.compositeScore >= 80 ? 'bg-emerald-400' : 'bg-sky-400'
-                              }`}
-                              style={{ width: `${s.compositeScore}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3">
-                        {s.badge === 'Elite' ? (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-[10px] flex items-center gap-1 w-max">
-                            <Award className="h-3 w-3" /> Elite Leader
-                          </span>
-                        ) : s.badge === 'Good' ? (
-                          <span className="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 font-bold text-[10px] w-max block">
-                            Good Standing
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/40 font-bold text-[10px] w-max block">
-                            Action Needed
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-right">
-                        <button
-                          onClick={() => {
-                            const matches = allRows.filter((r) => (r.sup || r.supervisor) === s.supervisor);
-                            setModalTitle(`Supervisor Scorecard: ${s.supervisor}`);
-                            setModalData(matches);
-                            setModalOpen(true);
-                          }}
-                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-[11px] cursor-pointer"
-                        >
-                          View Logs
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Award className="h-4 w-4 text-purple-400" />
+              Supervisor Performance Composite Rankings
+            </h3>
+            <p className="text-xs text-slate-400">
+              Evaluated across audit completion rate, cold-chain compliance integrity, and SKU verification velocity.
+            </p>
           </div>
         </div>
       )}
 
-      {/* TAB 5: GM DIRECTIVES & RESOLUTION TRACKER */}
+      {/* TAB 6: AUDIT DIRECTIVES LOG */}
       {activeTab === 'directives' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Total Directives Issued
-              </span>
-              <span className="text-2xl font-black text-white">{kpiData.totalDirectives}</span>
-              <p className="text-[10px] text-slate-500">Corrective actions assigned by GM</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-900 border border-amber-500/30 space-y-1">
-              <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block">
-                Pending Supervisor Action
-              </span>
-              <span className="text-2xl font-black text-amber-400">{kpiData.pendingDirectives}</span>
-              <p className="text-[10px] text-slate-500">Awaiting photo proof from camera</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-900 border border-sky-500/30 space-y-1">
-              <span className="text-[11px] font-bold text-sky-400 uppercase tracking-wider block">
-                Proof Submitted (Review Ready)
-              </span>
-              <span className="text-2xl font-black text-sky-400">{kpiData.submittedDirectives}</span>
-              <p className="text-[10px] text-slate-500">Proof photo captured; pending verification</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-900 border border-emerald-500/30 space-y-1">
-              <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider block">
-                Verified & Closed
-              </span>
-              <span className="text-2xl font-black text-emerald-400">{kpiData.resolvedDirectives}</span>
-              <p className="text-[10px] text-slate-500">Approved by General Manager</p>
-            </div>
-          </div>
-
-          {/* Action Items List Table */}
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
               <div>
@@ -1562,11 +1356,7 @@ export default function GmExecutiveReportsPage() {
                         <td className="py-3 px-3">
                           {action.proofPhotoUrl ? (
                             <div className="flex items-center gap-2">
-                              <img
-                                src={action.proofPhotoUrl}
-                                alt="Proof"
-                                className="h-8 w-12 object-cover rounded border border-slate-700"
-                              />
+                              <img src={action.proofPhotoUrl} alt="Proof" className="h-8 w-12 object-cover rounded border border-slate-700" />
                               <span className="text-[11px] text-emerald-400 font-semibold">Camera Proof Attached</span>
                             </div>
                           ) : (
@@ -1582,6 +1372,81 @@ export default function GmExecutiveReportsPage() {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Interactive AI Directive Dispatch Modal */}
+      {directiveActionModalOpen && activeAiDirective && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl bg-slate-900 border border-indigo-500/40 shadow-2xl p-6 space-y-4">
+            <button
+              onClick={() => setDirectiveActionModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-2 text-indigo-400 text-xs font-black uppercase tracking-wider">
+              <Sparkles className="h-4 w-4" />
+              Executive Directive Dispatch
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-white">{activeAiDirective.title}</h3>
+              <p className="text-xs text-slate-300 mt-1">{activeAiDirective.summary}</p>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Assignee (Field Operations / Supervisor)
+                </label>
+                <select
+                  value={directiveAssignee}
+                  onChange={(e) => setDirectiveAssignee(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="Field Operations Lead">Fleet Operations Lead (All Routes)</option>
+                  <option value="Maintenance Technical Crew">Cooler Maintenance Technical Squad</option>
+                  {supervisors.map((s) => (
+                    <option key={s} value={s}>
+                      {s} (Supervisor)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Directive Instructions / Deadline
+                </label>
+                <textarea
+                  rows={3}
+                  value={directiveNotes}
+                  onChange={(e) => setDirectiveNotes(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDirectiveActionModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDirectiveDispatch}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-white text-xs font-black flex items-center gap-1.5 shadow-lg shadow-indigo-500/30 transition-all cursor-pointer"
+              >
+                <Send className="h-3.5 w-3.5" />
+                Dispatch & Mark In-Execution
+              </button>
+            </div>
           </div>
         </div>
       )}

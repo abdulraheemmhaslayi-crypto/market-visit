@@ -655,12 +655,82 @@ export async function GET(req: NextRequest) {
       const pskuAvailableCount = visitPsku.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
       const npdAvailableCount = visitNpd.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
 
-      const chillerAsset = visitAssets.find((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
-      const freezerAsset = visitAssets.find((a: any) => (a.assetType || '').toLowerCase() === 'freezer');
-      const chillerModel = chillerAsset?.sizeModel || (chillerAsset ? 'Standard' : '—');
-      const freezerModel = freezerAsset?.sizeModel || (freezerAsset ? 'Standard' : '—');
+      const chillerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
+      const freezerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'freezer');
+
+      const detectModel = (assetType: string, sm?: string | null, obs?: string | null) => {
+        if (sm && typeof sm === 'string' && sm.trim() && sm.trim() !== '—') return sm.trim();
+        const o = (obs || '').trim();
+        if (assetType.toLowerCase() === 'chiller') {
+          if (/double\s*door/i.test(o)) return 'Double Door';
+          if (/open\s*chiller/i.test(o)) return 'Open Chiller';
+          if (/single\s*door/i.test(o)) return 'Single Door';
+          return 'Standard';
+        }
+        if (assetType.toLowerCase() === 'freezer') {
+          if (/\bvertical\b/i.test(o)) return 'VERTICAL';
+          if (/\b600\b/i.test(o)) return '600';
+          if (/\b400\b/i.test(o)) return '400';
+          if (/\b300\b/i.test(o)) return '300';
+          if (/\b200\b/i.test(o)) return '200';
+          if (/\b100\b/i.test(o)) return '100';
+          return 'Standard';
+        }
+        return 'Standard';
+      };
+
+      const chillerModels = chillerAssets.map((a: any) => detectModel('Chiller', a.sizeModel, a.observation));
+      const freezerModels = freezerAssets.map((a: any) => detectModel('Freezer', a.sizeModel, a.observation));
+      const chillerModel = chillerModels.length > 0 ? chillerModels.join(', ') : '—';
+      const freezerModel = freezerModels.length > 0 ? freezerModels.join(', ') : '—';
+
+      const assetStatuses = visitAssets.map((a: any) => {
+        const st = (a.actionRequired && a.actionRequired !== 'Select Status' && a.actionRequired !== 'None')
+          ? a.actionRequired
+          : 'Working';
+        return {
+          assetType: a.assetType || 'Asset',
+          status: st,
+          label: visitAssets.length > 1 ? `${a.assetType}: ${st}` : st,
+        };
+      });
+
+      let assetStatus = '—';
+      if (assetStatuses.length === 1) {
+        assetStatus = assetStatuses[0].status;
+      } else if (assetStatuses.length > 1) {
+        const allSame = assetStatuses.every((s: any) => s.status === assetStatuses[0].status);
+        if (allSame) {
+          assetStatus = `${assetStatuses[0].status} (${assetStatuses.length} assets)`;
+        } else {
+          assetStatus = assetStatuses.map((s: any) => `${s.assetType}: ${s.status}`).join(' | ');
+        }
+      }
+
+      const obsParts: string[] = [];
+      visitAssets.forEach((a: any) => {
+        const itemParts: string[] = [];
+        if (a.actionRequired && a.actionRequired !== 'Select Status' && a.actionRequired !== 'Working' && a.actionRequired !== 'None') {
+          itemParts.push(a.actionRequired);
+        }
+        if (a.observation && a.observation.trim() && a.observation.trim() !== '—') {
+          itemParts.push(a.observation.trim());
+        }
+        if (itemParts.length > 0) {
+          obsParts.push(visitAssets.length > 1 ? `${a.assetType}: ${itemParts.join(' - ')}` : itemParts.join(' - '));
+        }
+      });
+      if (v.observation && v.observation.trim() && !obsParts.some((p: string) => p.includes(v.observation.trim()))) {
+        obsParts.push(v.observation.trim());
+      }
+      if (v.reason && v.reason !== '—' && !obsParts.some((p: string) => p.includes(v.reason.trim()))) {
+        obsParts.push(`Reason: ${v.reason.trim()}`);
+      }
+      const observationAction = obsParts.length > 0 ? obsParts.join('; ') : '—';
 
       let tempDisplay = '—';
+      const chillerAsset = chillerAssets[0];
+      const freezerAsset = freezerAssets[0];
       if (chillerAsset && freezerAsset) {
         tempDisplay = `C: ${chillerAsset.temperature}°C | F: ${freezerAsset.temperature}°C`;
       } else if (chillerAsset) {
@@ -879,6 +949,11 @@ export async function GET(req: NextRequest) {
         totalPskuCount: visitPsku.length,
         chillerModel,
         freezerModel,
+        chillerModels,
+        freezerModels,
+        assetStatus,
+        assetStatuses,
+        observationAction,
         tempDisplay,
         chillerTemp: chillerAsset ? chillerAsset.temperature : null,
         freezerTemp: freezerAsset ? freezerAsset.temperature : null,
@@ -890,8 +965,9 @@ export async function GET(req: NextRequest) {
         sizeModel: primaryAsset?.sizeModel || 'Standard',
         observation: firstAsset.observation || '',
         allAssets: visitAssets.map((a: any) => ({
+          assetId: a.assetId,
           assetType: a.assetType,
-          sizeModel: a.sizeModel || 'Standard',
+          sizeModel: detectModel(a.assetType, a.sizeModel, a.observation),
           temperature: a.temperature ?? 0,
           tempInRange: a.tempInRange === 1 || a.tempInRange === true,
           actionRequired: a.actionRequired || 'None',
