@@ -1101,14 +1101,14 @@ export default function SupervisorDashboard() {
     if (isAnalyticsLoading || !filtered) return;
 
     const BLUE = '#4F46E5';
-    const BLUE_DEEP = '#4338CA';
-    const GREEN = '#0f9d63';
-    const AMBER = '#d08a12';
-    const RED = '#d63d2e';
-    const GREY = '#c3d2de';
+    const BLUE_DEEP = '#3730A3';
+    const GREEN = '#059669';
+    const AMBER = '#D97706';
+    const RED = '#DC2626';
+    const GREY = '#94A3B8';
     const isDark = theme === 'dark';
-    const gridColor = isDark ? '#2A3A55' : '#E4E9F0';
-    const textColor = isDark ? '#94A3B8' : '#5A6478';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)';
+    const textColor = isDark ? '#F1F5F9' : '#0F172A';
 
     const countFreq = (arr: any[], fn: (r: any) => string | number) => {
       const m: Record<string, number> = {};
@@ -1128,11 +1128,11 @@ export default function SupervisorDashboard() {
           const value = dataset.data[index];
           if (typeof value !== 'number') return;
           ctx.save();
-          ctx.font = '700 11px Inter, sans-serif';
+          ctx.font = '800 11.5px Inter, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
-          ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
+          ctx.fillStyle = theme === 'dark' ? '#F8FAFC' : '#0F172A';
+          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.95)';
           ctx.shadowBlur = 4;
           ctx.fillText(`${value}%`, bar.x, bar.y - 4);
           ctx.restore();
@@ -1150,11 +1150,11 @@ export default function SupervisorDashboard() {
           if (typeof value !== 'number') return;
           const label = `${value}`;
           ctx.save();
-          ctx.font = '700 11px Inter, sans-serif';
+          ctx.font = '800 11.5px Inter, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
-          ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
+          ctx.fillStyle = theme === 'dark' ? '#F8FAFC' : '#0F172A';
+          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.95)';
           ctx.shadowBlur = 4;
           ctx.fillText(label, bar.x, bar.y - 4);
           ctx.restore();
@@ -1183,12 +1183,12 @@ export default function SupervisorDashboard() {
           const labelY = y + Math.sin(angle) * radius;
 
           ctx.save();
-          ctx.font = '700 11px Inter, sans-serif';
+          ctx.font = '800 12px Inter, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = '#ffffff';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = 4;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 5;
           ctx.fillText(label, labelX, labelY);
           ctx.restore();
         });
@@ -2098,28 +2098,28 @@ export default function SupervisorDashboard() {
 
         {/* Quick KPI Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-blue-500">
-            <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Assets Checked</span>
-            <span className="text-2xl font-extrabold text-[var(--text-primary)] mt-1">{fleetTotalAssets}</span>
-            <span className="text-[10px] text-[var(--text-muted)] font-medium">total inspected</span>
+          <div className="card p-4 flex flex-col justify-center border-l-4 border-l-blue-600 shadow-xs rounded-2xl hover:-translate-y-1 transition-all">
+            <span className="text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">Assets Checked</span>
+            <span className="text-2xl font-black text-blue-700 dark:text-blue-400 mt-1">{fleetTotalAssets}</span>
+            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-bold">total inspected</span>
           </div>
 
-          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-emerald-500">
-            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Within Range (OK)</span>
-            <span className="text-2xl font-extrabold text-emerald-600 mt-1">{fleetInRangeCount}</span>
-            <span className="text-[10px] text-[var(--text-muted)] font-medium">temp compliant</span>
+          <div className="card p-4 flex flex-col justify-center border-l-4 border-l-emerald-500 shadow-xs rounded-2xl hover:-translate-y-1 transition-all">
+            <span className="text-[11px] font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">Within Range (OK)</span>
+            <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">{fleetInRangeCount}</span>
+            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-bold">temp compliant</span>
           </div>
 
-          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-rose-500">
-            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Breach (Out of Range)</span>
-            <span className="text-2xl font-extrabold text-rose-600 mt-1">{fleetBreachCount}</span>
-            <span className="text-[10px] text-[var(--text-muted)] font-medium">violations detected</span>
+          <div className="card p-4 flex flex-col justify-center border-l-4 border-l-rose-500 shadow-xs rounded-2xl hover:-translate-y-1 transition-all">
+            <span className="text-[11px] font-black text-rose-800 dark:text-rose-300 uppercase tracking-wider">Breach (Out of Range)</span>
+            <span className="text-2xl font-black text-rose-700 dark:text-rose-400 mt-1">{fleetBreachCount}</span>
+            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-bold">violations detected</span>
           </div>
 
-          <div className="card p-3.5 flex flex-col justify-center border-l-4 border-l-indigo-500">
-            <span className="text-[10px] font-bold text-[var(--accent)] uppercase tracking-wider">Compliance Rate</span>
-            <span className="text-2xl font-extrabold text-[var(--accent)] mt-1">{fleetCompliancePct}%</span>
-            <span className="text-[10px] text-[var(--text-muted)] font-medium">overall compliance</span>
+          <div className="card p-4 flex flex-col justify-center border-l-4 border-l-indigo-600 shadow-xs rounded-2xl hover:-translate-y-1 transition-all">
+            <span className="text-[11px] font-black text-indigo-800 dark:text-indigo-300 uppercase tracking-wider">Compliance Rate</span>
+            <span className="text-2xl font-black text-indigo-700 dark:text-indigo-400 mt-1">{fleetCompliancePct}%</span>
+            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-bold">overall compliance</span>
           </div>
         </div>
 
@@ -2168,294 +2168,459 @@ export default function SupervisorDashboard() {
     <div className="dandy-dashboard-body animate-fade-in">
       <style dangerouslySetInnerHTML={{ __html: `
         .dandy-dashboard-body {
-          --ink: var(--text-primary);
-          --soft: var(--text-secondary);
-          --line: var(--border);
-          --card: var(--surface);
-          --bg: var(--bg);
-          --blue:#4F46E5; --blue-deep:#4338CA; --green:#0f9d63; --amber:#d08a12; --red:#d63d2e;
-          --shadow:0 2px 8px rgba(13,33,54,.06),0 8px 24px rgba(13,33,54,.05);
-          font-family: var(--font-sans), 'Inter', system-ui, sans-serif;
-          background:var(--bg);
-          color:var(--ink);
-          -webkit-font-smoothing:antialiased;
-          padding-bottom:20px;
-          margin:-20px; /* offset standard padding */
+          --ink: var(--text-primary, #0F172A);
+          --soft: var(--text-secondary, #334155);
+          --line: var(--border, #CBD5E1);
+          --card: var(--surface, #FFFFFF);
+          --bg: var(--bg, #F8FAFC);
+          --blue: #4F46E5;
+          --blue-deep: #3730A3;
+          --green: #059669;
+          --amber: #D97706;
+          --red: #DC2626;
+          --cyan: #0284C7;
+          --purple: #7C3AED;
+          --shadow-subtle: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+          --shadow-elevated: 0 14px 34px -6px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.05);
+
+          font-family: var(--font-sans), 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+          background: radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.04) 0px, transparent 45%),
+                      radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.04) 0px, transparent 40%),
+                      var(--bg);
+          color: var(--ink);
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          padding-bottom: 32px;
+          margin: -20px;
+          min-height: 100vh;
         }
+
+        :global(.dark) .dandy-dashboard-body {
+          background: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.10) 0px, transparent 45%),
+                      radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.07) 0px, transparent 40%),
+                      var(--bg);
+        }
+
+        /* ── Flagship Executive Header Ribbon ── */
         .top {
-          background:linear-gradient(135deg, #0369a1 0%, #0284c7 55%, #00529b 100%);
-          color:#fff;
-          padding:12px 18px;
-          display:flex;
-          align-items:center;
-          gap:14px;
-          box-shadow:var(--shadow);
-          border-bottom: 2px solid rgba(255,255,255,0.12);
+          background: linear-gradient(135deg, #07172F 0%, #0C2854 38%, #133E7C 80%, #174E96 100%);
+          color: #FFFFFF;
+          padding: 16px 24px;
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          position: relative;
+          overflow: hidden;
+          border-bottom: 2px solid rgba(255, 255, 255, 0.14);
+          box-shadow: 0 12px 32px -8px rgba(7, 23, 47, 0.4);
+        }
+        .top::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.18) 0%, transparent 55%),
+                      radial-gradient(circle at 10% 80%, rgba(99, 102, 241, 0.16) 0%, transparent 45%);
+          pointer-events: none;
         }
         .top .logo {
-          height:42px;
-          padding:3px 8px;
-          border-radius:10px;
-          background:#fff;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          box-shadow:0 2px 8px rgba(0,0,0,0.15);
-          flex-shrink:0;
+          height: 48px;
+          padding: 4px 10px;
+          border-radius: 12px;
+          background: #FFFFFF;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+          flex-shrink: 0;
+          position: relative;
+          z-index: 1;
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .top .logo:hover {
+          transform: scale(1.04);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
         }
         .top .logo img {
-          height:36px;
-          width:auto;
-          object-fit:contain;
+          height: 38px;
+          width: auto;
+          object-fit: contain;
+        }
+        .top .title-block {
+          position: relative;
+          z-index: 1;
         }
         .top h1 {
-          font-size:17px;
-          font-weight:800;
-          letter-spacing:-.3px;
+          font-size: 19px;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+          color: #FFFFFF;
+          text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
         }
         .top .sub {
-          font-size:11px;
-          opacity:.85;
-          font-weight:500;
-          margin-top:2px;
+          font-size: 12px;
+          color: rgba(241, 245, 249, 0.92);
+          font-weight: 600;
+          margin-top: 3px;
+          letter-spacing: 0.01em;
         }
-        .demo-tag {
-          margin-left:auto;
-          background:rgba(255,255,255,.18);
-          padding:4px 10px;
-          border-radius:99px;
-          font-size:10px;
-          font-weight:700;
-          letter-spacing:.03em;
-        }
+
+        /* ── Page Grid & Container ── */
         .wrap {
-          max-width:100%;
-          padding:14px 14px;
+          max-width: 100%;
+          padding: 16px 20px;
         }
+
+        /* ── Frosted Command Deck (Filters) ── */
         .filters {
-          display:flex;
-          gap:8px;
-          flex-wrap:wrap;
-          margin-bottom:8px;
-          align-items:flex-end;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-bottom: 12px;
+          align-items: flex-end;
+          background: var(--card);
+          border: 1.5px solid var(--line);
+          border-radius: 18px;
+          padding: 14px 18px;
+          box-shadow: var(--shadow-subtle);
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .filters:focus-within {
+          border-color: rgba(99, 102, 241, 0.4);
+          box-shadow: 0 8px 24px -4px rgba(79, 70, 229, 0.08);
         }
         .fld {
-          display:flex;
-          flex-direction:column;
-          gap:4px;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          position: relative;
         }
         .fld label {
-          font-size:10.5px;
-          font-weight:800;
-          text-transform:uppercase;
-          letter-spacing:.05em;
-          color:var(--soft);
-          padding-left:4px;
+          font-size: 11px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #0F172A;
+          padding-left: 3px;
+        }
+        :global(.dark) .fld label {
+          color: #F1F5F9;
         }
         .filters select,
         .filters input {
-          padding:8px 11px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:600;
-          color:var(--ink);
-          cursor:pointer;
-          min-width:120px;
+          padding: 8px 12px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--surface-2, #F8FAFC);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 700;
+          color: #0F172A;
+          cursor: pointer;
+          min-width: 125px;
+          height: 38px;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        :global(.dark) .filters select,
+        :global(.dark) .filters input {
+          color: #F8FAFC;
+          background: var(--surface-2, #162033);
+          border-color: #2A3A55;
         }
         .filters input {
-          cursor:text;
+          cursor: text;
+        }
+        .filters select:hover,
+        .filters input:hover {
+          border-color: #818CF8;
+          background: var(--card);
         }
         .filters select:focus,
         .filters input:focus {
-          outline:none;
-          border-color:var(--blue);
+          outline: none;
+          border-color: #4F46E5;
+          box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.16);
+          background: var(--card);
         }
         .reset {
-          padding:8px 12px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:700;
-          color:var(--blue-deep);
-          cursor:pointer;
+          padding: 8px 16px;
+          border: 1.5px solid #C7D2FE;
+          border-radius: 11px;
+          background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 800;
+          color: #3730A3;
+          cursor: pointer;
+          height: 38px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 6px rgba(79, 70, 229, 0.08);
         }
+        :global(.dark) .reset {
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%);
+          border-color: rgba(99, 102, 241, 0.4);
+          color: #C7D2FE;
+        }
+        .reset:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+          border-color: #818CF8;
+        }
+        .reset:active {
+          transform: translateY(0);
+        }
+
+        /* ── Active Filter Note ── */
         .active-note {
-          font-size:11px;
-          color:var(--soft);
-          font-weight:600;
-          margin-bottom:12px;
-          padding-left:2px;
-          min-height:16px;
+          font-size: 11.5px;
+          color: #1E293B;
+          font-weight: 750;
+          padding-left: 4px;
+          min-height: 18px;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 5px;
+        }
+        :global(.dark) .active-note {
+          color: #E2E8F0;
         }
         .active-note b {
-          color:var(--blue-deep);
+          color: #3730A3;
+          background: #EEF2FF;
+          padding: 2px 8px;
+          border-radius: 6px;
+          border: 1px solid #C7D2FE;
+          font-weight: 850;
         }
+        :global(.dark) .active-note b {
+          color: #E0E7FF;
+          background: rgba(99, 102, 241, 0.22);
+          border-color: rgba(99, 102, 241, 0.45);
+        }
+
+        /* ── Executive Metric Jewel Cards ── */
         .kpis {
-          display:grid;
-          grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-          gap:10px;
-          margin-bottom:14px;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 12px;
+          margin-bottom: 16px;
         }
         .kpi {
-          background:var(--card);
-          border-radius:12px;
-          padding:12px 14px;
-          box-shadow:var(--shadow);
-          border:1px solid var(--line);
+          background: var(--card);
+          border-radius: 16px;
+          padding: 16px 18px;
+          box-shadow: var(--shadow-subtle);
+          border: 1.5px solid var(--line);
+          position: relative;
+          overflow: hidden;
+          transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+          cursor: default;
         }
+        .kpi::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+        }
+        .kpi.b::before { background: linear-gradient(90deg, #4F46E5 0%, #818CF8 100%); }
+        .kpi.g::before { background: linear-gradient(90deg, #059669 0%, #34D399 100%); }
+        .kpi.a::before { background: linear-gradient(90deg, #D97706 0%, #FBBF24 100%); }
+        .kpi.c::before { background: linear-gradient(90deg, #0284C7 0%, #38BDF8 100%); }
+        .kpi.r::before { background: linear-gradient(90deg, #DC2626 0%, #FB7185 100%); }
+
+        .kpi:hover {
+          transform: translateY(-4px);
+          box-shadow: var(--shadow-elevated);
+        }
+        .kpi.b:hover { border-color: rgba(99, 102, 241, 0.6); }
+        .kpi.g:hover { border-color: rgba(16, 185, 129, 0.6); }
+        .kpi.a:hover { border-color: rgba(245, 158, 11, 0.6); }
+        .kpi.c:hover { border-color: rgba(14, 165, 233, 0.6); }
+        .kpi.r:hover { border-color: rgba(239, 68, 68, 0.6); }
+
         .kpi .lbl {
-          font-size:10px;
-          color:var(--soft);
-          font-weight:700;
-          text-transform:uppercase;
-          letter-spacing:.04em;
+          font-size: 11px;
+          color: #0F172A;
+          font-weight: 850;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        :global(.dark) .kpi .lbl {
+          color: #F1F5F9;
         }
         .kpi .val {
-          font-size:24px;
-          font-weight:800;
-          letter-spacing:-1px;
-          margin-top:4px;
+          font-size: 32px;
+          font-weight: 950;
+          letter-spacing: -0.03em;
+          line-height: 1.1;
+          margin-top: 6px;
         }
+        .kpi.b .val { color: #3730A3; }
+        :global(.dark) .kpi.b .val { color: #A5B4FC; }
+
+        .kpi.g .val { color: #065F46; }
+        :global(.dark) .kpi.g .val { color: #6EE7B7; }
+
+        .kpi.a .val { color: #92400E; }
+        :global(.dark) .kpi.a .val { color: #FCD34D; }
+
+        .kpi.c .val { color: #075985; }
+        :global(.dark) .kpi.c .val { color: #7DD3FC; }
+
+        .kpi.r .val { color: #9F1239; }
+        :global(.dark) .kpi.r .val { color: #FDA4AF; }
+
         .kpi .delta {
-          font-size:11px;
-          font-weight:700;
-          margin-top:2px;
-          color:var(--soft);
+          font-size: 11.5px;
+          font-weight: 750;
+          margin-top: 5px;
+          color: #334155;
+          display: flex;
+          align-items: center;
+          gap: 5px;
         }
-        .kpi.b .val { color:var(--blue-deep); }
-        .kpi.g .val { color:var(--green); }
-        .kpi.a .val { color:var(--amber); }
-        .kpi.r .val { color:var(--red); }
+        :global(.dark) .kpi .delta {
+          color: #CBD5E1;
+        }
+        .kpi .delta .kpi-icon {
+          font-size: 8px;
+          opacity: 0.7;
+        }
+
+        /* ── Chart Panels ── */
         .grid {
-          display:grid;
-          grid-template-columns:2fr 1fr;
-          gap:12px;
-          margin-bottom:12px;
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 14px;
+          margin-bottom: 14px;
         }
         .grid3 {
-          display:grid;
-          grid-template-columns:1fr 1fr 1fr;
-          gap:12px;
-          margin-bottom:12px;
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 14px;
+          margin-bottom: 14px;
         }
-        @media(max-width:820px){
-          .grid, .grid3 { grid-template-columns:1fr; }
-        }
-        @media(max-width:640px){
-          .top {
-            flex-direction:column;
-            align-items:flex-start;
-            gap:8px;
-          }
-          .top .flex {
-            width:100%;
-            justify-content:space-between;
-          }
-        }
-        @media(max-width:480px){
-          .filters {
-            flex-direction:column;
-            align-items:stretch;
-          }
-          .filters select, .reset {
-            width:100%;
-            min-height:40px;
-          }
+        @media(max-width: 820px){
+          .grid, .grid3 { grid-template-columns: 1fr; }
         }
         .panel {
-          background:var(--card);
-          border-radius:12px;
-          padding:12px 14px 6px;
-          box-shadow:var(--shadow);
-          border:1px solid var(--line);
+          background: var(--card);
+          border-radius: 18px;
+          padding: 16px 18px 10px;
+          box-shadow: var(--shadow-subtle);
+          border: 1.5px solid var(--line);
+          transition: border-color 0.25s ease, box-shadow 0.25s ease;
         }
-        .panel.tbl { padding-bottom:12px; }
+        .panel:hover {
+          border-color: rgba(99, 102, 241, 0.35);
+          box-shadow: 0 10px 26px -6px rgba(15, 23, 42, 0.08);
+        }
+        .panel.tbl { padding-bottom: 14px; }
         .panel h3 {
-          font-size:13px;
-          font-weight:800;
-          margin-bottom:3px;
+          font-size: 14px;
+          font-weight: 900;
+          color: #0F172A;
+          letter-spacing: -0.01em;
+          margin-bottom: 3px;
+        }
+        :global(.dark) .panel h3 {
+          color: #F8FAFC;
         }
         .panel .psub {
-          font-size:10px;
-          color:var(--soft);
-          font-weight:600;
-          margin-bottom:8px;
+          font-size: 11.5px;
+          color: #334155;
+          font-weight: 700;
+          margin-bottom: 10px;
         }
-        .chart-box { position:relative; height:180px; }
-        .chart-sm { position:relative; height:150px; }
+        :global(.dark) .panel .psub {
+          color: #CBD5E1;
+        }
+        .chart-box { position: relative; height: 185px; }
+        .chart-sm { position: relative; height: 155px; }
+
+        /* ── Tables & Lists ── */
         table {
-          width:100%;
-          border-collapse:collapse;
-          font-size:11.5px;
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
         }
         th {
-          text-align:left;
-          font-size:10px;
-          text-transform:uppercase;
-          letter-spacing:.03em;
-          color:var(--soft);
-          padding:6px 8px;
-          border-bottom:2px solid var(--line);
-          font-weight:800;
-          position:sticky;
-          top:0;
-          background:var(--card);
+          text-align: left;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #0F172A;
+          padding: 9px 12px;
+          border-bottom: 2px solid var(--line);
+          font-weight: 900;
+          position: sticky;
+          top: 0;
+          background: var(--surface-2, #F8FAFC);
+          z-index: 5;
+        }
+        :global(.dark) th {
+          color: #F1F5F9;
+          background: #162033;
         }
         td {
-          padding:6px 8px;
-          border-bottom:1px solid var(--line);
+          padding: 8px 12px;
+          border-bottom: 1px solid var(--border-soft, #EEF1F7);
+          color: #0F172A;
+          font-weight: 600;
         }
-        tr:hover td { background:var(--surface-2); }
+        :global(.dark) td {
+          color: #E2E8F0;
+        }
+        tr:hover td { background: var(--surface-2, #F8FAFC); }
         .tbl-wrap {
-          max-height:240px;
-          overflow-y:auto;
-          overflow-x:auto;
-          border-radius:12px;
-          border:1px solid var(--line);
-          -webkit-overflow-scrolling:touch;
+          max-height: 260px;
+          overflow-y: auto;
+          overflow-x: auto;
+          border-radius: 14px;
+          border: 1.5px solid var(--line);
+          -webkit-overflow-scrolling: touch;
         }
         .pill {
-          display:inline-block;
-          padding:2px 9px;
-          border-radius:99px;
-          font-size:11px;
-          font-weight:800;
+          display: inline-block;
+          padding: 3px 10px;
+          border-radius: 99px;
+          font-size: 11px;
+          font-weight: 850;
         }
-        .pill.g { background:#e3f6ec; color:#0b7a4c; }
-        .pill.r { background:#fdebe9; color:var(--red); }
-        .grade {
-          width:24px;
-          height:24px;
-          border-radius:6px;
-          display:inline-grid;
-          place-items:center;
-          color:#fff;
-          font-weight:800;
-          font-size:11px;
-        }
+        .pill.g { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+        .pill.r { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+        :global(.dark) .pill.g { background: rgba(5, 150, 105, 0.2); color: #6EE7B7; border-color: rgba(5, 150, 105, 0.4); }
+        :global(.dark) .pill.r { background: rgba(220, 38, 38, 0.2); color: #FCA5A5; border-color: rgba(220, 38, 38, 0.4); }
+
         .foot {
-          text-align:center;
-          color:var(--soft);
-          font-size:11px;
-          margin-top:14px;
-          line-height:1.6;
+          text-align: center;
+          color: #475569;
+          font-size: 11.5px;
+          font-weight: 650;
+          margin-top: 18px;
+          line-height: 1.6;
         }
+        :global(.dark) .foot {
+          color: #94A3B8;
+        }
+
         @media(max-width: 640px) {
           .top {
             flex-direction: column;
-            align-items: stretch;
-            gap: 8px;
-            padding: 12px;
-          }
-          .top > div:last-child {
-            margin-left: 0 !important;
-            width: 100%;
-            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 14px 16px;
           }
         }
         @media(max-width: 480px) {
@@ -2480,26 +2645,32 @@ export default function SupervisorDashboard() {
         }
       ` }} />
 
-      {/* Header Banner */}
+      {/* Flagship Executive Header Banner */}
       <div className="top">
         <div className="logo">
           <img src="/images/dandy-logo.png" alt="Dandy" />
         </div>
-        <div>
-          <h1>Dandy Market Visit — Supervisor Dashboard</h1>
+        <div className="title-block">
+          <h1>
+            <span>Dandy Market Visit</span>
+            <span className="text-[rgba(255,255,255,0.4)] text-base font-normal">|</span>
+            <span className="text-sky-300 font-extrabold text-[15px] tracking-normal uppercase bg-sky-500/20 px-2.5 py-0.5 rounded-md border border-sky-400/30">
+              Supervisor Command
+            </span>
+          </h1>
           <div className="sub">Field-force visit compliance & execution · Dandy Company Ltd</div>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={() => router.push('/supervisor/visit')}
-            className="flex items-center justify-center gap-1.5 px-4 h-9 bg-white text-[#4F46E5] hover:bg-opacity-90 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95"
+            className="flex items-center justify-center gap-1.5 px-4 h-9 bg-white text-[#4F46E5] hover:bg-opacity-95 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 cursor-pointer"
           >
             <PlusCircle className="h-4 w-4" />
             New Audit
           </button>
           <button
             onClick={() => refreshAll(false)}
-            className="flex items-center justify-center gap-1.5 px-3 h-9 bg-[#ffffff20] text-white hover:bg-[#ffffff30] rounded-xl text-xs font-bold transition-all border border-[#ffffff30]"
+            className="flex items-center justify-center gap-1.5 px-3.5 h-9 bg-white/15 text-white hover:bg-white/25 rounded-xl text-xs font-bold transition-all border border-white/25 active:scale-95 cursor-pointer"
           >
             <RefreshCw className={`h-4 w-4 ${loading || isAnalyticsLoading ? 'animate-spin' : ''}`} />
             Refresh
@@ -2622,9 +2793,9 @@ export default function SupervisorDashboard() {
         </div>
 
         {isAnalyticsLoading && (
-          <div className="flex items-center justify-center gap-2 p-3 mb-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-[var(--accent)] animate-pulse">
-            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            <span>Updating analytics and chart performance metrics in background...</span>
+          <div className="flex items-center justify-center gap-2.5 p-3 mb-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs font-bold text-indigo-600 dark:text-indigo-400 backdrop-blur-sm animate-pulse shadow-xs">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span>Synchronizing executive analytics & live telemetry...</span>
           </div>
         )}
 
@@ -2636,30 +2807,40 @@ export default function SupervisorDashboard() {
 
         {/* KPI Cards */}
         <div className="kpis">
-          <div className="kpi b">
+          <div className="kpi b" title="Total Visits Logged in Filtered Period">
             <div className="lbl">Total Visits</div>
             <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : filtered.length}</div>
-            <div className="delta">visits logged</div>
+            <div className="delta">
+              <span className="kpi-icon">●</span> visits logged
+            </div>
           </div>
-          <div className="kpi g">
+          <div className="kpi g" title="Unique Outlets Visited in Filtered Period">
             <div className="lbl">Outlets Covered</div>
             <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : outletsCount}</div>
-            <div className="delta">unique outlets</div>
+            <div className="delta">
+              <span className="kpi-icon">●</span> unique outlets
+            </div>
           </div>
-          <div className="kpi a">
+          <div className="kpi a" title="Skipped / No-Visit Outlets">
             <div className="lbl">No Visits</div>
             <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : noVisitCount}</div>
-            <div className="delta">skipped outlet visits</div>
+            <div className="delta">
+              <span className="kpi-icon">●</span> skipped outlet visits
+            </div>
           </div>
-          <div className="kpi a">
+          <div className="kpi c" title="Total Cold Chain & Chiller Assets Inspected">
             <div className="lbl">Assets Checked</div>
             <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : filtered.length}</div>
-            <div className="delta">chillers/freezers</div>
+            <div className="delta">
+              <span className="kpi-icon">●</span> chillers/freezers
+            </div>
           </div>
-          <div className="kpi r">
+          <div className="kpi r" title="Temperature Violations Detected">
             <div className="lbl">Temp Breaches</div>
             <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : breachesCount}</div>
-            <div className="delta">{breachPct}</div>
+            <div className="delta">
+              <span className="kpi-icon">●</span> {breachPct}
+            </div>
           </div>
           {/* <div className="kpi g">
             <div className="lbl">FEFO Compliance</div>

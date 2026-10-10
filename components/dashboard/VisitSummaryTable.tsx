@@ -383,20 +383,20 @@ export default function VisitSummaryTable({
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-[var(--border-soft)]">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold text-[var(--text-primary)] m-0">{title}</h3>
-            <span className="badge font-mono text-[11px] px-2 py-0.5 rounded-full bg-[var(--surface-2)] text-[var(--text-secondary)] border border-[var(--border)]">
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight m-0">{title}</h3>
+            <span className="font-mono text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs">
               {filteredData.length} {filteredData.length === 1 ? 'visit' : 'visits'}
             </span>
           </div>
-          <div className="psub text-[12px] text-[var(--text-secondary)] mt-0.5">{subtitle}</div>
+          <div className="text-[12px] font-semibold text-slate-600 dark:text-slate-300 mt-0.5">{subtitle}</div>
         </div>
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Search Input */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-muted)]" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
               placeholder="Search visits, assets, notes..."
@@ -405,13 +405,13 @@ export default function VisitSummaryTable({
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-8 pl-8 pr-3 text-[12px] rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] transition-all w-48 md:w-60"
+              className="h-8.5 pl-8 pr-3 text-[12px] font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all w-48 md:w-64"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               >
                 ✕
               </button>
@@ -425,7 +425,7 @@ export default function VisitSummaryTable({
               setPageSize(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="h-8 px-2 text-[11px] rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-secondary)] font-medium focus:outline-none focus:border-[var(--accent)] transition-all cursor-pointer"
+            className="h-8.5 px-2.5 text-[11.5px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold focus:outline-none focus:border-indigo-500 transition-all cursor-pointer shadow-2xs"
           >
             <option value={10}>10 / page</option>
             <option value={20}>20 / page</option>
@@ -444,14 +444,14 @@ export default function VisitSummaryTable({
       </div>
 
       {/* Interactive Table */}
-      <div className="tbl-wrap" style={{ overflowX: 'auto', maxHeight: '540px' }}>
-        <table className="w-full border-collapse" style={{ minWidth: '1200px' }}>
+      <div className="tbl-wrap" style={{ overflowX: 'auto', maxHeight: '560px' }}>
+        <table className="w-full border-collapse" style={{ minWidth: '1240px' }}>
           <thead>
-            <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+            <tr style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--border)' }}>
               <th
                 onClick={() => handleSort('date')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ width: '100px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ width: '105px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Date</span>
@@ -460,8 +460,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('supervisor')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ minWidth: '120px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ minWidth: '125px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Supervisor</span>
@@ -470,8 +470,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('routeCode')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ width: '100px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ width: '105px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Route Code</span>
@@ -480,8 +480,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('outletCode')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ width: '105px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ width: '110px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Outlet Code</span>
@@ -490,8 +490,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('outletName')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ minWidth: '170px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ minWidth: '175px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Outlet Name</span>
@@ -500,8 +500,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('pskuAvailableCount')}
-                className="cursor-pointer select-none py-2.5 px-3 text-center text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ minWidth: '135px' }}
+                className="cursor-pointer select-none py-3 px-3 text-center text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ minWidth: '140px' }}
                 title="Total number of Power SKUs found available out of total SKUs at the outlet"
               >
                 <div className="flex items-center justify-center gap-1.5">
@@ -511,8 +511,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('chillerModelDisplay')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ minWidth: '130px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ minWidth: '135px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Chiller Model</span>
@@ -521,8 +521,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('freezerModelDisplay')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ minWidth: '130px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ minWidth: '135px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Freezer Model</span>
@@ -531,8 +531,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('tempDisplay')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ minWidth: '105px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ minWidth: '110px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Temp</span>
@@ -541,8 +541,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('assetStatusDisplay')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ minWidth: '130px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ minWidth: '135px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Asset Status</span>
@@ -551,8 +551,8 @@ export default function VisitSummaryTable({
               </th>
               <th
                 onClick={() => handleSort('observationActionDisplay')}
-                className="cursor-pointer select-none py-2.5 px-3 text-left text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--accent)] transition-colors"
-                style={{ minWidth: '180px' }}
+                className="cursor-pointer select-none py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                style={{ minWidth: '185px' }}
               >
                 <div className="flex items-center gap-1.5">
                   <span>Observation & Action</span>
@@ -570,30 +570,30 @@ export default function VisitSummaryTable({
                   className={`border-b border-[var(--border-soft)] hover:bg-[var(--surface-2)] transition-colors ${
                     onRowClick ? 'cursor-pointer' : ''
                   }`}
-                  style={{ height: '42px' }}
+                  style={{ height: '44px' }}
                 >
                   {/* Date */}
-                  <td className="py-2 px-3 text-[12px] font-mono whitespace-nowrap text-[var(--text-secondary)]">
+                  <td className="py-2.5 px-3 text-[12px] font-mono font-bold whitespace-nowrap text-slate-900 dark:text-slate-100">
                     {row.date}
                   </td>
 
                   {/* Supervisor */}
-                  <td className="py-2 px-3 text-[12px] font-semibold text-[var(--text-primary)] whitespace-nowrap">
+                  <td className="py-2.5 px-3 text-[12px] font-bold text-slate-900 dark:text-white whitespace-nowrap">
                     {row.supervisor}
                   </td>
 
                   {/* Route Code */}
-                  <td className="py-2 px-3 text-[12px] font-mono text-[var(--text-secondary)] whitespace-nowrap">
+                  <td className="py-2.5 px-3 text-[12px] font-mono font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                     {row.routeCode}
                   </td>
 
                   {/* Outlet Code */}
-                  <td className="py-2 px-3 text-[12px] font-mono font-medium text-[var(--accent)] whitespace-nowrap">
+                  <td className="py-2.5 px-3 text-[12px] font-mono font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
                     {row.outletCode}
                   </td>
 
                   {/* Outlet Name */}
-                  <td className="py-2 px-3 text-[12px] font-bold text-[var(--text-primary)] max-w-xs truncate" title={row.outletName}>
+                  <td className="py-2.5 px-3 text-[12px] font-extrabold text-slate-900 dark:text-white max-w-xs truncate" title={row.outletName}>
                     {row.outletName}
                   </td>
 
