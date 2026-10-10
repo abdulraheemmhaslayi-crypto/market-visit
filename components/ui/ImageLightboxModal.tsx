@@ -334,6 +334,39 @@ export default function ImageLightboxModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose, handlePrev, handleNext, isFlagging, isSubmittingProof]);
 
+  // Mouse Center Scroll Wheel Zoom In / Out
+  useEffect(() => {
+    if (!isOpen) return;
+    const stageEl = stageRef.current;
+    if (!stageEl) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const zoomStep = 0.2;
+      if (e.deltaY < 0) {
+        // Scroll UP: Zoom In
+        setZoom((prev) => Math.min(5, Math.round((prev + zoomStep) * 100) / 100));
+      } else if (e.deltaY > 0) {
+        // Scroll DOWN: Zoom Out
+        setZoom((prev) => {
+          const next = Math.max(0.5, Math.round((prev - zoomStep) * 100) / 100);
+          if (next <= 1) {
+            setSliderX(0);
+            setSliderY(0);
+          }
+          return next;
+        });
+      }
+    };
+
+    stageEl.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      stageEl.removeEventListener('wheel', handleWheel);
+    };
+  }, [isOpen, currentIndex, activeTab]);
+
   // Handle GM Directive Submission
   const handleSubmitDirective = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -483,101 +516,104 @@ export default function ImageLightboxModal({
 
   return (
     <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950 flex flex-col lg:flex-row overflow-hidden animate-in fade-in duration-150 text-white">
-      {/* Left Side: Image Container - Full Screen Stage */}
-      <div className="flex-1 h-full bg-black relative flex items-center justify-center select-none overflow-hidden group">
-        {activeTab === 'before_after' && currentAction?.proofPhotoUrl ? (
-          /* Side-by-Side Comparison Mode */
-          <div className="w-full h-full p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center justify-center">
-            {/* Left: Original Audit Photo */}
-            <div className="relative h-full flex flex-col items-center justify-center rounded-2xl bg-slate-950/80 border border-amber-500/30 overflow-hidden shadow-xl">
-              <span className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/90 text-black uppercase tracking-wider shadow">
-                Before: Audit Issue
-              </span>
-              <img
-                src={imageUrl}
-                alt="Original Issue"
-                className="max-h-full max-w-full object-contain p-2"
-              />
-            </div>
-
-            {/* Right: Supervisor Proof Photo */}
-            <div className="relative h-full flex flex-col items-center justify-center rounded-2xl bg-slate-950/80 border border-emerald-500/30 overflow-hidden shadow-xl">
-              <span className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded text-xs font-bold bg-emerald-500 text-white uppercase tracking-wider shadow flex items-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5" /> After: Supervisor Proof
-              </span>
-              <img
-                src={currentAction.proofPhotoUrl}
-                alt="Resolution Proof"
-                className="max-h-full max-w-full object-contain p-2"
-              />
-            </div>
-          </div>
-        ) : (
-          /* Standard Single Image View with Zoom, Pan & Rotation */
-          <div
-            ref={stageRef}
-            className="w-full h-full flex items-center justify-center overflow-hidden p-2 sm:p-4 relative"
-            onPointerDown={(e) => {
-              if (activeTab === 'before_after') return;
-              setIsDragging(true);
-              dragStartRef.current = {
-                x: e.clientX,
-                y: e.clientY,
-                sliderX,
-                sliderY,
-              };
-              try {
-                (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-              } catch {}
-            }}
-            onPointerMove={(e) => {
-              if (!isDragging) return;
-              const dx = e.clientX - dragStartRef.current.x;
-              const dy = e.clientY - dragStartRef.current.y;
-              const w = stageRef.current?.clientWidth || 800;
-              const h = stageRef.current?.clientHeight || 600;
-              const sensX = 100 / Math.max(80, (w * (zoom - 1)) / 2 || w * 0.4);
-              const sensY = 100 / Math.max(80, (h * (zoom - 1)) / 2 || h * 0.4);
-              const nextX = Math.max(-100, Math.min(100, Math.round(dragStartRef.current.sliderX - dx * sensX)));
-              const nextY = Math.max(-100, Math.min(100, Math.round(dragStartRef.current.sliderY - dy * sensY)));
-              setSliderX(nextX);
-              setSliderY(nextY);
-            }}
-            onPointerUp={(e) => {
-              setIsDragging(false);
-              try {
-                (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
-              } catch {}
-            }}
-            onPointerCancel={() => setIsDragging(false)}
-          >
-            {(() => {
-              const stageWidth = stageRef.current?.clientWidth || 900;
-              const stageHeight = stageRef.current?.clientHeight || 700;
-              const maxPanX = Math.max(30, (stageWidth * Math.max(0.15, zoom - 1)) / 2);
-              const maxPanY = Math.max(30, (stageHeight * Math.max(0.15, zoom - 1)) / 2);
-              const panX = -(sliderX / 100) * maxPanX;
-              const panY = -(sliderY / 100) * maxPanY;
-
-              return (
+      {/* Left Side: Image Stage & Bottom Controls Dock */}
+      <div className="flex-1 h-full bg-black relative flex flex-col select-none overflow-hidden group">
+        {/* Main Viewing Stage (flex-1 min-h-0 guarantees image scales completely above the footer) */}
+        <div
+          ref={stageRef}
+          className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-hidden p-2 sm:p-4"
+          onPointerDown={(e) => {
+            if (activeTab === 'before_after') return;
+            if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+            setIsDragging(true);
+            dragStartRef.current = {
+              x: e.clientX,
+              y: e.clientY,
+              sliderX,
+              sliderY,
+            };
+            try {
+              (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+            } catch {}
+          }}
+          onPointerMove={(e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - dragStartRef.current.x;
+            const dy = e.clientY - dragStartRef.current.y;
+            const w = stageRef.current?.clientWidth || 800;
+            const h = stageRef.current?.clientHeight || 600;
+            const sensX = 100 / Math.max(80, (w * (zoom - 1)) / 2 || w * 0.4);
+            const sensY = 100 / Math.max(80, (h * (zoom - 1)) / 2 || h * 0.4);
+            const nextX = Math.max(-100, Math.min(100, Math.round(dragStartRef.current.sliderX - dx * sensX)));
+            const nextY = Math.max(-100, Math.min(100, Math.round(dragStartRef.current.sliderY - dy * sensY)));
+            setSliderX(nextX);
+            setSliderY(nextY);
+          }}
+          onPointerUp={(e) => {
+            setIsDragging(false);
+            try {
+              (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+            } catch {}
+          }}
+          onPointerCancel={() => setIsDragging(false)}
+        >
+          {activeTab === 'before_after' && currentAction?.proofPhotoUrl ? (
+            /* Side-by-Side Comparison Mode */
+            <div className="w-full h-full p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center justify-center">
+              {/* Left: Original Audit Photo */}
+              <div className="relative h-full flex flex-col items-center justify-center rounded-2xl bg-slate-950/80 border border-amber-500/30 overflow-hidden shadow-xl">
+                <span className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/90 text-black uppercase tracking-wider shadow">
+                  Before: Audit Issue
+                </span>
                 <img
-                  key={imageUrl}
                   src={imageUrl}
-                  alt={categoryName}
-                  style={{
-                    transform: `translate(${panX}px, ${panY}px) scale(${zoom}) rotate(${rotation}deg)`,
-                    transition: isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                    transformOrigin: 'center center',
-                    imageRendering: 'auto',
-                    cursor: isDragging ? 'grabbing' : zoom > 1 ? 'grab' : 'default',
-                  }}
-                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
-                  draggable={false}
+                  alt="Original Issue"
+                  className="max-h-full max-w-full object-contain p-2"
                 />
-              );
-            })()}
-          </div>
-        )}
+              </div>
+
+              {/* Right: Supervisor Proof Photo */}
+              <div className="relative h-full flex flex-col items-center justify-center rounded-2xl bg-slate-950/80 border border-emerald-500/30 overflow-hidden shadow-xl">
+                <span className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded text-xs font-bold bg-emerald-500 text-white uppercase tracking-wider shadow flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> After: Supervisor Proof
+                </span>
+                <img
+                  src={currentAction.proofPhotoUrl}
+                  alt="Resolution Proof"
+                  className="max-h-full max-w-full object-contain p-2"
+                />
+              </div>
+            </div>
+          ) : (
+            /* Standard Single Image View with Zoom, Pan & Rotation */
+            <div className="w-full h-full flex items-center justify-center overflow-hidden relative">
+              {(() => {
+                const stageWidth = stageRef.current?.clientWidth || 900;
+                const stageHeight = stageRef.current?.clientHeight || 700;
+                const maxPanX = Math.max(30, (stageWidth * Math.max(0.15, zoom - 1)) / 2);
+                const maxPanY = Math.max(30, (stageHeight * Math.max(0.15, zoom - 1)) / 2);
+                const panX = -(sliderX / 100) * maxPanX;
+                const panY = -(sliderY / 100) * maxPanY;
+
+                return (
+                  <img
+                    key={imageUrl}
+                    src={imageUrl}
+                    alt={categoryName}
+                    style={{
+                      transform: `translate(${panX}px, ${panY}px) scale(${zoom}) rotate(${rotation}deg)`,
+                      transition: isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                      transformOrigin: 'center center',
+                      imageRendering: 'auto',
+                      cursor: isDragging ? 'grabbing' : zoom > 1 ? 'grab' : 'default',
+                    }}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
+                    draggable={false}
+                  />
+                );
+              })()}
+            </div>
+          )}
 
           {/* Vertical Pan Slider (Right Side of Stage) */}
           {activeTab !== 'before_after' && (
@@ -636,118 +672,6 @@ export default function ImageLightboxModal({
                   Mid
                 </button>
               )}
-            </div>
-          )}
-
-          {/* Horizontal Pan Slider (Bottom of Stage, Above Zoom Controls) */}
-          {activeTab !== 'before_after' && (
-            <div className="absolute bottom-24 inset-x-0 z-30 flex items-center justify-center pointer-events-none">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-950/85 border border-slate-700/80 backdrop-blur-md shadow-2xl pointer-events-auto text-slate-200 max-w-xs sm:max-w-md w-full mx-4 select-none">
-                <button
-                  type="button"
-                  onClick={() => setSliderX((x) => Math.max(-100, x - 20))}
-                  className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-white/10 cursor-pointer"
-                  title="Pan Left"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-
-                <span className="text-[10px] font-mono font-bold text-slate-400 whitespace-nowrap min-w-[28px] text-center select-none">
-                  {sliderX === 0 ? '0' : sliderX < 0 ? `←${Math.abs(sliderX)}` : `→${sliderX}`}
-                </span>
-
-                <input
-                  type="range"
-                  min="-100"
-                  max="100"
-                  value={sliderX}
-                  onChange={(e) => setSliderX(Number(e.target.value))}
-                  className="w-full h-1.5 rounded-lg bg-slate-800 accent-indigo-500 cursor-pointer"
-                  title={`Horizontal Position: ${sliderX === 0 ? 'Center' : sliderX < 0 ? `${Math.abs(sliderX)}% Left` : `${sliderX}% Right`}`}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setSliderX((x) => Math.min(100, x + 20))}
-                  className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-white/10 cursor-pointer"
-                  title="Pan Right"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-
-                {sliderX !== 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setSliderX(0)}
-                    className="text-[9px] font-bold text-amber-300 hover:text-amber-200 px-1.5 py-0.5 rounded bg-white/10 whitespace-nowrap"
-                    title="Center Horizontal"
-                  >
-                    Center
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Floating Image Zoom & Rotation Controls */}
-          {activeTab !== 'before_after' && (
-            <div className="absolute bottom-14 inset-x-0 z-30 flex items-center justify-center pointer-events-none">
-              <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-950/85 border border-slate-700/80 backdrop-blur-md shadow-2xl pointer-events-auto text-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}
-                  title="Zoom Out"
-                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </button>
-                <span className="text-[11px] font-mono font-bold min-w-[40px] text-center text-slate-300 select-none">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setZoom((z) => Math.min(4, Math.round((z + 0.25) * 100) / 100))}
-                  title="Zoom In"
-                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </button>
-                <div className="h-3.5 w-px bg-slate-700 mx-1" />
-                <button
-                  type="button"
-                  onClick={() => setRotation((r) => (r - 90) % 360)}
-                  title="Rotate Counter-Clockwise (-90°)"
-                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRotation((r) => (r + 90) % 360)}
-                  title="Rotate Clockwise (+90°)"
-                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <RotateCw className="h-3.5 w-3.5" />
-                </button>
-                {(zoom !== 1 || rotation !== 0 || sliderX !== 0 || sliderY !== 0) && (
-                  <>
-                    <div className="h-3.5 w-px bg-slate-700 mx-1" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setZoom(1);
-                        setRotation(0);
-                        setSliderX(0);
-                        setSliderY(0);
-                      }}
-                      title="Reset Zoom, Pan & Rotation"
-                      className="px-2 py-0.5 text-[10px] font-bold bg-white/10 hover:bg-white/20 rounded-md text-amber-300 transition-colors"
-                    >
-                      Reset
-                    </button>
-                  </>
-                )}
-              </div>
             </div>
           )}
 
@@ -820,7 +744,7 @@ export default function ImageLightboxModal({
             </button>
           </div>
 
-          {/* Previous Button */}
+          {/* Previous Button (Stage Left Chevron) */}
           <button
             type="button"
             onClick={(e) => {
@@ -838,7 +762,7 @@ export default function ImageLightboxModal({
             <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
 
-          {/* Next Button */}
+          {/* Next Button (Stage Right Chevron) */}
           <button
             type="button"
             onClick={(e) => {
@@ -855,30 +779,150 @@ export default function ImageLightboxModal({
           >
             <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
+        </div>
 
-          {/* Bottom Bar: Mini Navigation Controls */}
-          <div className="absolute bottom-3 inset-x-0 z-20 flex items-center justify-center gap-4 pointer-events-none">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 border border-white/10 backdrop-blur-md shadow-lg pointer-events-auto">
+        {/* Bottom Dock Bar: Navigation, Zoom & Rotation, and Pan Controls in Dedicated Blank Footer */}
+        <div className="w-full flex-shrink-0 bg-slate-950/95 border-t border-slate-800/80 px-3 sm:px-6 py-2.5 z-30 select-none shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
+          {/* Group 1: Navigation Controls */}
+          <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 py-1.5 shadow-inner">
+            <button
+              type="button"
+              onClick={handlePrev}
+              disabled={!hasPrev}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition-colors cursor-pointer"
+              title="Previous Photo (Left Arrow)"
+            >
+              <ChevronLeft className="h-4 w-4" /> Prev
+            </button>
+            <span className="text-xs font-mono font-bold text-slate-300 px-2.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 select-none">
+              {currentIndex + 1} / {total}
+            </span>
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={!hasNext}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition-colors cursor-pointer"
+              title="Next Photo (Right Arrow)"
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Group 2: Zoom Magnifier & Rotation Controls */}
+          {activeTab !== 'before_after' && (
+            <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-1.5 shadow-inner text-slate-200">
               <button
-                onClick={handlePrev}
-                disabled={!hasPrev}
-                className="text-xs font-semibold px-2 py-0.5 rounded text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+                type="button"
+                onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}
+                title="Zoom Out (Scroll Wheel Down)"
+                className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               >
-                <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                <ZoomOut className="h-4 w-4" />
               </button>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {currentIndex + 1} of {total}
+              <span
+                className="text-xs font-mono font-bold min-w-[48px] text-center text-sky-400 select-none px-1"
+                title="Zoom Level (Scroll mouse center wheel up/down to zoom)"
+              >
+                {Math.round(zoom * 100)}%
               </span>
               <button
-                onClick={handleNext}
-                disabled={!hasNext}
-                className="text-xs font-semibold px-2 py-0.5 rounded text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+                type="button"
+                onClick={() => setZoom((z) => Math.min(5, Math.round((z + 0.25) * 100) / 100))}
+                title="Zoom In (Scroll Wheel Up)"
+                className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
               >
-                Next <ChevronRight className="h-3.5 w-3.5" />
+                <ZoomIn className="h-4 w-4" />
               </button>
+
+              <div className="h-4 w-px bg-slate-700/80 mx-1" />
+
+              <button
+                type="button"
+                onClick={() => setRotation((r) => (r - 90) % 360)}
+                title="Rotate Counter-Clockwise (-90°)"
+                className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setRotation((r) => (r + 90) % 360)}
+                title="Rotate Clockwise (+90°)"
+                className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <RotateCw className="h-4 w-4" />
+              </button>
+
+              {(zoom !== 1 || rotation !== 0 || sliderX !== 0 || sliderY !== 0) && (
+                <>
+                  <div className="h-4 w-px bg-slate-700/80 mx-1" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoom(1);
+                      setRotation(0);
+                      setSliderX(0);
+                      setSliderY(0);
+                    }}
+                    title="Reset Zoom, Pan & Rotation"
+                    className="px-2.5 py-1 text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Reset
+                  </button>
+                </>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* Group 3: Horizontal Pan Slider */}
+          {activeTab !== 'before_after' && (
+            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-1.5 shadow-inner text-slate-200">
+              <button
+                type="button"
+                onClick={() => setSliderX((x) => Math.max(-100, x - 20))}
+                className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-slate-800 cursor-pointer"
+                title="Pan Left"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              <span className="text-[10px] font-mono font-bold text-slate-400 whitespace-nowrap min-w-[28px] text-center select-none">
+                {sliderX === 0 ? '0' : sliderX < 0 ? `←${Math.abs(sliderX)}` : `→${sliderX}`}
+              </span>
+
+              <input
+                type="range"
+                min="-100"
+                max="100"
+                value={sliderX}
+                onChange={(e) => setSliderX(Number(e.target.value))}
+                className="w-24 sm:w-36 md:w-44 h-1.5 rounded-lg bg-slate-800 accent-indigo-500 cursor-pointer"
+                title={`Horizontal Position: ${sliderX === 0 ? 'Center' : sliderX < 0 ? `${Math.abs(sliderX)}% Left` : `${sliderX}% Right`}`}
+              />
+
+              <button
+                type="button"
+                onClick={() => setSliderX((x) => Math.min(100, x + 20))}
+                className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-slate-800 cursor-pointer"
+                title="Pan Right"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+
+              {sliderX !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSliderX(0)}
+                  className="text-[10px] font-bold text-indigo-300 hover:text-white px-2 py-0.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 hover:bg-indigo-500/40 whitespace-nowrap transition-colors cursor-pointer"
+                  title="Center Horizontal Pan"
+                >
+                  Center
+                </button>
+              )}
+            </div>
+          )}
         </div>
+      </div>
 
         {/* Right Side: GM Directive, Supervisor Proof & Metadata Panel */}
         {!isStageExpanded && (
