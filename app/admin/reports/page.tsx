@@ -1149,29 +1149,6 @@ export default function GmExecutiveReportsPage() {
                       </div>
                     )}
                   </div>
-
-                  {/* Card Bottom CTA Actions */}
-                  <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleDirectiveStatus(directive.id, directive.status)}
-                      className={`text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                        isImplemented ? 'text-emerald-400 hover:underline' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                      {isImplemented ? 'Re-open Directive' : 'Mark Completed'}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenDirectiveModal(directive)}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/30 cursor-pointer active:scale-95 transition-all"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      Deploy Field Directive
-                    </button>
-                  </div>
                 </div>
               );
             })}
