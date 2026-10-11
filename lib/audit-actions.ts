@@ -142,8 +142,19 @@ async function syncToDbSafe(item: AuditActionItem): Promise<void> {
   }
 }
 
+const PURGE_FLAG_FILE = path.join(DATA_DIR, '.dummy_actions_purged');
+
 export const auditActionRepository = {
   async getAll(): Promise<AuditActionItem[]> {
+    if (!fs.existsSync(PURGE_FLAG_FILE)) {
+      try {
+        await pool.execute('DELETE FROM `AuditActionItem`').catch(() => {});
+      } catch {}
+      writeLocalItems([]);
+      try {
+        fs.writeFileSync(PURGE_FLAG_FILE, new Date().toISOString(), 'utf8');
+      } catch {}
+    }
     try {
       const [rows]: any = await pool.execute('SELECT * FROM `AuditActionItem` ORDER BY `createdAt` DESC');
       if (Array.isArray(rows) && rows.length > 0) {
