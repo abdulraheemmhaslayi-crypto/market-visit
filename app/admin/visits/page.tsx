@@ -509,7 +509,7 @@ export default function VisitLogsPage() {
               />
               <span className="tracking-wider">{isSyncing ? 'SYNCING...' : 'LIVE SYNC'}</span>
               <span className="opacity-30">|</span>
-              <span className="text-slate-400 dark:text-slate-500">
+              <span className="text-slate-400 dark:text-slate-500" suppressHydrationWarning>
                 {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
