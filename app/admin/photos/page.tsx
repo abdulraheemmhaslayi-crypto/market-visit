@@ -30,6 +30,7 @@ import {
   Sparkles,
   Clock,
   Eye,
+  RotateCcw,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
@@ -297,20 +298,23 @@ export default function AuditPhotoGalleryPage() {
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Top Header Card */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-md">
         <div className="flex items-center gap-3.5">
-          <div className="h-12 w-12 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center shadow-xs border border-[var(--border)] flex-shrink-0">
+          <div className="h-12 w-12 rounded-2xl bg-white dark:bg-slate-800 p-2 flex items-center justify-center shadow-md border border-slate-200/80 dark:border-slate-700/80 flex-shrink-0">
             <img src="/images/dandy-logo.png" alt="Dandy Logo" className="h-full w-auto object-contain" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-              Audit Photo Gallery
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                Audit Photo Gallery
+              </h1>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 Live DB Stream
               </span>
-            </h1>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              Review audit photos, assign GM corrective directives, and verify supervisor resolution proof.
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+              Review field audit photos, assign GM corrective directives, and verify supervisor resolution proof.
             </p>
           </div>
         </div>
@@ -320,15 +324,17 @@ export default function AuditPhotoGalleryPage() {
           <button
             type="button"
             onClick={() => setIsActionDrawerOpen(true)}
-            className="flex items-center gap-2 text-xs font-bold px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-sm"
+            className="flex items-center gap-2 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
           >
-            <Flag className="h-3.5 w-3.5 text-amber-400" />
+            <Flag className="h-4 w-4 text-amber-500" />
             <span>Action Tracker</span>
-            {pendingCount + submittedCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-black">
-                {pendingCount + submittedCount}
-              </span>
-            )}
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+              pendingCount + submittedCount > 0
+                ? 'bg-amber-500 text-slate-950 shadow-xs animate-pulse'
+                : 'bg-amber-500/20 text-amber-700 dark:text-amber-400'
+            }`}>
+              {pendingCount + submittedCount}
+            </span>
           </button>
 
           <ExportButton onClick={handleExportPhotos} label="Export Log" variant="outline" />
@@ -339,91 +345,114 @@ export default function AuditPhotoGalleryPage() {
               fetchActionItems();
             }}
             disabled={isRefreshing}
-            className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] border border-[var(--border)] transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-xs active:scale-95"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`} />
             Refresh
           </button>
 
-          <div className="text-xs font-semibold px-3.5 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5" />
+          <div className="text-xs font-bold px-3.5 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-2 shadow-xs">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             <span>{pagination.totalCount} Photo{pagination.totalCount === 1 ? '' : 's'}</span>
           </div>
         </div>
       </div>
 
-      {/* GM Directive Quick Filter Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-        <span className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5 mr-1 flex-shrink-0">
-          <Flag className="h-3.5 w-3.5 text-amber-500" /> Filter by GM Action:
+      {/* Directive Quick Filter Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs pt-1">
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mr-1 flex-shrink-0">
+          <Flag className="h-3.5 w-3.5 text-amber-500" /> Filter by Action & Remarks:
         </span>
         <button
           onClick={() => setActionFilter('all')}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex-shrink-0 ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex-shrink-0 flex items-center gap-1.5 ${
             actionFilter === 'all'
-              ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-md border border-indigo-700/60 font-extrabold'
-              : 'bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--border-soft)]'
+              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 font-black'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 shadow-xs'
           }`}
         >
-          All Photos ({pagination.totalCount || photos.length})
+          <span>All Photos</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            actionFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+          }`}>
+            {pagination.totalCount || photos.length}
+          </span>
         </button>
         <button
           onClick={() => setActionFilter('PENDING')}
-          className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'PENDING'
-              ? 'bg-amber-500 text-slate-950 shadow-md border border-amber-600 font-extrabold'
-              : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20'
+              ? 'bg-amber-500 text-slate-950 shadow-md border border-amber-600 font-black'
+              : 'bg-amber-50/80 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:hover:bg-amber-900/40 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 shadow-xs'
           }`}
         >
-          <AlertTriangle className="h-3.5 w-3.5" />
-          Action Pending ({pendingCount})
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+          <span>Action Pending</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            actionFilter === 'PENDING' ? 'bg-black/20 text-black' : 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300'
+          }`}>
+            {pendingCount}
+          </span>
         </button>
         <button
           onClick={() => setActionFilter('SUBMITTED')}
-          className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'SUBMITTED'
-              ? 'bg-sky-600 text-white shadow-md border border-sky-700 font-extrabold'
-              : 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/30 hover:bg-sky-500/20'
+              ? 'bg-sky-600 text-white shadow-md border border-sky-700 font-black'
+              : 'bg-sky-50/80 hover:bg-sky-100 text-sky-800 dark:bg-sky-950/30 dark:hover:bg-sky-900/40 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/80 shadow-xs'
           }`}
         >
-          <Upload className="h-3.5 w-3.5" />
-          Proof Submitted ({submittedCount})
+          <Upload className="h-3.5 w-3.5 text-sky-500" />
+          <span>Proof Submitted</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            actionFilter === 'SUBMITTED' ? 'bg-white/20 text-white' : 'bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-300'
+          }`}>
+            {submittedCount}
+          </span>
         </button>
         <button
           onClick={() => setActionFilter('RESOLVED')}
-          className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'RESOLVED'
-              ? 'bg-emerald-600 text-white shadow-md border border-emerald-700 font-extrabold'
-              : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20'
+              ? 'bg-emerald-600 text-white shadow-md border border-emerald-700 font-black'
+              : 'bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 shadow-xs'
           }`}
         >
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          Verified Closed ({resolvedCount})
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+          <span>Verified Closed</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            actionFilter === 'RESOLVED' ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300'
+          }`}>
+            {resolvedCount}
+          </span>
         </button>
       </div>
 
       {/* Filter Control Bar */}
-      <div className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-sm space-y-3">
-        <div className="flex items-center justify-between pb-2 border-b border-[var(--border-soft)]">
-          <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
-            <SlidersHorizontal className="h-4 w-4 text-accent" />
+      <div className="p-4.5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+            </div>
             Filter Gallery
           </div>
-          {(selectedDate || selectedApp !== 'all' || selectedSupervisor !== 'all' || selectedOutlet !== 'all' || searchQuery || actionFilter !== 'all') && (
+          {(selectedDate || selectedApp !== 'all' || selectedSupervisor !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery || actionFilter !== 'all') && (
             <button
               onClick={handleResetFilters}
-              className="text-[11px] font-medium text-accent hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
             >
+              <RotateCcw className="h-3 w-3" />
               Reset Filters
             </button>
           )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-          {/* Date Selector (Default: Today) */}
+          {/* Date Selector */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <Calendar className="h-3 w-3 text-accent" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-indigo-500" />
               Visit Date
             </label>
             <input
@@ -433,14 +462,14 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedDate(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-accent"
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
           </div>
 
           {/* Supervisor Selector */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <User className="h-3 w-3 text-accent" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <User className="h-3 w-3 text-indigo-500" />
               Supervisor
             </label>
             <select
@@ -449,7 +478,7 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedSupervisor(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-accent"
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
               <option value="all">All Supervisors</option>
               {supervisors.map((sup) => (
@@ -462,8 +491,8 @@ export default function AuditPhotoGalleryPage() {
 
           {/* Route Selector */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <MapPin className="h-3 w-3 text-accent" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-indigo-500" />
               Route
             </label>
             <select
@@ -472,7 +501,7 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedRoute(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-accent"
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
               <option value="all">All Routes</option>
               {routes.map((rt) => (
@@ -485,8 +514,8 @@ export default function AuditPhotoGalleryPage() {
 
           {/* Outlet Selector */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <Store className="h-3 w-3 text-accent" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Store className="h-3 w-3 text-indigo-500" />
               Customer / Outlet
             </label>
             <select
@@ -495,7 +524,7 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedOutlet(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-accent"
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
               <option value="all">All Outlets</option>
               {outlets.map((ot) => (
@@ -508,8 +537,8 @@ export default function AuditPhotoGalleryPage() {
 
           {/* Search Input */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <Search className="h-3 w-3 text-accent" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Search className="h-3 w-3 text-indigo-500" />
               Search
             </label>
             <div className="relative">
@@ -521,18 +550,26 @@ export default function AuditPhotoGalleryPage() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full text-xs font-semibold py-2 pl-8 pr-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-accent"
+                className="w-full text-xs font-semibold py-2 pl-8 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
-              <Search className="h-3.5 w-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         {/* Quick Date Shortcuts */}
-        <div className="pt-2 border-t border-[var(--border-soft)] flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="text-[11px] text-[var(--text-muted)]">
+        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
             Viewing records for{' '}
-            <strong className="text-[var(--text-primary)]">
+            <strong className="text-slate-900 dark:text-white font-bold">
               {selectedDate || 'All Available Dates'}
             </strong>
           </span>
@@ -542,10 +579,10 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedDate(getTodayStr());
                 setCurrentPage(1);
               }}
-              className={`text-[11px] font-semibold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
                 selectedDate === getTodayStr()
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                  : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
               }`}
             >
               Today
@@ -555,10 +592,10 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedDate('');
                 setCurrentPage(1);
               }}
-              className={`text-[11px] font-semibold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
                 !selectedDate
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                  : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
               }`}
             >
               All Dates
@@ -580,7 +617,7 @@ export default function AuditPhotoGalleryPage() {
             No audit photos found matching the selected filters.
           </h3>
           <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto">
-            Try adjusting your date, GM action status, or search filters.
+            Try adjusting your date, action status, or search filters.
           </p>
           <button
             onClick={handleResetFilters}
@@ -632,7 +669,7 @@ export default function AuditPhotoGalleryPage() {
                     loading="lazy"
                   />
 
-                  {/* GM Action Status Overlay Badge */}
+                  {/* Action Status Overlay Badge */}
                   {action && (
                     <div
                       className={`absolute bottom-2.5 left-2.5 right-2.5 px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center justify-between shadow-lg backdrop-blur-md border ${
@@ -663,7 +700,7 @@ export default function AuditPhotoGalleryPage() {
 
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="text-xs font-semibold text-white px-3.5 py-2 rounded-xl bg-black/70 backdrop-blur-sm flex items-center gap-2 border border-white/20">
-                      <ExternalLink className="h-3.5 w-3.5" /> Inspect & GM Remarks
+                      <ExternalLink className="h-3.5 w-3.5" /> Inspect & Remarks
                     </span>
                   </div>
                 </div>

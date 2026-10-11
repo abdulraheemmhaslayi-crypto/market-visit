@@ -196,6 +196,7 @@ function VisitWizardContent() {
           assetId: 'ast_' + Math.random().toString(36).substring(2, 9),
           visitId,
           assetType: 'Chiller',
+          sizeModel: 'Single Door',
           temperature: undefined as number | undefined,
           tempInRange: true,
           actionRequired: 'Select Status',
@@ -382,21 +383,20 @@ function VisitWizardContent() {
 
   const nextStep = () => {
     if (currentStep === 0) {
+      if (!selectedRoute) {
+        showToast('Please select a route.', 'warning');
+        return;
+      }
+      if (!effectiveCustomerId) {
+        showToast('Please select a customer outlet.', 'warning');
+        return;
+      }
       if (visitType === 'No Visit') {
         if (!reasonCategory) {
           showToast('Please select a reason category for no-visit reports.', 'warning');
           return;
         }
         saveStateToLocalStorage(0);
-        return;
-      }
-
-      if (!selectedRoute) {
-        showToast('Please select a route.', 'warning');
-        return;
-      }
-      if (!effectiveCustomerId) {
-        showToast('Please select a customer.', 'warning');
         return;
       }
     }
@@ -423,13 +423,9 @@ function VisitWizardContent() {
   };
 
   const handleSaveDraft = async () => {
-    if (visitType === 'No Visit') {
-      setSavingDraft(true);
-    } else if (!effectiveCustomerId) {
+    if (!selectedRoute || !effectiveCustomerId) {
       showToast('Please select both a route and a customer before saving.', 'warning');
       return;
-    } else {
-      setSavingDraft(true);
     }
     setSavingDraft(true);
     try {
@@ -476,16 +472,20 @@ function VisitWizardContent() {
 
   const handleFinalSubmit = async () => {
     if (visitType === 'No Visit') {
+      if (!selectedRoute) {
+        showToast('Please select a route.', 'warning');
+        return;
+      }
+      if (!effectiveCustomerId) {
+        showToast('Please select a customer outlet.', 'warning');
+        return;
+      }
       if (!reasonCategory) {
         showToast('Please select a reason category for no-visit reports.', 'warning');
         return;
       }
     } else if (!effectiveCustomerId) {
       showToast('Please select both a route and a customer before submitting.', 'warning');
-      return;
-    }
-    if (visitType === 'No Visit' && !reasonCategory) {
-      showToast('Please select a reason category for no-visit reports.', 'warning');
       return;
     }
     // Auto-default any unselected Power SKU or NPD checklist items to 'Not Available' ONLY for regular visits
@@ -574,7 +574,8 @@ function VisitWizardContent() {
       {
         assetId: 'ast_' + Math.random().toString(36).substring(2, 9),
         visitId,
-        assetType: 'Chiller',
+        assetType: 'Freezer',
+        sizeModel: '400',
         temperature: undefined as number | undefined,
         tempInRange: true,
         actionRequired: 'Select Status',
@@ -724,190 +725,205 @@ function VisitWizardContent() {
       {/* STEP 0: ROUTE & CUSTOMER SELECTION */}
       {currentStep === 0 && (
         <div className="card p-5 space-y-4 animate-slide-up">
-          <span className="badge badge-accent">{visitType === 'No Visit' ? 'No Visit Report' : 'Route & Customer Selection'}</span>
+          <span className="badge badge-accent">
+            {visitType === 'No Visit' && activeCustomer ? 'No Visit Report' : 'Route & Customer Selection'}
+          </span>
 
-          {visitType === 'No Visit' ? (
-            <div className="rounded-xl p-4 border border-solid border-[var(--border-soft)] bg-[var(--surface-2)] space-y-3">
-              <p className="text-[11px] font-bold text-[var(--text-primary)]">No Visit reason</p>
+          <div>
+            <label className="form-label mb-1">Select Available Route</label>
+            <select
+              value={selectedRoute}
+              onChange={(e) => { setSelectedRoute(e.target.value); setSelectedCustomer(''); }}
+              className="form-input"
+            >
+              <option value="">— Choose Route —</option>
+              {routes.map((r) => (
+                <option key={r.routeCode} value={r.routeCode}>{r.routeCode} – {r.routeName} ({r.channel})</option>
+              ))}
+            </select>
+          </div>
+
+          {selectedRoute ? (
+            <div className="space-y-3 pt-2" style={{ borderTop: '1px dashed var(--border-soft)' }}>
               <div className="grid grid-cols-2 gap-3">
-                <select
-                  value={reasonCategory}
-                  onChange={(e) => setReasonCategory(e.target.value)}
-                  className="form-input h-9 text-[12px]"
-                >
-                  <option value="">— Select Reason Category —</option>
-                  <option value="Outlet Closed">Outlet Closed</option>
-                  <option value="No Permission">No Permission</option>
-                  <option value="Customer Absent">Customer Absent</option>
-                  <option value="Safety Concern">Safety Concern</option>
-                  <option value="Other">Other</option>
-                </select>
-                <input
-                  type="text"
-                  placeholder="Optional short note"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="form-input h-9 text-[12px]"
-                />
+                {(['Visit', 'No Visit'] as const).map((type) => {
+                  const isSelected = visitType === type;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setVisitType(type)}
+                      className="h-10 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+                      style={{
+                        background: isSelected ? 'var(--accent-light)' : 'var(--surface)',
+                        color: isSelected ? 'var(--accent)' : 'var(--text-muted)',
+                        border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                      }}
+                    >
+                      {type}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-[10px] text-[var(--text-muted)]">This report will be submitted immediately with the selected reason and will not require the full asset or photo workflow.</p>
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="form-label mb-1">Select Available Route</label>
-                <select
-                  value={selectedRoute}
-                  onChange={(e) => { setSelectedRoute(e.target.value); setSelectedCustomer(''); }}
-                  className="form-input"
-                >
-                  <option value="">— Choose Route —</option>
-                  {routes.map((r) => (
-                    <option key={r.routeCode} value={r.routeCode}>{r.routeCode} – {r.routeName} ({r.channel})</option>
-                  ))}
-                </select>
-              </div>
+              <label className="form-label">Search & Select Customer Outlet</label>
+              <input
+                type="text"
+                placeholder="Type customer code or name to search..."
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                className="form-input"
+              />
 
-              {selectedRoute ? (
-                <div className="space-y-3 pt-2" style={{ borderTop: '1px dashed var(--border-soft)' }}>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(['Visit', 'No Visit'] as const).map((type) => {
-                      const isSelected = visitType === type;
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setVisitType(type)}
-                          className="h-10 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+              <div className="space-y-2 mt-2 max-h-[250px] overflow-y-auto pr-1 border border-solid border-[var(--border-soft)] rounded-xl p-2 bg-[var(--surface-2)]">
+                {filteredCustomers.length === 0 ? (
+                  <p className="text-[12px] italic text-center py-8 text-[var(--text-muted)]">
+                    No matching customers found for this route.
+                  </p>
+                ) : (
+                  filteredCustomers.map((c) => {
+                    const isSelected = selectedCustomer === c.cust_rt_id;
+                    return (
+                      <button
+                        key={c.cust_rt_id}
+                        type="button"
+                        onClick={() => setSelectedCustomer(c.cust_rt_id)}
+                        className="w-full text-left p-3 rounded-xl transition-all duration-200 flex items-center justify-between border border-solid cursor-pointer"
+                        style={{
+                          background: isSelected ? 'var(--accent-light)' : 'var(--surface)',
+                          borderColor: isSelected ? 'var(--accent)' : 'var(--border-soft)',
+                          boxShadow: isSelected ? '0 2px 8px rgba(79,70,229,0.08)' : 'none',
+                        }}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--surface-2)] text-[var(--accent)] border border-solid border-[var(--border-soft)]">
+                              {c.customerCode}
+                            </span>
+                            {c.dairyClassification ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
+                                {c.dairyClassification === '-' ? 'Not classified' : `Class ${c.dairyClassification}`} · Dairy
+                              </span>
+                            ) : c.classification ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
+                                {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Dairy
+                              </span>
+                            ) : null}
+
+                            {c.iceCreamClassification ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
+                                {c.iceCreamClassification === '-' ? 'Not classified' : `Class ${c.iceCreamClassification}`} · Ice Cream
+                              </span>
+                            ) : c.classification && !c.dairyClassification ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
+                                {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Ice Cream
+                              </span>
+                            ) : null}
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-solid border-blue-100">
+                              {c.channel}
+                            </span>
+                          </div>
+                          <h4 className="text-[13px] font-extrabold text-[var(--text-primary)] mt-0.5">
+                            {c.customerName}
+                          </h4>
+                        </div>
+                        <div className="flex items-center justify-center h-5 w-5 rounded-full border border-solid transition-all"
                           style={{
-                            background: isSelected ? 'var(--accent-light)' : 'var(--surface)',
-                            color: isSelected ? 'var(--accent)' : 'var(--text-muted)',
-                            border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                            background: isSelected ? 'var(--accent)' : 'transparent',
+                            borderColor: isSelected ? 'var(--accent)' : 'var(--border)',
                           }}
                         >
-                          {type}
-                        </button>
-                      );
-                    })}
+                          {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+
+              {activeCustomer && (
+                <div className="p-4 rounded-xl animate-fade-in border border-solid border-emerald-200/60 bg-emerald-50/30 flex items-start gap-3 mt-3">
+                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 flex-shrink-0">
+                    <ShieldCheck className="h-5 w-5" />
                   </div>
-                  <label className="form-label">Search & Select Customer Outlet</label>
-                  <input
-                    type="text"
-                    placeholder="Type customer code or name to search..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="form-input"
-                  />
-
-                  <div className="space-y-2 mt-2 max-h-[250px] overflow-y-auto pr-1 border border-solid border-[var(--border-soft)] rounded-xl p-2 bg-[var(--surface-2)]">
-                    {filteredCustomers.length === 0 ? (
-                      <p className="text-[12px] italic text-center py-8 text-[var(--text-muted)]">
-                        No matching customers found for this route.
-                      </p>
-                    ) : (
-                      filteredCustomers.map((c) => {
-                        const isSelected = selectedCustomer === c.cust_rt_id;
-                        return (
-                          <button
-                            key={c.cust_rt_id}
-                            type="button"
-                            onClick={() => setSelectedCustomer(c.cust_rt_id)}
-                            className="w-full text-left p-3 rounded-xl transition-all duration-200 flex items-center justify-between border border-solid cursor-pointer"
-                            style={{
-                              background: isSelected ? 'var(--accent-light)' : 'var(--surface)',
-                              borderColor: isSelected ? 'var(--accent)' : 'var(--border-soft)',
-                              boxShadow: isSelected ? '0 2px 8px rgba(79,70,229,0.08)' : 'none',
-                            }}
-                          >
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--surface-2)] text-[var(--accent)] border border-solid border-[var(--border-soft)]">
-                                  {c.customerCode}
-                                </span>
-                                {c.dairyClassification ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
-                                    {c.dairyClassification === '-' ? 'Not classified' : `Class ${c.dairyClassification}`} · Dairy
-                                  </span>
-                                ) : c.classification ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
-                                    {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Dairy
-                                  </span>
-                                ) : null}
-
-                                {c.iceCreamClassification ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
-                                    {c.iceCreamClassification === '-' ? 'Not classified' : `Class ${c.iceCreamClassification}`} · Ice Cream
-                                  </span>
-                                ) : c.classification && !c.dairyClassification ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
-                                    {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Ice Cream
-                                  </span>
-                                ) : null}
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-solid border-blue-100">
-                                  {c.channel}
-                                </span>
-                              </div>
-                              <h4 className="text-[13px] font-extrabold text-[var(--text-primary)] mt-0.5">
-                                {c.customerName}
-                              </h4>
-                            </div>
-                            <div className="flex items-center justify-center h-5 w-5 rounded-full border border-solid transition-all"
-                              style={{
-                                background: isSelected ? 'var(--accent)' : 'transparent',
-                                borderColor: isSelected ? 'var(--accent)' : 'var(--border)',
-                              }}
-                            >
-                              {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {activeCustomer && (
-                    <div className="p-4 rounded-xl animate-fade-in border border-solid border-emerald-200/60 bg-emerald-50/30 flex items-start gap-3 mt-3">
-                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 flex-shrink-0">
-                        <ShieldCheck className="h-5 w-5" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Selected Outlet</p>
-                        <h3 className="text-[14px] font-extrabold text-[var(--text-primary)] leading-none mt-0.5">
-                          {activeCustomer.customerName}
-                        </h3>
-                        <p className="text-[11.5px] text-[var(--text-secondary)]">
-                          Code: <b>{activeCustomer.customerCode}</b> · Channel: <b>{activeCustomer.channel}</b>
-                          {(activeCustomer.dairyClassification || activeCustomer.classification) && (
-                            <>{' '}· Classification: <b>{(activeCustomer.dairyClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.dairyClassification || activeCustomer.classification}`} · Dairy</b></>
-                          )}
-                          {(activeCustomer.iceCreamClassification || activeCustomer.classification) && (
-                            <>{' '}· Classification: <b>{(activeCustomer.iceCreamClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.iceCreamClassification || activeCustomer.classification}`} · Ice Cream</b></>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Observation & Action */}
-                  <div className="mt-3 space-y-1">
-                    <label className="form-label mb-1 font-bold text-black" style={{ color: '#000000', fontWeight: 700 }}>
-                      Observation & Action
-                    </label>
-                    <textarea
-                      rows={3}
-                      placeholder="Write observation & action details…"
-                      value={visitObservation}
-                      onChange={(e) => setVisitObservation(e.target.value)}
-                      className="form-input text-[12px] w-full p-2.5 rounded-xl border border-solid border-[var(--border-soft)]"
-                    />
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Selected Outlet</p>
+                    <h3 className="text-[14px] font-extrabold text-[var(--text-primary)] leading-none mt-0.5">
+                      {activeCustomer.customerName}
+                    </h3>
+                    <p className="text-[11.5px] text-[var(--text-secondary)]">
+                      Code: <b>{activeCustomer.customerCode}</b> · Channel: <b>{activeCustomer.channel}</b>
+                      {(activeCustomer.dairyClassification || activeCustomer.classification) && (
+                        <>{' '}· Classification: <b>{(activeCustomer.dairyClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.dairyClassification || activeCustomer.classification}`} · Dairy</b></>
+                      )}
+                      {(activeCustomer.iceCreamClassification || activeCustomer.classification) && (
+                        <>{' '}· Classification: <b>{(activeCustomer.iceCreamClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.iceCreamClassification || activeCustomer.classification}`} · Ice Cream</b></>
+                      )}
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <p className="text-[11px] italic text-center py-4" style={{ color: 'var(--text-muted)' }}>
-                  Please select a route first to display available customer outlets.
-                </p>
               )}
-            </>
+
+              {visitType === 'No Visit' ? (
+                activeCustomer ? (
+                  <div className="rounded-xl p-4 border border-solid border-[var(--border-soft)] bg-[var(--surface-2)] space-y-3 mt-3 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="badge badge-accent">No Visit Report</span>
+                      <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        {activeCustomer.customerCode}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-bold text-[var(--text-primary)]">No Visit reason</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <select
+                        value={reasonCategory}
+                        onChange={(e) => setReasonCategory(e.target.value)}
+                        className="form-input h-9 text-[12px]"
+                      >
+                        <option value="">— Select Reason Category —</option>
+                        <option value="Outlet Closed">Outlet Closed</option>
+                        <option value="No Permission">No Permission</option>
+                        <option value="Customer Absent">Customer Absent</option>
+                        <option value="Safety Concern">Safety Concern</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Optional short note"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        className="form-input h-9 text-[12px]"
+                      />
+                    </div>
+                    <p className="text-[10px] text-[var(--text-muted)]">
+                      This report will be submitted immediately with the selected reason and will not require the full asset or photo workflow.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl border border-dashed border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-700/50 text-amber-800 dark:text-amber-300 text-xs font-semibold flex items-center gap-2 mt-2">
+                    <span>⚠️</span>
+                    <span>Please select a customer outlet from the list above to complete the No Visit report.</span>
+                  </div>
+                )
+              ) : (
+                /* Observation & Action */
+                <div className="mt-3 space-y-1">
+                  <label className="form-label mb-1 font-bold text-black" style={{ color: '#000000', fontWeight: 700 }}>
+                    Observation & Action
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Write observation & action details…"
+                    value={visitObservation}
+                    onChange={(e) => setVisitObservation(e.target.value)}
+                    className="form-input text-[12px] w-full p-2.5 rounded-xl border border-solid border-[var(--border-soft)]"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-[11px] italic text-center py-4" style={{ color: 'var(--text-muted)' }}>
+              Please select a route first to display available customer outlets.
+            </p>
           )}
         </div>
       )}
@@ -1038,7 +1054,10 @@ function VisitWizardContent() {
 
                   <div className="grid grid-cols-2 gap-3">
                     {(['Chiller', 'Freezer'] as const).map(type => (
-                      <button key={type} type="button" onClick={() => updateAssetField(ast.assetId, 'assetType', type)}
+                      <button key={type} type="button" onClick={() => {
+                        updateAssetField(ast.assetId, 'assetType', type);
+                        updateAssetField(ast.assetId, 'sizeModel', type === 'Chiller' ? 'Single Door' : '400');
+                      }}
                         className="h-10 text-[11px] font-bold rounded-lg transition-all cursor-pointer"
                         style={{
                           background: ast.assetType === type ? 'var(--accent-light)' : 'var(--surface)',
@@ -1143,7 +1162,6 @@ function VisitWizardContent() {
                         <option value="Not working">Not working</option>
                         <option value="Working But Service Required">Working But Service Required</option>
                         <option value="Outlet Own Asset Available">Outlet Own Asset Available</option>
-                        <option value="No Dandy Asset">No Dandy Asset</option>
                         <option value="Others">Others</option>
                       </select>
                     </div>
@@ -1413,7 +1431,7 @@ function VisitWizardContent() {
         {currentStep < 5 && (
           <button
             onClick={isNoVisitFlow ? handleFinalSubmit : nextStep}
-            disabled={savingDraft || submittingVisit || (currentStep === 0 && (visitType === 'No Visit' ? !reasonCategory : (!selectedRoute || !effectiveCustomerId)))}
+            disabled={savingDraft || submittingVisit || (currentStep === 0 && (visitType === 'No Visit' ? (!selectedRoute || !effectiveCustomerId || !reasonCategory) : (!selectedRoute || !effectiveCustomerId)))}
             className="btn-primary cursor-pointer"
             style={{
               height: '40px', padding: '0 20px',
