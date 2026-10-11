@@ -2941,259 +2941,209 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ── 5 TOP KPI CARDS (Matching exact visual aesthetics of reference image) ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* ── 5 TOP KPI CARDS (Executive Single-Page Proportions with Blue & Accents Theme) ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {/* 1. Total Visits */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-shadow relative overflow-hidden">
-            <div className="flex items-start justify-between">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                <Users className="h-5 w-5" />
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <Users className="h-4 w-4" />
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Visits</span>
               </div>
-              <MoreHorizontal className="h-4 w-4 text-slate-400" />
+              <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[10px]">
+                ↑ 17%
+              </span>
             </div>
-            <div className="mt-3">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Total Visits</span>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <div className="text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
                 {isLoading && rows.length === 0 ? '...' : filtered.length.toLocaleString()}
               </div>
+              <div className="w-16 h-5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                <Sparkline data={sparklineData.visits} color="#2563eb" />
+              </div>
             </div>
-            <div className="mt-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[10px]">
-                  ↑ 17%
-                </span>
-                <span>vs. previous period</span>
-              </div>
-              <div className="w-20 h-6">
-                <Sparkline data={sparklineData.visits} color="#6366f1" />
-              </div>
+            <div className="mt-1 text-[10px] font-semibold text-slate-400 truncate">
+              vs. previous period
             </div>
           </div>
 
           {/* 2. Outlets Covered */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-shadow relative overflow-hidden">
-            <div className="flex items-start justify-between">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <Store className="h-5 w-5" />
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Store className="h-4 w-4" />
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Outlets</span>
               </div>
-              <MoreHorizontal className="h-4 w-4 text-slate-400" />
+              <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[10px]">
+                ↑ 14%
+              </span>
             </div>
-            <div className="mt-3">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Outlets Covered</span>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <div className="text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
                 {isLoading && rows.length === 0 ? '...' : outletsCount.toLocaleString()}
               </div>
-            </div>
-            <div className="mt-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[10px]">
-                  ↑ 14%
-                </span>
-                <span>vs. previous period</span>
-              </div>
-              <div className="w-20 h-6">
+              <div className="w-16 h-5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                 <Sparkline data={sparklineData.outlets} color="#10b981" />
               </div>
+            </div>
+            <div className="mt-1 text-[10px] font-semibold text-slate-400 truncate">
+              unique outlets visited
             </div>
           </div>
 
           {/* 3. No Visits */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-shadow relative overflow-hidden">
-            <div className="flex items-start justify-between">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-                <Ban className="h-5 w-5" />
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-rose-500 via-red-500 to-rose-600" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                  <Ban className="h-4 w-4" />
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">No Visits</span>
               </div>
-              <MoreHorizontal className="h-4 w-4 text-slate-400" />
+              <span className="inline-flex items-center text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded text-[10px]">
+                {filtered.length > 0 ? Math.round((noVisitCount / filtered.length) * 100) : 0}%
+              </span>
             </div>
-            <div className="mt-3">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">No Visits</span>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <div className="text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
                 {isLoading && rows.length === 0 ? '...' : noVisitCount.toLocaleString()}
               </div>
-            </div>
-            <div className="mt-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                <span className="inline-flex items-center text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded text-[10px]">
-                  ↑ 50%
-                </span>
-                <span>vs. previous period</span>
-              </div>
-              <div className="w-20 h-6">
+              <div className="w-16 h-5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
                 <Sparkline data={sparklineData.noVisits} color="#ef4444" />
               </div>
+            </div>
+            <div className="mt-1 text-[10px] font-semibold text-slate-400 truncate">
+              unvisited / skipped logs
             </div>
           </div>
 
           {/* 4. Temp Exceeded */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-shadow relative overflow-hidden">
-            <div className="flex items-start justify-between">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                <Thermometer className="h-5 w-5" />
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Thermometer className="h-4 w-4" />
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Temp Breaches</span>
               </div>
-              <MoreHorizontal className="h-4 w-4 text-slate-400" />
+              <span className="inline-flex items-center text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded text-[10px]">
+                {breachPct}
+              </span>
             </div>
-            <div className="mt-3">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Temp Exceeded</span>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <div className="text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
                 {isLoading && rows.length === 0 ? '...' : breachesCount.toLocaleString()}
               </div>
+              <div className="w-16 h-5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                <Sparkline data={sparklineData.breaches} color="#f59e0b" />
+              </div>
             </div>
-            <div className="mt-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[10px]">
-                  ↑ 0%
-                </span>
-                <span>vs. previous period</span>
-              </div>
-              <div className="w-20 h-6">
-                <Sparkline data={sparklineData.breaches} color="#f97316" />
-              </div>
+            <div className="mt-1 text-[10px] font-semibold text-slate-400 truncate">
+              temperature violations
             </div>
           </div>
 
           {/* 5. Fleet / Asset Compliance */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-shadow relative overflow-hidden">
-            <div className="flex items-start justify-between">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5" />
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3 shadow-2xs hover:shadow-md transition-all relative overflow-hidden group">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-500 via-sky-500 to-cyan-500" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <TrendingUp className="h-4 w-4" />
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Compliance</span>
               </div>
-              <MoreHorizontal className="h-4 w-4 text-slate-400" />
+              <span className="inline-flex items-center text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded text-[10px]">
+                Target 85%
+              </span>
             </div>
-            <div className="mt-3">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Fleet Compliance</span>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <div className="text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
                 {isLoading && rows.length === 0 ? '...' : `${compliancePct}%`}
               </div>
+              <div className="w-16 h-5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                <Sparkline data={sparklineData.compliance} color="#0284c7" />
+              </div>
             </div>
-            <div className="mt-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                <span className="inline-flex items-center text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[10px]">
-                  ↑ 28%
-                </span>
-                <span>vs. previous period</span>
-              </div>
-              <div className="w-20 h-6">
-                <Sparkline data={sparklineData.compliance} color="#3b82f6" />
-              </div>
+            <div className="mt-1 text-[10px] font-semibold text-slate-400 truncate">
+              in-range asset audits
             </div>
           </div>
         </div>
 
-        {/* ── ROW 1 (3 Widgets): Visits Over Time, Supervisor Scorecard, Cold Chain Status ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Widget 1: Visits Over Time (Combo Bar + Line) */}
-          <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-3">
+        {/* ── ROW 1 (3 Widgets): Visits Over Time, Cold Chain Status, Supervisor Scorecard ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+          {/* Widget 1: Visits Over Time (Combo Bar + Line) - 6 cols */}
+          <div className="lg:col-span-6 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-1.5">
               <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Visits Over Time</h3>
-                <div className="flex items-center gap-3 mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-sm bg-blue-600 inline-block" />
+                <h3 className="text-xs font-black text-slate-900 dark:text-white">Visits Over Time</h3>
+                <div className="flex items-center gap-3 mt-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-xs bg-blue-600 inline-block" />
                     <span>Visits</span>
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                    <span>Outlets Covered</span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                    <span>Outlets</span>
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 text-slate-400">
-                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                  Daily
-                </span>
-                <MoreHorizontal className="h-4 w-4 ml-1 cursor-pointer hover:text-slate-600" />
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleExportTrendChart}
+                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                >
+                  Export
+                </button>
+                <MoreHorizontal className="h-4 w-4 text-slate-400" />
               </div>
             </div>
-            <div className="relative h-[210px] w-full">
+            <div className="relative h-[160px] w-full">
               <canvas ref={canvasTrendRef} />
             </div>
           </div>
 
-          {/* Widget 2: Supervisor Scorecard (Avatar list with progress bars) */}
-          <div className="lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-3">
+          {/* Widget 2: Cold Chain Status (Donut with center total & vertical legend) - 3 cols */}
+          <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-1">
               <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Supervisor Scorecard</h3>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Visits Completed</span>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white">Cold Chain Status</h3>
+                <span className="text-[10px] font-semibold text-slate-400">Telemetry Audits</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleExportSupervisorChart}
-                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                >
-                  View All
-                </button>
-                <MoreHorizontal className="h-4 w-4 text-slate-400 cursor-pointer" />
-              </div>
+              <button
+                type="button"
+                onClick={handleExportColdChainChart}
+                className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                Details
+              </button>
             </div>
 
-            <div className="space-y-3 my-auto">
-              {supervisorScorecardData.length > 0 ? (
-                supervisorScorecardData.map((s, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-[10px] flex items-center justify-center shrink-0">
-                      {s.initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-bold text-slate-800 dark:text-slate-200 truncate pr-2">{s.name}</span>
-                        <span className="font-semibold text-slate-500 text-[11px] shrink-0">
-                          {s.visits} / {s.quota}
-                        </span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-blue-600 transition-all duration-500"
-                          style={{ width: `${s.pct}%` }}
-                        />
-                      </div>
-                    </div>
-                    <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 w-10 text-right shrink-0">
-                      {s.pct}%
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-6 text-xs text-slate-400">No supervisor records found</div>
-              )}
-            </div>
-          </div>
-
-          {/* Widget 3: Cold Chain Status (Donut with center total & vertical legend) */}
-          <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Cold Chain Status</h3>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Telemetry Audits</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleExportColdChainChart}
-                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                >
-                  View Details
-                </button>
-                <MoreHorizontal className="h-4 w-4 text-slate-400 cursor-pointer" />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 my-auto">
-              <div className="relative w-32 h-32 shrink-0">
+            <div className="flex items-center gap-2.5 my-auto">
+              <div className="relative w-28 h-28 shrink-0">
                 <canvas ref={canvasTempRef} />
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-lg font-black text-slate-900 dark:text-white leading-none">
+                  <span className="text-base font-black text-slate-900 dark:text-white leading-none">
                     {coldChainTotals.total}
                   </span>
-                  <span className="text-[9px] font-bold text-slate-400 mt-0.5">Total Audits</span>
+                  <span className="text-[8.5px] font-bold text-slate-400 mt-0.5">Audits</span>
                 </div>
               </div>
 
-              <div className="flex-1 space-y-1.5 text-xs">
+              <div className="flex-1 space-y-1 text-[11px]">
                 <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="flex items-center gap-1 text-slate-600 dark:text-slate-300 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                     <span>In Range</span>
                   </span>
                   <span className="font-bold text-slate-900 dark:text-white">
@@ -3201,8 +3151,8 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                  <span className="flex items-center gap-1 text-slate-600 dark:text-slate-300 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                     <span>Warning</span>
                   </span>
                   <span className="font-bold text-slate-900 dark:text-white">
@@ -3210,8 +3160,8 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                  <span className="flex items-center gap-1 text-slate-600 dark:text-slate-300 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
                     <span>Breach</span>
                   </span>
                   <span className="font-bold text-slate-900 dark:text-white">
@@ -3219,8 +3169,8 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+                  <span className="flex items-center gap-1 text-slate-600 dark:text-slate-300 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
                     <span>No Visit</span>
                   </span>
                   <span className="font-bold text-slate-900 dark:text-white">
@@ -3230,88 +3180,138 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Widget 3: Supervisor Scorecard (Avatar list with progress bars) - 3 cols */}
+          <div className="lg:col-span-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white">Supervisor Scorecard</h3>
+                <span className="text-[10px] font-semibold text-slate-400">Visits Completed</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportSupervisorChart}
+                className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                View All
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+              {supervisorScorecardData.length > 0 ? (
+                supervisorScorecardData.map((s, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400 font-bold text-[9px] flex items-center justify-center shrink-0 border border-blue-200/50">
+                      {s.initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between text-[11px] mb-0.5">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 truncate pr-1">{s.name}</span>
+                        <span className="font-semibold text-slate-400 text-[10px] shrink-0">
+                          {s.visits}/{s.quota}
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-blue-600 transition-all duration-500"
+                          style={{ width: `${s.pct}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400 w-8 text-right shrink-0">
+                      {s.pct}%
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-xs text-slate-400">No supervisor records found</div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── ROW 2 (3 Widgets): Power SKU Availability, Outlets by Classification, Visits by Channel ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
           {/* Widget 1: Power SKU Availability (Green bars) */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-1">
               <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Power SKU Availability</h3>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Top Focus SKUs by Availability</span>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white">Power SKU Availability</h3>
+                <span className="text-[10px] font-semibold text-slate-400">Top Focus SKUs presence</span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={handleExportPowerSkuChart}
-                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                 >
-                  View Details
+                  Details
                 </button>
                 <MoreHorizontal className="h-4 w-4 text-slate-400 cursor-pointer" />
               </div>
             </div>
-            <div className="relative h-[200px] w-full">
+            <div className="relative h-[135px] w-full">
               <canvas ref={canvasPskuRef} />
             </div>
           </div>
 
           {/* Widget 2: Outlets by Classification (Royal Blue bars) */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-1">
               <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Outlets by Classification</h3>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Outlet count by classification</span>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white">Outlets by Classification</h3>
+                <span className="text-[10px] font-semibold text-slate-400">Outlet count by classification</span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={handleExportClassificationDairyChart}
-                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                 >
-                  View Details
+                  Details
                 </button>
                 <MoreHorizontal className="h-4 w-4 text-slate-400 cursor-pointer" />
               </div>
             </div>
-            <div className="relative h-[200px] w-full">
+            <div className="relative h-[135px] w-full">
               <canvas ref={canvasClassDairyRef} />
             </div>
           </div>
 
           {/* Widget 3: Visits by Channel (Orange bars) */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl p-3.5 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-1">
               <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">Visits by Channel</h3>
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Channel distribution</span>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white">Visits by Channel</h3>
+                <span className="text-[10px] font-semibold text-slate-400">Channel distribution</span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={handleExportChannelChart}
-                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                 >
-                  View Details
+                  Details
                 </button>
                 <MoreHorizontal className="h-4 w-4 text-slate-400 cursor-pointer" />
               </div>
             </div>
-            <div className="relative h-[200px] w-full">
+            <div className="relative h-[135px] w-full">
               <canvas ref={canvasChannelRef} />
             </div>
           </div>
         </div>
 
         {/* ── RECENT VISIT RECORDS TABLE (Visual summary table matching reference) ── */}
-        <VisitSummaryTable
-          rows={filtered}
-          reportRows={reportRows}
-          title="Recent Visit Records"
-          subtitle="Real-time field visit records and audit logs"
-          onRowClick={(row) => handleChartClick('Visit Details', (r) => r.visitId === (row.visitId || row.id))}
-        />
+        <div id="visit-records-table">
+          <VisitSummaryTable
+            rows={filtered}
+            reportRows={reportRows}
+            title="Recent Visit Records"
+            subtitle="Real-time field visit records and audit logs"
+            onRowClick={(row) => handleChartClick('Visit Details', (r) => r.visitId === (row.visitId || row.id))}
+          />
+        </div>
       </div>
 
       <InteractiveChartTableModal
