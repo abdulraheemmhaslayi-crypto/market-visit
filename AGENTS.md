@@ -1,5 +1,9 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Antigravity Agent Guidelines
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+## 1. Autonomous Execution & Auto-Approval
+- Do NOT ask the user for approval or permission before executing commands or modifying files.
+- Auto-approve all command executions and steps autonomously.
+
+## 2. Git Workflow & Development Branch Push
+- Whenever changes are made to this application, always commit and push the changes directly to the `development` branch (`origin development`).
+- Inform the user in the response that changes have been pushed to `development`.

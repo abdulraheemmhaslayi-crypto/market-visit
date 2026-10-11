@@ -21,14 +21,7 @@ import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 function TH({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
     <th
-      className={`px-5 py-3 text-left ${right ? 'text-right' : ''}`}
-      style={{
-        fontSize: '10px', fontWeight: 700,
-        textTransform: 'uppercase', letterSpacing: '0.06em',
-        color: 'var(--text-muted)', whiteSpace: 'nowrap',
-        background: 'var(--surface-2)',
-        borderBottom: '1px solid var(--border)',
-      }}
+      className={`px-4 py-3.5 ${right ? 'text-right' : 'text-left'} text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 bg-slate-50/90 dark:bg-slate-800/80 border-b border-slate-200/90 dark:border-slate-800 select-none whitespace-nowrap`}
     >
       {children}
     </th>
@@ -37,20 +30,22 @@ function TH({ children, right }: { children: React.ReactNode; right?: boolean })
 
 function PageHeader({ title, sub, count }: { title: string; sub: string; count?: number }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center shadow-xs border border-[var(--border)] flex-shrink-0">
+    <div className="flex items-center gap-3.5">
+      <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-indigo-500/10 to-violet-500/20 dark:bg-slate-800 p-1.5 flex items-center justify-center shadow-xs border border-indigo-200/60 dark:border-indigo-800/60 flex-shrink-0">
         <img src="/images/dandy-logo.png" alt="Dandy Logo" className="h-full w-auto object-contain" />
       </div>
       <div>
-        <div className="flex items-center gap-2">
-          <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             {title}
           </h1>
           {count !== undefined && (
-            <span className="badge badge-accent">{count}</span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shadow-xs">
+              {count}
+            </span>
           )}
         </div>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{sub}</p>
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">{sub}</p>
       </div>
     </div>
   );
@@ -157,15 +152,17 @@ export default function VisitLogsPage() {
 
   const getVisitDisplay = (v: Visit) => {
     const isNoVisit = v.visit_type === 'No Visit';
+    const isBreach = !v.tempInRange && !isNoVisit;
     return {
       isNoVisit,
+      isBreach,
       typeLabel: isNoVisit ? 'No Visit' : 'Visit',
       typeClass: isNoVisit ? 'badge-warning' : 'badge-success',
       routeLabel: isNoVisit ? '—' : (v.routeCode || '—'),
       customerLabel: isNoVisit ? 'No outlet selected' : (v.customerCode || '—'),
       customerName: v.customerName || '',
       supervisorName: v.supervisorName || v.supervisorId,
-      tempLabel: isNoVisit ? 'N/A' : `${v.temperature ?? 0}°C ${v.tempInRange ? '✓' : '⚠'}`,
+      tempLabel: isNoVisit ? 'N/A' : `${v.temperature ?? 0}°C`,
       tempClass: isNoVisit ? 'badge-info' : (v.tempInRange ? 'badge-success' : 'badge-danger'),
     };
   };
@@ -324,6 +321,9 @@ export default function VisitLogsPage() {
     Boolean(selectedSupervisor),
   ].filter(Boolean).length;
 
+  const draftCount = useMemo(() => visits.filter((v) => v.status === 'Draft').length, [visits]);
+  const submittedCount = useMemo(() => visits.filter((v) => v.status === 'Submitted').length, [visits]);
+
   // ─── Filter Logic Applying All 5 Slicers ─────────────────────
   const filtered = useMemo(() => {
     return visits.filter((v) => {
@@ -465,101 +465,120 @@ export default function VisitLogsPage() {
 
       {/* ── 5 Required Admin Slicers Panel ─────────────────────── */}
       <div
-        className="card p-4 space-y-3.5"
+        className="rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-none p-5 space-y-4 transition-all"
         style={{
-          border: activeSlicersCount > 0 ? '1px solid var(--accent)' : '1px solid var(--border)',
-          boxShadow: activeSlicersCount > 0 ? '0 0 12px -3px rgba(37,99,235,0.12)' : 'none',
+          borderColor: activeSlicersCount > 0 ? 'var(--accent)' : undefined,
+          boxShadow: activeSlicersCount > 0 ? '0 10px 25px -5px rgba(37,99,235,0.15)' : undefined,
         }}
       >
         {/* Slicers Top Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2" style={{ borderBottom: '1px solid var(--border-soft)' }}>
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4" style={{ color: 'var(--accent)' }} />
-            <span className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
-              Admin Slicers
-            </span>
-            {activeSlicersCount > 0 ? (
-              <span className="badge badge-accent text-[10px] font-bold">
-                {activeSlicersCount} active
-              </span>
-            ) : (
-              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                Filter across 5 dimensions
-              </span>
-            )}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 flex-shrink-0">
+              <SlidersHorizontal className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-black tracking-tight text-slate-900 dark:text-white">
+                  Admin Slicers
+                </span>
+                {activeSlicersCount > 0 ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500 text-white shadow-xs animate-pulse">
+                    {activeSlicersCount} active
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                    Filter across 5 dimensions
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Live reactive multi-criteria cross filtering for field audit visits
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto">
-            {/* Live sync indicator */}
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg border border-solid border-[var(--border-soft)] bg-[var(--surface-2)] text-[10px] font-bold font-mono text-[var(--text-muted)] h-7">
-              <span 
-                className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-[var(--accent)] animate-pulse' : 'bg-[var(--success)] animate-pulse'}`} 
+          <div className="flex items-center gap-2.5 self-end sm:self-auto">
+            {/* Live sync capsule */}
+            <div className="flex items-center gap-2 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-[10px] font-black font-mono text-slate-600 dark:text-slate-300 h-8 shadow-xs">
+              <span
+                className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-indigo-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`}
                 style={{
-                  boxShadow: isSyncing ? '0 0 8px var(--accent)' : '0 0 8px var(--success)'
+                  boxShadow: isSyncing ? '0 0 8px rgba(99,102,241,0.8)' : '0 0 8px rgba(16,185,129,0.8)',
                 }}
               />
-              <span>{isSyncing ? 'SYNCING...' : 'LIVE SYNC'}</span>
-              <span style={{ opacity: 0.3 }}>|</span>
-              <span>{lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <span className="tracking-wider">{isSyncing ? 'SYNCING...' : 'LIVE SYNC'}</span>
+              <span className="opacity-30">|</span>
+              <span className="text-slate-400 dark:text-slate-500">
+                {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
 
             {/* Reset Slicers Button */}
             <button
               onClick={resetAllSlicers}
               disabled={activeSlicersCount === 0 && !search && statusFilter === 'All'}
-              className="flex items-center gap-1.5 px-3 h-7 rounded-lg text-[11px] font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-3.5 h-8 rounded-xl text-[11px] font-black transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs border"
               style={{
-                background: activeSlicersCount > 0 ? 'var(--accent-light, rgba(37,99,235,0.1))' : 'var(--surface-2)',
+                background: activeSlicersCount > 0 ? 'rgba(99,102,241,0.12)' : 'var(--surface-2)',
                 color: activeSlicersCount > 0 ? 'var(--accent)' : 'var(--text-muted)',
-                border: '1px solid var(--border)',
+                borderColor: activeSlicersCount > 0 ? 'var(--accent)' : 'var(--border)',
               }}
               title="Reset all filters and slicers"
             >
-              <RotateCcw className="h-3 w-3" />
+              <RotateCcw className="h-3.5 w-3.5" />
               Reset Slicers
             </button>
           </div>
         </div>
 
         {/* 5 Slicers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* Slicer 1: Dates Slicer (From & To Date) */}
-          <div className="p-2.5 rounded-xl flex flex-col justify-between" style={{ background: 'var(--surface-2)', border: (fromDate || toDate) ? '1px solid var(--accent)' : '1px solid var(--border-soft)' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          {/* Slicer 1: Dates Slicer */}
+          <div
+            className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+            style={{
+              borderColor: (fromDate || toDate) ? 'var(--accent)' : 'var(--border-soft)',
+              boxShadow: (fromDate || toDate) ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
+            }}
+          >
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                  <Calendar className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                    <Calendar className="h-3 w-3" />
+                  </span>
                   1. Dates (From - To)
                 </span>
                 {(fromDate || toDate) && (
-                  <button onClick={() => setQuickDate('clear')} className="text-[10px] text-[var(--danger)] hover:underline">
+                  <button onClick={() => setQuickDate('clear')} className="text-[10px] font-bold text-rose-500 hover:underline">
                     Clear
                   </button>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
-                  <label className="text-[9px] font-bold uppercase tracking-wider block mb-0.5" style={{ color: 'var(--text-muted)' }}>From</label>
+                  <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">From</label>
                   <input
                     type="date"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
-                    className="form-input text-[11px] h-7 px-1.5 w-full bg-[var(--surface)]"
+                    className="w-full text-[11px] font-semibold h-7 px-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="text-[9px] font-bold uppercase tracking-wider block mb-0.5" style={{ color: 'var(--text-muted)' }}>To</label>
+                  <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">To</label>
                   <input
                     type="date"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
-                    className="form-input text-[11px] h-7 px-1.5 w-full bg-[var(--surface)]"
+                    className="w-full text-[11px] font-semibold h-7 px-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
               </div>
             </div>
             {/* Quick date presets */}
-            <div className="flex items-center gap-1 mt-2 flex-wrap">
+            <div className="flex items-center gap-1 mt-2.5 flex-wrap">
               {[
                 { id: 'today', label: 'Today' },
                 { id: 'yesterday', label: 'Yest' },
@@ -571,14 +590,7 @@ export default function VisitLogsPage() {
                   key={p.id}
                   type="button"
                   onClick={() => setQuickDate(p.id as any)}
-                  className="px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer"
-                  style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text-secondary)',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                  className="px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 shadow-xs"
                 >
                   {p.label}
                 </button>
@@ -587,24 +599,32 @@ export default function VisitLogsPage() {
           </div>
 
           {/* Slicer 2: Route Code */}
-          <div className="p-2.5 rounded-xl flex flex-col justify-between" style={{ background: 'var(--surface-2)', border: selectedRoute ? '1px solid var(--accent)' : '1px solid var(--border-soft)' }}>
+          <div
+            className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+            style={{
+              borderColor: selectedRoute ? 'var(--accent)' : 'var(--border-soft)',
+              boxShadow: selectedRoute ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
+            }}
+          >
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                  <Navigation className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                    <Navigation className="h-3 w-3" />
+                  </span>
                   2. Route Code
                 </span>
                 {selectedRoute && (
-                  <button onClick={() => setSelectedRoute('')} className="text-[10px] text-[var(--danger)] hover:underline">
+                  <button onClick={() => setSelectedRoute('')} className="text-[10px] font-bold text-rose-500 hover:underline">
                     Clear
                   </button>
                 )}
               </div>
-              <label className="text-[9px] font-bold uppercase tracking-wider block mb-0.5" style={{ color: 'var(--text-muted)' }}>Select Route</label>
+              <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Select Route</label>
               <select
                 value={selectedRoute}
                 onChange={(e) => setSelectedRoute(e.target.value)}
-                className="form-input text-[12px] h-8 px-2 w-full bg-[var(--surface)] font-mono"
+                className="w-full text-[12px] font-bold font-mono h-8 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">All Routes ({routeOptions.length})</option>
                 {routeOptions.map((r) => (
@@ -614,26 +634,34 @@ export default function VisitLogsPage() {
                 ))}
               </select>
             </div>
-            <p className="text-[10px] mt-1.5 truncate" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[10px] font-semibold mt-2 truncate text-slate-400 dark:text-slate-500">
               {selectedRoute ? `Active: Route ${selectedRoute}` : `${routeOptions.length} distinct routes`}
             </p>
           </div>
 
           {/* Slicer 3: Customer Code */}
-          <div className="p-2.5 rounded-xl flex flex-col justify-between" style={{ background: 'var(--surface-2)', border: customerCodeFilter ? '1px solid var(--accent)' : '1px solid var(--border-soft)' }}>
+          <div
+            className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+            style={{
+              borderColor: customerCodeFilter ? 'var(--accent)' : 'var(--border-soft)',
+              boxShadow: customerCodeFilter ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
+            }}
+          >
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                  <Store className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-md bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                    <Store className="h-3 w-3" />
+                  </span>
                   3. Customer Code
                 </span>
                 {customerCodeFilter && (
-                  <button onClick={() => setCustomerCodeFilter('')} className="text-[10px] text-[var(--danger)] hover:underline">
+                  <button onClick={() => setCustomerCodeFilter('')} className="text-[10px] font-bold text-rose-500 hover:underline">
                     Clear
                   </button>
                 )}
               </div>
-              <label className="text-[9px] font-bold uppercase tracking-wider block mb-0.5" style={{ color: 'var(--text-muted)' }}>Search / Pick Code</label>
+              <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Search / Pick Code</label>
               <div className="relative">
                 <input
                   type="text"
@@ -641,12 +669,12 @@ export default function VisitLogsPage() {
                   value={customerCodeFilter}
                   onChange={(e) => setCustomerCodeFilter(e.target.value)}
                   list="customer-code-slicer-list"
-                  className="form-input text-[12px] h-8 pl-2 pr-7 w-full bg-[var(--surface)] font-mono"
+                  className="w-full text-[12px] font-bold font-mono h-8 pl-2 pr-7 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
                 {customerCodeFilter && (
                   <button
                     onClick={() => setCustomerCodeFilter('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--danger)]"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -658,26 +686,34 @@ export default function VisitLogsPage() {
                 </datalist>
               </div>
             </div>
-            <p className="text-[10px] mt-1.5 truncate" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[10px] font-semibold mt-2 truncate text-slate-400 dark:text-slate-500">
               {customerCodeFilter ? `Filter: "${customerCodeFilter}"` : 'Type or select customer code'}
             </p>
           </div>
 
           {/* Slicer 4: Customer Name */}
-          <div className="p-2.5 rounded-xl flex flex-col justify-between" style={{ background: 'var(--surface-2)', border: customerNameFilter ? '1px solid var(--accent)' : '1px solid var(--border-soft)' }}>
+          <div
+            className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+            style={{
+              borderColor: customerNameFilter ? 'var(--accent)' : 'var(--border-soft)',
+              boxShadow: customerNameFilter ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
+            }}
+          >
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                  <Building className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <Building className="h-3 w-3" />
+                  </span>
                   4. Customer Name
                 </span>
                 {customerNameFilter && (
-                  <button onClick={() => setCustomerNameFilter('')} className="text-[10px] text-[var(--danger)] hover:underline">
+                  <button onClick={() => setCustomerNameFilter('')} className="text-[10px] font-bold text-rose-500 hover:underline">
                     Clear
                   </button>
                 )}
               </div>
-              <label className="text-[9px] font-bold uppercase tracking-wider block mb-0.5" style={{ color: 'var(--text-muted)' }}>Search / Pick Name</label>
+              <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Search / Pick Name</label>
               <div className="relative">
                 <input
                   type="text"
@@ -685,12 +721,12 @@ export default function VisitLogsPage() {
                   value={customerNameFilter}
                   onChange={(e) => setCustomerNameFilter(e.target.value)}
                   list="customer-name-slicer-list"
-                  className="form-input text-[12px] h-8 pl-2 pr-7 w-full bg-[var(--surface)]"
+                  className="w-full text-[12px] font-semibold h-8 pl-2 pr-7 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
                 {customerNameFilter && (
                   <button
                     onClick={() => setCustomerNameFilter('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--danger)]"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -702,30 +738,38 @@ export default function VisitLogsPage() {
                 </datalist>
               </div>
             </div>
-            <p className="text-[10px] mt-1.5 truncate" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[10px] font-semibold mt-2 truncate text-slate-400 dark:text-slate-500">
               {customerNameFilter ? `Filter: "${customerNameFilter}"` : 'Type outlet or supermarket'}
             </p>
           </div>
 
           {/* Slicer 5: Supervisor */}
-          <div className="p-2.5 rounded-xl flex flex-col justify-between" style={{ background: 'var(--surface-2)', border: selectedSupervisor ? '1px solid var(--accent)' : '1px solid var(--border-soft)' }}>
+          <div
+            className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+            style={{
+              borderColor: selectedSupervisor ? 'var(--accent)' : 'var(--border-soft)',
+              boxShadow: selectedSupervisor ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
+            }}
+          >
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                  <UserCheck className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                    <UserCheck className="h-3 w-3" />
+                  </span>
                   5. Supervisor
                 </span>
                 {selectedSupervisor && (
-                  <button onClick={() => setSelectedSupervisor('')} className="text-[10px] text-[var(--danger)] hover:underline">
+                  <button onClick={() => setSelectedSupervisor('')} className="text-[10px] font-bold text-rose-500 hover:underline">
                     Clear
                   </button>
                 )}
               </div>
-              <label className="text-[9px] font-bold uppercase tracking-wider block mb-0.5" style={{ color: 'var(--text-muted)' }}>Select Supervisor</label>
+              <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Select Supervisor</label>
               <select
                 value={selectedSupervisor}
                 onChange={(e) => setSelectedSupervisor(e.target.value)}
-                className="form-input text-[12px] h-8 px-2 w-full bg-[var(--surface)]"
+                className="w-full text-[12px] font-bold h-8 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">All Supervisors ({supervisorOptions.length})</option>
                 {supervisorOptions.map((s) => (
@@ -735,7 +779,7 @@ export default function VisitLogsPage() {
                 ))}
               </select>
             </div>
-            <p className="text-[10px] mt-1.5 truncate" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[10px] font-semibold mt-2 truncate text-slate-400 dark:text-slate-500">
               {selectedSupervisor ? `Supervisor: ${supervisorOptions.find(o => o.id === selectedSupervisor)?.name || selectedSupervisor}` : `${supervisorOptions.length} active supervisors`}
             </p>
           </div>
@@ -743,39 +787,39 @@ export default function VisitLogsPage() {
 
         {/* Active Slicers Removable Chips */}
         {activeSlicersCount > 0 && (
-          <div className="flex items-center gap-2 pt-1 flex-wrap text-[11px]">
-            <span className="font-semibold text-[var(--text-muted)]">Active Slicers:</span>
+          <div className="flex items-center gap-2 pt-2 flex-wrap text-[11px] border-t border-slate-200/60 dark:border-slate-800/60">
+            <span className="font-extrabold text-slate-400 dark:text-slate-500">Active Filters:</span>
             {(fromDate || toDate) && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--accent-light,rgba(37,99,235,0.1))] text-[var(--accent)] font-medium border border-[var(--accent)]/20">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-500/30">
                 Dates: {fromDate || 'Start'} to {toDate || 'Now'}
-                <button onClick={() => { setFromDate(''); setToDate(''); }} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+                <button onClick={() => { setFromDate(''); setToDate(''); }} className="hover:opacity-70 ml-1"><X className="h-3 w-3" /></button>
               </span>
             )}
             {selectedRoute && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--accent-light,rgba(37,99,235,0.1))] text-[var(--accent)] font-medium border border-[var(--accent)]/20">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300 font-bold border border-sky-500/30">
                 Route: {selectedRoute}
-                <button onClick={() => setSelectedRoute('')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+                <button onClick={() => setSelectedRoute('')} className="hover:opacity-70 ml-1"><X className="h-3 w-3" /></button>
               </span>
             )}
             {customerCodeFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--accent-light,rgba(37,99,235,0.1))] text-[var(--accent)] font-medium border border-[var(--accent)]/20">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-500/15 text-teal-700 dark:text-teal-300 font-bold border border-teal-500/30">
                 Code: {customerCodeFilter}
-                <button onClick={() => setCustomerCodeFilter('')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+                <button onClick={() => setCustomerCodeFilter('')} className="hover:opacity-70 ml-1"><X className="h-3 w-3" /></button>
               </span>
             )}
             {customerNameFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--accent-light,rgba(37,99,235,0.1))] text-[var(--accent)] font-medium border border-[var(--accent)]/20">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/30">
                 Customer: {customerNameFilter}
-                <button onClick={() => setCustomerNameFilter('')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+                <button onClick={() => setCustomerNameFilter('')} className="hover:opacity-70 ml-1"><X className="h-3 w-3" /></button>
               </span>
             )}
             {selectedSupervisor && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--accent-light,rgba(37,99,235,0.1))] text-[var(--accent)] font-medium border border-[var(--accent)]/20">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/15 text-purple-700 dark:text-purple-300 font-bold border border-purple-500/30">
                 Supervisor: {supervisorOptions.find(o => o.id === selectedSupervisor)?.name || selectedSupervisor}
-                <button onClick={() => setSelectedSupervisor('')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+                <button onClick={() => setSelectedSupervisor('')} className="hover:opacity-70 ml-1"><X className="h-3 w-3" /></button>
               </span>
             )}
-            <span className="text-[var(--text-muted)] ml-auto font-mono text-[10px]">
+            <span className="text-slate-400 dark:text-slate-500 ml-auto font-mono text-[10px] font-bold">
               Showing {filtered.length} of {visits.length} records
             </span>
           </div>
@@ -783,51 +827,63 @@ export default function VisitLogsPage() {
       </div>
 
       {/* ── Toolbar: Search & Status Pills ─────────────────────── */}
-      <div className="card p-3.5 flex flex-col sm:flex-row gap-3 items-center justify-between">
+      <div className="rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 shadow-sm p-3.5 flex flex-col sm:flex-row gap-3 items-center justify-between">
         {/* Search Input */}
-        <div className="relative w-full sm:max-w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-muted)' }} />
+        <div className="relative w-full sm:max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500" />
           <input
             type="text"
             placeholder="Search by ID, reason, observation, route…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="form-input pl-9 text-[12px] h-9"
+            className="w-full text-xs font-semibold pl-10 pr-9 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--danger)]"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
 
-        {/* Quick status pills */}
-        <div
-          className="flex items-center gap-1 p-1 rounded-lg flex-shrink-0"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-        >
-          {['All', 'Draft', 'Submitted'].map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className="px-3 h-7 rounded-md text-[12px] font-semibold transition-all cursor-pointer"
-              style={{
-                background: statusFilter === s ? 'var(--surface)' : 'transparent',
-                color: statusFilter === s ? 'var(--text-primary)' : 'var(--text-muted)',
-                boxShadow: statusFilter === s ? 'var(--shadow-card)' : 'none',
-              }}
-            >
-              {s}
-            </button>
-          ))}
+        {/* Quick status pills with live counts */}
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 flex-shrink-0">
+          {[
+            { id: 'All', label: 'All', count: visits.length },
+            { id: 'Draft', label: 'Draft', count: draftCount },
+            { id: 'Submitted', label: 'Submitted', count: submittedCount },
+          ].map((s) => {
+            const isActive = statusFilter === s.id;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setStatusFilter(s.id)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isActive
+                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/80 dark:border-slate-700'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>{s.label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isActive
+                      ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300'
+                      : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                  }`}
+                >
+                  {s.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* ── Visits Table ───────────────────────────────────────── */}
-      <div className="card overflow-hidden">
+      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -842,10 +898,10 @@ export default function VisitLogsPage() {
                 <TH right>Actions</TH>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--border-soft)' }}>
+                  <tr key={i} className="border-b border-slate-100 dark:border-slate-800">
                     {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-5 py-3.5"><Skeleton className="h-4 w-20" /></td>
                     ))}
@@ -853,15 +909,17 @@ export default function VisitLogsPage() {
                 ))
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-14 text-center" style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Filter className="h-8 w-8 opacity-40 text-[var(--accent)]" />
-                      <p className="font-semibold text-[var(--text-primary)]">No visit records match the selected slicers</p>
-                      <p className="text-[12px]">Try adjusting your date range, route, customer, or supervisor slicers.</p>
+                  <td colSpan={8} className="px-5 py-16 text-center text-slate-400 text-xs">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-1">
+                        <Filter className="h-6 w-6" />
+                      </div>
+                      <p className="font-extrabold text-sm text-slate-900 dark:text-white">No visit records match the selected slicers</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Try adjusting your date range, route, customer, or supervisor slicers.</p>
                       {activeSlicersCount > 0 && (
                         <button
                           onClick={resetAllSlicers}
-                          className="btn-secondary text-[11px] mt-2"
+                          className="mt-3 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-500 text-white shadow-md hover:bg-indigo-600 transition-colors"
                         >
                           Clear All Slicers
                         </button>
@@ -872,31 +930,40 @@ export default function VisitLogsPage() {
               ) : (
                 paginated.map((v) => {
                   const display = getVisitDisplay(v);
+                  const initials = (display.supervisorName || 'SUP')
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase();
+
                   return (
                     <tr
                       key={v.visitId}
-                      style={{ borderBottom: '1px solid var(--border-soft)' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      className="transition-colors"
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
                     >
-                      {/* Supervisor: Name + ID */}
+                      {/* Supervisor: Name + ID + Initials Avatar */}
                       <td className="px-5 py-3.5">
-                        <div className="flex flex-col">
-                          <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                            {display.supervisorName}
-                          </span>
-                          {v.supervisorName && (
-                            <span className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                              {v.supervisorId}
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-white font-black text-[11px] flex items-center justify-center shadow-xs flex-shrink-0">
+                            {initials}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[13px] font-black text-slate-900 dark:text-white leading-tight">
+                              {display.supervisorName}
                             </span>
-                          )}
+                            {v.supervisorName && (
+                              <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                                {v.supervisorId}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
 
                       {/* Route Code */}
                       <td className="px-5 py-3.5">
-                        <span className="font-mono text-[12px] font-bold" style={{ color: 'var(--text-secondary)' }}>
+                        <span className="inline-block px-2.5 py-1 rounded-lg font-mono font-bold text-[12px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 shadow-xs">
                           {display.routeLabel}
                         </span>
                       </td>
@@ -904,9 +971,18 @@ export default function VisitLogsPage() {
                       {/* Visit Type */}
                       <td className="px-5 py-3.5">
                         <div className="space-y-1">
-                          <span className={`badge ${display.typeClass}`}>{display.typeLabel}</span>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${
+                              display.isNoVisit
+                                ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
+                                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${display.isNoVisit ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                            {display.typeLabel}
+                          </span>
                           {display.isNoVisit && v.reason_category && (
-                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{v.reason_category}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate max-w-[120px]">{v.reason_category}</p>
                           )}
                         </div>
                       </td>
@@ -914,13 +990,12 @@ export default function VisitLogsPage() {
                       {/* Customer: Code + Name */}
                       <td className="px-5 py-3.5">
                         <div className="flex flex-col max-w-[240px]">
-                          <span className="font-mono text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                          <span className="font-mono text-[12px] font-black text-indigo-600 dark:text-indigo-400">
                             {display.customerLabel}
                           </span>
                           {display.customerName && (
                             <span
-                              className="text-[11px] truncate text-ellipsis"
-                              style={{ color: 'var(--text-muted)' }}
+                              className="text-[12px] font-bold text-slate-800 dark:text-slate-200 truncate"
                               title={display.customerName}
                             >
                               {display.customerName}
@@ -932,28 +1007,41 @@ export default function VisitLogsPage() {
                       {/* Temperature */}
                       <td className="px-5 py-3.5">
                         {v.status === 'Submitted' ? (
-                          <span className={`badge ${display.tempClass}`}>
-                            {display.tempLabel}
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold border ${
+                              display.isBreach
+                                ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
+                                : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                            }`}
+                          >
+                            {display.isBreach ? '⚠' : '✓'} {display.tempLabel}
                           </span>
                         ) : (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>—</span>
+                          <span className="text-[11px] text-slate-400 font-mono">—</span>
                         )}
                       </td>
 
                       {/* Status */}
                       <td className="px-5 py-3.5">
-                        <span className={`badge ${v.status === 'Submitted' ? 'badge-success' : 'badge-warning'}`}>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${
+                            v.status === 'Submitted'
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25'
+                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${v.status === 'Submitted' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                           {v.status}
                         </span>
                       </td>
 
-                      {/* Date */}
+                      {/* Date & Time */}
                       <td className="px-5 py-3.5">
                         <div className="flex flex-col">
-                          <span className="text-[12px] font-medium" style={{ color: 'var(--text-primary)' }}>
-                            {new Date(v.visit_datetime || v.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          <span className="text-[12px] font-bold text-slate-900 dark:text-white leading-tight">
+                            {new Date(v.visit_datetime || v.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </span>
-                          <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                          <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">
                             {new Date(v.visit_datetime || v.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
@@ -964,24 +1052,17 @@ export default function VisitLogsPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => handleOpenReview(v.visitId)}
-                            className="btn-ghost"
-                            style={{ height: '30px', padding: '0 10px', fontSize: '12px' }}
+                            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 shadow-xs transition-colors cursor-pointer"
                             title="View Details"
                           >
-                            <Eye className="h-3.5 w-3.5" />
+                            <Eye className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => setDeleteDialog({ open: true, id: v.visitId })}
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '6px',
-                              height: '30px', padding: '0 10px',
-                              background: 'var(--danger-light)', color: 'var(--danger)',
-                              border: '1px solid rgba(220,38,38,0.15)', borderRadius: '6px',
-                              fontSize: '12px', cursor: 'pointer',
-                            }}
+                            className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 hover:border-rose-300 shadow-xs transition-colors cursor-pointer"
                             title="Delete"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
