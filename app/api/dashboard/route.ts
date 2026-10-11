@@ -830,57 +830,85 @@ export async function GET(req: NextRequest) {
           const skuInfo = skuMap.get(item.skuCode);
           const avail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'YES' : 'NO';
           const npdCode = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'A' : (item.status === 'Not Available' || item.status === 'NO' || item.status === 'N') ? 'N' : 'X';
+          let npdVertical = (skuInfo?.businessVertical || skuInfo?.type || '').toString().trim();
+          if (!npdVertical || npdVertical.toLowerCase() === 'general' || npdVertical.toLowerCase() === 'standard' || npdVertical.toLowerCase() === 'sku') {
+            const code = (item.skuCode || '').toUpperCase();
+            const name = (skuInfo?.skuName || item.skuCode || '').toUpperCase();
+            if (code.startsWith('FGIC') || name.includes('ICE CREAM') || name.includes('CONE') || name.includes('STICK') || name.includes('TUB') || name.includes('CANDY')) {
+              npdVertical = 'Ice Cream';
+            } else if (code.startsWith('FGJU') || code.startsWith('FGBV') || name.includes('JUICE') || name.includes('DRINK')) {
+              npdVertical = 'Beverage';
+            } else {
+              npdVertical = 'Dairy';
+            }
+          }
           reportRows.npd.push({
             date: visitDate,
             visitId: v.visitId,
             channel: ch,
-            rtm: ch,
-            manager: mgrName,
-            supervisor: supName,
-            routeCode: cleanRoute,
-            outletCode: cleanCustCode,
-            outletName: custName,
-            classification: gr,
-            class: gr,
-            skuCode: item.skuCode,
-            skuName: skuInfo ? skuInfo.skuName : item.skuCode,
-            status: item.status,
-            availability: avail,
-            npd: npdCode,
-            businessVertical: skuInfo?.businessVertical || 'General',
+              rtm: ch,
+              manager: mgrName,
+              supervisor: supName,
+              routeCode: cleanRoute,
+              outletCode: cleanCustCode,
+              outletName: custName,
+              classification: gr,
+              class: gr,
+              skuCode: item.skuCode,
+              skuName: skuInfo ? skuInfo.skuName : item.skuCode,
+              status: item.status,
+              availability: avail,
+              npd: npdCode,
+              businessVertical: npdVertical,
+            });
           });
-        });
-      }
+        }
 
-      // Populate PowerSKU Report Rows (Per SKU level granularity, excluding No Visit)
-      if (v.visit_type !== 'No Visit') {
-        visitPsku.forEach((item: any) => {
-          const pskuInfo = powerSkuMap.get(item.skuCode) || skuMap.get(item.skuCode);
-          const isAvail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A');
-          const avail = isAvail ? 'YES' : 'NO';
-          const pskuCode = isAvail ? 'A' : 'N';
-          const statusText = isAvail ? 'Available' : 'Not Available';
-          reportRows.psku.push({
-            date: visitDate,
-            visitId: v.visitId,
-            channel: ch,
-            rtm: ch,
-            manager: mgrName,
-            supervisor: supName,
-            routeCode: cleanRoute,
-            outletCode: cleanCustCode,
-            outletName: custName,
-            classification: gr,
-            class: gr,
-            businessVertical: pskuInfo?.businessVertical || (pskuInfo?.type ? pskuInfo.type : 'General'),
-            skuCode: item.skuCode,
-            skuName: pskuInfo ? pskuInfo.skuName : item.skuCode,
-            status: statusText,
-            availability: avail,
-            psku: pskuCode,
+        // Populate PowerSKU Report Rows (Per SKU level granularity, excluding No Visit)
+        if (v.visit_type !== 'No Visit') {
+          visitPsku.forEach((item: any) => {
+            const masterSku = skuMap.get(item.skuCode);
+            const pskuInfo = powerSkuMap.get(item.skuCode) || masterSku;
+            const isAvail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A');
+            const avail = isAvail ? 'YES' : 'NO';
+            const pskuCode = isAvail ? 'A' : 'N';
+            const statusText = isAvail ? 'Available' : 'Not Available';
+
+            // Extract accurate business vertical from SKUMASTER
+            let bVertical = (masterSku?.businessVertical || pskuInfo?.businessVertical || masterSku?.type || pskuInfo?.type || '').toString().trim();
+            if (!bVertical || bVertical.toLowerCase() === 'general' || bVertical.toLowerCase() === 'standard' || bVertical.toLowerCase() === 'sku') {
+              const code = (item.skuCode || '').toUpperCase();
+              const name = (masterSku?.skuName || pskuInfo?.skuName || item.skuName || '').toUpperCase();
+              if (code.startsWith('FGIC') || name.includes('ICE CREAM') || name.includes('CONE') || name.includes('STICK') || name.includes('TUB') || name.includes('CANDY')) {
+                bVertical = 'Ice Cream';
+              } else if (code.startsWith('FGJU') || code.startsWith('FGBV') || name.includes('JUICE') || name.includes('DRINK') || name.includes('NECTAR')) {
+                bVertical = 'Beverage';
+              } else {
+                bVertical = 'Dairy';
+              }
+            }
+
+            reportRows.psku.push({
+              date: visitDate,
+              visitId: v.visitId,
+              channel: ch,
+              rtm: ch,
+              manager: mgrName,
+              supervisor: supName,
+              routeCode: cleanRoute,
+              outletCode: cleanCustCode,
+              outletName: custName,
+              classification: gr,
+              class: gr,
+              businessVertical: bVertical,
+              skuCode: item.skuCode,
+              skuName: pskuInfo?.skuName || masterSku?.skuName || item.skuCode,
+              status: statusText,
+              availability: avail,
+              psku: pskuCode,
+            });
           });
-        });
-      }
+        }
 
       // Populate Cold Chain Report Rows (Per Asset level granularity, excluding No Visit)
       if (v.visit_type !== 'No Visit' && visitAssets.length > 0) {

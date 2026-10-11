@@ -98,6 +98,13 @@ export default function ImageLightboxModal({
   const [isVerifying, setIsVerifying] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'before_after'>('details');
 
+  // Mobile layout view switcher ('photo' | 'details')
+  const [mobileTab, setMobileTab] = useState<'photo' | 'details'>('photo');
+
+  useEffect(() => {
+    setMobileTab('photo');
+  }, [currentIndex]);
+
   // Internal Action Item fallback state
   const [internalActionItem, setInternalActionItem] = useState<AuditActionItem | null>(null);
 
@@ -516,8 +523,56 @@ export default function ImageLightboxModal({
 
   return (
     <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950 flex flex-col lg:flex-row overflow-hidden animate-in fade-in duration-150 text-white">
+      {/* Mobile Responsive Header Bar */}
+      <div className="lg:hidden flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800 z-30 flex-shrink-0">
+        <span className="text-[11px] font-mono font-bold text-slate-300">
+          Photo {currentIndex + 1} / {total}
+        </span>
+        <div className="flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setMobileTab('photo')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              mobileTab === 'photo'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Photo
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('details')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+              mobileTab === 'details'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Remarks {currentAction ? '●' : ''}
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
       {/* Left Side: Image Stage & Bottom Controls Dock */}
-      <div className="flex-1 h-full bg-black relative flex flex-col select-none overflow-hidden group">
+      <div className={`${mobileTab === 'photo' ? 'flex' : 'hidden lg:flex'} flex-1 h-full min-h-0 bg-black relative flex-col select-none overflow-hidden group`}>
+        {/* Mobile Quick Switcher Floating Button */}
+        <button
+          type="button"
+          onClick={() => setMobileTab('details')}
+          className="lg:hidden absolute top-3 right-3 z-30 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-xs font-bold text-amber-300 border border-amber-500/40 shadow-xl backdrop-blur-md flex items-center gap-1.5"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          <span>{currentAction ? 'Inspect Remarks' : 'Remarks'}</span>
+        </button>
+
         {/* Main Viewing Stage (flex-1 min-h-0 guarantees image scales completely above the footer) */}
         <div
           ref={stageRef}
@@ -924,10 +979,19 @@ export default function ImageLightboxModal({
         </div>
       </div>
 
-        {/* Right Side: GM Directive, Supervisor Proof & Metadata Panel */}
+        {/* Right Side: Action Directive, Supervisor Proof & Metadata Panel */}
         {!isStageExpanded && (
-          <div className="w-full lg:w-96 xl:w-[420px] 2xl:w-[450px] p-5 sm:p-6 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between space-y-4 overflow-y-auto h-full flex-shrink-0 z-20">
+          <div className={`${mobileTab === 'details' ? 'flex' : 'hidden lg:flex'} w-full lg:w-96 xl:w-[420px] 2xl:w-[450px] p-4 sm:p-6 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex-col justify-between space-y-4 overflow-y-auto h-full flex-shrink-0 z-20`}>
           <div className="space-y-4">
+            {/* Mobile Back To Photo Banner */}
+            <button
+              type="button"
+              onClick={() => setMobileTab('photo')}
+              className="lg:hidden w-full py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-sky-300 text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-700 shadow-sm"
+            >
+              <ChevronLeft className="h-4 w-4" /> Back to Full Photo View
+            </button>
+
             {/* Header with Title and Close Button */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
@@ -948,11 +1012,11 @@ export default function ImageLightboxModal({
               </button>
             </div>
 
-            {/* SECTION 1: GM DIRECTIVE & SUPERVISOR RESOLUTION PROOF */}
+            {/* SECTION 1: DIRECTIVE & SUPERVISOR RESOLUTION PROOF */}
             <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                  <Flag className="h-3.5 w-3.5" /> GM Action & Tracking
+                  <Flag className="h-3.5 w-3.5" /> Action & Remarks Tracking
                 </span>
                 {!currentAction && !isFlagging && (
                   isSupervisor ? (
@@ -976,12 +1040,12 @@ export default function ImageLightboxModal({
                 )}
               </div>
 
-              {/* Form to Create GM Directive */}
+              {/* Form to Create Action Directive */}
               {isFlagging && (
                 <form onSubmit={handleSubmitDirective} className="space-y-3 pt-2 border-t border-slate-800/80">
                   <div>
                     <label className="text-[11px] font-semibold text-slate-300 block mb-1">
-                      GM Remark / Directive for Supervisor:
+                      Directive / Action Remark for Supervisor:
                     </label>
                     <textarea
                       rows={3}
@@ -1037,10 +1101,10 @@ export default function ImageLightboxModal({
                     </span>
                   </div>
 
-                  {/* GM Remark Block */}
+                  {/* Action Remark Block */}
                   <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-1">
                     <p className="text-[10px] text-slate-400 font-bold flex items-center justify-between">
-                      <span>GM Directive ({currentAction.gmName}):</span>
+                      <span>Action Directive ({currentAction.gmName || 'Management'}):</span>
                       <span className="font-mono text-slate-500">{new Date(currentAction.createdAt).toLocaleDateString()}</span>
                     </p>
                     <p className="text-amber-200 font-medium italic">"{currentAction.gmComment}"</p>
@@ -1075,7 +1139,7 @@ export default function ImageLightboxModal({
                         />
                       </div>
 
-                      {/* GM Closure Action Button (Re-open option disabled) */}
+                      {/* Closure Action Button (Re-open option disabled) */}
                       {currentAction.actionStatus !== 'RESOLVED' && (
                         <div className="flex items-center gap-2 pt-1">
                           <button

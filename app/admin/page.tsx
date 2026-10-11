@@ -15,7 +15,19 @@ import { getSizeModelsForCategory, ASSET_CATEGORIES } from '@/utils/asset-config
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
 import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
 import FreeAiAssistant from '@/components/dashboard/FreeAiAssistant';
-import { RefreshCw } from 'lucide-react';
+import {
+  RefreshCw,
+  Calendar,
+  Users,
+  Navigation,
+  Store,
+  Layers,
+  Search,
+  RotateCcw,
+  SlidersHorizontal,
+  X,
+  Sparkles,
+} from 'lucide-react';
 
 const GCOL: Record<string, string> = {
   A: '#0b7a4c',
@@ -395,11 +407,55 @@ export default function AdminDashboardPage() {
     return getSizeModelsForCategory(fAssetCategory);
   }, [fAssetCategory]);
 
+  // Search Query for Interactive Toolbar
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getNDaysAgoStr = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().split('T')[0];
+  };
+  const getFirstDayOfMonthStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  };
+
+  const setQuickDate = (preset: 'today' | 'yesterday' | '7d' | 'mtd' | 'all') => {
+    if (preset === 'today') {
+      const today = getTodayStr();
+      setFFrom(today);
+      setFTo(today);
+    } else if (preset === 'yesterday') {
+      const yest = getNDaysAgoStr(1);
+      setFFrom(yest);
+      setFTo(yest);
+    } else if (preset === '7d') {
+      setFFrom(getNDaysAgoStr(7));
+      setFTo(getTodayStr());
+    } else if (preset === 'mtd') {
+      setFFrom(getFirstDayOfMonthStr());
+      setFTo(getTodayStr());
+    } else if (preset === 'all') {
+      setFFrom('');
+      setFTo('');
+    }
+  };
+
+  const activeDimensionsCount = useMemo(() => {
+    return [
+      Boolean(fFrom || fTo),
+      Boolean(fMgr.length > 0 || fSuper.length > 0),
+      Boolean(fRoute),
+      Boolean(fCust),
+      Boolean(fChannel || fClass),
+    ].filter(Boolean).length;
+  }, [fFrom, fTo, fMgr, fSuper, fRoute, fCust, fChannel, fClass]);
+
   // Reset helper
   const resetFilters = () => {
-    const defaultDate = latestDateRef.current || '';
-    setFFrom(defaultDate);
-    setFTo(defaultDate);
+    setFFrom('');
+    setFTo('');
     setFMgr([]);
     setFSuper([]);
     setFChannel('');
@@ -410,6 +466,7 @@ export default function AdminDashboardPage() {
     setFVertical('');
     setFAssetCategory('All');
     setFSizeModels([]);
+    setSearchQuery('');
   };
 
   // NPD Product report-level filter options (SKU-response granularity, not available on visit-level `rows`)
@@ -471,8 +528,8 @@ export default function AdminDashboardPage() {
             outletName: r.cust || r.outletName || '',
             classification: r.gr || r.classification || 'C',
             class: r.gr || r.class || 'C',
-            businessVertical: 'Dairy',
-            skuName: 'All Power SKUs',
+            businessVertical: r.businessVertical || (r.skuCode?.startsWith('FGIC') ? 'Ice Cream' : 'Dairy'),
+            skuName: r.skuName || 'All Power SKUs',
             skuCode: 'ALL-PSKU',
             status: isAvail ? 'Available' : 'Not Available',
             availability: isAvail ? 'YES' : 'NO',
@@ -567,10 +624,21 @@ export default function AdminDashboardPage() {
       const classOk = !fClass || (r.gr || r.classification || '').toString().trim().toUpperCase() === fClass.trim().toUpperCase();
       const custOk = !fCust || (r.cust || r.outletName || '').toString().trim().toUpperCase() === fCust.trim().toUpperCase();
       const channelOk = !fChannel || (r.ch || r.channel || '').toString().trim().toUpperCase() === fChannel.trim().toUpperCase();
+      let searchOk = true;
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        searchOk =
+          (r.cust || r.outletName || '').toLowerCase().includes(q) ||
+          (r.custCode || r.outletCode || '').toLowerCase().includes(q) ||
+          (r.sup || r.supervisor || '').toLowerCase().includes(q) ||
+          (r.mgr || r.manager || '').toLowerCase().includes(q) ||
+          (r.rt || r.route || r.routeCode || '').toLowerCase().includes(q) ||
+          (r.ch || r.channel || '').toLowerCase().includes(q);
+      }
 
-      return mgrOk && superOk && channelOk && classOk && custOk && routeOk && fromOk && toOk;
+      return mgrOk && superOk && channelOk && classOk && custOk && routeOk && fromOk && toOk && searchOk;
     });
-  }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fFrom, fTo, managerSupervisorMap]);
+  }, [rows, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fFrom, fTo, managerSupervisorMap, searchQuery]);
 
   // Visit set for the two per-vertical Classification charts: respects Manager,
   // Supervisor, Channel, Outlet/Customer, and Route Code.
@@ -641,7 +709,7 @@ export default function AdminDashboardPage() {
               outletName: r.cust || r.outletName || '',
               classification: r.gr || r.classification || 'C',
               class: r.gr || r.class || 'C',
-              businessVertical: 'Dairy',
+              businessVertical: r.businessVertical || (r.skuCode?.startsWith('FGIC') ? 'Ice Cream' : 'Dairy'),
               skuName: 'All Power SKUs',
               status: isAvail ? 'Available' : 'Not Available',
               availability: isAvail ? 'YES' : 'NO',
@@ -688,7 +756,7 @@ export default function AdminDashboardPage() {
               outletName: r.cust || r.outletName || '',
               classification: r.gr || r.classification || 'C',
               class: r.gr || r.class || 'C',
-              businessVertical: 'Dairy',
+              businessVertical: r.businessVertical || (r.skuCode?.startsWith('FGIC') ? 'Ice Cream' : 'Dairy'),
               skuName: 'All Power SKUs',
               status: isAvail ? 'Available' : 'Not Available',
               availability: isAvail ? 'YES' : 'NO',
@@ -2645,173 +2713,477 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="wrap">
-        {/* Filters Panel */}
-        <div className="filters">
-          <div className="fld">
-            <label>From</label>
-            <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
+        {/* ── 5D EXECUTIVE COMMAND SLICER PANEL (20-Year Designer Standard) ── */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-sm space-y-4 mb-3.5">
+          {/* 5D Command Deck Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+                <SlidersHorizontal className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  5D Executive Command Dimensions
+                  {activeDimensionsCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500 text-white shadow-xs">
+                      {activeDimensionsCount} Active Dimension{activeDimensionsCount > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  Multi-dimensional field execution analytics & real-time telemetry slice
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 self-end sm:self-auto">
+              {/* Live sync capsule */}
+              <div className="flex items-center gap-2 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-[10px] font-black font-mono text-slate-600 dark:text-slate-300 h-8 shadow-xs">
+                <span
+                  className={`h-2 w-2 rounded-full ${isSyncing ? 'bg-indigo-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`}
+                  style={{
+                    boxShadow: isSyncing ? '0 0 8px rgba(99,102,241,0.8)' : '0 0 8px rgba(16,185,129,0.8)',
+                  }}
+                />
+                <span className="tracking-wider">{isSyncing ? 'SYNCING...' : 'LIVE SYNC'}</span>
+                <span className="opacity-30">|</span>
+                <span className="text-slate-400 dark:text-slate-500">
+                  {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+
+              {/* Reset Slicers Button */}
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={activeDimensionsCount === 0 && !searchQuery}
+                className="flex items-center gap-1.5 px-3.5 h-8 rounded-xl text-[11px] font-black transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs border bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 active:scale-95"
+                title="Reset all filter dimensions"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset Dimensions
+              </button>
+            </div>
           </div>
 
-          <div className="fld">
-            <label>To</label>
-            <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
-          </div>
+          {/* 5 Slicers Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            {/* Dimension 1: Temporal (Dates From-To + Quick Velocity Chips) */}
+            <div
+              className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+              style={{
+                borderColor: (fFrom || fTo) ? 'var(--accent, #4F46E5)' : 'var(--border-soft, rgba(203,213,225,0.4))',
+                boxShadow: (fFrom || fTo) ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
+              }}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                      <Calendar className="h-3 w-3" />
+                    </span>
+                    1. Temporal Range
+                  </span>
+                  {(fFrom || fTo) && (
+                    <button
+                      type="button"
+                      onClick={() => { setFFrom(''); setFTo(''); }}
+                      className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">From</label>
+                    <input
+                      type="date"
+                      value={fFrom}
+                      onChange={(e) => setFFrom(e.target.value)}
+                      className="w-full text-[11px] font-semibold h-7 px-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">To</label>
+                    <input
+                      type="date"
+                      value={fTo}
+                      onChange={(e) => setFTo(e.target.value)}
+                      className="w-full text-[11px] font-semibold h-7 px-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* Quick date velocity chips */}
+              <div className="flex items-center gap-1 mt-2.5 flex-wrap">
+                {[
+                  { id: 'today', label: 'Today' },
+                  { id: 'yesterday', label: 'Yest' },
+                  { id: '7d', label: '7D' },
+                  { id: 'mtd', label: 'MTD' },
+                  { id: 'all', label: 'All' },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setQuickDate(p.id as any)}
+                    className="px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 shadow-xs active:scale-95"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
+            {/* Dimension 2: Field Leadership (Manager & Supervisor Cascading Slicers) */}
+            <div
+              className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+              style={{
+                borderColor: (fMgr.length > 0 || fSuper.length > 0) ? 'var(--accent, #4F46E5)' : 'var(--border-soft, rgba(203,213,225,0.4))',
+                boxShadow: (fMgr.length > 0 || fSuper.length > 0) ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
+              }}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-violet-500/15 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+                      <Users className="h-3 w-3" />
+                    </span>
+                    2. Field Leadership
+                  </span>
+                  {(fMgr.length > 0 || fSuper.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => { setFMgr([]); setFSuper([]); }}
+                      className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Manager</label>
+                    <MultiSelectDropdown
+                      placeholder="All Managers"
+                      options={mgrOptions}
+                      selectedValues={fMgr}
+                      onChange={(selected) => {
+                        setFMgr(selected);
+                        if (selected.length > 0 && masters) {
+                          const validSups = new Set<string>();
+                          selected.forEach((m) => {
+                            const mUpper = m.toUpperCase();
+                            if (masters.managerSupervisorMap && masters.managerSupervisorMap[mUpper]) {
+                              (masters.managerSupervisorMap[mUpper] as string[]).forEach((s) => validSups.add(s));
+                            } else {
+                              (masters.routes || [])
+                                .filter((r: any) => (r.managerName || '').toUpperCase() === mUpper)
+                                .forEach((r: any) => { if (r.superName) validSups.add(r.superName); });
+                            }
+                          });
+                          setFSuper((prev) => prev.filter((s) => validSups.has(s)));
+                        }
+                        setFChannel('');
+                        setFClass('');
+                        setFCust('');
+                        setFRoute('');
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Supervisor</label>
+                    <MultiSelectDropdown
+                      placeholder="All Supervisors"
+                      options={supOptions}
+                      selectedValues={fSuper}
+                      onChange={(selected) => {
+                        setFSuper(selected);
+                        setFChannel('');
+                        setFClass('');
+                        setFCust('');
+                        setFRoute('');
+                        if (selected.length > 0 && masters?.routes && fMgr.length === 0) {
+                          const matchingRoutes = (masters.routes as any[]).filter(
+                            (r) => selected.some((s) => (r.superName || '').toUpperCase() === s.toUpperCase())
+                          );
+                          const mgrs = Array.from(new Set(matchingRoutes.map((r) => r.managerName).filter(Boolean)));
+                          if (mgrs.length === 1) {
+                            setFMgr([mgrs[0]]);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="text-[9.5px] font-semibold mt-1 text-slate-400 dark:text-slate-500 truncate">
+                {fSuper.length > 0 ? `${fSuper.length} supervisor${fSuper.length > 1 ? 's' : ''} selected` : 'All supervisors active'}
+              </p>
+            </div>
 
-
-          <div className="fld min-w-[155px]">
-            <label>Manager</label>
-            <MultiSelectDropdown
-              placeholder="All Managers"
-              options={mgrOptions}
-              selectedValues={fMgr}
-              onChange={(selected) => {
-                setFMgr(selected);
-                // Retain only supervisors that belong to selected managers, if any managers are selected
-                if (selected.length > 0 && masters) {
-                  const validSups = new Set<string>();
-                  selected.forEach((m) => {
-                    const mUpper = m.toUpperCase();
-                    if (masters.managerSupervisorMap && masters.managerSupervisorMap[mUpper]) {
-                      (masters.managerSupervisorMap[mUpper] as string[]).forEach((s) => validSups.add(s));
-                    } else {
-                      (masters.routes || [])
-                        .filter((r: any) => (r.managerName || '').toUpperCase() === mUpper)
-                        .forEach((r: any) => { if (r.superName) validSups.add(r.superName); });
+            {/* Dimension 3: Route Navigation (Route Code Slicer) */}
+            <div
+              className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+              style={{
+                borderColor: fRoute ? 'var(--accent, #4F46E5)' : 'var(--border-soft, rgba(203,213,225,0.4))',
+                boxShadow: fRoute ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
+              }}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                      <Navigation className="h-3 w-3" />
+                    </span>
+                    3. Route Code
+                  </span>
+                  {fRoute && (
+                    <button
+                      type="button"
+                      onClick={() => setFRoute('')}
+                      className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Select Route</label>
+                <select
+                  value={fRoute}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFRoute(val);
+                    setFCust('');
+                    if (val && masters?.routes) {
+                      const rtInfo = (masters.routes as any[]).find((r) => r.routeCode === val);
+                      if (rtInfo) {
+                        if (rtInfo.managerName && fMgr.length === 0) setFMgr([rtInfo.managerName]);
+                        if (rtInfo.superName && fSuper.length === 0) setFSuper([rtInfo.superName]);
+                      }
                     }
-                  });
-                  setFSuper((prev) => prev.filter((s) => validSups.has(s)));
-                }
-                setFChannel('');
-                setFClass('');
-                setFCust('');
-                setFRoute('');
-              }}
-            />
-          </div>
+                  }}
+                  className="w-full text-[11px] font-bold font-mono h-8 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="">All Route Codes ({routeOptions.length})</option>
+                  {routeOptions.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[10px] font-semibold mt-2 truncate text-slate-400 dark:text-slate-500">
+                {fRoute ? `Active: Route ${fRoute}` : `${routeOptions.length} distinct routes`}
+              </p>
+            </div>
 
-          <div className="fld min-w-[165px]">
-            <label>Supervisor</label>
-            <MultiSelectDropdown
-              placeholder="All Supervisors"
-              options={supOptions}
-              selectedValues={fSuper}
-              onChange={(selected) => {
-                setFSuper(selected);
-                setFChannel('');
-                setFClass('');
-                setFCust('');
-                setFRoute('');
-                // If user selected supervisors and no manager was selected, check if they all belong to a single manager
-                if (selected.length > 0 && masters?.routes && fMgr.length === 0) {
-                  const matchingRoutes = (masters.routes as any[]).filter(
-                    (r) => selected.some((s) => (r.superName || '').toUpperCase() === s.toUpperCase())
-                  );
-                  const mgrs = Array.from(new Set(matchingRoutes.map((r) => r.managerName).filter(Boolean)));
-                  if (mgrs.length === 1) {
-                    setFMgr([mgrs[0]]);
-                  }
-                }
-              }}
-            />
-          </div>
-
-          <div className="fld min-w-[120px]">
-            <label>RTM</label>
-            <select
-              value={fChannel}
-              onChange={(e) => {
-                setFChannel(e.target.value);
-                setFClass('');
-                setFCust('');
+            {/* Dimension 4: Retail Execution & Customer (Outlet / Customer Slicer) */}
+            <div
+              className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+              style={{
+                borderColor: fCust ? 'var(--accent, #4F46E5)' : 'var(--border-soft, rgba(203,213,225,0.4))',
+                boxShadow: fCust ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
               }}
             >
-              <option value="">All RTM</option>
-              {rtmOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <Store className="h-3 w-3" />
+                    </span>
+                    4. Customer / Outlet
+                  </span>
+                  {fCust && (
+                    <button
+                      type="button"
+                      onClick={() => setFCust('')}
+                      className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Select Store</label>
+                <select
+                  value={fCust}
+                  onChange={(e) => setFCust(e.target.value)}
+                  className="w-full text-[11px] font-semibold h-8 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="">All Outlets ({custOptions.length})</option>
+                  {custOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[10px] font-semibold mt-2 truncate text-slate-400 dark:text-slate-500">
+                {fCust ? `Selected: ${fCust}` : `${custOptions.length} available outlets`}
+              </p>
+            </div>
 
-          <div className="fld">
-            <label>Classification</label>
-            <select value={fClass} onChange={(e) => {
-              setFClass(e.target.value);
-              setFCust('');
-            }}>
-              <option value="">All Classifications</option>
-              {classOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="fld">
-            <label>Outlet / Customer</label>
-            <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
-              <option value="">All Outlets</option>
-              {custOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="fld">
-            <label>Route Code</label>
-            <select value={fRoute} onChange={(e) => {
-              const val = e.target.value;
-              setFRoute(val);
-              setFCust('');
-              if (val && masters?.routes) {
-                const rtInfo = (masters.routes as any[]).find((r) => r.routeCode === val);
-                if (rtInfo) {
-                  if (rtInfo.managerName && fMgr.length === 0) setFMgr([rtInfo.managerName]);
-                  if (rtInfo.superName && fSuper.length === 0) setFSuper([rtInfo.superName]);
-                }
-              }
-            }}>
-              <option value="">All Route Codes</option>
-              {routeOptions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* <div className="fld">
-            <label>Asset Category</label>
-            <select
-              value={fAssetCategory}
-              onChange={(e) => {
-                setFAssetCategory(e.target.value);
-                setFSizeModels([]);
+            {/* Dimension 5: Commercial Channels & Classification */}
+            <div
+              className="p-3 rounded-xl flex flex-col justify-between transition-all bg-slate-50/70 dark:bg-slate-800/50 border"
+              style={{
+                borderColor: (fChannel || fClass) ? 'var(--accent, #4F46E5)' : 'var(--border-soft, rgba(203,213,225,0.4))',
+                boxShadow: (fChannel || fClass) ? '0 0 10px -2px rgba(99,102,241,0.15)' : 'none',
               }}
             >
-              <option value="All">All Categories</option>
-              {ASSET_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div> */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                      <Layers className="h-3 w-3" />
+                    </span>
+                    5. Channel & Class
+                  </span>
+                  {(fChannel || fClass) && (
+                    <button
+                      type="button"
+                      onClick={() => { setFChannel(''); setFClass(''); }}
+                      className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">RTM</label>
+                    <select
+                      value={fChannel}
+                      onChange={(e) => {
+                        setFChannel(e.target.value);
+                        setFClass('');
+                        setFCust('');
+                      }}
+                      className="w-full text-[11px] font-semibold h-7 px-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value="">All RTM</option>
+                      {rtmOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">Class</label>
+                    <select
+                      value={fClass}
+                      onChange={(e) => {
+                        setFClass(e.target.value);
+                        setFCust('');
+                      }}
+                      className="w-full text-[11px] font-semibold h-7 px-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value="">All Class</option>
+                      {classOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] font-semibold mt-2 truncate text-slate-400 dark:text-slate-500">
+                {fChannel || fClass ? `Filtered: ${fChannel || 'Any'} / ${fClass || 'Any'}` : 'All channels & classifications'}
+              </p>
+            </div>
+          </div>
+        </div>
 
-          {/* <div className="fld min-w-[190px]">
-            <label>Size / Model</label>
-            <MultiSelectDropdown
-              placeholder="Select Size/Model"
-              options={availableSizeModels}
-              selectedValues={fSizeModels}
-              onChange={setFSizeModels}
-            />
-          </div> */}
+        {/* ── INTERACTIVE COMMAND TOOLBAR (Interactive Filter Chips & Live Search) ── */}
+        <div className="p-3 sm:p-3.5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-2 flex-1">
+            {/* Real-time search bar */}
+            <div className="relative min-w-[220px] max-w-sm flex-1">
+              <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search outlets, supervisors, route codes in view..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-xs pl-8.5 pr-8 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
-          <button className="reset" onClick={resetFilters}>Reset</button>
+            {/* Active Dimension Chips */}
+            {(fFrom || fTo) && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50">
+                <Calendar className="h-3 w-3" />
+                {fFrom} – {fTo || 'Present'}
+                <button type="button" onClick={() => { setFFrom(''); setFTo(''); }} className="hover:text-indigo-900 dark:hover:text-white">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {fMgr.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/50">
+                <Users className="h-3 w-3" />
+                Mgr: {fMgr.join(', ')}
+                <button type="button" onClick={() => setFMgr([])} className="hover:text-violet-900 dark:hover:text-white">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {fSuper.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/50">
+                <Users className="h-3 w-3" />
+                Sup: {fSuper.length === 1 ? fSuper[0] : `${fSuper.length} Supervisors`}
+                <button type="button" onClick={() => setFSuper([])} className="hover:text-violet-900 dark:hover:text-white">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {fRoute && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/50">
+                <Navigation className="h-3 w-3" />
+                Route: {fRoute}
+                <button type="button" onClick={() => setFRoute('')} className="hover:text-sky-900 dark:hover:text-white">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {fCust && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
+                <Store className="h-3 w-3" />
+                Outlet: {fCust}
+                <button type="button" onClick={() => setFCust('')} className="hover:text-amber-900 dark:hover:text-white">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {fChannel && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
+                <Layers className="h-3 w-3" />
+                RTM: {fChannel}
+                <button type="button" onClick={() => setFChannel('')} className="hover:text-emerald-900 dark:hover:text-white">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {fClass && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
+                Class: {fClass}
+                <button type="button" onClick={() => setFClass('')} className="hover:text-emerald-900 dark:hover:text-white">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+          </div>
 
-          {/* <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" /> */}
-
-          <div className="live-badge">
-            <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
-            <span>{isSyncing ? 'SYNCING...' : 'LIVE SYNC ACTIVE'}</span>
-            <span style={{ opacity: 0.3 }}>|</span>
-            <span>UPDATED {lastUpdated.toLocaleTimeString()}</span>
+          {/* Right Toolbar Status & Export */}
+          <div className="flex items-center gap-2 self-end md:self-auto flex-shrink-0">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 hidden lg:inline">
+              Analyzing <strong className="text-slate-900 dark:text-white">{filtered.length}</strong> visits
+            </span>
+            <ExportButton onClick={handleExportKpis} label="Export KPI Summary" variant="compact" />
           </div>
         </div>
 
@@ -2822,47 +3194,80 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* Active Filter description */}
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="active-note flex-grow" dangerouslySetInnerHTML={{ __html: activeNote }} />
-          <ExportButton onClick={handleExportKpis} label="Export KPI Summary" variant="compact" />
-        </div>
+        {/* ── ULTRA-PREMIUM 5D KPI JEWEL CARDS ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 mb-5">
+          {/* 1. Total Visits */}
+          <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-indigo-500/10 via-slate-50/80 to-indigo-500/5 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-indigo-950/20 border border-indigo-200 dark:border-indigo-500/30 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-violet-500" />
+            <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
+              <span className="text-[10px] font-black uppercase tracking-wider">Total Visits</span>
+              <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-indigo-950 dark:text-indigo-100 tracking-tight">
+              {isLoading && rows.length === 0 ? '...' : filtered.length}
+            </div>
+            <div className="mt-1 text-[11px] font-semibold text-indigo-600/80 dark:text-indigo-300/80 flex items-center gap-1">
+              <span>●</span> field visits logged
+            </div>
+          </div>
 
-        {/* KPI Row */}
-        <div className="kpis">
-          <div className="kpi b" title="Total Visits Logged in Filtered Period">
-            <div className="lbl">Total Visits</div>
-            <div className="val">{isLoading && rows.length === 0 ? '...' : filtered.length}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> visits logged
+          {/* 2. Outlets Covered */}
+          <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-emerald-500/10 via-slate-50/80 to-emerald-500/5 dark:from-emerald-950/40 dark:via-slate-900/60 dark:to-emerald-950/20 border border-emerald-200 dark:border-emerald-500/30 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+            <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
+              <span className="text-[10px] font-black uppercase tracking-wider">Outlets Covered</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-emerald-950 dark:text-emerald-100 tracking-tight">
+              {isLoading && rows.length === 0 ? '...' : outletsCount}
+            </div>
+            <div className="mt-1 text-[11px] font-semibold text-emerald-600/80 dark:text-emerald-300/80 flex items-center gap-1">
+              <span>●</span> unique store doors
             </div>
           </div>
-          <div className="kpi g" title="Unique Outlets Visited in Filtered Period">
-            <div className="lbl">Outlets Covered</div>
-            <div className="val">{isLoading && rows.length === 0 ? '...' : outletsCount}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> unique outlets
+
+          {/* 3. No Visits */}
+          <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-amber-500/10 via-slate-50/80 to-amber-500/5 dark:from-amber-950/40 dark:via-slate-900/60 dark:to-amber-950/20 border border-amber-200 dark:border-amber-500/30 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
+            <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
+              <span className="text-[10px] font-black uppercase tracking-wider">No Visits</span>
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-amber-950 dark:text-amber-100 tracking-tight">
+              {isLoading && rows.length === 0 ? '...' : noVisitCount}
+            </div>
+            <div className="mt-1 text-[11px] font-semibold text-amber-600/80 dark:text-amber-300/80 flex items-center gap-1">
+              <span>●</span> skipped outlet visits
             </div>
           </div>
-          <div className="kpi a" title="Skipped / No-Visit Outlets">
-            <div className="lbl">No Visits</div>
-            <div className="val">{isLoading && rows.length === 0 ? '...' : noVisitCount}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> skipped outlet visits
+
+          {/* 4. Assets Checked */}
+          <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-sky-500/10 via-slate-50/80 to-sky-500/5 dark:from-sky-950/40 dark:via-slate-900/60 dark:to-sky-950/20 border border-sky-200 dark:border-sky-500/30 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-500 to-cyan-500" />
+            <div className="flex items-center justify-between text-sky-600 dark:text-sky-400 mb-1">
+              <span className="text-[10px] font-black uppercase tracking-wider">Assets Checked</span>
+              <span className="h-2 w-2 rounded-full bg-sky-500" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-sky-950 dark:text-sky-100 tracking-tight">
+              {isLoading && rows.length === 0 ? '...' : filtered.length}
+            </div>
+            <div className="mt-1 text-[11px] font-semibold text-sky-600/80 dark:text-sky-300/80 flex items-center gap-1">
+              <span>●</span> chillers / freezers
             </div>
           </div>
-          <div className="kpi c" title="Total Cold Chain & Chiller Assets Inspected">
-            <div className="lbl">Assets Checked</div>
-            <div className="val">{isLoading && rows.length === 0 ? '...' : filtered.length}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> chillers/freezers
+
+          {/* 5. Temp Breaches */}
+          <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-rose-500/10 via-slate-50/80 to-rose-500/5 dark:from-rose-950/40 dark:via-slate-900/60 dark:to-rose-950/20 border border-rose-200 dark:border-rose-500/30 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 to-red-500" />
+            <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 mb-1">
+              <span className="text-[10px] font-black uppercase tracking-wider">Temp Breaches</span>
+              <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
             </div>
-          </div>
-          <div className="kpi r" title="Temperature Violations Detected">
-            <div className="lbl">Temp Breaches</div>
-            <div className="val">{isLoading && rows.length === 0 ? '...' : breachesCount}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> {isLoading && rows.length === 0 ? '...' : breachPct}
+            <div className="text-2xl sm:text-3xl font-black text-rose-950 dark:text-rose-100 tracking-tight">
+              {isLoading && rows.length === 0 ? '...' : breachesCount}
+            </div>
+            <div className="mt-1 text-[11px] font-semibold text-rose-600/80 dark:text-rose-300/80 flex items-center gap-1">
+              <span>●</span> {isLoading && rows.length === 0 ? '...' : breachPct}
             </div>
           </div>
         </div>

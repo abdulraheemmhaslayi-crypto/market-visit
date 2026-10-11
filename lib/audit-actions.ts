@@ -145,7 +145,22 @@ async function syncToDbSafe(item: AuditActionItem): Promise<void> {
 const PURGE_FLAG_FILE = path.join(DATA_DIR, '.dummy_actions_purged');
 
 export const auditActionRepository = {
+  async clearAll(): Promise<void> {
+    try {
+      await pool.execute('DELETE FROM `AuditActionItem`').catch(() => {});
+    } catch {}
+    writeLocalItems([]);
+    try {
+      fs.writeFileSync(PURGE_FLAG_FILE, new Date().toISOString(), 'utf8');
+    } catch {}
+  },
+
   async getAll(): Promise<AuditActionItem[]> {
+    try {
+      // Auto-purge any legacy mock items created before Oct 11, 2026
+      await pool.execute("DELETE FROM `AuditActionItem` WHERE `createdAt` LIKE '2026-09%' OR `createdAt` < '2026-10-11'").catch(() => {});
+    } catch {}
+
     if (!fs.existsSync(PURGE_FLAG_FILE)) {
       try {
         await pool.execute('DELETE FROM `AuditActionItem`').catch(() => {});
@@ -163,7 +178,8 @@ export const auditActionRepository = {
     } catch (err) {
       // Fallback to local store
     }
-    return readLocalItems();
+    const local = readLocalItems();
+    return local.filter((i) => !i.createdAt || (!i.createdAt.startsWith('2026-09') && i.createdAt >= '2026-10-10'));
   },
 
   async getByPhotoId(photoId: string): Promise<AuditActionItem[]> {

@@ -248,6 +248,15 @@ export function checkMissingFields(
         foundMapping[optionalField] = header;
       }
     }
+    if (!foundMapping['BusinessVertical']) {
+      const vertHeader = headers.find((h) => {
+        const c = cleanString(h);
+        return c === 'businessvertical' || c === 'vertical' || c === 'busvertical' || c === 'bvertical' || c.includes('vertical');
+      });
+      if (vertHeader) {
+        foundMapping['BusinessVertical'] = vertHeader;
+      }
+    }
   }
 
   // For custMappings / CUSTMASTER, extract Channel prioritizing 'Segment_Fin(120MT)' / 'segment fin 120'
@@ -443,7 +452,27 @@ export function mergeParsedData(parsedFiles: ParsedFileResult[]): { payload: Par
       const skuCode = String(row[skuCodeCol] || '').trim();
       const skuName = String(row[skuNameCol] || '').trim();
       const typeVal = typeCol ? String(row[typeCol] || '').trim() : 'Standard';
-      const businessVerticalVal = businessVerticalCol ? String(row[businessVerticalCol] || '').trim() : '';
+      let businessVerticalVal = businessVerticalCol ? String(row[businessVerticalCol] || '').trim() : '';
+      if (!businessVerticalVal) {
+        for (const k of Object.keys(row)) {
+          const cleanK = cleanString(k);
+          if (cleanK === 'businessvertical' || cleanK === 'vertical' || cleanK === 'busvertical' || cleanK === 'bvertical' || cleanK.includes('vertical')) {
+            businessVerticalVal = String(row[k] || '').trim();
+            break;
+          }
+        }
+      }
+      if (!businessVerticalVal || businessVerticalVal.toLowerCase() === 'general') {
+        const uCode = skuCode.toUpperCase();
+        const uName = skuName.toUpperCase();
+        if (uCode.startsWith('FGIC') || uName.includes('ICE CREAM') || uName.includes('CONE') || uName.includes('STICK') || uName.includes('TUB')) {
+          businessVerticalVal = 'Ice Cream';
+        } else if (uCode.startsWith('FGJU') || uCode.startsWith('FGBV') || uName.includes('JUICE') || uName.includes('DRINK')) {
+          businessVerticalVal = 'Beverage';
+        } else {
+          businessVerticalVal = 'Dairy';
+        }
+      }
 
       if (!skuCode) {
         errors.push({ row: rowNum, error: `${f.fileName}: Row is missing SKUCode value.` });
