@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Wrench,
   HelpCircle,
+  Printer,
+  Eye,
 } from 'lucide-react';
 import { exportToExcel, ExcelColumn } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
@@ -23,6 +25,9 @@ export interface SummaryVisitRow {
   routeCode: string;
   outletCode: string;
   outletName: string;
+  channel?: string;
+  classification?: string;
+  visitType?: string;
   pskuAvailableCount: number;
   totalPskuCount: number;
   pskuRatioDisplay: string;
@@ -135,10 +140,10 @@ export function cleanModelName(val: any, assetType?: 'Chiller' | 'Freezer', isMT
 export default function VisitSummaryTable({
   rows = [],
   reportRows,
-  title = 'Visit Execution & Asset Summary',
-  subtitle = 'Outlet-level audit details, SKU availability counts, and cold chain asset models',
+  title = 'Recent Visit Records',
+  subtitle = 'Outlet-level audit details, visit status, and cold chain performance',
   onRowClick,
-  itemsPerPageDefault = 20,
+  itemsPerPageDefault = 10,
 }: VisitSummaryTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField>('date');
@@ -333,6 +338,9 @@ export default function VisitSummaryTable({
       }
 
       const tempOk = r.ok === true || r.ok === 1 || r.tempInRange === true || r.temp === 'OK';
+      const channel = r.ch || r.channel || 'TT';
+      const classification = r.gr || r.classification || r.class || 'C';
+      const visitType = r.visitType || (r.status === 'No Visit' ? 'No Visit' : 'Visited');
 
       return {
         date: formattedDate,
@@ -340,6 +348,9 @@ export default function VisitSummaryTable({
         routeCode,
         outletCode,
         outletName,
+        channel,
+        classification,
+        visitType,
         pskuAvailableCount,
         totalPskuCount,
         pskuRatioDisplay,
@@ -474,13 +485,13 @@ export default function VisitSummaryTable({
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
-              placeholder="Search visits, assets, notes..."
+              placeholder="Search by outlet, customer, route code..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-8.5 pl-8 pr-3 text-[12px] font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all w-48 md:w-64"
+              className="h-8.5 pl-8 pr-3 text-[12px] font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all w-52 md:w-68"
             />
             {searchTerm && (
               <button
@@ -511,10 +522,33 @@ export default function VisitSummaryTable({
           {/* Export to Excel */}
           <ExportButton
             onClick={handleExportExcel}
-            label="Export Excel"
+            label="Export"
             variant="compact"
             title="Export summary table to Excel (.xlsx)"
           />
+
+          {/* Print Button */}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="h-8.5 px-3 inline-flex items-center gap-1.5 text-[11.5px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-2xs"
+            title="Print visit records"
+          >
+            <Printer className="h-3.5 w-3.5 text-slate-500" />
+            <span>Print</span>
+          </button>
+
+          {/* View All Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setPageSize(100);
+              setCurrentPage(1);
+            }}
+            className="h-8.5 px-3 inline-flex items-center gap-1 text-[11.5px] rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all cursor-pointer shadow-2xs"
+          >
+            <span>View All</span>
+          </button>
         </div>
       </div>
 
@@ -572,6 +606,15 @@ export default function VisitSummaryTable({
                   <span>Outlet Name</span>
                   {renderSortIcon('outletName')}
                 </div>
+              </th>
+              <th className="py-3 px-3 text-left text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider" style={{ width: '85px' }}>
+                Channel
+              </th>
+              <th className="py-3 px-3 text-center text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider" style={{ width: '70px' }}>
+                Class
+              </th>
+              <th className="py-3 px-3 text-center text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider" style={{ width: '100px' }}>
+                Status
               </th>
               <th
                 onClick={() => handleSort('pskuAvailableCount')}
@@ -634,6 +677,9 @@ export default function VisitSummaryTable({
                   {renderSortIcon('observationActionDisplay')}
                 </div>
               </th>
+              <th className="py-3 px-3 text-right text-[11px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider" style={{ width: '80px' }}>
+                Action
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -670,6 +716,32 @@ export default function VisitSummaryTable({
                   {/* Outlet Name */}
                   <td className="py-2.5 px-3 text-[12px] font-extrabold text-slate-900 dark:text-white max-w-xs truncate" title={row.outletName}>
                     {row.outletName}
+                  </td>
+
+                  {/* Channel */}
+                  <td className="py-2.5 px-3 text-[11.5px] font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                    <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                      {row.channel || 'TT'}
+                    </span>
+                  </td>
+
+                  {/* Class */}
+                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    <span className="inline-block px-2 py-0.5 rounded text-[11px] font-extrabold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      {row.classification || 'C'}
+                    </span>
+                  </td>
+
+                  {/* Status */}
+                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                      row.visitType === 'No Visit'
+                        ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${row.visitType === 'No Visit' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                      {row.visitType === 'No Visit' ? 'No Visit' : 'Visited'}
+                    </span>
                   </td>
 
                   {/* Power SKUs */}
@@ -799,11 +871,27 @@ export default function VisitSummaryTable({
                       <span className="text-[var(--text-muted)]">—</span>
                     )}
                   </td>
+
+                  {/* Action */}
+                  <td className="py-2 px-3 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onRowClick) onRowClick(row.raw || row);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-700 shadow-2xs transition-all cursor-pointer"
+                      title="View visit details"
+                    >
+                      <Eye className="h-3 w-3" />
+                      <span>View</span>
+                    </button>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-[var(--text-secondary)]">
+                <td colSpan={15} className="py-12 text-center text-[var(--text-secondary)]">
                   <div className="flex flex-col items-center justify-center gap-1.5">
                     <p className="font-semibold text-[13px] text-[var(--text-primary)]">No matching visit records</p>
                     <p className="text-[12px] text-[var(--text-muted)]">
