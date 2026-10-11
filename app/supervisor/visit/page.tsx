@@ -387,7 +387,7 @@ function VisitWizardContent() {
         showToast('Please select a route.', 'warning');
         return;
       }
-      if (!effectiveCustomerId) {
+      if (visitType === 'Visit' && !effectiveCustomerId) {
         showToast('Please select a customer outlet.', 'warning');
         return;
       }
@@ -423,8 +423,12 @@ function VisitWizardContent() {
   };
 
   const handleSaveDraft = async () => {
-    if (!selectedRoute || !effectiveCustomerId) {
-      showToast('Please select both a route and a customer before saving.', 'warning');
+    if (!selectedRoute) {
+      showToast('Please select a route before saving.', 'warning');
+      return;
+    }
+    if (visitType === 'Visit' && !effectiveCustomerId) {
+      showToast('Please select a customer before saving.', 'warning');
       return;
     }
     setSavingDraft(true);
@@ -434,10 +438,11 @@ function VisitWizardContent() {
         visit_type: visitType,
         reason_category: reasonCategory,
         reason,
-        cust_rt_id: effectiveCustomerId,
+        observation: visitObservation,
+        cust_rt_id: effectiveCustomerId || (selectedRoute ? `ROUTE|${selectedRoute}` : ''),
         routeCode: selectedRoute,
         customerCode: activeCustomer?.customerCode || '',
-        customerName: activeCustomer?.customerName || '',
+        customerName: activeCustomer?.customerName || (visitType === 'No Visit' ? 'Route No Visit' : ''),
         assets: assets.map(a => ({
           ...a,
           temperature: Number(a.temperature) || 0,
@@ -474,10 +479,6 @@ function VisitWizardContent() {
     if (visitType === 'No Visit') {
       if (!selectedRoute) {
         showToast('Please select a route.', 'warning');
-        return;
-      }
-      if (!effectiveCustomerId) {
-        showToast('Please select a customer outlet.', 'warning');
         return;
       }
       if (!reasonCategory) {
@@ -524,10 +525,10 @@ function VisitWizardContent() {
         reason_category: reasonCategory,
         reason,
         observation: visitObservation,
-        cust_rt_id: effectiveCustomerId,
+        cust_rt_id: effectiveCustomerId || (selectedRoute ? `ROUTE|${selectedRoute}` : ''),
         routeCode: selectedRoute,
         customerCode: activeCustomer?.customerCode || '',
-        customerName: activeCustomer?.customerName || '',
+        customerName: activeCustomer?.customerName || (visitType === 'No Visit' ? 'Route No Visit' : ''),
         assets: validAssets,
         photos,
         powerSkuResults: finalPowerSkuResults,
@@ -765,7 +766,20 @@ function VisitWizardContent() {
                   );
                 })}
               </div>
-              <label className="form-label">Search & Select Customer Outlet</label>
+              <div className="flex items-center justify-between">
+                <label className="form-label mb-0">
+                  Search & Select Customer Outlet {visitType === 'No Visit' && <span className="text-[11px] font-normal text-slate-500 lowercase">(optional)</span>}
+                </label>
+                {visitType === 'No Visit' && selectedCustomer && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCustomer('')}
+                    className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                  >
+                    ✕ Clear Selection
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 placeholder="Type customer code or name to search..."
@@ -863,60 +877,49 @@ function VisitWizardContent() {
                 </div>
               )}
 
-              {visitType === 'No Visit' ? (
-                activeCustomer ? (
-                  <div className="rounded-xl p-4 border border-solid border-[var(--border-soft)] bg-[var(--surface-2)] space-y-3 mt-3 animate-fade-in">
-                    <div className="flex items-center justify-between">
-                      <span className="badge badge-accent">No Visit Report</span>
+              {visitType === 'No Visit' && (
+                <div className="rounded-xl p-4 border border-solid border-[var(--border-soft)] bg-[var(--surface-2)] space-y-3 mt-3 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="badge badge-accent">No Visit Report</span>
+                    {activeCustomer ? (
                       <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                        {activeCustomer.customerCode}
+                        Outlet: {activeCustomer.customerCode} ({activeCustomer.customerName})
                       </span>
-                    </div>
-                    <p className="text-[11px] font-bold text-[var(--text-primary)]">No Visit reason</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <select
-                        value={reasonCategory}
-                        onChange={(e) => setReasonCategory(e.target.value)}
-                        className="form-input h-9 text-[12px]"
-                      >
-                        <option value="">— Select Reason Category —</option>
-                        <option value="Outlet Closed">Outlet Closed</option>
-                        <option value="No Permission">No Permission</option>
-                        <option value="Customer Absent">Customer Absent</option>
-                        <option value="Safety Concern">Safety Concern</option>
-                        <option value="Other">Other</option>
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Optional short note"
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        className="form-input h-9 text-[12px]"
-                      />
-                    </div>
-                    <p className="text-[10px] text-[var(--text-muted)]">
-                      This report will be submitted immediately with the selected reason and will not require the full asset or photo workflow.
-                    </p>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                        Route: {selectedRoute} (All Outlets)
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  <div className="p-3.5 rounded-xl border border-dashed border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-700/50 text-amber-800 dark:text-amber-300 text-xs font-semibold flex items-center gap-2 mt-2">
-                    <span>⚠️</span>
-                    <span>Please select a customer outlet from the list above to complete the No Visit report.</span>
+                  <p className="text-[11px] font-bold text-[var(--text-primary)]">
+                    No Visit Reason <span className="text-rose-500">*</span>
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <select
+                      value={reasonCategory}
+                      onChange={(e) => setReasonCategory(e.target.value)}
+                      className="form-input h-9 text-[12px]"
+                    >
+                      <option value="">— Select Reason Category —</option>
+                      <option value="Outlet Closed">Outlet Closed</option>
+                      <option value="No Permission">No Permission</option>
+                      <option value="Customer Absent">Customer Absent</option>
+                      <option value="Safety Concern">Safety Concern</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Optional short note"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      className="form-input h-9 text-[12px]"
+                    />
                   </div>
-                )
-              ) : (
-                /* Observation & Action */
-                <div className="mt-3 space-y-1">
-                  <label className="form-label mb-1 font-bold text-black" style={{ color: '#000000', fontWeight: 700 }}>
-                    Observation & Action
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="Write observation & action details…"
-                    value={visitObservation}
-                    onChange={(e) => setVisitObservation(e.target.value)}
-                    className="form-input text-[12px] w-full p-2.5 rounded-xl border border-solid border-[var(--border-soft)]"
-                  />
+                  <p className="text-[10px] text-[var(--text-muted)]">
+                    {activeCustomer
+                      ? `This report will be submitted for outlet ${activeCustomer.customerCode} with the selected reason.`
+                      : `This report will be recorded for route ${selectedRoute} with the selected reason.`}
+                  </p>
                 </div>
               )}
             </div>
@@ -1395,6 +1398,21 @@ function VisitWizardContent() {
             ))}
           </div>
 
+          {/* Observation & Action moved to final step before submission */}
+          <div className="rounded-xl p-4 border border-solid border-[var(--border-soft)] bg-[var(--surface-2)] space-y-2 mt-3">
+            <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center justify-between">
+              <span>Observation & Action</span>
+              <span className="text-[10px] font-normal text-slate-500 lowercase">(optional final remarks)</span>
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Write observation & action details before final submission…"
+              value={visitObservation}
+              onChange={(e) => setVisitObservation(e.target.value)}
+              className="form-input text-xs w-full p-2.5 rounded-xl border border-solid border-[var(--border-soft)]"
+            />
+          </div>
+
           <button
             onClick={handleFinalSubmit}
             disabled={submittingVisit || savingDraft}
@@ -1431,7 +1449,7 @@ function VisitWizardContent() {
         {currentStep < 5 && (
           <button
             onClick={isNoVisitFlow ? handleFinalSubmit : nextStep}
-            disabled={savingDraft || submittingVisit || (currentStep === 0 && (visitType === 'No Visit' ? (!selectedRoute || !effectiveCustomerId || !reasonCategory) : (!selectedRoute || !effectiveCustomerId)))}
+            disabled={savingDraft || submittingVisit || (currentStep === 0 && (visitType === 'No Visit' ? (!selectedRoute || !reasonCategory) : (!selectedRoute || !effectiveCustomerId)))}
             className="btn-primary cursor-pointer"
             style={{
               height: '40px', padding: '0 20px',
