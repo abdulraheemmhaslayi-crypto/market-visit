@@ -84,7 +84,12 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { theme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Filter States
   const [fFrom, setFFrom] = useState('');
@@ -2573,11 +2578,11 @@ export default function AdminDashboardPage() {
 
           {/* <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" /> */}
 
-          <div className="live-badge">
+          <div className="live-badge" suppressHydrationWarning>
             <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
             <span>{isSyncing ? 'SYNCING...' : 'LIVE SYNC ACTIVE'}</span>
             <span style={{ opacity: 0.3 }}>|</span>
-            <span>UPDATED {lastUpdated.toLocaleTimeString()}</span>
+            <span suppressHydrationWarning>UPDATED {mounted ? lastUpdated.toLocaleTimeString() : '...'}</span>
           </div>
         </div>
 
