@@ -14,6 +14,7 @@ import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
 import { getSizeModelsForCategory, ASSET_CATEGORIES } from '@/utils/asset-config';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
 import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
+import FreeAiAssistant from '@/components/dashboard/FreeAiAssistant';
 import { RefreshCw } from 'lucide-react';
 
 const GCOL: Record<string, string> = {
@@ -147,7 +148,7 @@ export default function AdminDashboardPage() {
   // Initialize cached data immediately from sessionStorage to eliminate skeleton hangs & 0-data flash
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('admin_dashboard_cache_v5');
+      const cached = sessionStorage.getItem('admin_dashboard_cache_v6');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && typeof parsed === 'object' && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
@@ -215,7 +216,7 @@ export default function AdminDashboardPage() {
           setLastUpdated(new Date());
 
           try {
-            sessionStorage.setItem('admin_dashboard_cache_v5', JSON.stringify({
+            sessionStorage.setItem('admin_dashboard_cache_v6', JSON.stringify({
               rows: newRows,
               reportRows: newReportRows,
               managerSupervisorMap: newMgrSupMap,
@@ -519,7 +520,7 @@ export default function AdminDashboardPage() {
           classification: r.gr || r.classification || '',
           class: r.gr || r.class || '',
           assetType: r.atype || r.assetType || 'Chiller',
-          sizeModel: r.sizeModel || 'Standard',
+          sizeModel: r.sizeModel && !r.sizeModel.toLowerCase().includes('standard') ? r.sizeModel : ((r.atype || r.assetType || '').toLowerCase() === 'freezer' ? '400' : 'Single Door'),
           temperature: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
           assetTemp: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
           formattedTemperature: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
@@ -3014,6 +3015,8 @@ export default function AdminDashboardPage() {
         filterChip={reportFilterChip}
         onClearFilter={handleClearReportFilter}
       />
+      {/* Free AI Assistant for Fast Executive Insights */}
+      <FreeAiAssistant visits={filtered} reportRows={reportRows} />
     </div>
   );
 }

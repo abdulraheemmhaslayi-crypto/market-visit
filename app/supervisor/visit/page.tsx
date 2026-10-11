@@ -196,6 +196,7 @@ function VisitWizardContent() {
           assetId: 'ast_' + Math.random().toString(36).substring(2, 9),
           visitId,
           assetType: 'Chiller',
+          sizeModel: 'Single Door',
           temperature: undefined as number | undefined,
           tempInRange: true,
           actionRequired: 'Select Status',
@@ -574,7 +575,8 @@ function VisitWizardContent() {
       {
         assetId: 'ast_' + Math.random().toString(36).substring(2, 9),
         visitId,
-        assetType: 'Chiller',
+        assetType: 'Freezer',
+        sizeModel: '400',
         temperature: undefined as number | undefined,
         tempInRange: true,
         actionRequired: 'Select Status',
@@ -1038,7 +1040,10 @@ function VisitWizardContent() {
 
                   <div className="grid grid-cols-2 gap-3">
                     {(['Chiller', 'Freezer'] as const).map(type => (
-                      <button key={type} type="button" onClick={() => updateAssetField(ast.assetId, 'assetType', type)}
+                      <button key={type} type="button" onClick={() => {
+                        updateAssetField(ast.assetId, 'assetType', type);
+                        updateAssetField(ast.assetId, 'sizeModel', type === 'Chiller' ? 'Single Door' : '400');
+                      }}
                         className="h-10 text-[11px] font-bold rounded-lg transition-all cursor-pointer"
                         style={{
                           background: ast.assetType === type ? 'var(--accent-light)' : 'var(--surface)',

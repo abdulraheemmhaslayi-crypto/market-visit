@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import nextDynamic from 'next/dynamic';
 import { useToast } from '@/components/ui/toast';
+import FreeAiAssistant from '@/components/dashboard/FreeAiAssistant';
 import {
   TrendingUp,
   Target,
@@ -452,7 +453,7 @@ export default function GmExecutiveReportsPage() {
         affectedEntities: brokenAssets.slice(0, 4).map((r) => ({
           label: r.outletName || r.cust || `Outlet ${r.outletCode}`,
           code: r.routeCode || '—',
-          detail: `Status: ${r.assetStatus || r.action || 'Needs Service'} · Chiller: ${r.chillerModel || 'Standard'}`,
+          detail: `Status: ${r.assetStatus || r.action || 'Needs Service'} · Chiller: ${r.chillerModel || 'Single Door'}`,
         })),
         suggestedActionType: 'Schedule Fleet Maintenance Dispatch',
         status: actionStatuses['ai-dir-asset-health'] || 'pending',
@@ -1458,6 +1459,8 @@ export default function GmExecutiveReportsPage() {
         title={modalTitle}
         data={modalData}
       />
+      {/* Free AI Assistant for Fast Executive Insights */}
+      <FreeAiAssistant visits={stats?.visitRows || []} reportRows={stats?.reportRows} />
     </div>
   );
 }

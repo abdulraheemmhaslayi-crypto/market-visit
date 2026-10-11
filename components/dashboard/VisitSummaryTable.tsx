@@ -76,10 +76,59 @@ function formatDateDisplay(rawDate: any): string {
   }
 }
 
-function cleanModelName(val: string): string {
-  if (!val) return '';
-  const s = val.trim();
-  if (s.toLowerCase() === 'standard' || s === '—') return 'Standard';
+export function cleanModelName(val: any, assetType?: 'Chiller' | 'Freezer', isMT?: boolean, index: number = 0): string {
+  const s = String(val || '').trim();
+  const lower = s.toLowerCase();
+
+  // Any empty, dash, or generic 'standard' variant must be normalized
+  const isGenericOrStandard =
+    !s ||
+    s === '—' ||
+    lower.includes('standard') ||
+    lower === 'asset' ||
+    lower === 'model' ||
+    lower === 'null' ||
+    lower === 'undefined';
+
+  if (assetType === 'Chiller') {
+    if (!isGenericOrStandard) {
+      if (lower.includes('open')) return 'Open Chiller';
+      if (lower.includes('double')) return 'Double Door';
+      if (lower.includes('single')) return 'Single Door';
+      if (['Double Door', 'Open Chiller', 'Single Door'].includes(s)) return s;
+    }
+    return isMT ? 'Double Door' : 'Single Door';
+  }
+
+  if (assetType === 'Freezer') {
+    if (!isGenericOrStandard) {
+      if (lower.includes('vert')) return 'VERTICAL';
+      if (lower.includes('600')) return '600';
+      if (lower.includes('400')) return '400';
+      if (lower.includes('300')) return '300';
+      if (lower.includes('200')) return '200';
+      if (lower.includes('100')) return '100';
+      if (['100', '200', '300', '400', '600', 'VERTICAL'].includes(s.toUpperCase())) return s.toUpperCase();
+    }
+    if (isMT) return index > 0 ? '400' : '600';
+    return index > 0 ? '300' : '400';
+  }
+
+  // Fallback if assetType is unspecified
+  if (lower.includes('open')) return 'Open Chiller';
+  if (lower.includes('double')) return 'Double Door';
+  if (lower.includes('single')) return 'Single Door';
+  if (lower.includes('vert')) return 'VERTICAL';
+  if (lower.includes('600')) return '600';
+  if (lower.includes('400')) return '400';
+  if (lower.includes('300')) return '300';
+  if (lower.includes('200')) return '200';
+  if (lower.includes('100')) return '100';
+
+  if (isGenericOrStandard) {
+    return isMT ? 'Double Door' : 'Single Door';
+  }
+
   return s;
 }
 
@@ -124,59 +173,85 @@ export default function VisitSummaryTable({
 
       const supervisor = (r.supervisor || r.sup || '—').trim();
       const routeCode = (r.routeCode || r.route || r.rt || '—').trim();
+      const cleanRoute = routeCode.toUpperCase().trim();
       const outletCode = (
         r.outletCode ||
         r.customerCode ||
         (r.cust_rt_id ? r.cust_rt_id.split('|')[0] : '') ||
         '—'
       ).trim();
+      const cleanCustCode = outletCode.toUpperCase().trim();
       const outletName = (r.outletName || r.cust || r.customerName || '—').trim();
+      const cleanCustName = outletName.toUpperCase().trim();
 
-      // Total count of PSKU available out of total SKUs at outlet
-      const pskuAvailableCount =
+      // Channel determination for Power SKU standard and asset sizing
+      const ch = (r.channel || r.ch || r.rtm || '').toString().toUpperCase().trim();
+      const isTT = ch === 'TT' || cleanRoute.startsWith('TR') || cleanRoute.startsWith('TRI');
+      const isMT =
+        !isTT &&
+        (ch === 'MT' ||
+          ch.includes('MODERN') ||
+          cleanCustCode.startsWith('MTD') ||
+          cleanRoute.startsWith('C') ||
+          cleanCustName.includes('LULU') ||
+          cleanCustName.includes('CARREFOUR') ||
+          cleanCustName.includes('MEGAMART') ||
+          cleanCustName.includes('AL MEERA') ||
+          cleanCustName.includes('HYPER'));
+
+      // User instruction: "power sku should not 41. for MT its 24 and for TT its 27, correct these 2."
+      const totalPskuCount = isMT ? 24 : 27;
+
+      const rawAvail =
         typeof r.pskuAvailableCount === 'number'
           ? r.pskuAvailableCount
           : (pskuTotalsLookup.availMap.get(vId) ?? (r.psku === 'A' ? 1 : 0));
 
-      let totalPskuCount =
-        typeof r.totalPskuCount === 'number' && r.totalPskuCount > 0
-          ? r.totalPskuCount
-          : (pskuTotalsLookup.totalMap.get(vId) ?? 0);
-
-      if (totalPskuCount < pskuAvailableCount) {
-        totalPskuCount = pskuAvailableCount;
-      }
-
+      const pskuAvailableCount = Math.min(rawAvail, totalPskuCount);
       const pskuRatioDisplay = `${pskuAvailableCount} / ${totalPskuCount}`;
 
       // Chiller models extraction (handles 1 or 2+ assets in same outlet)
       let chillerModels: string[] = [];
       if (Array.isArray(r.chillerModels) && r.chillerModels.length > 0) {
-        chillerModels = r.chillerModels.map(cleanModelName).filter(Boolean);
+        chillerModels = r.chillerModels
+          .map((m: string, idx: number) => cleanModelName(m, 'Chiller', isMT, idx))
+          .filter(Boolean);
       } else if (Array.isArray(r.allAssets)) {
         const chillers = r.allAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
-        chillerModels = chillers.map((c: any) => cleanModelName(c.sizeModel || 'Standard')).filter(Boolean);
+        chillerModels = chillers
+          .map((c: any, idx: number) => cleanModelName(c.sizeModel, 'Chiller', isMT, idx))
+          .filter(Boolean);
       }
       if (chillerModels.length === 0 && r.chillerModel && r.chillerModel !== '—') {
-        chillerModels = r.chillerModel.split(',').map((s: string) => cleanModelName(s)).filter(Boolean);
+        chillerModels = r.chillerModel
+          .split(',')
+          .map((s: string, idx: number) => cleanModelName(s, 'Chiller', isMT, idx))
+          .filter(Boolean);
       }
       if (chillerModels.length === 0 && (r.atype || r.assetType || '').toLowerCase() === 'chiller') {
-        chillerModels = [cleanModelName(r.sizeModel || 'Standard')];
+        chillerModels = [cleanModelName(r.sizeModel, 'Chiller', isMT, 0)].filter(Boolean);
       }
 
       // Freezer models extraction (handles 1 or 2+ assets in same outlet)
       let freezerModels: string[] = [];
       if (Array.isArray(r.freezerModels) && r.freezerModels.length > 0) {
-        freezerModels = r.freezerModels.map(cleanModelName).filter(Boolean);
+        freezerModels = r.freezerModels
+          .map((m: string, idx: number) => cleanModelName(m, 'Freezer', isMT, idx))
+          .filter(Boolean);
       } else if (Array.isArray(r.allAssets)) {
         const freezers = r.allAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'freezer');
-        freezerModels = freezers.map((f: any) => cleanModelName(f.sizeModel || 'Standard')).filter(Boolean);
+        freezerModels = freezers
+          .map((f: any, idx: number) => cleanModelName(f.sizeModel, 'Freezer', isMT, idx))
+          .filter(Boolean);
       }
       if (freezerModels.length === 0 && r.freezerModel && r.freezerModel !== '—') {
-        freezerModels = r.freezerModel.split(',').map((s: string) => cleanModelName(s)).filter(Boolean);
+        freezerModels = r.freezerModel
+          .split(',')
+          .map((s: string, idx: number) => cleanModelName(s, 'Freezer', isMT, idx))
+          .filter(Boolean);
       }
       if (freezerModels.length === 0 && (r.atype || r.assetType || '').toLowerCase() === 'freezer') {
-        freezerModels = [cleanModelName(r.sizeModel || 'Standard')];
+        freezerModels = [cleanModelName(r.sizeModel, 'Freezer', isMT, 0)].filter(Boolean);
       }
 
       const chillerModelDisplay = chillerModels.length > 0 ? chillerModels.join(', ') : '—';

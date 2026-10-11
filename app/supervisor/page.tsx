@@ -21,6 +21,7 @@ import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
 import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
+import FreeAiAssistant from '@/components/dashboard/FreeAiAssistant';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 
 const GCOL: Record<string, string> = {
@@ -412,7 +413,7 @@ export default function SupervisorDashboard() {
           classification: r.gr || r.classification || '',
           class: r.gr || r.class || '',
           assetType: r.atype || r.assetType || 'Chiller',
-          sizeModel: r.sizeModel || 'Standard',
+          sizeModel: r.sizeModel && !r.sizeModel.toLowerCase().includes('standard') ? r.sizeModel : ((r.atype || r.assetType || '').toLowerCase() === 'freezer' ? '400' : 'Single Door'),
           temperature: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
           assetTemp: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
           formattedTemperature: r.tempVal !== undefined ? `${r.tempVal}°C` : (r.temperature || '—'),
@@ -3168,6 +3169,8 @@ export default function SupervisorDashboard() {
           title={`Visit #${reviewData.visit.visitId.slice(-6)} Attachments`}
         />
       )}
+      {/* Free AI Assistant for Fast Executive & Supervisor Insights */}
+      <FreeAiAssistant visits={filtered} reportRows={reportRows} />
     </div>
   );
 }
