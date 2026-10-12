@@ -1178,13 +1178,13 @@ export default function SupervisorDashboard() {
           if (typeof value !== 'number') return;
           const label = `${value}%`;
           ctx.save();
-          ctx.font = '700 12px Inter, sans-serif';
+          ctx.font = '800 12px Inter, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
           ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
           ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
           ctx.shadowBlur = 4;
-          const labelY = Math.max(bar.y - 6, (chartArea?.top || 16) - 2);
+          const labelY = Math.max(bar.y - 8, 14);
           ctx.fillText(label, bar.x, labelY);
           ctx.restore();
         });
@@ -1366,8 +1366,8 @@ export default function SupervisorDashboard() {
                 ctx.textBaseline = 'bottom';
                 ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
                 ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
-                ctx.shadowBlur = 4;
-                ctx.fillText(label, bar.x, bar.y - 4);
+                const labelY = Math.max(bar.y - 6, 14);
+                ctx.fillText(label, bar.x, labelY);
                 ctx.restore();
               });
             },
@@ -1376,7 +1376,7 @@ export default function SupervisorDashboard() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 20 },
+            padding: { top: 26, bottom: 6, left: 4, right: 4 },
           },
           plugins: {
             legend: { display: false },
@@ -1449,7 +1449,8 @@ export default function SupervisorDashboard() {
               label: 'Total Visits',
               data: topSup.map((x) => x[1]),
               backgroundColor: BLUE,
-              borderRadius: 6,
+              borderRadius: 8,
+              maxBarThickness: 48,
             },
           ],
         },
@@ -1457,7 +1458,7 @@ export default function SupervisorDashboard() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 20 },
+            padding: { top: 26, bottom: 6, left: 6, right: 6 },
           },
           plugins: {
             legend: { display: false },
@@ -1503,7 +1504,8 @@ export default function SupervisorDashboard() {
           datasets: [
             {
               data: [tempPct(okCount), tempPct(breachCount)],
-              backgroundColor: [GREEN, RED],
+              backgroundColor: ['#10b981', '#ef4444'],
+              hoverBackgroundColor: ['#059669', '#dc2626'],
               borderWidth: 0,
             },
           ],
@@ -1511,7 +1513,7 @@ export default function SupervisorDashboard() {
         plugins: [createDoughnutPctLabelPlugin()],
         options: {
           maintainAspectRatio: false,
-          cutout: '62%',
+          cutout: '70%',
           plugins: {
             legend: {
               position: 'bottom',
@@ -1694,7 +1696,7 @@ export default function SupervisorDashboard() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 24, bottom: 4, left: 8, right: 8 },
+            padding: { top: 32, bottom: 6, left: 8, right: 8 },
           },
           plugins: {
             legend: { display: false },
@@ -1725,12 +1727,14 @@ export default function SupervisorDashboard() {
             },
             y: {
               beginAtZero: true,
-              max: 115,
+              min: 0,
+              max: 100,
               grid: { display: false },
               ticks: {
                 color: textColor,
                 callback: (v: any) => `${v}%`,
                 stepSize: 20,
+                font: { weight: 'bold', size: 11 },
               },
             },
           },
