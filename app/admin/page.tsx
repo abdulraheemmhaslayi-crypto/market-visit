@@ -1165,10 +1165,11 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (isLoading || !filtered) return;
 
-    const BLUE = '#4F46E5', BLUE_DEEP = '#4338CA', GREEN = '#0f9d63', AMBER = '#d08a12', RED = '#d63d2e', GREY = '#c3d2de';
+    const BLUE = '#4F46E5', BLUE_DEEP = '#4338CA', GREEN = '#10b981', AMBER = '#d97706', RED = '#ef4444', GREY = '#cbd5e1';
     const isDark = theme === 'dark';
     const gridColor = isDark ? '#2A3A55' : '#E4E9F0';
-    const textColor = isDark ? '#94A3B8' : '#5A6478';
+    const textColor = isDark ? '#f8fafc' : '#0f172a';
+    const mutedTextColor = isDark ? '#cbd5e1' : '#334155';
 
     const countFreq = (arr: any[], fn: (r: any) => string | number) => {
       const m: Record<string, number> = {};
@@ -1182,7 +1183,7 @@ export default function AdminDashboardPage() {
     const createBarPctLabelPlugin = () => ({
       id: 'barPctLabels',
       afterDatasetsDraw(chart: any) {
-        const { ctx, chartArea } = chart;
+        const { ctx } = chart;
         const dataset = chart.data.datasets[0];
         if (!dataset || !dataset.data) return;
         const meta = chart.getDatasetMeta(0);
@@ -1191,15 +1192,51 @@ export default function AdminDashboardPage() {
           const value = dataset.data[index];
           if (typeof value !== 'number') return;
           const label = `${value}%`;
+          const isAvail = index === 0;
+
           ctx.save();
-          ctx.font = '800 12px Inter, sans-serif';
+          ctx.font = '800 12.5px Inter, sans-serif';
+          const textWidth = ctx.measureText(label).width;
+          const badgeW = Math.max(textWidth + 16, 38);
+          const badgeH = 22;
+          const badgeX = bar.x - badgeW / 2;
+          const badgeY = Math.max(bar.y - badgeH - 6, 6);
+
+          // Pill Background
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+          } else {
+            ctx.rect(badgeX, badgeY, badgeW, badgeH);
+          }
+
+          if (isAvail && value > 0) {
+            ctx.fillStyle = isDark ? '#064e3b' : '#ecfdf5';
+            ctx.fill();
+            ctx.strokeStyle = isDark ? '#059669' : '#10b981';
+          } else if (!isAvail && value > 0) {
+            ctx.fillStyle = isDark ? '#450a0a' : '#fef2f2';
+            ctx.fill();
+            ctx.strokeStyle = isDark ? '#dc2626' : '#ef4444';
+          } else {
+            ctx.fillStyle = isDark ? '#1e293b' : '#f8fafc';
+            ctx.fill();
+            ctx.strokeStyle = isDark ? '#475569' : '#cbd5e1';
+          }
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          // Pill Text
           ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
-          ctx.shadowBlur = 4;
-          const labelY = Math.max(bar.y - 8, 14);
-          ctx.fillText(label, bar.x, labelY);
+          ctx.textBaseline = 'middle';
+          if (isAvail && value > 0) {
+            ctx.fillStyle = isDark ? '#34d399' : '#047857';
+          } else if (!isAvail && value > 0) {
+            ctx.fillStyle = isDark ? '#f87171' : '#b91c1c';
+          } else {
+            ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+          }
+          ctx.fillText(label, bar.x, badgeY + badgeH / 2);
           ctx.restore();
         });
       },
@@ -1210,18 +1247,41 @@ export default function AdminDashboardPage() {
       afterDatasetsDraw(chart: any) {
         const { ctx } = chart;
         const dataset = chart.data.datasets[0];
-        chart.getDatasetMeta(0).data.forEach((bar: any, index: number) => {
+        if (!dataset || !dataset.data) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data) return;
+
+        meta.data.forEach((bar: any, index: number) => {
           const value = dataset.data[index];
-          if (typeof value !== 'number') return;
+          if (typeof value !== 'number' || value <= 0) return;
           const label = `${value}`;
+
           ctx.save();
-          ctx.font = '700 11px Inter, sans-serif';
+          ctx.font = '800 12px Inter, sans-serif';
+          const textWidth = ctx.measureText(label).width;
+          const badgeW = Math.max(textWidth + 14, 26);
+          const badgeH = 20;
+          const badgeX = bar.x - badgeW / 2;
+          const badgeY = Math.max(bar.y - badgeH - 6, 6);
+
+          // Pill Background
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+          } else {
+            ctx.rect(badgeX, badgeY, badgeW, badgeH);
+          }
+          ctx.fillStyle = isDark ? '#1e293b' : '#ffffff';
+          ctx.fill();
+          ctx.strokeStyle = isDark ? '#475569' : '#cbd5e1';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          // Pill Text
           ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
-          ctx.shadowBlur = 4;
-          ctx.fillText(label, bar.x, bar.y - 4);
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+          ctx.fillText(label, bar.x, badgeY + badgeH / 2);
           ctx.restore();
         });
       },
@@ -1352,10 +1412,12 @@ export default function AdminDashboardPage() {
             {
               label: 'Visits',
               data: sortedDates.map((d) => dateCounts[d] || 0),
-              backgroundColor: BLUE,
+              backgroundColor: '#4f46e5',
               hoverBackgroundColor: '#4338ca',
-              borderRadius: 6,
-              maxBarThickness: 48,
+              borderColor: '#6366f1',
+              borderWidth: 1.5,
+              borderRadius: 8,
+              maxBarThickness: 46,
             },
           ],
         },
@@ -1369,19 +1431,36 @@ export default function AdminDashboardPage() {
               const meta = chart.getDatasetMeta(0);
               if (!meta || !meta.data) return;
 
-              const fontSize = sortedDates.length > 25 ? 9 : (sortedDates.length > 15 ? 10 : 11);
+              const fontSize = sortedDates.length > 25 ? 10 : (sortedDates.length > 15 ? 11 : 12);
               meta.data.forEach((bar: any, index: number) => {
                 const value = dataset.data[index];
                 if (typeof value !== 'number' || value <= 0) return;
                 const label = `${value}`;
+
                 ctx.save();
-                ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+                ctx.font = `800 ${fontSize}px Inter, sans-serif`;
+                const textWidth = ctx.measureText(label).width;
+                const badgeW = Math.max(textWidth + 12, 24);
+                const badgeH = 19;
+                const badgeX = bar.x - badgeW / 2;
+                const badgeY = Math.max(bar.y - badgeH - 6, 6);
+
+                ctx.beginPath();
+                if (typeof ctx.roundRect === 'function') {
+                  ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+                } else {
+                  ctx.rect(badgeX, badgeY, badgeW, badgeH);
+                }
+                ctx.fillStyle = isDark ? '#1e293b' : '#ffffff';
+                ctx.fill();
+                ctx.strokeStyle = isDark ? '#475569' : '#cbd5e1';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+
                 ctx.textAlign = 'center';
-                ctx.textBaseline = 'bottom';
-                ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-                ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
-                const labelY = Math.max(bar.y - 6, 14);
-                ctx.fillText(label, bar.x, labelY);
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+                ctx.fillText(label, bar.x, badgeY + badgeH / 2);
                 ctx.restore();
               });
             },
@@ -1425,9 +1504,9 @@ export default function AdminDashboardPage() {
               grid: { display: false },
               ticks: {
                 color: textColor,
-                font: { weight: 'bold' },
-                maxRotation: 45,
-                minRotation: 45,
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: sortedDates.length > 20 ? 10.5 : 12 },
+                maxRotation: 40,
+                minRotation: 35,
                 autoSkip: false,
               },
             },
@@ -1436,8 +1515,9 @@ export default function AdminDashboardPage() {
               grace: '15%',
               grid: { display: false },
               ticks: {
-                color: textColor,
+                color: mutedTextColor,
                 precision: 0,
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: 11.5 },
               },
             },
           },
@@ -1538,7 +1618,10 @@ export default function AdminDashboardPage() {
             {
               label: 'Total Visits',
               data: topSup.map((x) => x[1]),
-              backgroundColor: BLUE,
+              backgroundColor: '#6366f1',
+              hoverBackgroundColor: '#4f46e5',
+              borderColor: '#818cf8',
+              borderWidth: 1.5,
               borderRadius: 8,
               maxBarThickness: 48,
             },
@@ -1548,7 +1631,7 @@ export default function AdminDashboardPage() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 26, bottom: 6, left: 6, right: 6 },
+            padding: { top: 28, bottom: 6, left: 6, right: 6 },
           },
           plugins: {
             legend: { display: false },
@@ -1564,8 +1647,23 @@ export default function AdminDashboardPage() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { display: false }, ticks: { color: textColor, font: { weight: 'bold' } } },
-            y: { beginAtZero: true, grace: '15%', grid: { display: false }, ticks: { color: textColor, precision: 0 } },
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: textColor,
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: 12.5 },
+              },
+            },
+            y: {
+              beginAtZero: true,
+              grace: '15%',
+              grid: { display: false },
+              ticks: {
+                color: mutedTextColor,
+                precision: 0,
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: 11.5 },
+              },
+            },
           },
         },
       });
@@ -1605,28 +1703,67 @@ export default function AdminDashboardPage() {
 
       const tempPct = (count: number) => (tempTotal ? Math.round((count / tempTotal) * 100) : 0);
 
+      const tempPctVal = tempPct(okCount);
+
       chartsRef.current.cTemp = new Chart(canvasTempRef.current, {
         type: 'doughnut',
         data: {
           labels: ['Within range', 'Breach'],
           datasets: [
             {
-              data: [tempPct(okCount), tempPct(breachCount)],
+              data: [tempPctVal, tempPct(breachCount)],
               backgroundColor: ['#10b981', '#ef4444'],
               hoverBackgroundColor: ['#059669', '#dc2626'],
-              borderWidth: 0,
+              borderColor: isDark ? '#1e293b' : '#ffffff',
+              borderWidth: 3,
             },
           ],
         },
-        plugins: [createDoughnutPctLabelPlugin()],
+        plugins: [
+          createDoughnutPctLabelPlugin(),
+          {
+            id: 'cTempCenterKpi',
+            beforeDraw(chart: any) {
+              const { ctx, chartArea } = chart;
+              if (!chartArea) return;
+              const { top, bottom, left, right } = chartArea;
+              const cx = (left + right) / 2;
+              const cy = (top + bottom) / 2;
+
+              ctx.save();
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+
+              // Big bold percentage
+              ctx.font = '900 28px Inter, sans-serif';
+              ctx.fillStyle = tempPctVal === 100
+                ? (isDark ? '#34d399' : '#059669')
+                : (tempPctVal >= 80 ? (isDark ? '#fbbf24' : '#d97706') : (isDark ? '#f87171' : '#dc2626'));
+              ctx.fillText(`${tempPctVal}%`, cx, cy - 7);
+
+              // Subtext badge
+              ctx.font = '800 10.5px Inter, sans-serif';
+              ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+              ctx.fillText(tempPctVal === 100 ? 'IN RANGE' : (breachCount > 0 ? `${tempPct(breachCount)}% BREACH` : 'OPTIMAL'), cx, cy + 15);
+
+              ctx.restore();
+            },
+          },
+        ],
         options: {
           maintainAspectRatio: false,
-          cutout: '70%',
+          cutout: '72%',
           plugins: {
             legend: {
               position: 'bottom',
               labels: {
                 color: textColor,
+                font: { family: 'Inter, sans-serif', size: 12, weight: 'bold' },
+                boxWidth: 10,
+                boxHeight: 10,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                padding: 12,
                 generateLabels: (chart: any) => {
                   const data = chart.data;
                   if (!data.labels.length || !data.datasets.length) return [];
@@ -1788,8 +1925,10 @@ export default function AdminDashboardPage() {
           datasets: [
             {
               data: [pskuPct(availCount), pskuPct(notAvailCount)],
-              backgroundColor: [GREEN, RED],
+              backgroundColor: ['#10b981', '#ef4444'],
               hoverBackgroundColor: ['#059669', '#dc2626'],
+              borderColor: ['#34d399', '#f87171'],
+              borderWidth: 1.5,
               borderRadius: 8,
               borderSkipped: false,
               maxBarThickness: 56,
@@ -1828,7 +1967,7 @@ export default function AdminDashboardPage() {
           scales: {
             x: {
               grid: { display: false },
-              ticks: { color: textColor, font: { weight: 'bold', size: 12 } },
+              ticks: { color: textColor, font: { family: 'Inter, sans-serif', weight: 'bold', size: 13 } },
             },
             y: {
               beginAtZero: true,
@@ -1836,10 +1975,10 @@ export default function AdminDashboardPage() {
               max: 100,
               grid: { display: false },
               ticks: {
-                color: textColor,
+                color: mutedTextColor,
                 callback: (v: any) => `${v}%`,
                 stepSize: 20,
-                font: { weight: 'bold', size: 11 },
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: 11.5 },
               },
             },
           },
@@ -1914,7 +2053,9 @@ export default function AdminDashboardPage() {
               data: allGrades.map((g) => stats[g].visited),
               backgroundColor: '#10b981',
               hoverBackgroundColor: '#059669',
-              borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 4, bottomRight: 4 },
+              borderColor: '#34d399',
+              borderWidth: 1,
+              borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 6, bottomRight: 6 },
               borderSkipped: false,
               stack: 'dairyStack',
               barPercentage: 0.62,
@@ -1923,9 +2064,11 @@ export default function AdminDashboardPage() {
             {
               label: 'Unvisited Outlets',
               data: allGrades.map((g) => stats[g].unvisited),
-              backgroundColor: theme === 'dark' ? '#334155' : '#cbd5e1',
-              hoverBackgroundColor: theme === 'dark' ? '#475569' : '#94a3b8',
-              borderRadius: { topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0 },
+              backgroundColor: isDark ? '#334155' : '#cbd5e1',
+              hoverBackgroundColor: isDark ? '#475569' : '#94a3b8',
+              borderColor: isDark ? '#475569' : '#94a3b8',
+              borderWidth: 1,
+              borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
               borderSkipped: false,
               stack: 'dairyStack',
               barPercentage: 0.62,
@@ -1955,16 +2098,16 @@ export default function AdminDashboardPage() {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
 
-                // Line 1: Coverage %
-                ctx.font = '700 11px Inter, sans-serif';
+                // Line 1: Coverage % (bold 12.5px emerald or amber)
+                ctx.font = '800 12.5px Inter, sans-serif';
                 ctx.fillStyle = s.coveragePct >= 50
-                  ? (theme === 'dark' ? '#34d399' : '#059669')
-                  : (theme === 'dark' ? '#fbbf24' : '#d97706');
-                ctx.fillText(`${s.coveragePct}%`, topBar.x, topBar.y - 14);
+                  ? (isDark ? '#34d399' : '#059669')
+                  : (isDark ? '#fbbf24' : '#d97706');
+                ctx.fillText(`${s.coveragePct}%`, topBar.x, topBar.y - 15);
 
-                // Line 2: Ratio (visited/total)
-                ctx.font = '600 9.5px Inter, sans-serif';
-                ctx.fillStyle = theme === 'dark' ? '#94a3b8' : '#64748b';
+                // Line 2: Ratio (visited/total) in crisp slate
+                ctx.font = '700 11px Inter, sans-serif';
+                ctx.fillStyle = isDark ? '#cbd5e1' : '#334155';
                 ctx.fillText(`${s.visited}/${s.total}`, topBar.x, topBar.y - 2);
 
                 ctx.restore();
@@ -1975,7 +2118,7 @@ export default function AdminDashboardPage() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 20, bottom: 4, left: 4, right: 6 },
+            padding: { top: 24, bottom: 4, left: 4, right: 6 },
           },
           plugins: {
             legend: {
@@ -1984,12 +2127,12 @@ export default function AdminDashboardPage() {
               align: 'end',
               labels: {
                 color: textColor,
-                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
-                boxWidth: 8,
-                boxHeight: 8,
+                font: { family: 'Inter, sans-serif', size: 12, weight: 'bold' },
+                boxWidth: 9,
+                boxHeight: 9,
                 usePointStyle: true,
                 pointStyle: 'circle',
-                padding: 10,
+                padding: 12,
               },
             },
             tooltip: {
@@ -2056,7 +2199,7 @@ export default function AdminDashboardPage() {
                 maxRotation: 0,
                 minRotation: 0,
                 autoSkip: false,
-                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
+                font: { family: 'Inter, sans-serif', size: 13.5, weight: 'bold' },
               },
             },
             y: {
@@ -2065,9 +2208,9 @@ export default function AdminDashboardPage() {
               suggestedMax: yMax,
               grid: { display: false },
               ticks: {
-                color: textColor,
+                color: mutedTextColor,
                 precision: 0,
-                font: { family: 'Inter, sans-serif', size: 10 },
+                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
               },
             },
           },
@@ -2404,25 +2547,31 @@ export default function AdminDashboardPage() {
         }
         .panel {
           background:var(--card);
-          border-radius:12px;
-          padding:10px 14px 6px;
-          box-shadow:var(--shadow);
+          border-radius:16px;
+          padding:14px 16px 10px;
+          box-shadow:0 1px 3px rgba(0,0,0,0.04), 0 8px 24px -4px rgba(0,0,0,0.04);
           border:1px solid var(--line);
+          transition:box-shadow 0.2s ease;
+        }
+        .panel:hover {
+          box-shadow:0 4px 12px rgba(0,0,0,0.06), 0 12px 28px -4px rgba(0,0,0,0.05);
         }
         .panel.tbl { padding-bottom:12px; }
         .panel h3 {
-          font-size:13px;
+          font-size:14.5px;
           font-weight:800;
-          margin-bottom:3px;
+          letter-spacing:-0.2px;
+          margin-bottom:2px;
+          color:var(--ink);
         }
         .panel .psub {
-          font-size:10px;
+          font-size:11px;
           color:var(--soft);
           font-weight:600;
           margin-bottom:8px;
         }
-        .chart-box { position:relative; height:165px; }
-        .chart-sm { position:relative; height:165px; }
+        .chart-box { position:relative; height:190px; }
+        .chart-sm { position:relative; height:190px; }
         table {
           width:100%;
           border-collapse:collapse;
@@ -2852,7 +3001,7 @@ export default function AdminDashboardPage() {
               </div>
               <ExportButton onClick={handleExportPowerSkuChart} label="Export" variant="compact" />
             </div>
-            <div style={{ position: 'relative', height: '175px' }}>
+            <div style={{ position: 'relative', height: '190px' }}>
               <canvas ref={canvasPskuRef}></canvas>
             </div>
           </div>
@@ -2864,7 +3013,7 @@ export default function AdminDashboardPage() {
               </div>
               <ExportButton onClick={handleExportClassificationDairyChart} label="Export" variant="compact" />
             </div>
-            <div style={{ position: 'relative', height: '175px' }}>
+            <div style={{ position: 'relative', height: '190px' }}>
               <canvas ref={canvasClassDairyRef}></canvas>
             </div>
           </div>
