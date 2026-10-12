@@ -10,7 +10,7 @@ let pool: mysql.Pool;
 
 if (process.env.NODE_ENV === 'production') {
   pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || process.env.DB_SERVER || 'localhost',
     port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
@@ -27,7 +27,7 @@ if (process.env.NODE_ENV === 'production') {
 } else {
   if (!global.__mysqlPool) {
     global.__mysqlPool = mysql.createPool({
-      host: process.env.DB_HOST || 'localhost',
+      host: process.env.DB_HOST || process.env.DB_SERVER || 'localhost',
       port: Number(process.env.DB_PORT) || 3306,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
