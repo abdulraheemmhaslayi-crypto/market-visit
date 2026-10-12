@@ -26,6 +26,9 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = req.nextUrl;
     const dateParam = searchParams.get('date'); // 'YYYY-MM-DD' or 'all'
+    const fromDateParam = searchParams.get('fromDate') || searchParams.get('startDate');
+    const toDateParam = searchParams.get('toDate') || searchParams.get('endDate');
+    const rtmParam = searchParams.get('rtm') || searchParams.get('channel');
     const appNameParam = searchParams.get('appName'); // application name or 'all'
     const supervisorIdParam = searchParams.get('supervisorId');
     const supervisorParam = searchParams.get('supervisor'); // supervisor name or 'all'
@@ -443,30 +446,48 @@ export async function GET(req: NextRequest) {
     const EXCLUDED_SUPS = new Set(['INTERNAL', 'SAMRA', 'ADMIN']);
     const routeParam = searchParams.get('routeCode') || searchParams.get('route'); // route code or 'all'
 
-    // Filter by Date first so available Outlets, Routes & Supervisors match the selected date
+    // Filter by Date range (From Date & To Date) or single date
     let dateFilteredPhotos = allEnrichedPhotos;
-    if (dateParam && dateParam !== 'all') {
+    if (fromDateParam || toDateParam) {
+      dateFilteredPhotos = allEnrichedPhotos.filter((p: any) => {
+        const photoDay = p.uploadedAt ? p.uploadedAt.split('T')[0] : '';
+        if (!photoDay) return false;
+        if (fromDateParam && fromDateParam !== 'all' && photoDay < fromDateParam.trim()) return false;
+        if (toDateParam && toDateParam !== 'all' && photoDay > toDateParam.trim()) return false;
+        return true;
+      });
+    } else if (dateParam && dateParam !== 'all') {
       const targetDate = dateParam.trim(); // YYYY-MM-DD
       dateFilteredPhotos = allEnrichedPhotos.filter((p: any) => {
-        const photoDay = p.uploadedAt.split('T')[0];
+        const photoDay = p.uploadedAt ? p.uploadedAt.split('T')[0] : '';
         return photoDay === targetDate;
       });
     }
 
-    // Dynamic extraction of distinct Supervisors, Outlets & Routes for the selected date
+    // Dynamic extraction of distinct Supervisors, Outlets, Routes & RTM Channels
     const dbSupSet = new Set<string>();
     const dbOutletSet = new Set<string>();
     const dbRouteSet = new Set<string>();
+    const dbRtmSet = new Set<string>();
 
     dateFilteredPhotos.forEach((p: any) => {
       if (p.supervisor && !EXCLUDED_SUPS.has(p.supervisor.toUpperCase())) dbSupSet.add(p.supervisor);
       if (p.outlet) dbOutletSet.add(p.outlet);
       if (p.route) dbRouteSet.add(p.route);
+      if (p.channel) dbRtmSet.add(p.channel);
     });
+
+    allEnrichedPhotos.forEach((p: any) => {
+      if (p.channel) dbRtmSet.add(p.channel);
+    });
+    if (dbRtmSet.size === 0) {
+      ['TT', 'MT', 'INST'].forEach((c) => dbRtmSet.add(c));
+    }
 
     const supervisors = Array.from(dbSupSet).sort();
     const outlets = Array.from(dbOutletSet).sort();
     const routes = Array.from(dbRouteSet).sort();
+    const rtms = Array.from(dbRtmSet).sort();
 
     let filtered = dateFilteredPhotos;
 
@@ -492,6 +513,12 @@ export async function GET(req: NextRequest) {
     if (outletParam && outletParam !== 'all') {
       const targetOutlet = outletParam.trim().toLowerCase();
       filtered = filtered.filter((p: any) => p.outlet.toLowerCase() === targetOutlet);
+    }
+
+    // Filter by RTM / Channel
+    if (rtmParam && rtmParam !== 'all') {
+      const targetRtm = rtmParam.trim().toUpperCase();
+      filtered = filtered.filter((p: any) => (p.channel || '').toUpperCase() === targetRtm);
     }
 
     // Search filter
@@ -524,6 +551,8 @@ export async function GET(req: NextRequest) {
       supervisors,
       outlets,
       routes,
+      rtms,
+      channels: rtms,
       pagination: {
         totalCount,
         totalPages,

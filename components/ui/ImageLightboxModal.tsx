@@ -894,6 +894,151 @@ export default function ImageLightboxModal({
           </button>
         </div>
 
+        {/* BOTTOM CENTER: Observations / Notes (Optional) - Dedicated area BELOW picture, never covering the picture */}
+        {(() => {
+          const currentVisitId = current.visitId || '';
+          const asyncData = currentVisitId ? asyncObservations[currentVisitId] : null;
+
+          const rawAssetObs: any[] =
+            (current.assetObservations && current.assetObservations.length > 0)
+              ? current.assetObservations
+              : (asyncData?.assetObservations || []);
+
+          // Determine the asset type of the currently viewed photo
+          const catLower = (current.category || '').toLowerCase();
+          const assetTypeLower = (current.assetType || '').toLowerCase();
+
+          let targetAssetType: 'Freezer' | 'Chiller' | null = null;
+          if (
+            catLower.includes('ice') ||
+            catLower.includes('freezer') ||
+            assetTypeLower.includes('freezer')
+          ) {
+            targetAssetType = 'Freezer';
+          } else if (
+            catLower.includes('dairy') ||
+            catLower.includes('beverage') ||
+            catLower.includes('chiller') ||
+            catLower.includes('vegetable') ||
+            assetTypeLower.includes('chiller')
+          ) {
+            targetAssetType = 'Chiller';
+          }
+
+          // Filter assets strictly to the current photo's asset type (Freezer OR Chiller, never both!)
+          const matchedAssets = targetAssetType
+            ? rawAssetObs.filter((ast: any) =>
+                String(ast.assetType || '').toLowerCase().includes(targetAssetType.toLowerCase())
+              )
+            : rawAssetObs;
+
+          // Find specific observations for this asset type
+          const assetObsList = matchedAssets
+            .map((ast: any) => (ast.observation || '').trim())
+            .filter((obs: string) => obs && obs !== '—');
+
+          // Check visit-level observation
+          const visitObsRaw = String(
+            current.visitObservation ||
+            asyncData?.visitObservation ||
+            current.observation ||
+            asyncData?.observation ||
+            current.notes ||
+            ''
+          ).trim();
+
+          // Does visitObsRaw specifically pertain to the other asset type?
+          const otherAssetWord = targetAssetType === 'Chiller' ? 'freezer' : targetAssetType === 'Freezer' ? 'chiller' : null;
+
+          let displayNote = '';
+          if (assetObsList.length > 0) {
+            displayNote = assetObsList.join('; ');
+          } else if (visitObsRaw && visitObsRaw !== '—') {
+            const parts = visitObsRaw.split(';').map((p) => p.trim()).filter(Boolean);
+            const filteredParts = parts.filter((part) => {
+              if (otherAssetWord && part.toLowerCase().includes(otherAssetWord)) {
+                return false;
+              }
+              return true;
+            });
+            if (filteredParts.length > 0) {
+              displayNote = filteredParts.join('; ');
+            }
+          }
+
+          const hasAssets = matchedAssets.length > 0;
+          const hasNote = Boolean(displayNote);
+
+          return (
+            <div className="w-full flex-shrink-0 bg-slate-950/95 border-t border-slate-800/80 px-4 py-2 z-20 flex justify-center items-center shadow-xl backdrop-blur-md">
+              <div className="max-w-4xl w-full bg-slate-900/95 border border-slate-800/90 rounded-xl px-4 py-2 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                {/* Left: Section Header & Matched Asset Badges */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] uppercase tracking-wider font-extrabold text-sky-400 flex items-center gap-1.5 flex-shrink-0">
+                    <FileText className="h-3.5 w-3.5 text-sky-400" />
+                    <span>Observations / Notes (Optional)</span>
+                  </span>
+
+                  {matchedAssets.map((ast: any, idx: number) => {
+                    const isFreezer = String(ast.assetType).toLowerCase().includes('freezer');
+                    const tempVal = ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null;
+                    return (
+                      <div key={ast.assetId || idx} className="inline-flex items-center gap-1.5 text-[10px] font-semibold">
+                        <span
+                          className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${
+                            isFreezer
+                              ? 'bg-cyan-950 text-cyan-300 border border-cyan-800/70'
+                              : 'bg-blue-950 text-blue-300 border border-blue-800/70'
+                          }`}
+                        >
+                          {ast.assetType || (isFreezer ? 'Freezer' : 'Chiller')}
+                        </span>
+                        {ast.sizeModel && (
+                          <span className="text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700/60 font-mono">
+                            {ast.sizeModel}
+                          </span>
+                        )}
+                        {tempVal !== null && !isNaN(tempVal) && (
+                          <span className="font-mono text-emerald-400 bg-slate-800 px-1.5 py-0.5 rounded border border-emerald-900/60 flex items-center gap-0.5">
+                            <Thermometer className="h-2.5 w-2.5" />
+                            {tempVal > 0 ? `+${tempVal}` : tempVal}°C
+                          </span>
+                        )}
+                        {ast.actionRequired && ast.actionRequired !== 'Select Status' && ast.actionRequired !== 'None' && (
+                          <span className="text-indigo-300 bg-slate-800 px-1.5 py-0.5 rounded border border-indigo-800/60">
+                            {ast.actionRequired}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Right: The Observation Quote for THIS Asset */}
+                <div className="flex-1 min-w-0 md:text-right">
+                  {hasNote ? (
+                    <p className="text-xs text-slate-100 font-medium italic break-words md:text-right">
+                      &ldquo;{displayNote}&rdquo;
+                    </p>
+                  ) : hasAssets ? (
+                    <p className="text-[11px] text-slate-400 italic md:text-right">
+                      No observation notes recorded for {targetAssetType || 'this asset'}.
+                    </p>
+                  ) : isLoadingObservations ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 md:justify-end">
+                      <Loader2 className="h-3 w-3 animate-spin text-sky-400" /> Loading notes…
+                    </span>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 italic md:text-right">
+                      No observations recorded.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Bottom Dock Bar: Navigation, Zoom & Rotation, and Pan Controls in Dedicated Blank Footer */}
         <div className="w-full flex-shrink-0 bg-slate-950/95 border-t border-slate-800/80 px-3 sm:px-6 py-2.5 z-30 select-none shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
           {/* Group 1: Navigation Controls */}
@@ -1538,195 +1683,6 @@ export default function ImageLightboxModal({
                   </p>
                 </div>
               )}
-
-              {/* SECTION: OBSERVATIONS / NOTES (OPTIONAL) */}
-              {(() => {
-                const currentVisitId = current.visitId || '';
-                const asyncData = currentVisitId ? asyncObservations[currentVisitId] : null;
-
-                const rawAssetObs: any[] =
-                  (current.assetObservations && current.assetObservations.length > 0)
-                    ? current.assetObservations
-                    : (asyncData?.assetObservations || []);
-
-                const assetObsWithContent = rawAssetObs.filter(
-                  (ast: any) => ast?.observation && String(ast.observation).trim() !== '' && String(ast.observation).trim() !== '—'
-                );
-
-                const generalObsText = String(
-                  current.visitObservation ||
-                  asyncData?.visitObservation ||
-                  current.observation ||
-                  asyncData?.observation ||
-                  current.notes ||
-                  current.remarks ||
-                  ''
-                ).trim();
-
-                return (
-                  <div className="pt-3 border-t border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] uppercase tracking-wider font-extrabold text-sky-400 flex items-center gap-1.5">
-                        <FileText className="h-3.5 w-3.5 text-sky-400" />
-                        <span>Observations / Notes (Optional)</span>
-                      </label>
-                      {assetObsWithContent.length > 0 && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-950 text-sky-300 border border-sky-800/60 font-mono">
-                          {assetObsWithContent.length} Note{assetObsWithContent.length === 1 ? '' : 's'}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Case 1: Specific asset observation notes are present */}
-                    {assetObsWithContent.length > 0 ? (
-                      <div className="space-y-2">
-                        {assetObsWithContent.map((ast: any, idx: number) => {
-                          const assetLabel = ast.assetType || `Asset #${idx + 1}`;
-                          const isChiller = String(ast.assetType).toLowerCase().includes('chiller');
-                          const isFreezer = String(ast.assetType).toLowerCase().includes('freezer');
-                          const tempVal = ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null;
-
-                          return (
-                            <div
-                              key={ast.assetId || idx}
-                              className="rounded-xl p-3 bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 shadow-inner space-y-2"
-                            >
-                              {/* Asset Header Tags */}
-                              <div className="flex items-center justify-between gap-1 flex-wrap">
-                                <div className="flex items-center gap-1.5">
-                                  <span
-                                    className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                                      isFreezer
-                                        ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-800/60'
-                                        : isChiller
-                                        ? 'bg-blue-950/80 text-blue-300 border border-blue-800/60'
-                                        : 'bg-indigo-950/80 text-indigo-300 border border-indigo-800/60'
-                                    }`}
-                                  >
-                                    {assetLabel}
-                                  </span>
-                                  {ast.sizeModel && (
-                                    <span className="text-[10px] text-slate-300 font-medium bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700/50">
-                                      {ast.sizeModel}
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-1.5">
-                                  {tempVal !== null && !isNaN(tempVal) && (
-                                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-800/90 text-emerald-400 border border-emerald-900/50 flex items-center gap-0.5">
-                                      <Thermometer className="h-2.5 w-2.5 text-emerald-400" />
-                                      {tempVal > 0 ? `+${tempVal}` : tempVal}°C
-                                    </span>
-                                  )}
-                                  {ast.actionRequired && ast.actionRequired !== 'Select Status' && ast.actionRequired !== 'None' && (
-                                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/60">
-                                      {ast.actionRequired}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Quoted Observation Text */}
-                              <div className="relative pl-3 border-l-2 border-sky-500/80 py-0.5">
-                                <p className="text-xs text-slate-100 font-normal leading-relaxed whitespace-pre-wrap break-words">
-                                  &ldquo;{ast.observation}&rdquo;
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* If there is also an additional visit-level audit note distinct from the asset notes */}
-                        {generalObsText &&
-                          generalObsText !== '—' &&
-                          !assetObsWithContent.some((a) => a.observation && generalObsText.includes(a.observation)) && (
-                            <div className="rounded-xl p-3 bg-slate-950/80 border border-slate-800/90 space-y-1.5">
-                              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1">
-                                <MessageSquare className="h-3 w-3 text-slate-400" /> Additional Visit Note
-                              </span>
-                              <div className="relative pl-3 border-l-2 border-slate-600 py-0.5">
-                                <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
-                                  &ldquo;{generalObsText}&rdquo;
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                      </div>
-                    ) : generalObsText && generalObsText !== '—' ? (
-                      /* Case 2: General visit observation / note is present */
-                      <div className="space-y-2">
-                        <div className="rounded-xl p-3 bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 shadow-inner space-y-1.5">
-                          <span className="text-[10px] uppercase font-bold tracking-wider text-sky-400 flex items-center gap-1">
-                            <MessageSquare className="h-3 w-3 text-sky-400" /> Visit Observation & Note
-                          </span>
-                          <div className="relative pl-3 border-l-2 border-sky-500/80 py-0.5">
-                            <p className="text-xs text-slate-100 font-normal leading-relaxed whitespace-pre-wrap break-words">
-                              &ldquo;{generalObsText}&rdquo;
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Asset Summary badges if assets exist */}
-                        {rawAssetObs.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {rawAssetObs.map((ast: any, idx: number) => {
-                              const tempVal = ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null;
-                              return (
-                                <span
-                                  key={ast.assetId || idx}
-                                  className="inline-flex items-center gap-1 text-[10px] bg-slate-800/80 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700/60 font-medium"
-                                >
-                                  <strong className="text-sky-400">{ast.assetType || `Asset #${idx + 1}`}</strong>
-                                  {ast.sizeModel ? `(${ast.sizeModel})` : ''}
-                                  {tempVal !== null && !isNaN(tempVal) ? `• ${tempVal > 0 ? `+${tempVal}` : tempVal}°C` : ''}
-                                  {ast.actionRequired && ast.actionRequired !== 'Select Status' ? `• ${ast.actionRequired}` : ''}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ) : isLoadingObservations ? (
-                      /* Case 3: Still loading from background API */
-                      <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/50 flex items-center gap-2 text-xs text-slate-400">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
-                        <span>Loading audit observations…</span>
-                      </div>
-                    ) : rawAssetObs.length > 0 ? (
-                      /* Case 4: Assets recorded, but optional observation text was left blank */
-                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/70 space-y-2">
-                        <p className="text-[11px] text-slate-400 italic">
-                          No specific observation notes recorded for this audit.
-                        </p>
-                        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-800/60">
-                          {rawAssetObs.map((ast: any, idx: number) => {
-                            const tempVal = ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null;
-                            return (
-                              <span
-                                key={ast.assetId || idx}
-                                className="inline-flex items-center gap-1 text-[10px] bg-slate-800/80 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700/60 font-medium"
-                              >
-                                <strong className="text-sky-400">{ast.assetType || `Asset #${idx + 1}`}</strong>
-                                {ast.sizeModel ? `(${ast.sizeModel})` : ''}
-                                {tempVal !== null && !isNaN(tempVal) ? `• ${tempVal > 0 ? `+${tempVal}` : tempVal}°C` : ''}
-                                {ast.actionRequired && ast.actionRequired !== 'Select Status' ? `• ${ast.actionRequired}` : ''}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      /* Case 5: Empty fallback */
-                      <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/50">
-                        <p className="text-[11px] text-slate-500 italic">
-                          No observations or notes recorded for this audit.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
             </div>
           </div>
 
