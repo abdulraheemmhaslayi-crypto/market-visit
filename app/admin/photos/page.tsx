@@ -78,7 +78,10 @@ export default function AuditPhotoGalleryPage() {
     return `${y}-${m}-${day}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
+  const [fromDate, setFromDate] = useState<string>(getTodayStr());
+  const [toDate, setToDate] = useState<string>(getTodayStr());
+  const [selectedRtm, setSelectedRtm] = useState<string>('all');
+  const [rtms, setRtms] = useState<string[]>(['TT', 'MT', 'INST']);
   const [selectedApp, setSelectedApp] = useState<string>('all');
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>('all');
   const [selectedRoute, setSelectedRoute] = useState<string>('all');
@@ -132,9 +135,11 @@ export default function AuditPhotoGalleryPage() {
 
       try {
         const params = new URLSearchParams();
-        if (selectedDate) params.set('date', selectedDate);
-        else params.set('date', 'all');
+        if (fromDate) params.set('fromDate', fromDate);
+        if (toDate) params.set('toDate', toDate);
+        if (!fromDate && !toDate) params.set('date', 'all');
 
+        if (selectedRtm && selectedRtm !== 'all') params.set('rtm', selectedRtm);
         if (selectedApp && selectedApp !== 'all') params.set('appName', selectedApp);
         if (selectedSupervisor && selectedSupervisor !== 'all') params.set('supervisor', selectedSupervisor);
         if (selectedRoute && selectedRoute !== 'all') params.set('routeCode', selectedRoute);
@@ -148,6 +153,11 @@ export default function AuditPhotoGalleryPage() {
 
         if (data.success) {
           setPhotos(data.photos || []);
+          if (data.rtms && Array.isArray(data.rtms)) {
+            setRtms(data.rtms);
+          } else if (data.channels && Array.isArray(data.channels)) {
+            setRtms(data.channels);
+          }
           if (data.applications && Array.isArray(data.applications)) {
             setApplications(data.applications);
           }
@@ -171,7 +181,7 @@ export default function AuditPhotoGalleryPage() {
         setIsRefreshing(false);
       }
     },
-    [selectedDate, selectedApp, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
+    [fromDate, toDate, selectedRtm, selectedApp, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
   );
 
   useEffect(() => {
@@ -180,7 +190,9 @@ export default function AuditPhotoGalleryPage() {
   }, [fetchPhotos, fetchActionItems]);
 
   const handleResetFilters = () => {
-    setSelectedDate(getTodayStr());
+    setFromDate(getTodayStr());
+    setToDate(getTodayStr());
+    setSelectedRtm('all');
     setSelectedApp('all');
     setSelectedSupervisor('all');
     setSelectedRoute('all');
@@ -195,7 +207,7 @@ export default function AuditPhotoGalleryPage() {
       filename: `photo_audits_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Photo Audits',
       title: 'Audit Photo Gallery Metadata Log',
-      filterSummary: `Date: ${selectedDate || 'All'} | App: ${selectedApp} | Supervisor: ${selectedSupervisor} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
+      filterSummary: `Dates: ${fromDate || 'Start'} to ${toDate || 'End'} | RTM: ${selectedRtm} | App: ${selectedApp} | Supervisor: ${selectedSupervisor} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
       columns: [
         { header: 'Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
         { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
@@ -238,6 +250,9 @@ export default function AuditPhotoGalleryPage() {
   // Action Items KPI Calculations filtered by active dropdown selections
   const filteredActionItems = useMemo(() => {
     return Object.values(actionItemsMap).filter((item) => {
+      if (selectedRtm !== 'all' && (item.channel || '').toUpperCase() !== selectedRtm.toUpperCase()) {
+        return false;
+      }
       if (selectedSupervisor !== 'all' && (item.supervisor || '').toLowerCase() !== selectedSupervisor.toLowerCase()) {
         return false;
       }
@@ -254,12 +269,13 @@ export default function AuditPhotoGalleryPage() {
           (item.supervisor || '').toLowerCase().includes(q) ||
           (item.manager || '').toLowerCase().includes(q) ||
           (item.route || '').toLowerCase().includes(q) ||
-          (item.category || '').toLowerCase().includes(q);
+          (item.category || '').toLowerCase().includes(q) ||
+          (item.channel || '').toLowerCase().includes(q);
         if (!matches) return false;
       }
       return true;
     });
-  }, [actionItemsMap, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery]);
+  }, [actionItemsMap, selectedRtm, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery]);
 
   const pendingActionItems = useMemo(
     () => filteredActionItems.filter((a) => a.actionStatus === 'PENDING'),
@@ -453,7 +469,7 @@ export default function AuditPhotoGalleryPage() {
             </div>
             Filter Gallery
           </div>
-          {(selectedDate || selectedApp !== 'all' || selectedSupervisor !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery || actionFilter !== 'all') && (
+          {(fromDate !== getTodayStr() || toDate !== getTodayStr() || selectedRtm !== 'all' || selectedApp !== 'all' || selectedSupervisor !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery || actionFilter !== 'all') && (
             <button
               onClick={handleResetFilters}
               className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
@@ -464,22 +480,62 @@ export default function AuditPhotoGalleryPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-          {/* Date Selector */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3">
+          {/* From Date Slicer */}
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <Calendar className="h-3 w-3 text-indigo-500" />
-              Visit Date
+              From Date
             </label>
             <input
               type="date"
-              value={selectedDate}
+              value={fromDate}
               onChange={(e) => {
-                setSelectedDate(e.target.value);
+                setFromDate(e.target.value);
                 setCurrentPage(1);
               }}
               className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
+          </div>
+
+          {/* To Date Slicer */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-indigo-500" />
+              To Date
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            />
+          </div>
+
+          {/* RTM Slicer */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Layers className="h-3 w-3 text-indigo-500" />
+              RTM Slicer
+            </label>
+            <select
+              value={selectedRtm}
+              onChange={(e) => {
+                setSelectedRtm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="all">All RTM Channels</option>
+              {rtms.map((rtm) => (
+                <option key={rtm} value={rtm}>
+                  {rtm}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Supervisor Selector */}
@@ -584,19 +640,30 @@ export default function AuditPhotoGalleryPage() {
         {/* Quick Date Shortcuts */}
         <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
           <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-            Viewing records for{' '}
-            <strong className="text-slate-900 dark:text-white font-bold">
-              {selectedDate || 'All Available Dates'}
-            </strong>
+            Viewing records{' '}
+            {fromDate || toDate ? (
+              <>
+                from <strong className="text-slate-900 dark:text-white font-bold">{fromDate || 'Beginning'}</strong> to{' '}
+                <strong className="text-slate-900 dark:text-white font-bold">{toDate || 'Present'}</strong>
+              </>
+            ) : (
+              <strong className="text-slate-900 dark:text-white font-bold">All Available Dates</strong>
+            )}
+            {selectedRtm !== 'all' && (
+              <>
+                {' '}• RTM Channel: <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{selectedRtm}</strong>
+              </>
+            )}
           </span>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => {
-                setSelectedDate(getTodayStr());
+                setFromDate(getTodayStr());
+                setToDate(getTodayStr());
                 setCurrentPage(1);
               }}
               className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
-                selectedDate === getTodayStr()
+                fromDate === getTodayStr() && toDate === getTodayStr()
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
               }`}
@@ -605,11 +672,12 @@ export default function AuditPhotoGalleryPage() {
             </button>
             <button
               onClick={() => {
-                setSelectedDate('');
+                setFromDate('');
+                setToDate('');
                 setCurrentPage(1);
               }}
               className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
-                !selectedDate
+                !fromDate && !toDate
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
               }`}
