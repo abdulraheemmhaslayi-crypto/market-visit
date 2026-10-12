@@ -4,10 +4,11 @@ import { auth } from '@/lib/auth';
 import { visitRepository } from '@/repositories/visit-repository';
 import { routeRepository } from '@/repositories/route-repository';
 import { customerRepository } from '@/repositories/customer-repository';
+import { userRepository } from '@/repositories/user-repository';
 import { skuRepository } from '@/repositories/sku-repository';
 import { visitSchema, visitDraftSchema, VisitInput, VisitDraftInput } from '@/schemas/visit';
 import { auditService } from '@/services/audit-service';
-import { Visit, VisitPhoto, NPDResponse, VisitAsset, VisitPowerSkuResult } from '@/types';
+import { User, Customer, Visit, VisitPhoto, NPDResponse, VisitAsset, VisitPowerSkuResult } from '@/types';
 import { isFullAccessRole, isSupervisorRole, isFleetRole } from '@/lib/roles';
 
 function generateVisitId(): string {
@@ -46,18 +47,56 @@ export async function getVisitsAction() {
       visits = [];
     }
 
-    const enrichedVisits = await Promise.all(
-      visits.map(async (v) => {
-        const assets = await visitRepository.getVisitAssets(v.visitId);
-        const firstAsset = assets[0];
-        return {
-          ...v,
-          temperature: firstAsset ? firstAsset.temperature : 0,
-          tempInRange: firstAsset ? firstAsset.tempInRange : true,
-          assetType: firstAsset ? firstAsset.assetType : 'Chiller',
-        };
-      })
-    );
+    // Parallel fetch for bulk assets, users, and customers to enrich in O(1) time
+    const [allAssets, allUsers, allCustomers] = await Promise.all([
+      visitRepository.getAllVisitAssets().catch(() => [] as VisitAsset[]),
+      userRepository.getAllUsers().catch(() => [] as User[]),
+      customerRepository.getAllCustomers().catch(() => [] as Customer[]),
+    ]);
+
+    const assetMap = new Map<string, VisitAsset>();
+    for (const a of allAssets) {
+      if (a.visitId && !assetMap.has(a.visitId)) {
+        assetMap.set(a.visitId, a);
+      }
+    }
+
+    const userMap = new Map<string, string>();
+    for (const u of allUsers) {
+      if (u.id) userMap.set(u.id, u.name || u.employeeCode || u.id);
+      if (u.employeeCode) userMap.set(u.employeeCode, u.name || u.employeeCode);
+    }
+
+    const customerMap = new Map<string, string>();
+    for (const c of allCustomers) {
+      if (c.customerCode) {
+        const rawCode = c.customerCode.trim();
+        customerMap.set(rawCode, c.customerName);
+        customerMap.set(rawCode.toUpperCase(), c.customerName);
+        const normCode = rawCode.toUpperCase().replace(/^0+/, '').replace(/^C/, '');
+        if (normCode) customerMap.set(normCode, c.customerName);
+      }
+    }
+
+    const enrichedVisits = visits.map((v) => {
+      const firstAsset = assetMap.get(v.visitId);
+
+      const cCode = (v.customerCode || '').trim();
+      const cCodeUpper = cCode.toUpperCase();
+      const cCodeNorm = cCodeUpper.replace(/^0+/, '').replace(/^C/, '');
+      const custName = customerMap.get(cCode) || customerMap.get(cCodeUpper) || customerMap.get(cCodeNorm) || '';
+
+      const supName = userMap.get(v.supervisorId) || userMap.get(v.createdBy) || '';
+
+      return {
+        ...v,
+        temperature: firstAsset ? firstAsset.temperature : (v.temperature ?? 0),
+        tempInRange: firstAsset ? firstAsset.tempInRange : (v.tempInRange ?? true),
+        assetType: firstAsset ? firstAsset.assetType : (v.assetType || 'Chiller'),
+        customerName: custName,
+        supervisorName: supName,
+      };
+    });
 
     return enrichedVisits;
   } catch (error: any) {
@@ -76,10 +115,35 @@ export async function getVisitDetailsAction(visitId: string) {
     throw new Error('Access denied. You do not own this visit record.');
   }
 
-  const photos = await visitRepository.getVisitPhotos(visitId);
-  const npdResponses = await visitRepository.getNpdResponses(visitId);
-  const assets = await visitRepository.getVisitAssets(visitId);
-  const powerSkuResults = await visitRepository.getVisitPowerSkuResults(visitId);
+  const [photos, npdResponses, assets, powerSkuResults, allUsers, allCustomers] = await Promise.all([
+    visitRepository.getVisitPhotos(visitId),
+    visitRepository.getNpdResponses(visitId),
+    visitRepository.getVisitAssets(visitId),
+    visitRepository.getVisitPowerSkuResults(visitId),
+    userRepository.getAllUsers().catch(() => [] as User[]),
+    customerRepository.getAllCustomers().catch(() => [] as Customer[]),
+  ]);
+
+  if (visit.supervisorId) {
+    const matchedUser = allUsers.find(
+      (u) => u.id === visit.supervisorId || u.employeeCode === visit.supervisorId
+    );
+    if (matchedUser?.name) {
+      visit.supervisorName = matchedUser.name;
+    }
+  }
+
+  if (visit.customerCode) {
+    const cCodeUpper = visit.customerCode.trim().toUpperCase();
+    const cCodeNorm = cCodeUpper.replace(/^0+/, '').replace(/^C/, '');
+    const matchedCust = allCustomers.find((c) => {
+      const code = (c.customerCode || '').trim().toUpperCase();
+      return code === cCodeUpper || code.replace(/^0+/, '').replace(/^C/, '') === cCodeNorm;
+    });
+    if (matchedCust?.customerName) {
+      visit.customerName = matchedCust.customerName;
+    }
+  }
 
   return { visit, assets, photos, powerSkuResults, npdResponses };
 }
@@ -133,6 +197,7 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
       observation: ast.observation || '',
       isFirstInFlow: ast.isFirstInFlow === true || (ast.isFirstInFlow as any) === 1,
       fefoFollowed: ast.fefoFollowed === true || (ast.fefoFollowed as any) === 1,
+      sizeModel: (ast as any).sizeModel || '',
     };
   });
 
@@ -161,7 +226,11 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
     status: status as any,
   }));
 
-  const [customerCode, routeCode] = (input.cust_rt_id || '').split('|');
+  const [custPartDraft, rtPartDraft] = (input.cust_rt_id || '').includes('|')
+    ? (input.cust_rt_id || '').split('|')
+    : ['', payload.routeCode || ''];
+  const customerCode = custPartDraft || '';
+  const routeCode = rtPartDraft || payload.routeCode || '';
 
   const visitRecord: Visit = {
     visitId,
@@ -182,15 +251,23 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
     sosAsPerBda: input.sosAsPerBda === undefined ? null : input.sosAsPerBda,
     routeCode: routeCode || '',
     customerCode: customerCode || '',
+    customerName: (payload as any).customerName || '',
     dairyClassification: undefined,
     iceCreamClassification: undefined,
   };
 
-  // Attach customer classifications (dairy / ice-cream) if available
+  // Attach customer classifications (dairy / ice-cream) and customerName if available
   try {
     const allCustomers = await customerRepository.getAllCustomers();
-    const matchedCust = allCustomers.find(c => c.cust_rt_id === visitRecord.cust_rt_id || (c.customerCode === customerCode && c.routeCode === routeCode));
+    const matchedCust = allCustomers.find(c => 
+      c.cust_rt_id === visitRecord.cust_rt_id || 
+      (c.customerCode === customerCode && c.routeCode === routeCode) ||
+      (customerCode && c.customerCode === customerCode)
+    );
     if (matchedCust) {
+      if (!visitRecord.customerName && matchedCust.customerName) {
+        visitRecord.customerName = matchedCust.customerName;
+      }
       visitRecord.dairyClassification = matchedCust.dairyClassification || undefined;
       visitRecord.iceCreamClassification = matchedCust.iceCreamClassification || undefined;
     }
@@ -231,7 +308,11 @@ export async function submitVisitAction(data: VisitInput) {
 
 
 
-  const [customerCode, routeCode] = input.cust_rt_id.split('|');
+  const [custPart, rtPart] = (input.cust_rt_id || '').includes('|')
+    ? (input.cust_rt_id || '').split('|')
+    : ['', payload.routeCode || ''];
+  const customerCode = custPart || '';
+  const routeCode = rtPart || payload.routeCode || '';
 
   // Enforce route ownership for supervisor only when a route is present
   if (user.role === 'Supervisor' && routeCode) {
@@ -242,7 +323,11 @@ export async function submitVisitAction(data: VisitInput) {
   }
 
   const allCustomers = await customerRepository.getAllCustomers();
-  const matchedCust = allCustomers.find(c => c.cust_rt_id === input.cust_rt_id || (c.customerCode === customerCode && c.routeCode === routeCode));
+  const matchedCust = allCustomers.find(c => 
+    c.cust_rt_id === input.cust_rt_id || 
+    (c.customerCode === customerCode && c.routeCode === routeCode) ||
+    (customerCode && c.customerCode === customerCode)
+  );
 
   if (input.visit_type !== 'No Visit') {
     const npdSkus = await skuRepository.getSkusByType('NPD');
@@ -305,6 +390,7 @@ export async function submitVisitAction(data: VisitInput) {
       observation: ast.observation || '',
       isFirstInFlow: ast.isFirstInFlow === true || (ast.isFirstInFlow as any) === 1,
       fefoFollowed: ast.fefoFollowed === true || (ast.fefoFollowed as any) === 1,
+      sizeModel: (ast as any).sizeModel || '',
     };
   });
 
@@ -349,12 +435,16 @@ export async function submitVisitAction(data: VisitInput) {
     sosAsPerBda: input.sosAsPerBda === undefined ? null : input.sosAsPerBda,
     routeCode: routeCode || '',
     customerCode: customerCode || '',
+    customerName: (payload as any).customerName || matchedCust?.customerName || '',
     dairyClassification: undefined,
     iceCreamClassification: undefined,
   };
 
   // Attach customer classifications (dairy / ice-cream) if available
   if (matchedCust) {
+    if (!visitRecord.customerName && matchedCust.customerName) {
+      visitRecord.customerName = matchedCust.customerName;
+    }
     visitRecord.dairyClassification = matchedCust.dairyClassification || undefined;
     visitRecord.iceCreamClassification = matchedCust.iceCreamClassification || undefined;
   }

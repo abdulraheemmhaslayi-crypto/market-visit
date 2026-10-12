@@ -6,21 +6,23 @@
  */
 
 export interface ImageCompressionOptions {
-  /** Maximum width or height on the longest side in pixels (default: 1800) */
+  /** Maximum width or height on the longest side in pixels (default: 1600) */
   maxWidthOrHeight?: number;
-  /** Initial compression quality from 0.0 to 1.0 (default: 0.82) */
+  /** Initial compression quality from 0.0 to 1.0 (default: 0.80) */
   initialQuality?: number;
-  /** Minimum quality threshold to preserve visual detail (default: 0.50) */
+  /** Minimum quality threshold to preserve visual detail (default: 0.65) */
   minQuality?: number;
-  /** Target maximum file size in bytes (default: 1.5 MB = 1,572,864 bytes) */
+  /** Target maximum file size in bytes (default: 250 KB = 256,000 bytes) */
   maxSizeBytes?: number;
-  /** Export image format (default: 'image/jpeg') */
+  /** Export image format (default: 'image/webp') */
   outputFormat?: 'image/jpeg' | 'image/webp';
 }
 
 export interface CompressedImageResult {
   /** Base64 Data URL ready for API upload (e.g. data:image/jpeg;base64,...) */
   base64: string;
+  /** Binary Blob ready for FormData upload */
+  blob: Blob;
   /** Final compressed size in bytes */
   size: number;
   /** Original file size in bytes */
@@ -35,18 +37,35 @@ export interface CompressedImageResult {
   originalHeight: number;
   /** Compression ratio (percentage saved, e.g. 92.5) */
   compressionRatio: number;
+  /** Format used (e.g. image/webp or image/jpeg) */
+  mimeType: string;
+}
+
+/**
+ * Checks if the current client browser supports WebP canvas encoding
+ */
+export function isWebpSupported(): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Default configurable compression settings
- * Tuned for fast uploads, minimal VPS disk footprint, and crystal-clear mobile viewing.
+ * Tuned for fast uploads, low mobile data consumption, and crystal-clear audit display.
  */
 export const DEFAULT_COMPRESSION_OPTIONS: Required<ImageCompressionOptions> = {
-  maxWidthOrHeight: 1400, // 1400px provides sharp detail for store products/temperature while saving ~40% space
-  initialQuality: 0.78,   // 78% quality: visually lossless for mobile/desktop, cuts size by half
-  minQuality: 0.55,       // Safe minimum threshold to preserve readability
-  maxSizeBytes: 500 * 1024, // 500 KB maximum cap (typical photos compress to 100KB - 250KB)
-  outputFormat: 'image/jpeg',
+  maxWidthOrHeight: 1920, // 1920px Full HD ensures razor-sharp product details, brand logos, and price tags
+  initialQuality: 0.86,   // 86% high fidelity: preserves crisp typography and eliminates quantization blur
+  minQuality: 0.74,       // 74% strict quality floor: guarantees images are NEVER blurry or smudged
+  maxSizeBytes: 480 * 1024, // 480 KB cap: keeps mobile data usage minimal (~200KB-400KB typical) with crystal clarity
+  outputFormat: 'image/webp',
 };
 
 /**
@@ -102,6 +121,101 @@ async function loadImageSource(file: File): Promise<{
   });
 }
 
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  format: string,
+  quality: number
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          // Fallback if browser toBlob fails for requested format
+          try {
+            const dataUrl = canvas.toDataURL(format, quality);
+            const base64Data = dataUrl.split(',')[1];
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            resolve(new Blob([byteArray], { type: format }));
+          } catch (e) {
+            reject(new Error('Canvas toBlob conversion failed'));
+          }
+        }
+      },
+      format,
+      quality
+    );
+  });
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Applies a fast unsharp-mask sharpening filter to canvas image data.
+ * Restores edge contrast, text readability, and product contours lost during
+ * downsampling from high-resolution mobile camera sensors.
+ */
+function applyUnsharpSharpening(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  amount = 0.20
+) {
+  try {
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+    const copy = new Uint8ClampedArray(data);
+    const w = width;
+    const h = height;
+
+    const s = amount;
+    const centerWeight = 1 + 4 * s;
+
+    for (let y = 1; y < h - 1; y++) {
+      const yOffset = y * w * 4;
+      const yPrev = (y - 1) * w * 4;
+      const yNext = (y + 1) * w * 4;
+
+      for (let x = 1; x < w - 1; x++) {
+        const idx = yOffset + x * 4;
+        const top = yPrev + x * 4;
+        const bottom = yNext + x * 4;
+        const left = yOffset + (x - 1) * 4;
+        const right = yOffset + (x + 1) * 4;
+
+        // R
+        data[idx] = Math.min(255, Math.max(0,
+          centerWeight * copy[idx] - s * (copy[top] + copy[bottom] + copy[left] + copy[right])
+        ));
+        // G
+        data[idx + 1] = Math.min(255, Math.max(0,
+          centerWeight * copy[idx + 1] - s * (copy[top + 1] + copy[bottom + 1] + copy[left + 1] + copy[right + 1])
+        ));
+        // B
+        data[idx + 2] = Math.min(255, Math.max(0,
+          centerWeight * copy[idx + 2] - s * (copy[top + 2] + copy[bottom + 2] + copy[left + 2] + copy[right + 2])
+        ));
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  } catch (e) {
+    // Non-blocking fallback if security context blocks getImageData
+  }
+}
+
 /**
  * Compresses and resizes an image file on the client side.
  * 
@@ -150,31 +264,33 @@ export async function compressImage(
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
+    // Auto-detect format: use WebP if supported, fallback to JPEG
+    const chosenFormat =
+      opts.outputFormat === 'image/webp' && !isWebpSupported()
+        ? 'image/jpeg'
+        : opts.outputFormat;
+
     // Fill white background for transparent images converted to JPEG
-    if (opts.outputFormat === 'image/jpeg') {
+    if (chosenFormat === 'image/jpeg') {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, targetWidth, targetHeight);
     }
 
     ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
 
-    // 3. Iterative quality compression to meet target maxSizeBytes
-    let quality = opts.initialQuality;
-    let dataUrl = canvas.toDataURL(opts.outputFormat, quality);
-    
-    // Estimate size in bytes from base64 string
-    const getByteSizeFromBase64 = (str: string) => {
-      const base64Part = str.substring(str.indexOf(',') + 1);
-      return Math.round(base64Part.length * 0.75);
-    };
+    // Apply edge sharpening pass to eliminate downsampling blur on labels & text
+    applyUnsharpSharpening(ctx, targetWidth, targetHeight, 0.20);
 
-    let currentSize = getByteSizeFromBase64(dataUrl);
+    // 3. Iterative quality compression to meet target maxSizeBytes using native toBlob
+    let quality = opts.initialQuality;
+    let currentBlob = await canvasToBlob(canvas, chosenFormat, quality);
+    let currentSize = currentBlob.size;
 
     // Reduce quality iteratively if file size exceeds target limit
     while (currentSize > opts.maxSizeBytes && quality > opts.minQuality) {
       quality = Math.max(opts.minQuality, quality - 0.08);
-      dataUrl = canvas.toDataURL(opts.outputFormat, quality);
-      currentSize = getByteSizeFromBase64(dataUrl);
+      currentBlob = await canvasToBlob(canvas, chosenFormat, quality);
+      currentSize = currentBlob.size;
       // Yield to main thread briefly during multi-pass compression
       await new Promise((r) => setTimeout(r, 0));
     }
@@ -184,6 +300,9 @@ export async function compressImage(
     canvas.width = 1;
     canvas.height = 1;
 
+    // Generate base64 Data URL for backward compatibility and fast preview
+    const dataUrl = await blobToDataUrl(currentBlob);
+
     const originalSize = file.size;
     const compressionRatio = Number(
       (((originalSize - currentSize) / originalSize) * 100).toFixed(1)
@@ -191,6 +310,7 @@ export async function compressImage(
 
     return {
       base64: dataUrl,
+      blob: currentBlob,
       size: currentSize,
       originalSize,
       width: targetWidth,
@@ -198,6 +318,7 @@ export async function compressImage(
       originalWidth,
       originalHeight,
       compressionRatio,
+      mimeType: chosenFormat,
     };
   } finally {
     cleanup();

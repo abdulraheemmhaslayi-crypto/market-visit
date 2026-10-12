@@ -15,6 +15,14 @@ async function ensureDashboardSchema() {
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`PowerSKU\` (\`skuCode\` VARCHAR(191) NOT NULL, \`skuName\` VARCHAR(191) NOT NULL, \`channel\` VARCHAR(191) NOT NULL, PRIMARY KEY (\`skuCode\`, \`channel\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`VisitAsset\` (\`assetId\` VARCHAR(191) PRIMARY KEY, \`visitId\` VARCHAR(191) NOT NULL, \`assetType\` VARCHAR(50) NOT NULL, \`temperature\` DOUBLE NULL, \`tempInRange\` TINYINT(1) NULL, \`actionRequired\` VARCHAR(50) NULL, \`observation\` TEXT NULL, \`isFirstInFlow\` TINYINT(1) NULL DEFAULT 0, \`fefoFollowed\` TINYINT(1) NULL DEFAULT 0, INDEX \`idx_asset_visit\` (\`visitId\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`VisitPowerSkuResult\` (\`visitId\` VARCHAR(191) NOT NULL, \`skuCode\` VARCHAR(191) NOT NULL, \`status\` VARCHAR(50) NOT NULL, PRIMARY KEY (\`visitId\`, \`skuCode\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
+
+    // Ensure collation is unified across all tables to prevent ER_CANT_AGGREGATE_2COLLATIONS
+    try {
+      await pool.execute(`ALTER TABLE \`VisitPowerSkuResult\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+      await pool.execute(`ALTER TABLE \`VisitAsset\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+      await pool.execute(`ALTER TABLE \`PowerSKU\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+    } catch (_) {}
+
     dashboardSchemaChecked = true;
   } catch (e) {}
 }
@@ -33,7 +41,7 @@ async function getMasterData(): Promise<MasterCache> {
   const [customersRaw, dbUsers, skuRows, powerSkuRows, routeRowsRaw] = await Promise.all([
     customerRepository.getAllCustomers().catch(() => []),
     pool.execute(`
-      SELECT u.id, u.name, u.role, m.name as managerName 
+      SELECT u.id, u.name, u.role, u.email, m.name as managerName 
       FROM User u 
       LEFT JOIN Manager m ON u.managerId = m.id
     `).then(([rows]: any) => rows).catch(() => []),
@@ -55,73 +63,45 @@ async function getMasterData(): Promise<MasterCache> {
         customerCode: c.customerCode,
         customerName: c.customerName,
         classification: c.classification,
-        dairyClassification: c.classification,
-        iceCreamClassification: c.classification,
-        channel: c.channel || 'GT',
+        dairyClassification: c.dairyClassification || c.classification,
+        iceCreamClassification: c.iceCreamClassification || c.classification,
+        channel: c.channel || 'TT',
         routeCode: c.routeCode,
       }));
 
-  const routeRows = routeRowsRaw && routeRowsRaw.length > 0
-    ? routeRowsRaw
-    : custMaster.routes.map((r: any) => ({
+  const routeRows = custMaster.routes.length > 0
+    ? custMaster.routes.map((r: any) => ({
+        routeCode: r.routeCode,
+        routeName: r.routeName || `Route ${r.routeCode}`,
+        superName: r.superName,
+        managerName: r.managerName,
+      }))
+    : (routeRowsRaw || []).map((r: any) => ({
         routeCode: r.routeCode,
         routeName: r.routeName,
         superName: r.superName,
         managerName: r.managerName,
       }));
 
-  const isExcluded = (name: string) => {
-    const n = (name || '').toUpperCase().trim();
-    return n === 'CLOSED' || n === 'INTERNAL' || n === '' || n === 'EXP MANAGER' || n === 'INST MANAGER';
-  };
-
-  const allManagers = custMaster.managers.length > 0
-    ? custMaster.managers
-    : Array.from(
-        new Set<string>(
-          routeRows
-            .map((r: any) => (r.managerName || '').trim())
-            .filter((name: string) => !isExcluded(name))
-        )
-      ).sort() as string[];
-
-  const allSupervisors = custMaster.supervisors.length > 0
-    ? custMaster.supervisors
-    : Array.from(
-        new Set<string>(
-          routeRows
-            .map((r: any) => (r.superName || '').trim())
-            .filter((name: string) => !isExcluded(name))
-        )
-      ).sort() as string[];
-
-  const managerSupervisorMap: Record<string, string[]> =
-    Object.keys(custMaster.managerSupervisorMap).length > 0
-      ? custMaster.managerSupervisorMap
-      : {};
-  if (Object.keys(managerSupervisorMap).length === 0) {
-    routeRows.forEach((r: any) => {
-      const sup = (r.superName || '').trim();
-      const mgr = (r.managerName || '').trim();
-      if (sup && !isExcluded(sup) && mgr && !isExcluded(mgr)) {
-        if (!managerSupervisorMap[mgr]) managerSupervisorMap[mgr] = [];
-        if (!managerSupervisorMap[mgr].includes(sup)) managerSupervisorMap[mgr].push(sup);
-      }
-    });
-    Object.keys(managerSupervisorMap).forEach((m) => managerSupervisorMap[m].sort());
-  }
+  const allManagers = custMaster.managers;
+  const allSupervisors = custMaster.supervisors;
+  const managerSupervisorMap = custMaster.managerSupervisorMap;
 
   const skuMap = new Map<string, any>(skuRows.map((sku: any) => [sku.skuCode, sku]));
   const powerSkuMap = new Map<string, any>(powerSkuRows.map((sku: any) => [sku.skuCode, sku]));
   const customerMap = new Map(customers.map((c: any) => [c.cust_rt_id, c]));
   const routeMap = new Map<string, any>(routeRows.map((r: any) => [r.routeCode, r]));
 
-  const userMap = new Map<string, { name: string; managerName: string }>(
-    dbUsers.map((u: any) => {
-      const supName = u.name.toUpperCase().trim();
-      return [u.id, { name: supName, managerName: '' }];
-    })
-  );
+  const userMap = new Map<string, { name: string; managerName: string; email?: string }>();
+  (dbUsers || []).forEach((u: any) => {
+    const supName = (u.name || '').toUpperCase().trim();
+    const mgrName = (u.managerName || '').toUpperCase().trim();
+    const email = (u.email || '').toLowerCase().trim();
+    const entry = { name: supName, managerName: mgrName, email };
+    if (u.id) userMap.set(String(u.id), entry);
+    if (email) userMap.set(email, entry);
+    if (supName) userMap.set(supName.toLowerCase(), entry);
+  });
 
   // Compact customer list for dropdown filter
   const seenCust = new Set<string>();
@@ -156,7 +136,7 @@ async function getMasterData(): Promise<MasterCache> {
 }
 
 const cacheStore = new Map<string, { timestamp: number; data: any }>();
-const CACHE_TTL_MS = 5000; // 5 seconds cache for duplicate clicks & rapid tabs
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds cache for instant tab switches & returns
 
 export async function GET(req: NextRequest) {
   try {
@@ -195,14 +175,42 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden report for this role' }, { status: 403 });
     }
 
-    // 1. Fetch cached master data & raw visits concurrently
+    const isSupervisor = scope === 'supervisor';
+    const supervisorId = isSupervisor ? userSession.id : null;
+
+    // 1. Fetch cached master data & raw visits concurrently with role-based scoping
+    const userLowerName = (userSession.name || '').toLowerCase().trim();
+    const userLowerEmail = (userSession.email || '').toLowerCase().trim();
+
     const [masters, visitsRaw, assets, pskuResults, npdResults, photosRaw] = await Promise.all([
       getMasterData(),
-      visitRepository.getAllVisits().catch(() => []),
-      pool.execute('SELECT * FROM `VisitAsset`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `VisitPowerSkuResult`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `NPDResponse`').then(([rows]: any) => rows).catch(() => []),
-      pool.execute('SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC LIMIT 200').then(([rows]: any) => rows).catch(() => []),
+      isSupervisor
+        ? visitRepository.getVisitsBySupervisor(supervisorId!, { name: userSession.name, email: userSession.email }).catch(() => [])
+        : visitRepository.getAllVisits().catch(() => []),
+      pool.execute(
+        isSupervisor
+          ? 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+          : 'SELECT * FROM `VisitAsset`',
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Asset query error:', err); return []; }),
+      pool.execute(
+        isSupervisor
+          ? 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+          : 'SELECT * FROM `VisitPowerSkuResult`',
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard PSKU query error:', err); return []; }),
+      pool.execute(
+        isSupervisor
+          ? 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+          : 'SELECT * FROM `NPDResponse`',
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard NPD query error:', err); return []; }),
+      pool.execute(
+        isSupervisor
+          ? 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?) ORDER BY vp.uploadedAt DESC LIMIT 100'
+          : 'SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC LIMIT 200',
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Photo query error:', err); return []; }),
     ]);
 
     const {
@@ -217,15 +225,44 @@ export async function GET(req: NextRequest) {
       skuMap,
       powerSkuMap,
       dbUsers,
+      userMap,
       custMaster,
     } = masters;
 
     let visits = visitsRaw;
     if (scope === 'supervisor') {
-      visits = visits.filter((v: any) => v.supervisorId === userSession.id);
+      visits = visits.filter((v: any) => {
+        if (v.supervisorId === userSession.id) return true;
+        const cb = (v.createdBy || '').toLowerCase().trim();
+        return (userLowerEmail && cb === userLowerEmail) || (userLowerName && cb === userLowerName);
+      });
     }
 
     let filteredVisits: any[] = visits.filter((v: any) => v.status === 'Submitted');
+
+    // Calculate latest date from submitted visits for default dashboard slicer
+    let latestDate = '';
+    for (const v of visits) {
+      if (v.status === 'Submitted' && v.createdAt) {
+        const d = new Date(v.createdAt);
+        if (!isNaN(d.getTime())) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          const dateStr = `${y}-${m}-${day}`;
+          if (!latestDate || dateStr > latestDate) {
+            latestDate = dateStr;
+          }
+        }
+      }
+    }
+    if (!latestDate) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      latestDate = `${y}-${m}-${day}`;
+    }
 
     if (filteredVisits.length === 0) {
       const nowIso = new Date().toISOString();
@@ -286,25 +323,46 @@ export async function GET(req: NextRequest) {
       filteredVisits = filteredVisits.filter((v: any) => new Date(v.createdAt) <= end);
     }
     if (scope === 'supervisor') {
-      filteredVisits = filteredVisits.filter((v: any) => v.supervisorId === userSession.id);
+      filteredVisits = filteredVisits.filter((v: any) => {
+        if (v.supervisorId === userSession.id) return true;
+        const cb = (v.createdBy || '').toLowerCase().trim();
+        return (userLowerEmail && cb === userLowerEmail) || (userLowerName && cb === userLowerName);
+      });
     }
 
     // Filter by Manager parameter (if passed)
     if (managerParam) {
       filteredVisits = filteredVisits.filter((v: any) => {
-        const [_, rCode] = (v.cust_rt_id || '').split('|');
-        const routeInfo = routeMap.get(rCode || v.routeCode || '');
-        const mgrName = routeInfo ? (routeInfo.managerName || '') : '';
-        return mgrName.toUpperCase() === managerParam.toUpperCase();
+        const supUser = (v.supervisorId ? userMap.get(String(v.supervisorId)) : null) || (v.createdBy ? userMap.get(String(v.createdBy).toLowerCase().trim()) : null);
+        let sName = supUser?.name ? supUser.name.toUpperCase().trim() : '';
+        if (v.supervisorId === 'usr_rqwxav8') sName = 'SAIFULLAH';
+        else if (v.supervisorId === 'usr_tgb2s6h') sName = 'SAIF';
+
+        let mName = sName ? (cmSupervisorManagerMap[sName] || supUser?.managerName || '') : '';
+        if (!mName) {
+          const parts = (v.cust_rt_id || '').split('|').map((s: string) => s.trim()).filter(Boolean);
+          const rCode = v.routeCode || parts.find((p: string) => /^(MT|TR|IS|EX|DIS|R\d)/i.test(p)) || parts[1] || parts[0] || '';
+          const cleanR = rCode.toUpperCase().trim();
+          mName = cmRouteMgrMap[cleanR] || custMaster?.routeManagerMap?.[cleanR] || routeMap.get(cleanR)?.managerName || '';
+        }
+        return (mName || '').toUpperCase() === managerParam.toUpperCase();
       });
     }
 
     if (supervisorIdParam && (scope === 'full' || isFullAccessRole(role))) {
       filteredVisits = filteredVisits.filter((v: any) => {
-        const [_, rCode] = (v.cust_rt_id || '').split('|');
-        const routeInfo = routeMap.get(rCode || v.routeCode || '');
-        const supName = routeInfo ? (routeInfo.superName || '') : '';
-        return supName.toUpperCase() === supervisorIdParam.toUpperCase();
+        const supUser = (v.supervisorId ? userMap.get(String(v.supervisorId)) : null) || (v.createdBy ? userMap.get(String(v.createdBy).toLowerCase().trim()) : null);
+        let sName = supUser?.name ? supUser.name.toUpperCase().trim() : '';
+        if (v.supervisorId === 'usr_rqwxav8') sName = 'SAIFULLAH';
+        else if (v.supervisorId === 'usr_tgb2s6h') sName = 'SAIF';
+
+        if (!sName) {
+          const parts = (v.cust_rt_id || '').split('|').map((s: string) => s.trim()).filter(Boolean);
+          const rCode = v.routeCode || parts.find((p: string) => /^(MT|TR|IS|EX|DIS|R\d)/i.test(p)) || parts[1] || parts[0] || '';
+          const cleanR = rCode.toUpperCase().trim();
+          sName = cmRouteSupMap[cleanR] || custMaster?.routeSupervisorMap?.[cleanR] || routeMap.get(cleanR)?.superName || '';
+        }
+        return (sName || '').toUpperCase() === supervisorIdParam.toUpperCase();
       });
     }
     if (routeCodeParam) {
@@ -360,56 +418,237 @@ export async function GET(req: NextRequest) {
     const classificationRowsDairy: any[] = [];
     const classificationRowsIceCream: any[] = [];
 
-    const custMasterCustomerMap = new Map<string, any>();
+    const cmCustomerMap = new Map<string, any>();
+    const cmCustomerByCode = new Map<string, any>();
+    const cmCustomerByCustRt = new Map<string, any>();
+    const cmCustomerByName = new Map<string, any>();
     (custMaster?.customers || []).forEach((c: any) => {
       const code = String(c.customerCode || '').trim().toUpperCase();
-      if (code) {
-        custMasterCustomerMap.set(code, c);
-        custMasterCustomerMap.set(code.replace(/^C/, ''), c);
-        custMasterCustomerMap.set(`C${code.replace(/^C/, '')}`, c);
-      }
+      const rawNum = code.replace(/^C/i, '');
+      const unpadded = rawNum.replace(/^0+/, '');
+      const padded5 = rawNum.padStart(5, '0');
+      const variants = [code, rawNum, unpadded, `C${rawNum}`, `C${unpadded}`, padded5, `C${padded5}`];
+      variants.filter(Boolean).forEach((v) => {
+        cmCustomerByCode.set(v, c);
+        cmCustomerMap.set(v, c);
+      });
       if (c.cust_rt_id) {
-        custMasterCustomerMap.set(String(c.cust_rt_id).trim().toUpperCase(), c);
+        const crt = String(c.cust_rt_id).trim().toUpperCase();
+        cmCustomerByCustRt.set(crt, c);
+        cmCustomerMap.set(crt, c);
+        const parts = crt.split('|');
+        if (parts.length === 2) {
+          cmCustomerByCustRt.set(`${parts[1]}|${parts[0]}`, c);
+          cmCustomerMap.set(`${parts[1]}|${parts[0]}`, c);
+        }
+      }
+      if (c.routeCode && c.customerCode) {
+        const rc = String(c.routeCode).trim().toUpperCase();
+        variants.filter(Boolean).forEach((v) => {
+          cmCustomerMap.set(`${v}|${rc}`, c);
+          cmCustomerMap.set(`${rc}|${v}`, c);
+        });
+      }
+      if (c.customerName) {
+        cmCustomerByName.set(String(c.customerName).trim().toUpperCase(), c);
       }
     });
 
-    const custMasterRouteMap = new Map<string, any>();
+    const cmRouteMap = new Map<string, any>();
+    const cmRouteSupMap: Record<string, string> = {};
+    const cmRouteMgrMap: Record<string, string> = {};
+    const cmSupervisorManagerMap: Record<string, string> = {};
     (custMaster?.routes || []).forEach((r: any) => {
-      if (r.routeCode) custMasterRouteMap.set(String(r.routeCode).trim().toUpperCase(), r);
+      if (r.routeCode) {
+        const rc = String(r.routeCode).trim().toUpperCase();
+        cmRouteMap.set(rc, r);
+        if (r.superName) cmRouteSupMap[rc] = r.superName;
+        if (r.managerName) cmRouteMgrMap[rc] = r.managerName;
+        if (r.superName && r.managerName && !cmSupervisorManagerMap[r.superName.toUpperCase()]) {
+          cmSupervisorManagerMap[r.superName.toUpperCase()] = r.managerName;
+        }
+      }
+    });
+    if (custMaster?.managerSupervisorMap) {
+      Object.entries(custMaster.managerSupervisorMap).forEach(([mgr, sups]: [string, any]) => {
+        (Array.isArray(sups) ? sups : []).forEach((s: string) => {
+          if (s && !cmSupervisorManagerMap[s.toUpperCase()]) {
+            cmSupervisorManagerMap[s.toUpperCase()] = mgr;
+          }
+        });
+      });
+    }
+
+    // Explicit supervisor-to-manager mappings
+    cmSupervisorManagerMap['SAIFULLAH'] = 'ADNAN';
+    cmSupervisorManagerMap['SAIF'] = 'ASHFAQ';
+
+    const dbCustByCode = new Map<string, any>();
+    const dbCustByCustRt = new Map<string, any>();
+    customers.forEach((c: any) => {
+      const code = String(c.customerCode || '').trim().toUpperCase();
+      const rawNum = code.replace(/^C/i, '');
+      const unpadded = rawNum.replace(/^0+/, '');
+      const padded5 = rawNum.padStart(5, '0');
+      const variants = [code, rawNum, unpadded, `C${rawNum}`, `C${unpadded}`, padded5, `C${padded5}`].filter(Boolean);
+      variants.forEach((v) => {
+        dbCustByCode.set(v, c);
+      });
+      if (c.cust_rt_id) {
+        const crt = String(c.cust_rt_id).trim().toUpperCase();
+        dbCustByCustRt.set(crt, c);
+        const parts = crt.split('|');
+        if (parts.length === 2) {
+          dbCustByCustRt.set(`${parts[1]}|${parts[0]}`, c);
+        }
+      }
+      if (c.routeCode && c.customerCode) {
+        const rc = String(c.routeCode).trim().toUpperCase();
+        variants.forEach((v) => {
+          dbCustByCustRt.set(`${v}|${rc}`, c);
+          dbCustByCustRt.set(`${rc}|${v}`, c);
+        });
+      }
     });
 
     const rows = filteredVisits.map((v: any) => {
-      const [customerCode, routeCode] = (v.cust_rt_id || '').split('|');
-      const rCode = (routeCode || v.routeCode || '').trim().toUpperCase();
-      const cCode = (customerCode || v.customerCode || '').trim().toUpperCase();
+      let custCodeRaw = (v.customerCode || '').trim();
+      let routeCodeRaw = (v.routeCode || '').trim();
+      const custRtId = (v.cust_rt_id || '').trim();
 
-      const custMasterRoute = custMasterRouteMap.get(rCode);
-      const custMasterCust = custMasterCustomerMap.get(cCode) ||
-                             custMasterCustomerMap.get(cCode.replace(/^C/, '')) ||
-                             custMasterCustomerMap.get(`C${cCode.replace(/^C/, '')}`) ||
-                             custMasterCustomerMap.get((v.cust_rt_id || '').trim().toUpperCase());
+      // Robust extraction of customer code and route code from cust_rt_id
+      if (custRtId && (!custCodeRaw || !routeCodeRaw)) {
+        const parts = custRtId.split('|').map((s: string) => s.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          const part0IsCust = /^C\d+/i.test(parts[0]) || /^\d+$/.test(parts[0]);
+          const part1IsCust = /^C\d+/i.test(parts[1]) || /^\d+$/.test(parts[1]);
+          if (part0IsCust && !part1IsCust) {
+            if (!custCodeRaw) custCodeRaw = parts[0];
+            if (!routeCodeRaw) routeCodeRaw = parts[1];
+          } else if (part1IsCust && !part0IsCust) {
+            if (!custCodeRaw) custCodeRaw = parts[1];
+            if (!routeCodeRaw) routeCodeRaw = parts[0];
+          } else {
+            if (!custCodeRaw) custCodeRaw = parts[0];
+            if (!routeCodeRaw) routeCodeRaw = parts[1];
+          }
+        } else if (parts.length === 1) {
+          if (/^C\d+/i.test(parts[0]) || /^\d+$/.test(parts[0])) {
+            if (!custCodeRaw) custCodeRaw = parts[0];
+          } else {
+            if (!routeCodeRaw) routeCodeRaw = parts[0];
+          }
+        }
+      }
 
-      const routeInfo = routeMap.get(rCode);
-      const supName = (
-        custMasterRoute?.superName ||
-        (custMaster?.routeSupervisorMap?.[rCode]) ||
-        (routeInfo ? routeInfo.superName : '') ||
-        'UNASSIGNED'
-      ).toUpperCase().trim();
+      const cleanCustCode = custCodeRaw.toUpperCase().trim();
+      const unpaddedCustCode = cleanCustCode.replace(/^C/i, '').replace(/^0+/, '');
 
-      const mgrName = (
-        custMasterRoute?.managerName ||
-        (custMaster?.routeManagerMap?.[rCode]) ||
-        (routeInfo ? routeInfo.managerName : '') ||
-        'UNASSIGNED'
-      ).toUpperCase().trim();
+      // 1. Look up in CUSTMASTER first (the master source of truth)
+      const cmCust =
+        (custRtId ? cmCustomerByCustRt.get(custRtId.toUpperCase()) : null) ||
+        (cleanCustCode && routeCodeRaw ? cmCustomerMap.get(`${cleanCustCode}|${routeCodeRaw.toUpperCase().trim()}`) : null) ||
+        (cleanCustCode ? cmCustomerByCode.get(cleanCustCode) : null) ||
+        (unpaddedCustCode ? cmCustomerByCode.get(unpaddedCustCode) : null) ||
+        (v.customerName ? cmCustomerByName.get(String(v.customerName).toUpperCase().trim()) : null);
 
-      const customer = customerMap.get(v.cust_rt_id || '') || customerMap.get(cCode);
-      const custName = custMasterCust?.customerName || (customer ? customer.customerName : (v.customerName || 'Unknown'));
-      const ch = custMasterCust?.channel || getCustMasterChannel(cCode, (customer ? customer.channel : 'GT'));
-      const gr = custMasterCust?.classification || (customer ? customer.classification : 'C');
-      const dairyGr = customer ? (customer.dairyClassification || null) : null;
-      const iceGr = customer ? (customer.iceCreamClassification || null) : null;
+      if (cmCust) {
+        if (!routeCodeRaw && cmCust.routeCode) routeCodeRaw = cmCust.routeCode;
+        if (!custCodeRaw && cmCust.customerCode) custCodeRaw = cmCust.customerCode;
+      }
+
+      // 2. Look up in Database Customer table
+      const dbCust =
+        (custRtId ? dbCustByCustRt.get(custRtId.toUpperCase()) : null) ||
+        (cleanCustCode ? dbCustByCode.get(cleanCustCode) : null) ||
+        (unpaddedCustCode ? dbCustByCode.get(unpaddedCustCode) : null);
+
+      if (dbCust) {
+        if (!routeCodeRaw && dbCust.routeCode) routeCodeRaw = dbCust.routeCode;
+        if (!custCodeRaw && dbCust.customerCode) custCodeRaw = dbCust.customerCode;
+      }
+
+      const cleanRoute = (routeCodeRaw || '').toUpperCase().trim();
+
+      // 3. Resolve Supervisor & Manager
+      // The supervisor who logged and performed the visit is the primary source of truth for who conducted the visit
+      const supUser =
+        (v.supervisorId ? userMap.get(String(v.supervisorId)) : null) ||
+        (v.createdBy ? userMap.get(String(v.createdBy).toLowerCase().trim()) : null);
+
+      let supName = '';
+      let mgrName = '';
+
+      if (supUser?.name) {
+        supName = supUser.name.toUpperCase().trim();
+        mgrName = cmSupervisorManagerMap[supName] || supUser.managerName || '';
+      }
+
+      // Explicit disambiguation for Saifullah (Adnan / Modern Trade) vs Saif (Ashfaq / Traditional Trade)
+      if (supName === 'SAIFULLAH' || String(v.supervisorId) === 'usr_rqwxav8') {
+        supName = 'SAIFULLAH';
+        mgrName = 'ADNAN';
+      } else if (supName === 'SAIF' || String(v.supervisorId) === 'usr_tgb2s6h') {
+        supName = 'SAIF';
+        mgrName = 'ASHFAQ';
+      }
+
+      // If supervisor was not identified from the user account, fall back to CUSTMASTER route supervisor or customer supervisor
+      if (!supName || supName === 'UNASSIGNED') {
+        supName =
+          (cleanRoute ? cmRouteSupMap[cleanRoute] : '') ||
+          (cleanRoute ? custMaster?.routeSupervisorMap?.[cleanRoute] : '') ||
+          (cleanRoute ? routeMap.get(cleanRoute)?.superName : '') ||
+          cmCust?.superName ||
+          'UNASSIGNED';
+      }
+
+      if (!mgrName || mgrName === 'UNASSIGNED') {
+        mgrName =
+          (supName && supName !== 'UNASSIGNED' ? cmSupervisorManagerMap[supName.toUpperCase()] : '') ||
+          (cleanRoute ? cmRouteMgrMap[cleanRoute] : '') ||
+          (cleanRoute ? custMaster?.routeManagerMap?.[cleanRoute] : '') ||
+          (cleanRoute ? routeMap.get(cleanRoute)?.managerName : '') ||
+          cmCust?.managerName ||
+          'UNASSIGNED';
+      }
+
+      supName = (supName || 'UNASSIGNED').toUpperCase().trim();
+      mgrName = (mgrName || 'UNASSIGNED').toUpperCase().trim();
+
+      // 4. Resolve Outlet Name
+      let custName =
+        cmCust?.customerName ||
+        dbCust?.customerName ||
+        v.customerName ||
+        '';
+      if (!custName || custName === 'Unknown' || custName === 'General Store') {
+        if (cleanCustCode) {
+          custName = `Outlet ${cleanCustCode}`;
+        } else if (v.visit_type === 'No Visit') {
+          custName = v.reason_category || v.reason || 'No Visit Audit';
+        } else {
+          custName = 'Unknown';
+        }
+      }
+
+      // 5. Resolve Channel (CUSTMASTER Segment_Fin(120MT) is primary source of truth!)
+      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, 'TT') || dbCust?.channel || '';
+      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
+        ch = 'TT';
+      }
+      ch = ch.toUpperCase().trim();
+
+      // 6. Resolve Classifications (proper relationship with Customer_Classification)
+      const dairyGr = dbCust?.dairyClassification || cmCust?.dairyClassification || null;
+      const iceGr = dbCust?.iceCreamClassification || cmCust?.iceCreamClassification || null;
+      let gr =
+        (dairyGr && dairyGr !== '-') ? dairyGr :
+        (iceGr && iceGr !== '-') ? iceGr :
+        (cmCust?.classification && cmCust.classification !== '-') ? cmCust.classification :
+        (dbCust?.classification && dbCust.classification !== '-') ? dbCust.classification :
+        'C';
+      if (!gr || gr === '-') gr = 'C';
 
       const visitDate = (v.createdAt as any) instanceof Date ? (v.createdAt as any).toISOString() : v.createdAt;
 
@@ -430,9 +669,132 @@ export async function GET(req: NextRequest) {
       else if (visitNpd.some((r: any) => r.status === 'Not Available')) npd = 'N';
 
       const visitPsku = pskuMap.get(v.visitId) || [];
-      let psku = 'X';
-      if (visitPsku.some((r: any) => r.status === 'Available')) psku = 'A';
-      else if (visitPsku.some((r: any) => r.status === 'Not Available')) psku = 'N';
+      const hasAvail = visitPsku.some((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A');
+      const psku = hasAvail ? 'A' : 'N';
+
+      const isTT = ch === 'TT' || cleanRoute.startsWith('TR') || cleanRoute.startsWith('TRI');
+      const isMT =
+        !isTT &&
+        (ch === 'MT' ||
+          cleanCustCode.startsWith('MTD') ||
+          cleanRoute.startsWith('C') ||
+          custName.toUpperCase().includes('LULU') ||
+          custName.toUpperCase().includes('CARREFOUR') ||
+          custName.toUpperCase().includes('MEGAMART') ||
+          custName.toUpperCase().includes('AL MEERA') ||
+          custName.toUpperCase().includes('HYPER'));
+
+      // User instruction: "power sku should not 41. for MT its 24 and for TT its 27, correct these 2."
+      const totalPskuCount = isMT ? 24 : 27;
+      const rawAvailPsku = visitPsku.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
+      const pskuAvailableCount = Math.min(rawAvailPsku, totalPskuCount);
+      const npdAvailableCount = visitNpd.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
+
+      const chillerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
+      const freezerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'freezer');
+
+      const detectModel = (assetType: string, sm?: string | null, obs?: string | null, idx: number = 0) => {
+        const raw = (sm || '').trim();
+        const rawLower = raw.toLowerCase();
+        const isGeneric = !raw || raw === '—' || rawLower.includes('standard') || rawLower === 'asset' || rawLower === 'model' || rawLower === 'null';
+        const o = (obs || '').trim();
+        const oLower = o.toLowerCase();
+
+        if (assetType.toLowerCase() === 'chiller') {
+          if (!isGeneric) {
+            if (rawLower.includes('open')) return 'Open Chiller';
+            if (rawLower.includes('double')) return 'Double Door';
+            if (rawLower.includes('single')) return 'Single Door';
+            if (['Double Door', 'Open Chiller', 'Single Door'].includes(raw)) return raw;
+          }
+          if (oLower.includes('open')) return 'Open Chiller';
+          if (oLower.includes('double')) return 'Double Door';
+          if (oLower.includes('single')) return 'Single Door';
+          return isMT ? 'Double Door' : 'Single Door';
+        }
+        if (assetType.toLowerCase() === 'freezer') {
+          if (!isGeneric) {
+            if (rawLower.includes('vert')) return 'VERTICAL';
+            if (rawLower.includes('600')) return '600';
+            if (rawLower.includes('400')) return '400';
+            if (rawLower.includes('300')) return '300';
+            if (rawLower.includes('200')) return '200';
+            if (rawLower.includes('100')) return '100';
+            if (['100', '200', '300', '400', '600', 'VERTICAL'].includes(raw.toUpperCase())) return raw.toUpperCase();
+          }
+          if (oLower.includes('vert')) return 'VERTICAL';
+          if (oLower.includes('600')) return '600';
+          if (oLower.includes('400')) return '400';
+          if (oLower.includes('300')) return '300';
+          if (oLower.includes('200')) return '200';
+          if (oLower.includes('100')) return '100';
+          if (isMT) return idx > 0 ? '400' : '600';
+          return idx > 0 ? '300' : '400';
+        }
+        return isMT ? 'Double Door' : 'Single Door';
+      };
+
+      const chillerModels = chillerAssets.map((a: any, idx: number) => detectModel('Chiller', a.sizeModel, a.observation, idx));
+      const freezerModels = freezerAssets.map((a: any, idx: number) => detectModel('Freezer', a.sizeModel, a.observation, idx));
+      const chillerModel = chillerModels.length > 0 ? chillerModels.join(', ') : '—';
+      const freezerModel = freezerModels.length > 0 ? freezerModels.join(', ') : '—';
+
+      const assetStatuses = visitAssets.map((a: any) => {
+        const st = (a.actionRequired && a.actionRequired !== 'Select Status' && a.actionRequired !== 'None')
+          ? a.actionRequired
+          : 'Working';
+        return {
+          assetType: a.assetType || 'Asset',
+          status: st,
+          label: visitAssets.length > 1 ? `${a.assetType}: ${st}` : st,
+        };
+      });
+
+      let assetStatus = '—';
+      if (assetStatuses.length === 1) {
+        assetStatus = assetStatuses[0].status;
+      } else if (assetStatuses.length > 1) {
+        const allSame = assetStatuses.every((s: any) => s.status === assetStatuses[0].status);
+        if (allSame) {
+          assetStatus = `${assetStatuses[0].status} (${assetStatuses.length} assets)`;
+        } else {
+          assetStatus = assetStatuses.map((s: any) => `${s.assetType}: ${s.status}`).join(' | ');
+        }
+      }
+
+      const obsParts: string[] = [];
+      visitAssets.forEach((a: any) => {
+        const itemParts: string[] = [];
+        if (a.actionRequired && a.actionRequired !== 'Select Status' && a.actionRequired !== 'Working' && a.actionRequired !== 'None') {
+          itemParts.push(a.actionRequired);
+        }
+        if (a.observation && a.observation.trim() && a.observation.trim() !== '—') {
+          itemParts.push(a.observation.trim());
+        }
+        if (itemParts.length > 0) {
+          obsParts.push(visitAssets.length > 1 ? `${a.assetType}: ${itemParts.join(' - ')}` : itemParts.join(' - '));
+        }
+      });
+      if (v.observation && v.observation.trim() && !obsParts.some((p: string) => p.includes(v.observation.trim()))) {
+        obsParts.push(v.observation.trim());
+      }
+      if (v.reason && v.reason !== '—' && !obsParts.some((p: string) => p.includes(v.reason.trim()))) {
+        obsParts.push(`Reason: ${v.reason.trim()}`);
+      }
+      const observationAction = obsParts.length > 0 ? obsParts.join('; ') : '—';
+
+      let tempDisplay = '—';
+      const chillerAsset = chillerAssets[0];
+      const freezerAsset = freezerAssets[0];
+      if (chillerAsset && freezerAsset) {
+        tempDisplay = `C: ${chillerAsset.temperature}°C | F: ${freezerAsset.temperature}°C`;
+      } else if (chillerAsset) {
+        tempDisplay = `${chillerAsset.temperature}°C`;
+      } else if (freezerAsset) {
+        tempDisplay = `${freezerAsset.temperature}°C`;
+      } else if (temperature !== undefined && temperature !== null && !isNaN(Number(temperature))) {
+        tempDisplay = `${temperature}°C`;
+      }
 
       const fefo = ok;
       const action = visitAssets.map((a: any) => a.actionRequired !== 'None' ? `${a.assetType}: ${a.actionRequired}` : '').filter(Boolean).join(', ') || 'None';
@@ -441,88 +803,134 @@ export async function GET(req: NextRequest) {
         date: visitDate,
         visitId: v.visitId,
         channel: ch,
+        rtm: ch,
         manager: mgrName,
         supervisor: supName,
-        routeCode: routeCode || '',
-        outletCode: customerCode || '',
+        routeCode: cleanRoute,
+        outletCode: cleanCustCode,
         outletName: custName,
         classification: gr,
         class: gr,
       });
-      if (dairyGr) {
+      if (v.visit_type !== 'No Visit') {
         classificationRowsDairy.push({
           date: visitDate,
           visitId: v.visitId,
           channel: ch,
+          rtm: ch,
           manager: mgrName,
           supervisor: supName,
-          routeCode: routeCode || '',
-          outletCode: customerCode || '',
+          routeCode: cleanRoute,
+          outletCode: cleanCustCode,
           outletName: custName,
-          classification: dairyGr,
-          class: dairyGr,
+          classification: dairyGr || '-',
+          class: dairyGr || '-',
           businessVertical: 'Dairy',
         });
-      }
-      if (iceGr) {
         classificationRowsIceCream.push({
           date: visitDate,
           visitId: v.visitId,
           channel: ch,
+          rtm: ch,
           manager: mgrName,
           supervisor: supName,
-          routeCode: routeCode || '',
-          outletCode: customerCode || '',
+          routeCode: cleanRoute,
+          outletCode: cleanCustCode,
           outletName: custName,
-          classification: iceGr,
-          class: iceGr,
+          classification: iceGr || '-',
+          class: iceGr || '-',
           businessVertical: 'Ice Cream',
         });
       }
 
-      // Populate NPD Report Rows (Per SKU level granularity)
-      visitNpd.forEach((item: any) => {
-        const skuInfo = skuMap.get(item.skuCode);
-        reportRows.npd.push({
-          date: visitDate,
-          visitId: v.visitId,
-          channel: ch,
-          manager: mgrName,
-          supervisor: supName,
-          routeCode: routeCode || '',
-          outletCode: customerCode || '',
-          outletName: custName,
-          classification: gr,
-          class: gr,
-          skuCode: item.skuCode,
-          skuName: skuInfo ? skuInfo.skuName : item.skuCode,
-          status: item.status,
-          businessVertical: skuInfo?.businessVertical || 'General',
-        });
-      });
+      // Populate NPD Report Rows (Per SKU level granularity, excluding No Visit)
+      if (v.visit_type !== 'No Visit') {
+        visitNpd.forEach((item: any) => {
+          const skuInfo = skuMap.get(item.skuCode);
+          const avail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'YES' : 'NO';
+          const npdCode = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'A' : (item.status === 'Not Available' || item.status === 'NO' || item.status === 'N') ? 'N' : 'X';
+          let npdVertical = (skuInfo?.businessVertical || skuInfo?.type || '').toString().trim();
+          if (!npdVertical || npdVertical.toLowerCase() === 'general' || npdVertical.toLowerCase() === 'standard' || npdVertical.toLowerCase() === 'sku') {
+            const code = (item.skuCode || '').toUpperCase();
+            const name = (skuInfo?.skuName || item.skuCode || '').toUpperCase();
+            if (code.startsWith('FGIC') || name.includes('ICE CREAM') || name.includes('CONE') || name.includes('STICK') || name.includes('TUB') || name.includes('CANDY')) {
+              npdVertical = 'Ice Cream';
+            } else if (code.startsWith('FGJU') || code.startsWith('FGBV') || name.includes('JUICE') || name.includes('DRINK')) {
+              npdVertical = 'Beverage';
+            } else {
+              npdVertical = 'Dairy';
+            }
+          }
+          reportRows.npd.push({
+            date: visitDate,
+            visitId: v.visitId,
+            channel: ch,
+              rtm: ch,
+              manager: mgrName,
+              supervisor: supName,
+              routeCode: cleanRoute,
+              outletCode: cleanCustCode,
+              outletName: custName,
+              classification: gr,
+              class: gr,
+              skuCode: item.skuCode,
+              skuName: skuInfo ? skuInfo.skuName : item.skuCode,
+              status: item.status,
+              availability: avail,
+              npd: npdCode,
+              businessVertical: npdVertical,
+            });
+          });
+        }
 
-      // Populate PowerSKU Report Rows (Per SKU level granularity)
-      visitPsku.forEach((item: any) => {
-        const pskuInfo = powerSkuMap.get(item.skuCode) || skuMap.get(item.skuCode);
-        reportRows.psku.push({
-          date: visitDate,
-          visitId: v.visitId,
-          channel: ch,
-          manager: mgrName,
-          supervisor: supName,
-          routeCode: routeCode || '',
-          outletCode: customerCode || '',
-          outletName: custName,
-          classification: gr,
-          class: gr,
-          skuCode: item.skuCode,
-          skuName: pskuInfo ? pskuInfo.skuName : item.skuCode,
-          status: item.status,
-        });
-      });
+        // Populate PowerSKU Report Rows (Per SKU level granularity, excluding No Visit)
+        if (v.visit_type !== 'No Visit') {
+          visitPsku.forEach((item: any) => {
+            const masterSku = skuMap.get(item.skuCode);
+            const pskuInfo = powerSkuMap.get(item.skuCode) || masterSku;
+            const isAvail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A');
+            const avail = isAvail ? 'YES' : 'NO';
+            const pskuCode = isAvail ? 'A' : 'N';
+            const statusText = isAvail ? 'Available' : 'Not Available';
 
-      // Populate Cold Chain Report Rows (Per Asset level granularity)
-      if (visitAssets.length > 0) {
+            // Extract accurate business vertical from SKUMASTER
+            let bVertical = (masterSku?.businessVertical || pskuInfo?.businessVertical || masterSku?.type || pskuInfo?.type || '').toString().trim();
+            if (!bVertical || bVertical.toLowerCase() === 'general' || bVertical.toLowerCase() === 'standard' || bVertical.toLowerCase() === 'sku') {
+              const code = (item.skuCode || '').toUpperCase();
+              const name = (masterSku?.skuName || pskuInfo?.skuName || item.skuName || '').toUpperCase();
+              if (code.startsWith('FGIC') || name.includes('ICE CREAM') || name.includes('CONE') || name.includes('STICK') || name.includes('TUB') || name.includes('CANDY')) {
+                bVertical = 'Ice Cream';
+              } else if (code.startsWith('FGJU') || code.startsWith('FGBV') || name.includes('JUICE') || name.includes('DRINK') || name.includes('NECTAR')) {
+                bVertical = 'Beverage';
+              } else {
+                bVertical = 'Dairy';
+              }
+            }
+
+            reportRows.psku.push({
+              date: visitDate,
+              visitId: v.visitId,
+              channel: ch,
+              rtm: ch,
+              manager: mgrName,
+              supervisor: supName,
+              routeCode: cleanRoute,
+              outletCode: cleanCustCode,
+              outletName: custName,
+              classification: gr,
+              class: gr,
+              businessVertical: bVertical,
+              skuCode: item.skuCode,
+              skuName: pskuInfo?.skuName || masterSku?.skuName || item.skuCode,
+              status: statusText,
+              availability: avail,
+              psku: pskuCode,
+            });
+          });
+        }
+
+      // Populate Cold Chain Report Rows (Per Asset level granularity, excluding No Visit)
+      if (v.visit_type !== 'No Visit' && visitAssets.length > 0) {
         visitAssets.forEach((ast: any) => {
           const isTempOk = ast.tempInRange === 1 || ast.tempInRange === true;
           const formattedTemp = formatTempContext(ast.assetType, ast.temperature);
@@ -530,15 +938,16 @@ export async function GET(req: NextRequest) {
             date: visitDate,
             visitId: v.visitId,
             channel: ch,
+            rtm: ch,
             manager: mgrName,
             supervisor: supName,
-            routeCode: routeCode || '',
-            outletCode: customerCode || '',
+            routeCode: cleanRoute,
+            outletCode: cleanCustCode,
             outletName: custName,
             classification: gr,
             class: gr,
             assetType: ast.assetType,
-            sizeModel: ast.sizeModel || 'Standard',
+            sizeModel: detectModel(ast.assetType, ast.sizeModel, ast.observation),
             temperature: formattedTemp,
             assetTemp: formattedTemp,
             formattedTemperature: formattedTemp,
@@ -554,21 +963,22 @@ export async function GET(req: NextRequest) {
               : (ast.observation || '—'),
           });
         });
-      } else {
+      } else if (v.visit_type !== 'No Visit' && (v.temperature !== undefined || v.assetType)) {
         const formattedTemp = formatTempContext(firstAsset.assetType, firstAsset.temperature);
         reportRows['cold-chain'].push({
           date: visitDate,
           visitId: v.visitId,
           channel: ch,
+          rtm: ch,
           manager: mgrName,
           supervisor: supName,
-          routeCode: routeCode || '',
-          outletCode: customerCode || '',
+          routeCode: cleanRoute,
+          outletCode: cleanCustCode,
           outletName: custName,
           classification: gr,
           class: gr,
           assetType: firstAsset.assetType,
-          sizeModel: (firstAsset as any).sizeModel || 'Standard',
+          sizeModel: detectModel(firstAsset.assetType, (firstAsset as any).sizeModel, firstAsset.observation),
           temperature: formattedTemp,
           assetTemp: formattedTemp,
           formattedTemperature: formattedTemp,
@@ -598,6 +1008,7 @@ export async function GET(req: NextRequest) {
         supervisor: supName,
         ch,
         channel: ch,
+        rtm: ch,
         gr,
         classification: gr,
         dairyGr: dairyGr || gr || '-',
@@ -606,25 +1017,40 @@ export async function GET(req: NextRequest) {
         cust: custName,
         outletName: custName,
         cust_rt_id: v.cust_rt_id || '',
-        outletCode: customerCode || '',
-        rt: routeCode || '',
-        route: routeCode || '',
-        routeCode: routeCode || '',
+        outletCode: cleanCustCode || '',
+        rt: cleanRoute || '',
+        route: cleanRoute || '',
+        routeCode: cleanRoute || '',
         week,
         sos: v.sosAsPerBda === 1 ? 'Y' : 'N',
         plan: v.planogramCompliance === 1 ? 'Y' : 'N',
         npd,
+        npdAvailableCount,
+        totalNpdCount: visitNpd.length,
         psku,
+        pskuAvailableCount,
+        totalPskuCount,
+        chillerModel,
+        freezerModel,
+        chillerModels,
+        freezerModels,
+        assetStatus,
+        assetStatuses,
+        observationAction,
+        tempDisplay,
+        chillerTemp: chillerAsset ? chillerAsset.temperature : null,
+        freezerTemp: freezerAsset ? freezerAsset.temperature : null,
         ok,
         temp: ok ? 'OK' : 'Breach',
         tempVal: temperature,
         atype: primaryAsset?.assetType || 'Chiller',
         assetType: primaryAsset?.assetType || 'Chiller',
-        sizeModel: primaryAsset?.sizeModel || 'Standard',
+        sizeModel: detectModel(primaryAsset?.assetType || 'Chiller', primaryAsset?.sizeModel, primaryAsset?.observation, 0),
         observation: firstAsset.observation || '',
-        allAssets: visitAssets.map((a: any) => ({
+        allAssets: visitAssets.map((a: any, aIdx: number) => ({
+          assetId: a.assetId,
           assetType: a.assetType,
-          sizeModel: a.sizeModel || 'Standard',
+          sizeModel: detectModel(a.assetType, a.sizeModel, a.observation, aIdx),
           temperature: a.temperature ?? 0,
           tempInRange: a.tempInRange === 1 || a.tempInRange === true,
           actionRequired: a.actionRequired || 'None',
@@ -645,9 +1071,10 @@ export async function GET(req: NextRequest) {
     reportRows.classificationDairy = classificationRowsDairy;
     reportRows.classificationIceCream = classificationRowsIceCream;
 
-    // Photos payload
+    // Photos payload (optimized O(1) visit lookup)
+    const visitsById = new Map<string, any>(filteredVisits.map((v: any) => [v.visitId, v]));
     const photos = photosRaw.map((p: any) => {
-      const visit = filteredVisits.find((v: any) => v.visitId === p.visitId);
+      const visit = visitsById.get(p.visitId);
       const [custCodeRaw, routeCodeRaw] = visit ? (visit.cust_rt_id || '').split('|') : ['', ''];
       const routeCode = routeCodeRaw || (visit ? visit.routeCode : '') || '';
       const customerCode = custCodeRaw || (visit ? visit.customerCode : '') || '';
@@ -665,8 +1092,8 @@ export async function GET(req: NextRequest) {
       const candidateCode = cleanCustCode || (customer ? customer.customerCode : '') || (routeCodeRaw?.toUpperCase().startsWith('C') ? routeCodeRaw : '');
       const masterCh = getCustMasterChannel(candidateCode, '');
       let ch = masterCh || customer?.channel || '';
-      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE') {
-        ch = 'GT';
+      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
+        ch = 'TT';
       }
 
       return {
@@ -713,19 +1140,36 @@ export async function GET(req: NextRequest) {
     });
     const visitsPerDay = Object.keys(visitsPerDayMap).sort().map(d => ({ date: d, count: visitsPerDayMap[d] }));
 
+    // High performance O(1) indexed maps for routes and supervisors
+    const routeCustomerCountMap = new Map<string, number>();
+    customers.forEach((c: any) => {
+      const rc = (c.routeCode || '').trim().toUpperCase();
+      if (rc) {
+        routeCustomerCountMap.set(rc, (routeCustomerCountMap.get(rc) || 0) + 1);
+      }
+    });
+
     const routeVisitsMap: Record<string, Set<string>> = {};
+    const supVisitsMap = new Map<string, any[]>();
     filteredVisits.forEach((v: any) => {
       const [_, rCode] = (v.cust_rt_id || '').split('|');
-      const rt = rCode || v.routeCode;
+      const rt = (rCode || v.routeCode || '').trim().toUpperCase();
       if (rt) {
         if (!routeVisitsMap[rt]) routeVisitsMap[rt] = new Set();
-        routeVisitsMap[rt].add(v.cust_rt_id);
+        if (v.cust_rt_id) routeVisitsMap[rt].add(v.cust_rt_id);
+      }
+      const routeInfo = routeMap.get(rt);
+      const sName = (routeInfo?.superName || '').trim().toUpperCase();
+      if (sName) {
+        if (!supVisitsMap.has(sName)) supVisitsMap.set(sName, []);
+        supVisitsMap.get(sName)!.push(v);
       }
     });
 
     const coveragePerRoute = routeRows.map((r: any) => {
-      const assigned = customers.filter((c: any) => c.routeCode === r.routeCode).length;
-      const visited = routeVisitsMap[r.routeCode] ? routeVisitsMap[r.routeCode].size : 0;
+      const rc = (r.routeCode || '').trim().toUpperCase();
+      const assigned = routeCustomerCountMap.get(rc) || 0;
+      const visited = (routeVisitsMap[r.routeCode] || routeVisitsMap[rc])?.size || 0;
       const percent = assigned > 0 ? Math.round((visited / assigned) * 100) : 0;
       return {
         routeCode: r.routeCode,
@@ -738,37 +1182,24 @@ export async function GET(req: NextRequest) {
 
     const supervisorPerformance = allSupervisors
       .map((supName: string) => {
-        const supVisits = filteredVisits.filter((v: any) => {
-          const [_, rCode] = (v.cust_rt_id || '').split('|');
-          const routeInfo = routeMap.get(rCode || v.routeCode || '');
-          const sName = routeInfo ? (routeInfo.superName || '') : '';
-          return sName.toUpperCase() === supName.toUpperCase();
-        });
-
+        const supUpper = (supName || '').trim().toUpperCase();
+        const supVisits = supVisitsMap.get(supUpper) || [];
         const visitsCount = supVisits.length;
-        const uniqueOutlets = new Set(supVisits.map((v: any) => v.cust_rt_id)).size;
+        const uniqueOutlets = new Set(supVisits.map((v: any) => v.cust_rt_id).filter(Boolean)).size;
 
         const breaches = supVisits.filter((v: any) => {
-          const visitAssets = assetMap.get(v.visitId) || [];
-          return visitAssets.length > 0 ? visitAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
+          const vAssets = assetMap.get(v.visitId) || [];
+          return vAssets.length > 0 ? vAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
         }).length;
 
-        const supRoutes = routeRows.filter((r: any) => (r.superName || '').toUpperCase().trim() === supName.toUpperCase());
-        const totalAssigned = supRoutes.reduce((sum: number, r: any) => {
-          return sum + customers.filter((c: any) => c.routeCode === r.routeCode).length;
-        }, 0);
-
-        const totalVisited = supRoutes.reduce((sum: number, r: any) => {
-          const visitedCustIds = new Set(
-            filteredVisits
-              .filter((v: any) => {
-                const [_, rCode] = (v.cust_rt_id || '').split('|');
-                return rCode === r.routeCode;
-              })
-              .map((v: any) => v.cust_rt_id)
-          );
-          return sum + visitedCustIds.size;
-        }, 0);
+        const supRoutes = routeRows.filter((r: any) => (r.superName || '').toUpperCase().trim() === supUpper);
+        let totalAssigned = 0;
+        let totalVisited = 0;
+        supRoutes.forEach((r: any) => {
+          const rc = (r.routeCode || '').trim().toUpperCase();
+          totalAssigned += routeCustomerCountMap.get(rc) || 0;
+          totalVisited += (routeVisitsMap[r.routeCode] || routeVisitsMap[rc])?.size || 0;
+        });
 
         const coveragePct = totalAssigned > 0 ? Math.round((totalVisited / totalAssigned) * 100) : 0;
 
@@ -816,6 +1247,8 @@ export async function GET(req: NextRequest) {
       masters: {
         managers: allManagers,
         supervisors: allSupervisors,
+        rtms: custMaster?.rtms?.length ? custMaster.rtms : ['INST', 'MT', 'TT'],
+        channels: custMaster?.rtms?.length ? custMaster.rtms : ['INST', 'MT', 'TT'],
         classifications: custMaster?.classifications?.length ? custMaster.classifications : ['A', 'B', 'C', 'D', 'E'],
         routes: custMaster?.routes?.length > 0
           ? custMaster.routes.map((r: any) => ({
@@ -833,12 +1266,25 @@ export async function GET(req: NextRequest) {
         customers: custMaster?.customers?.length > 0
           ? custMaster.customers.map((c: any) => ({
               customerName: c.customerName,
+              customerCode: c.customerCode,
               routeCode: c.routeCode,
               classification: c.classification,
+              channel: c.channel,
+              rtm: c.rtm || c.channel,
+              managerName: c.managerName,
+              superName: c.superName,
             }))
           : uniqueCustomers,
         managerSupervisorMap,
-        dairyOutlets: customers.map((c: any) => {
+        dairyOutlets: (isSupervisor
+          ? customers.filter((c: any) => {
+              const rInfo = routeMap.get(c.routeCode);
+              const supName = (rInfo?.superName || '').trim().toUpperCase();
+              const myName = (userSession.name || '').trim().toUpperCase();
+              return !supName || !myName || supName === myName;
+            })
+          : customers
+        ).map((c: any) => {
           const rInfo = routeMap.get(c.routeCode);
           const mgrName = rInfo ? (rInfo.managerName || '').trim() : '';
           const supName = rInfo ? (rInfo.superName || '').trim() : '';
@@ -848,7 +1294,7 @@ export async function GET(req: NextRequest) {
             code: c.customerCode,
             name: c.customerName,
             route: c.routeCode,
-            channel: c.channel || 'General Trade',
+            channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE' && c.channel !== 'GT') ? c.channel : 'TT',
             manager: mgrName,
             supervisor: supName,
             dairyGr: dairyGr || '-',
@@ -865,6 +1311,7 @@ export async function GET(req: NextRequest) {
       coveragePerRoute,
       supervisorPerformance,
       temperatureBreaches,
+      latestDate,
     };
 
     cacheStore.set(cacheKey, { timestamp: Date.now(), data: payload });

@@ -27,6 +27,7 @@ import {
   ArrowLeft,
   Camera,
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 
 const navGroups = [
@@ -36,20 +37,20 @@ const navGroups = [
       { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
       { name: 'Visit Logs', path: '/admin/visits', icon: CalendarCheck },
       { name: 'No Visits', path: '/admin/no-visits', icon: AlertTriangle },
-      { name: 'Supervisors', path: '/admin/supervisors', icon: Users },
     ],
   },
   {
     label: 'Analytics',
     items: [
       { name: 'Audit Photo Gallery', path: '/admin/photos', icon: Camera },
-      { name: 'Reports', path: '/admin/reports', icon: FileBarChart2 },
+      { name: 'AI Dashboard', path: '/admin/reports', icon: Sparkles },
       { name: 'Routes', path: '/admin/routes', icon: Map },
     ],
   },
   {
     label: 'System',
     items: [
+      { name: 'Supervisors', path: '/admin/supervisors', icon: Users },
       { name: 'Data Usage Tracker', path: '/admin/data-usage', icon: Activity },
       { name: 'Master Import', path: '/admin/import', icon: FileSpreadsheet },
     ],
@@ -76,8 +77,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Audit Photo Gallery', path: '/admin/photos', icon: Camera },
     { name: 'Visits Log', path: '/admin/visits', icon: CalendarCheck },
     { name: 'No Visits', path: '/admin/no-visits', icon: AlertTriangle },
-    { name: 'Supervisors List', path: '/admin/supervisors', icon: Users },
-    { name: 'Reports & Stats', path: '/admin/reports', icon: FileBarChart2 },
+    { name: 'AI Dashboard', path: '/admin/reports', icon: Sparkles },
+    { name: 'Routes', path: '/admin/routes', icon: Map },
+    { name: 'Supervisors Management', path: '/admin/supervisors', icon: Users },
     { name: 'Data Usage Tracker', path: '/admin/data-usage', icon: Activity },
     { name: 'Import Master Data', path: '/admin/import', icon: FileSpreadsheet },
     { name: 'Toggle Light/Dark Theme', action: 'theme', icon: Moon },

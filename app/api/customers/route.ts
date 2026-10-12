@@ -24,13 +24,13 @@ export async function GET(req: NextRequest) {
     } else {
       // Supervisor: Enforce route assignment
       if (routeCode) {
-        const isAssigned = await routeRepository.isRouteAssignedToSupervisor(routeCode, user.id);
+        const isAssigned = await routeRepository.isRouteAssignedToSupervisor(routeCode, user.id, user.name);
         if (!isAssigned) {
           return NextResponse.json({ error: 'Forbidden. You do not have access to this route.' }, { status: 403 });
         }
         customers = await customerRepository.getCustomersByRoute(routeCode);
       } else {
-        customers = await customerRepository.getCustomersBySupervisor(user.id);
+        customers = await customerRepository.getCustomersBySupervisor(user.id, user.name);
       }
     }
 

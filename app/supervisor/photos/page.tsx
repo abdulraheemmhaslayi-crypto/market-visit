@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Camera,
   Calendar,
@@ -24,6 +24,10 @@ import {
   Flag,
   AlertTriangle,
   Clock,
+  Eye,
+  X,
+  Layers,
+  RotateCcw,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
@@ -44,12 +48,36 @@ export interface AuditPhoto {
   outletCode?: string;
   route: string;
   channel: string;
+  observation?: string;
+  observations?: string | string[];
+  notes?: string;
+  assetObservations?: Array<{
+    assetId?: string;
+    assetType?: string;
+    sizeModel?: string;
+    temperature?: number | null;
+    tempInRange?: boolean;
+    actionRequired?: string;
+    observation?: string;
+  }>;
+  visitObservation?: string;
+  visitReason?: string;
+  visitNotes?: string;
 }
 
 export default function SupervisorAuditPhotoGalleryPage() {
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getTodayStr = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
+  const [fromDate, setFromDate] = useState<string>(getTodayStr());
+  const [toDate, setToDate] = useState<string>(getTodayStr());
+  const [selectedRtm, setSelectedRtm] = useState<string>('all');
+  const [rtms, setRtms] = useState<string[]>(['TT', 'MT', 'INST']);
   const [selectedApp, setSelectedApp] = useState<string>('all');
   const [selectedRoute, setSelectedRoute] = useState<string>('all');
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all');
@@ -60,6 +88,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
   // GM / Admin Action Tracking State
   const [actionItemsMap, setActionItemsMap] = useState<Record<string, AuditActionItem>>({});
   const [actionFilter, setActionFilter] = useState<'all' | 'PENDING'>('all');
+  const [isActionDrawerOpen, setIsActionDrawerOpen] = useState<boolean>(false);
 
   const [photos, setPhotos] = useState<AuditPhoto[]>([]);
   const [applications, setApplications] = useState<string[]>([]);
@@ -83,9 +112,11 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
       try {
         const params = new URLSearchParams();
-        if (selectedDate) params.set('date', selectedDate);
-        else params.set('date', 'all');
+        if (fromDate) params.set('fromDate', fromDate);
+        if (toDate) params.set('toDate', toDate);
+        if (!fromDate && !toDate) params.set('date', 'all');
 
+        if (selectedRtm && selectedRtm !== 'all') params.set('rtm', selectedRtm);
         if (selectedApp && selectedApp !== 'all') params.set('appName', selectedApp);
         if (selectedRoute && selectedRoute !== 'all') params.set('routeCode', selectedRoute);
         if (selectedOutlet && selectedOutlet !== 'all') params.set('outlet', selectedOutlet);
@@ -98,6 +129,11 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
         if (data.success) {
           setPhotos(data.photos || []);
+          if (data.rtms && Array.isArray(data.rtms)) {
+            setRtms(data.rtms);
+          } else if (data.channels && Array.isArray(data.channels)) {
+            setRtms(data.channels);
+          }
           if (data.applications && Array.isArray(data.applications)) {
             setApplications(data.applications);
           }
@@ -118,7 +154,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
         setIsRefreshing(false);
       }
     },
-    [selectedDate, selectedApp, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
+    [fromDate, toDate, selectedRtm, selectedApp, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
   );
 
   // Fetch GM / Admin Action Directives
@@ -144,7 +180,9 @@ export default function SupervisorAuditPhotoGalleryPage() {
   }, [fetchPhotos, fetchActionItems]);
 
   const handleResetFilters = () => {
-    setSelectedDate(getTodayStr());
+    setFromDate(getTodayStr());
+    setToDate(getTodayStr());
+    setSelectedRtm('all');
     setSelectedApp('all');
     setSelectedRoute('all');
     setSelectedOutlet('all');
@@ -157,15 +195,14 @@ export default function SupervisorAuditPhotoGalleryPage() {
       filename: `my_audit_photos_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Audit Photos',
       title: 'My Audit Photo Gallery Log',
-      filterSummary: `Date: ${selectedDate || 'All'} | App: ${selectedApp} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
+      filterSummary: `Dates: ${fromDate || 'Start'} to ${toDate || 'End'} | RTM: ${selectedRtm} | App: ${selectedApp} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
       columns: [
-        { header: 'Upload Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Photo ID', key: 'photoId' },
-        { header: 'Visit ID', key: 'visitId' },
+        { header: 'Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
+        { header: 'Route Code', key: 'route', formatter: (val: any) => val || '—' },
+        { header: 'Outlet Name', key: 'outlet', formatter: (val: any) => val || '—' },
         { header: 'Category / Asset', key: 'category' },
-        { header: 'Outlet', key: 'outlet' },
-        { header: 'Route', key: 'route' },
-        { header: 'Channel', key: 'channel' },
+        { header: 'Observations / Notes', key: 'observation', formatter: (val: any, row: any) => val || row.notes || '—' },
         { header: 'Application', key: 'appName' },
         { header: 'Image URL', key: 'cloudinaryUrl' },
       ],
@@ -184,14 +221,61 @@ export default function SupervisorAuditPhotoGalleryPage() {
     return { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' };
   };
 
-  const pendingActionCount = Object.values(actionItemsMap).filter(
-    (a) => a.actionStatus === 'PENDING'
-  ).length;
+  const pendingActionItems = useMemo(
+    () => Object.values(actionItemsMap).filter((a) => a.actionStatus === 'PENDING'),
+    [actionItemsMap]
+  );
+  const pendingActionCount = pendingActionItems.length;
 
-  const displayedPhotos =
-    actionFilter === 'PENDING'
-      ? photos.filter((p) => actionItemsMap[p.photoId]?.actionStatus === 'PENDING')
-      : photos;
+  const displayedPhotos = useMemo(() => {
+    if (actionFilter !== 'PENDING') return photos;
+    return pendingActionItems.map((item) => {
+      const existing = photos.find((p) => p.photoId === item.photoId);
+      if (existing) return existing;
+      const syntheticPhoto: AuditPhoto = {
+        photoId: item.photoId,
+        visitId: item.visitId || 'VISIT-REF',
+        category: (item.category as any) || 'Audit Photo',
+        cloudinaryUrl: item.originalPhotoUrl,
+        publicId: item.photoId,
+        uploadedAt: item.createdAt || new Date().toISOString(),
+        appName: 'Field Audit',
+        outlet: item.outlet,
+        outletCode: item.outletCode || '',
+        route: item.route,
+        supervisor: item.supervisor || 'Field Supervisor',
+        manager: item.manager || '',
+        channel: item.channel || 'GT',
+      };
+      return syntheticPhoto;
+    });
+  }, [actionFilter, photos, pendingActionItems]);
+
+  const handleInspectAction = (item: AuditActionItem) => {
+    setIsActionDrawerOpen(false);
+    const existingIdx = displayedPhotos.findIndex((p) => p.photoId === item.photoId);
+    if (existingIdx !== -1) {
+      setLightboxIndex(existingIdx);
+    } else {
+      const syntheticPhoto: AuditPhoto = {
+        photoId: item.photoId,
+        visitId: item.visitId || 'VISIT-REF',
+        category: item.category || 'Audit Photo',
+        cloudinaryUrl: item.originalPhotoUrl,
+        publicId: item.photoId,
+        uploadedAt: item.createdAt || new Date().toISOString(),
+        appName: 'Field Audit',
+        outlet: item.outlet,
+        outletCode: item.outletCode || '',
+        route: item.route,
+        supervisor: item.supervisor || 'Field Supervisor',
+        manager: item.manager || '',
+        channel: item.channel || 'GT',
+      };
+      setPhotos((prev) => [syntheticPhoto, ...prev.filter((p) => p.photoId !== item.photoId)]);
+      setLightboxIndex(0);
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
@@ -248,17 +332,26 @@ export default function SupervisorAuditPhotoGalleryPage() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setActionFilter(actionFilter === 'PENDING' ? 'all' : 'PENDING')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap self-start sm:self-center ${
-              actionFilter === 'PENDING'
-                ? 'bg-amber-500 text-black border-amber-400 shadow-md font-extrabold'
-                : 'bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30'
-            }`}
-          >
-            {actionFilter === 'PENDING' ? 'Show All Photos' : 'Filter Action Directives'}
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-center">
+            <button
+              type="button"
+              onClick={() => setIsActionDrawerOpen(true)}
+              className="text-xs font-extrabold px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black border border-amber-400 shadow-md transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Eye className="h-3.5 w-3.5" /> Review Directives ({pendingActionCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActionFilter(actionFilter === 'PENDING' ? 'all' : 'PENDING')}
+              className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
+                actionFilter === 'PENDING'
+                  ? 'bg-amber-500 text-black border-amber-400 shadow-md font-extrabold'
+                  : 'bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30'
+              }`}
+            >
+              {actionFilter === 'PENDING' ? 'Show All Photos' : 'Filter Directives'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -269,31 +362,70 @@ export default function SupervisorAuditPhotoGalleryPage() {
             <SlidersHorizontal className="h-4 w-4 text-accent" />
             Filter Gallery
           </div>
-          {(selectedDate || selectedApp !== 'all' || selectedOutlet !== 'all' || searchQuery) && (
+          {(fromDate !== getTodayStr() || toDate !== getTodayStr() || selectedRtm !== 'all' || selectedApp !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery) && (
             <button
               onClick={handleResetFilters}
-              className="text-[11px] font-medium text-accent hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:underline cursor-pointer"
             >
+              <RotateCcw className="h-3 w-3" />
               Reset Filters
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-          {/* Date Selector */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {/* From Date Slicer */}
           <div className="space-y-1">
             <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-accent" /> Date Filter
+              <Calendar className="h-3.5 w-3.5 text-accent" /> From Date
             </label>
             <input
               type="date"
-              value={selectedDate}
+              value={fromDate}
               onChange={(e) => {
-                setSelectedDate(e.target.value);
+                setFromDate(e.target.value);
                 setCurrentPage(1);
               }}
               className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
             />
+          </div>
+
+          {/* To Date Slicer */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-accent" /> To Date
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
+            />
+          </div>
+
+          {/* RTM Slicer */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 text-accent" /> RTM Slicer
+            </label>
+            <select
+              value={selectedRtm}
+              onChange={(e) => {
+                setSelectedRtm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors cursor-pointer"
+            >
+              <option value="all">All RTM Channels</option>
+              {rtms.map((rtm) => (
+                <option key={rtm} value={rtm}>
+                  {rtm}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Dynamic Route Code Filter */}
@@ -307,7 +439,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
                 setSelectedRoute(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
+              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors cursor-pointer"
             >
               <option value="all">All Routes ({routes.length})</option>
               {routes.map((rt) => (
@@ -329,7 +461,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
                 setSelectedOutlet(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
+              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors cursor-pointer"
             >
               <option value="all">All Outlets ({outlets.length})</option>
               {outlets.map((outlet) => (
@@ -360,6 +492,56 @@ export default function SupervisorAuditPhotoGalleryPage() {
             </div>
           </div>
         </div>
+
+        {/* Quick Date Shortcuts */}
+        <div className="pt-2 border-t border-[var(--border-soft)] flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-[11px] text-[var(--text-muted)]">
+            Viewing records{' '}
+            {fromDate || toDate ? (
+              <>
+                from <strong className="text-[var(--text-primary)]">{fromDate || 'Beginning'}</strong> to{' '}
+                <strong className="text-[var(--text-primary)]">{toDate || 'Present'}</strong>
+              </>
+            ) : (
+              <strong className="text-[var(--text-primary)]">All Available Dates</strong>
+            )}
+            {selectedRtm !== 'all' && (
+              <>
+                {' '}• RTM Channel: <strong className="text-accent">{selectedRtm}</strong>
+              </>
+            )}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                setFromDate(getTodayStr());
+                setToDate(getTodayStr());
+                setCurrentPage(1);
+              }}
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
+                fromDate === getTodayStr() && toDate === getTodayStr()
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => {
+                setFromDate('');
+                setToDate('');
+                setCurrentPage(1);
+              }}
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
+                !fromDate && !toDate
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+              }`}
+            >
+              All Dates
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Main Photo Grid */}
@@ -373,8 +555,8 @@ export default function SupervisorAuditPhotoGalleryPage() {
           <ImageIcon className="h-12 w-12 text-[var(--text-muted)] mx-auto opacity-40" />
           <h3 className="text-base font-bold text-[var(--text-primary)]">No Audit Photos Found</h3>
           <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto">
-            {selectedDate
-              ? `There are no photos recorded for ${selectedDate}. Try selecting "All Dates" or clearing filters.`
+            {fromDate || toDate
+              ? `There are no photos recorded for the selected date range (${fromDate || 'Start'} to ${toDate || 'End'}). Try selecting "All Dates" or clearing filters.`
               : 'You have not submitted any audit photos yet.'}
           </p>
         </div>
@@ -546,7 +728,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     onClick={() => setCurrentPage(pNum)}
                     className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-accent text-white shadow-md shadow-accent/20 scale-105'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-105'
                         : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)] hover:text-[var(--text-primary)]'
                     }`}
                   >
@@ -572,6 +754,132 @@ export default function SupervisorAuditPhotoGalleryPage() {
             >
               <ChevronsRight className="h-4 w-4" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Management Action Directives Drawer for Supervisor */}
+      {isActionDrawerOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden animate-in fade-in duration-200">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity cursor-pointer"
+            onClick={() => setIsActionDrawerOpen(false)}
+          />
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-md bg-[var(--surface)] border-l border-[var(--border)] shadow-2xl p-6 overflow-y-auto flex flex-col justify-between">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-[var(--border-soft)] pb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+                      <Flag className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-[var(--text-primary)]">
+                        Action Directives
+                      </h3>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Assigned corrective actions awaiting resolution
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsActionDrawerOpen(false)}
+                    className="p-1.5 rounded-xl hover:bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {Object.values(actionItemsMap).length === 0 ? (
+                    <div className="py-12 text-center text-[var(--text-muted)] space-y-2">
+                      <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500 opacity-60" />
+                      <p className="text-sm font-semibold">No action directives</p>
+                      <p className="text-xs opacity-75">All audit photos are in good standing.</p>
+                    </div>
+                  ) : (
+                    Object.values(actionItemsMap).map((item) => (
+                      <div
+                        key={item.id}
+                        className={`p-4 rounded-xl border space-y-3 transition-all ${
+                          item.actionStatus === 'PENDING'
+                            ? 'bg-amber-500/5 border-amber-500/30'
+                            : item.actionStatus === 'SUBMITTED'
+                            ? 'bg-sky-500/5 border-sky-500/30'
+                            : 'bg-emerald-500/5 border-emerald-500/30'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                item.priority === 'Urgent'
+                                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                  : 'bg-slate-700/50 text-slate-300'
+                              }`}
+                            >
+                              {item.priority} Priority
+                            </span>
+                            <h4 className="text-xs font-bold text-[var(--text-primary)] mt-1.5">
+                              {item.outlet}
+                            </h4>
+                            <p className="text-[11px] text-[var(--text-muted)]">
+                              Route: {item.route || 'N/A'} • {item.category}
+                            </p>
+                          </div>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              item.actionStatus === 'RESOLVED'
+                                ? 'bg-emerald-500 text-white'
+                                : item.actionStatus === 'SUBMITTED'
+                                ? 'bg-sky-500 text-white'
+                                : 'bg-amber-500 text-black font-extrabold animate-pulse'
+                            }`}
+                          >
+                            {item.actionStatus === 'RESOLVED'
+                              ? 'Verified'
+                              : item.actionStatus === 'SUBMITTED'
+                              ? 'Submitted'
+                              : 'Pending Action'}
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-xs space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                            Directive from {item.gmName}:
+                          </p>
+                          <p className="text-[var(--text-primary)] italic">"{item.gmComment}"</p>
+                        </div>
+
+                        {item.proofPhotoUrl && (
+                          <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-950/20 border border-emerald-500/30">
+                            <img
+                              src={item.proofPhotoUrl}
+                              alt="Proof Thumbnail"
+                              className="h-10 w-14 object-cover rounded"
+                            />
+                            <div className="text-[10px] truncate">
+                              <p className="font-bold text-emerald-400">Resolution Proof Attached</p>
+                              <p className="text-slate-300 truncate">"{item.supervisorComment}"</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleInspectAction(item)}
+                          className="w-full py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-semibold"
+                        >
+                          <Camera className="h-3.5 w-3.5" />
+                          {item.actionStatus === 'PENDING' ? 'Take Corrective Action & Submit Proof' : 'View Corrective Action'}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

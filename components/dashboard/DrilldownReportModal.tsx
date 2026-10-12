@@ -25,8 +25,7 @@ const GCOL: Record<string, string> = {
 const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   npd: [
     { key: 'date', label: 'Date' },
-    { key: 'visitId', label: 'Visit ID' },
-    { key: 'channel', label: 'Channel' },
+    { key: 'channel', label: 'RTM' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
     { key: 'routeCode', label: 'Route Code' },
@@ -39,8 +38,7 @@ const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   psku: [
     { key: 'date', label: 'Date' },
-    { key: 'visitId', label: 'Visit ID' },
-    { key: 'channel', label: 'Channel' },
+    { key: 'channel', label: 'RTM' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
     { key: 'routeCode', label: 'Route Code' },
@@ -53,8 +51,7 @@ const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   'cold-chain': [
     { key: 'date', label: 'Date' },
-    { key: 'visitId', label: 'Visit ID' },
-    { key: 'channel', label: 'Channel' },
+    { key: 'channel', label: 'RTM' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
     { key: 'routeCode', label: 'Route Code' },
@@ -68,8 +65,7 @@ const REPORT_COLUMNS: Record<string, { key: string; label: string }[]> = {
   ],
   classification: [
     { key: 'date', label: 'Date' },
-    { key: 'visitId', label: 'Visit ID' },
-    { key: 'channel', label: 'Channel' },
+    { key: 'channel', label: 'RTM' },
     { key: 'manager', label: 'Manager' },
     { key: 'supervisor', label: 'Supervisor' },
     { key: 'routeCode', label: 'Route Code' },
@@ -95,12 +91,27 @@ function formatDisplayDate(value?: string) {
 }
 
 function getCellValue(row: Record<string, unknown>, key: string) {
-  if (key === 'date') return formatDisplayDate(row.date as string | undefined);
-  if (key === 'classification') return (row.classification as string) || '—';
-  if (key === 'class') {
-    const classVal = (row.class as string) || '—';
-    return classVal === '-' ? 'Not classified' : classVal;
+  if (key === 'date') return formatDisplayDate((row.date || row.createdAt) as string | undefined);
+  if (key === 'channel') return (row.channel || row.ch || 'TT') as string;
+  if (key === 'manager') return (row.manager || row.mgr || '—') as string;
+  if (key === 'supervisor') return (row.supervisor || row.sup || '—') as string;
+  if (key === 'routeCode') {
+    return (row.routeCode || row.route || row.rt || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[1] || String(row.cust_rt_id).split('|')[0] : '—')) as string;
   }
+  if (key === 'outletCode') {
+    return (row.outletCode || row.custCode || row.code || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[0] : '—')) as string;
+  }
+  if (key === 'outletName') return (row.outletName || row.cust || '—') as string;
+  if (key === 'classification') {
+    const val = (row.classification || row.class || row.gr || '—') as string;
+    return val === '-' ? 'E' : val;
+  }
+  if (key === 'class') {
+    const classVal = (row.class || row.classification || row.gr || '—') as string;
+    return classVal === '-' ? 'E' : classVal;
+  }
+  if (key === 'businessVertical') return (row.businessVertical || row.vertical || (row.category === 'Ice Cream' ? 'Ice Cream' : 'Dairy') || '—') as string;
+  if (key === 'assetType') return (row.assetType || row.atype || '—') as string;
   if (key === 'availability') {
     if (row.availability) return row.availability as string;
     if (row.status) {
@@ -165,9 +176,8 @@ function buildSummaryText(reportType: string, rows: Record<string, unknown>[]) {
   }
 
   const yes = rows.filter((r) => r.availability === 'YES' || getCellValue(r, 'availability') === 'YES' || getCellValue(r, 'availability') === 'Available').length;
-  const no = rows.filter((r) => r.availability === 'NO' || getCellValue(r, 'availability') === 'NO' || getCellValue(r, 'availability') === 'Not Available').length;
-  const na = rows.filter((r) => r.availability === 'NOT APPLICABLE' || getCellValue(r, 'availability') === 'N/A' || getCellValue(r, 'availability') === 'Not Applicable').length;
-  return `Showing ${rows.length} records · ${yes} YES · ${no} NO · ${na} N/A`;
+  const no = rows.length - yes;
+  return `Showing ${rows.length} records · ${yes} YES · ${no} NO`;
 }
 
 function exportWorkbook(title: string, summary: string, rows: Record<string, unknown>[], reportType: string, filterChip?: { key: string; value: string; label: string } | null) {
@@ -561,17 +571,13 @@ export default function DrilldownReportModal({
                     {columns.map((column) => (
                       <td key={column.key} className="px-3 py-3 text-[12px] whitespace-nowrap text-[var(--text-primary)]">
                         {column.key === 'classification' && row.classification ? (
-                          <span className="inline-grid place-items-center w-6 h-6 rounded-md text-white font-bold text-[10px]" style={{ background: GCOL[row.classification as string] || '#9aa9b4' }}>
-                            {row.classification as string}
+                          <span className="inline-grid place-items-center w-6 h-6 rounded-md text-white font-bold text-[10px]" style={{ background: GCOL[row.classification === '-' ? 'E' : (row.classification as string)] || '#9aa9b4' }}>
+                            {row.classification === '-' ? 'E' : (row.classification as string)}
                           </span>
                         ) : column.key === 'class' && row.class ? (
-                          row.class === '-' ? (
-                            <span className="text-[11px] text-[var(--text-secondary)]">Not classified</span>
-                          ) : (
-                            <span className="inline-grid place-items-center w-6 h-6 rounded-md text-white font-bold text-[10px]" style={{ background: GCOL[row.class as string] || '#9aa9b4' }}>
-                              {row.class as string}
-                            </span>
-                          )
+                          <span className="inline-grid place-items-center w-6 h-6 rounded-md text-white font-bold text-[10px]" style={{ background: GCOL[row.class === '-' ? 'E' : (row.class as string)] || '#9aa9b4' }}>
+                            {row.class === '-' ? 'E' : (row.class as string)}
+                          </span>
                         ) : column.key === 'availability' && (getCellValue(row, column.key) === 'NO' || getCellValue(row, column.key) === 'Not Available') ? (
                           <span className="inline-flex items-center rounded-full bg-red-500/12 px-2.5 py-1 text-[10px] font-semibold text-red-600">{getCellValue(row, column.key)}</span>
                         ) : column.key === 'availability' && (getCellValue(row, column.key) === 'YES' || getCellValue(row, column.key) === 'Available') ? (
@@ -596,9 +602,9 @@ export default function DrilldownReportModal({
           </div>
           <div className="md:hidden divide-y divide-[var(--border-soft)] h-full overflow-y-auto">
             {paginatedData.length > 0 ? paginatedData.map((row, index) => (
-              <div key={`${row.visitId}-${index}`} className="p-4 bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors space-y-2">
+              <div key={`${row.outletCode || row.outletName || index}-${index}`} className="p-4 bg-[var(--surface)] hover:bg-[var(--surface-2)] transition-colors space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="font-mono text-[11px] font-bold text-[var(--accent)]">{row.visitId as string}</div>
+                  <div className="font-semibold text-[12px] text-[var(--accent)]">{row.outletName as string || 'Outlet'}</div>
                   <div className="text-[11px] text-[var(--text-muted)]">{formatDisplayDate(row.date as string | undefined)}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11.5px] text-[var(--text-muted)]">

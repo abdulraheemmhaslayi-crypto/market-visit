@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Camera,
   Calendar,
@@ -30,6 +30,7 @@ import {
   Sparkles,
   Clock,
   Eye,
+  RotateCcw,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
@@ -50,13 +51,37 @@ export interface AuditPhoto {
   outletCode?: string;
   route: string;
   channel: string;
+  observation?: string;
+  observations?: string | string[];
+  notes?: string;
+  assetObservations?: Array<{
+    assetId?: string;
+    assetType?: string;
+    sizeModel?: string;
+    temperature?: number | null;
+    tempInRange?: boolean;
+    actionRequired?: string;
+    observation?: string;
+  }>;
+  visitObservation?: string;
+  visitReason?: string;
+  visitNotes?: string;
 }
 
 export default function AuditPhotoGalleryPage() {
   // Today's date YYYY-MM-DD by default
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const getTodayStr = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
+  const [fromDate, setFromDate] = useState<string>(getTodayStr());
+  const [toDate, setToDate] = useState<string>(getTodayStr());
+  const [selectedRtm, setSelectedRtm] = useState<string>('all');
+  const [rtms, setRtms] = useState<string[]>(['TT', 'MT', 'INST']);
   const [selectedApp, setSelectedApp] = useState<string>('all');
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>('all');
   const [selectedRoute, setSelectedRoute] = useState<string>('all');
@@ -110,9 +135,11 @@ export default function AuditPhotoGalleryPage() {
 
       try {
         const params = new URLSearchParams();
-        if (selectedDate) params.set('date', selectedDate);
-        else params.set('date', 'all');
+        if (fromDate) params.set('fromDate', fromDate);
+        if (toDate) params.set('toDate', toDate);
+        if (!fromDate && !toDate) params.set('date', 'all');
 
+        if (selectedRtm && selectedRtm !== 'all') params.set('rtm', selectedRtm);
         if (selectedApp && selectedApp !== 'all') params.set('appName', selectedApp);
         if (selectedSupervisor && selectedSupervisor !== 'all') params.set('supervisor', selectedSupervisor);
         if (selectedRoute && selectedRoute !== 'all') params.set('routeCode', selectedRoute);
@@ -126,6 +153,11 @@ export default function AuditPhotoGalleryPage() {
 
         if (data.success) {
           setPhotos(data.photos || []);
+          if (data.rtms && Array.isArray(data.rtms)) {
+            setRtms(data.rtms);
+          } else if (data.channels && Array.isArray(data.channels)) {
+            setRtms(data.channels);
+          }
           if (data.applications && Array.isArray(data.applications)) {
             setApplications(data.applications);
           }
@@ -149,7 +181,7 @@ export default function AuditPhotoGalleryPage() {
         setIsRefreshing(false);
       }
     },
-    [selectedDate, selectedApp, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
+    [fromDate, toDate, selectedRtm, selectedApp, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
   );
 
   useEffect(() => {
@@ -158,7 +190,9 @@ export default function AuditPhotoGalleryPage() {
   }, [fetchPhotos, fetchActionItems]);
 
   const handleResetFilters = () => {
-    setSelectedDate(getTodayStr());
+    setFromDate(getTodayStr());
+    setToDate(getTodayStr());
+    setSelectedRtm('all');
     setSelectedApp('all');
     setSelectedSupervisor('all');
     setSelectedRoute('all');
@@ -173,17 +207,16 @@ export default function AuditPhotoGalleryPage() {
       filename: `photo_audits_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Photo Audits',
       title: 'Audit Photo Gallery Metadata Log',
-      filterSummary: `Date: ${selectedDate || 'All'} | App: ${selectedApp} | Supervisor: ${selectedSupervisor} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
+      filterSummary: `Dates: ${fromDate || 'Start'} to ${toDate || 'End'} | RTM: ${selectedRtm} | App: ${selectedApp} | Supervisor: ${selectedSupervisor} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
       columns: [
-        { header: 'Upload Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Photo ID', key: 'photoId' },
-        { header: 'Visit ID', key: 'visitId' },
+        { header: 'Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
+        { header: 'Manager', key: 'manager', formatter: (val: any) => val || '—' },
+        { header: 'Supervisor', key: 'supervisor', formatter: (val: any) => val || '—' },
+        { header: 'Route Code', key: 'route', formatter: (val: any) => val || '—' },
+        { header: 'Outlet Name', key: 'outlet', formatter: (val: any) => val || '—' },
         { header: 'Category / Asset', key: 'category' },
-        { header: 'Manager', key: 'manager' },
-        { header: 'Supervisor', key: 'supervisor' },
-        { header: 'Outlet', key: 'outlet' },
-        { header: 'Route', key: 'route' },
-        { header: 'Channel', key: 'channel' },
+        { header: 'Observations / Notes', key: 'observation', formatter: (val: any, row: any) => val || row.notes || '—' },
         { header: 'Application', key: 'appName' },
         { header: 'Action Status', key: 'photoId', formatter: (val: any) => actionItemsMap[val]?.actionStatus || 'None' },
         { header: 'Image URL', key: 'cloudinaryUrl' },
@@ -214,37 +247,106 @@ export default function AuditPhotoGalleryPage() {
     return { bg: 'rgba(99, 102, 241, 0.15)', text: '#6366f1', border: 'rgba(99, 102, 241, 0.3)' };
   };
 
-  // Action Items KPI Calculations
-  const allActionItemsList = Object.values(actionItemsMap);
-  const pendingCount = allActionItemsList.filter((a) => a.actionStatus === 'PENDING').length;
-  const submittedCount = allActionItemsList.filter((a) => a.actionStatus === 'SUBMITTED').length;
-  const resolvedCount = allActionItemsList.filter((a) => a.actionStatus === 'RESOLVED').length;
+  // Action Items KPI Calculations filtered by active dropdown selections
+  const filteredActionItems = useMemo(() => {
+    return Object.values(actionItemsMap).filter((item) => {
+      if (selectedRtm !== 'all' && (item.channel || '').toUpperCase() !== selectedRtm.toUpperCase()) {
+        return false;
+      }
+      if (selectedSupervisor !== 'all' && (item.supervisor || '').toLowerCase() !== selectedSupervisor.toLowerCase()) {
+        return false;
+      }
+      if (selectedRoute !== 'all' && (item.route || '').toLowerCase() !== selectedRoute.toLowerCase()) {
+        return false;
+      }
+      if (selectedOutlet !== 'all' && (item.outlet || '').toLowerCase() !== selectedOutlet.toLowerCase()) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const matches =
+          (item.outlet || '').toLowerCase().includes(q) ||
+          (item.supervisor || '').toLowerCase().includes(q) ||
+          (item.manager || '').toLowerCase().includes(q) ||
+          (item.route || '').toLowerCase().includes(q) ||
+          (item.category || '').toLowerCase().includes(q) ||
+          (item.channel || '').toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [actionItemsMap, selectedRtm, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery]);
 
-  // Filter photos by action status if selected
-  const displayedPhotos = photos.filter((photo) => {
-    if (actionFilter === 'all') return true;
-    const action = actionItemsMap[photo.photoId];
-    if (!action) return false;
-    return action.actionStatus === actionFilter;
-  });
+  const pendingActionItems = useMemo(
+    () => filteredActionItems.filter((a) => a.actionStatus === 'PENDING'),
+    [filteredActionItems]
+  );
+  const submittedActionItems = useMemo(
+    () => filteredActionItems.filter((a) => a.actionStatus === 'SUBMITTED'),
+    [filteredActionItems]
+  );
+  const resolvedActionItems = useMemo(
+    () => filteredActionItems.filter((a) => a.actionStatus === 'RESOLVED'),
+    [filteredActionItems]
+  );
+
+  const pendingCount = pendingActionItems.length;
+  const submittedCount = submittedActionItems.length;
+  const resolvedCount = resolvedActionItems.length;
+
+  // Accurately display photos matching the selected GM action status
+  const displayedPhotos = useMemo(() => {
+    if (actionFilter === 'all') return photos;
+
+    const targetActionItems =
+      actionFilter === 'PENDING'
+        ? pendingActionItems
+        : actionFilter === 'SUBMITTED'
+        ? submittedActionItems
+        : resolvedActionItems;
+
+    return targetActionItems.map((item) => {
+      const existing = photos.find((p) => p.photoId === item.photoId);
+      if (existing) return existing;
+      const syntheticPhoto: AuditPhoto = {
+        photoId: item.photoId,
+        visitId: item.visitId || 'VISIT-REF',
+        category: (item.category as any) || 'Audit Photo',
+        cloudinaryUrl: item.originalPhotoUrl,
+        publicId: item.photoId,
+        uploadedAt: item.createdAt || new Date().toISOString(),
+        appName: 'Field Audit',
+        outlet: item.outlet,
+        outletCode: item.outletCode || '',
+        route: item.route,
+        supervisor: item.supervisor || 'Field Supervisor',
+        manager: item.manager || '',
+        channel: item.channel || 'GT',
+      };
+      return syntheticPhoto;
+    });
+  }, [actionFilter, photos, pendingActionItems, submittedActionItems, resolvedActionItems]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Top Header Card */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-md">
         <div className="flex items-center gap-3.5">
-          <div className="h-12 w-12 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center shadow-xs border border-[var(--border)] flex-shrink-0">
+          <div className="h-12 w-12 rounded-2xl bg-white dark:bg-slate-800 p-2 flex items-center justify-center shadow-md border border-slate-200/80 dark:border-slate-700/80 flex-shrink-0">
             <img src="/images/dandy-logo.png" alt="Dandy Logo" className="h-full w-auto object-contain" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-              Audit Photo Gallery
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                Audit Photo Gallery
+              </h1>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 Live DB Stream
               </span>
-            </h1>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              Review audit photos, assign GM corrective directives, and verify supervisor resolution proof.
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+              Review field audit photos, assign GM corrective directives, and verify supervisor resolution proof.
             </p>
           </div>
         </div>
@@ -254,15 +356,17 @@ export default function AuditPhotoGalleryPage() {
           <button
             type="button"
             onClick={() => setIsActionDrawerOpen(true)}
-            className="flex items-center gap-2 text-xs font-bold px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-sm"
+            className="flex items-center gap-2 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
           >
-            <Flag className="h-3.5 w-3.5 text-amber-400" />
+            <Flag className="h-4 w-4 text-amber-500" />
             <span>Action Tracker</span>
-            {pendingCount + submittedCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-black">
-                {pendingCount + submittedCount}
-              </span>
-            )}
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+              pendingCount + submittedCount > 0
+                ? 'bg-amber-500 text-slate-950 shadow-xs animate-pulse'
+                : 'bg-amber-500/20 text-amber-700 dark:text-amber-400'
+            }`}>
+              {pendingCount + submittedCount}
+            </span>
           </button>
 
           <ExportButton onClick={handleExportPhotos} label="Export Log" variant="outline" />
@@ -273,108 +377,171 @@ export default function AuditPhotoGalleryPage() {
               fetchActionItems();
             }}
             disabled={isRefreshing}
-            className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] border border-[var(--border)] transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 text-xs font-bold px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-xs active:scale-95"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`} />
             Refresh
           </button>
 
-          <div className="text-xs font-semibold px-3.5 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-            <CheckCircle2 className="h-3.5 w-3.5" />
+          <div className="text-xs font-bold px-3.5 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-2 shadow-xs">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             <span>{pagination.totalCount} Photo{pagination.totalCount === 1 ? '' : 's'}</span>
           </div>
         </div>
       </div>
 
-      {/* GM Directive Quick Filter Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-        <span className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5 mr-1 flex-shrink-0">
-          <Flag className="h-3.5 w-3.5 text-amber-500" /> Filter by GM Action:
+      {/* Directive Quick Filter Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs pt-1">
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mr-1 flex-shrink-0">
+          <Flag className="h-3.5 w-3.5 text-amber-500" /> Filter by Action & Remarks:
         </span>
         <button
           onClick={() => setActionFilter('all')}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex-shrink-0 ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex-shrink-0 flex items-center gap-1.5 ${
             actionFilter === 'all'
-              ? 'bg-accent text-white shadow'
-              : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)]'
+              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 font-black'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 shadow-xs'
           }`}
         >
-          All Photos ({photos.length})
+          <span>All Photos</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            actionFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+          }`}>
+            {pagination.totalCount || photos.length}
+          </span>
         </button>
         <button
           onClick={() => setActionFilter('PENDING')}
-          className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'PENDING'
-              ? 'bg-amber-500 text-black shadow'
-              : 'bg-[var(--surface)] text-amber-400 border border-amber-500/30 hover:bg-amber-500/10'
+              ? 'bg-amber-500 text-slate-950 shadow-md border border-amber-600 font-black'
+              : 'bg-amber-50/80 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:hover:bg-amber-900/40 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 shadow-xs'
           }`}
         >
-          <AlertTriangle className="h-3.5 w-3.5" />
-          Action Pending ({pendingCount})
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+          <span>Action Pending</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            actionFilter === 'PENDING' ? 'bg-black/20 text-black' : 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300'
+          }`}>
+            {pendingCount}
+          </span>
         </button>
         <button
           onClick={() => setActionFilter('SUBMITTED')}
-          className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'SUBMITTED'
-              ? 'bg-sky-500 text-white shadow'
-              : 'bg-[var(--surface)] text-sky-400 border border-sky-500/30 hover:bg-sky-500/10'
+              ? 'bg-sky-600 text-white shadow-md border border-sky-700 font-black'
+              : 'bg-sky-50/80 hover:bg-sky-100 text-sky-800 dark:bg-sky-950/30 dark:hover:bg-sky-900/40 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/80 shadow-xs'
           }`}
         >
-          <Upload className="h-3.5 w-3.5" />
-          Proof Submitted ({submittedCount})
+          <Upload className="h-3.5 w-3.5 text-sky-500" />
+          <span>Proof Submitted</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            actionFilter === 'SUBMITTED' ? 'bg-white/20 text-white' : 'bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-300'
+          }`}>
+            {submittedCount}
+          </span>
         </button>
         <button
           onClick={() => setActionFilter('RESOLVED')}
-          className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 ${
             actionFilter === 'RESOLVED'
-              ? 'bg-emerald-500 text-white shadow'
-              : 'bg-[var(--surface)] text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10'
+              ? 'bg-emerald-600 text-white shadow-md border border-emerald-700 font-black'
+              : 'bg-emerald-50/80 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 shadow-xs'
           }`}
         >
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          Verified Closed ({resolvedCount})
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+          <span>Verified Closed</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            actionFilter === 'RESOLVED' ? 'bg-white/20 text-white' : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300'
+          }`}>
+            {resolvedCount}
+          </span>
         </button>
       </div>
 
       {/* Filter Control Bar */}
-      <div className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-sm space-y-3">
-        <div className="flex items-center justify-between pb-2 border-b border-[var(--border-soft)]">
-          <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
-            <SlidersHorizontal className="h-4 w-4 text-accent" />
+      <div className="p-4.5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+            </div>
             Filter Gallery
           </div>
-          {(selectedDate || selectedApp !== 'all' || selectedSupervisor !== 'all' || selectedOutlet !== 'all' || searchQuery || actionFilter !== 'all') && (
+          {(fromDate !== getTodayStr() || toDate !== getTodayStr() || selectedRtm !== 'all' || selectedApp !== 'all' || selectedSupervisor !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery || actionFilter !== 'all') && (
             <button
               onClick={handleResetFilters}
-              className="text-[11px] font-medium text-accent hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
             >
+              <RotateCcw className="h-3 w-3" />
               Reset Filters
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-          {/* Date Selector (Default: Today) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3">
+          {/* From Date Slicer */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <Calendar className="h-3 w-3 text-accent" />
-              Visit Date
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-indigo-500" />
+              From Date
             </label>
             <input
               type="date"
-              value={selectedDate}
+              value={fromDate}
               onChange={(e) => {
-                setSelectedDate(e.target.value);
+                setFromDate(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-accent"
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
+          </div>
+
+          {/* To Date Slicer */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-indigo-500" />
+              To Date
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            />
+          </div>
+
+          {/* RTM Slicer */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Layers className="h-3 w-3 text-indigo-500" />
+              RTM Slicer
+            </label>
+            <select
+              value={selectedRtm}
+              onChange={(e) => {
+                setSelectedRtm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="all">All RTM Channels</option>
+              {rtms.map((rtm) => (
+                <option key={rtm} value={rtm}>
+                  {rtm}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Supervisor Selector */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <User className="h-3 w-3 text-accent" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <User className="h-3 w-3 text-indigo-500" />
               Supervisor
             </label>
             <select
@@ -383,7 +550,7 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedSupervisor(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-accent"
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
               <option value="all">All Supervisors</option>
               {supervisors.map((sup) => (
@@ -396,8 +563,8 @@ export default function AuditPhotoGalleryPage() {
 
           {/* Route Selector */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <MapPin className="h-3 w-3 text-accent" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-indigo-500" />
               Route
             </label>
             <select
@@ -406,7 +573,7 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedRoute(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-accent"
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
               <option value="all">All Routes</option>
               {routes.map((rt) => (
@@ -419,8 +586,8 @@ export default function AuditPhotoGalleryPage() {
 
           {/* Outlet Selector */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <Store className="h-3 w-3 text-accent" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Store className="h-3 w-3 text-indigo-500" />
               Customer / Outlet
             </label>
             <select
@@ -429,7 +596,7 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedOutlet(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-accent"
+              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
               <option value="all">All Outlets</option>
               {outlets.map((ot) => (
@@ -442,8 +609,8 @@ export default function AuditPhotoGalleryPage() {
 
           {/* Search Input */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-              <Search className="h-3 w-3 text-accent" />
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Search className="h-3 w-3 text-indigo-500" />
               Search
             </label>
             <div className="relative">
@@ -455,44 +622,64 @@ export default function AuditPhotoGalleryPage() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full text-xs font-semibold py-2 pl-8 pr-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-accent"
+                className="w-full text-xs font-semibold py-2 pl-8 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
-              <Search className="h-3.5 w-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         {/* Quick Date Shortcuts */}
-        <div className="pt-2 border-t border-[var(--border-soft)] flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="text-[11px] text-[var(--text-muted)]">
-            Viewing records for{' '}
-            <strong className="text-[var(--text-primary)]">
-              {selectedDate || 'All Available Dates'}
-            </strong>
+        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            Viewing records{' '}
+            {fromDate || toDate ? (
+              <>
+                from <strong className="text-slate-900 dark:text-white font-bold">{fromDate || 'Beginning'}</strong> to{' '}
+                <strong className="text-slate-900 dark:text-white font-bold">{toDate || 'Present'}</strong>
+              </>
+            ) : (
+              <strong className="text-slate-900 dark:text-white font-bold">All Available Dates</strong>
+            )}
+            {selectedRtm !== 'all' && (
+              <>
+                {' '}• RTM Channel: <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{selectedRtm}</strong>
+              </>
+            )}
           </span>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => {
-                setSelectedDate(getTodayStr());
+                setFromDate(getTodayStr());
+                setToDate(getTodayStr());
                 setCurrentPage(1);
               }}
-              className={`text-[11px] font-semibold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
-                selectedDate === getTodayStr()
-                  ? 'bg-accent text-white border-accent'
-                  : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
+                fromDate === getTodayStr() && toDate === getTodayStr()
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
               }`}
             >
               Today
             </button>
             <button
               onClick={() => {
-                setSelectedDate('');
+                setFromDate('');
+                setToDate('');
                 setCurrentPage(1);
               }}
-              className={`text-[11px] font-semibold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
-                !selectedDate
-                  ? 'bg-accent text-white border-accent'
-                  : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
+                !fromDate && !toDate
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
               }`}
             >
               All Dates
@@ -514,11 +701,11 @@ export default function AuditPhotoGalleryPage() {
             No audit photos found matching the selected filters.
           </h3>
           <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto">
-            Try adjusting your date, GM action status, or search filters.
+            Try adjusting your date, action status, or search filters.
           </p>
           <button
             onClick={handleResetFilters}
-            className="mt-2 text-xs font-semibold px-4 py-2 rounded-xl bg-accent text-white hover:bg-accent/90 transition-all cursor-pointer inline-flex items-center gap-1.5"
+            className="mt-2 text-xs font-semibold px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all cursor-pointer inline-flex items-center gap-1.5"
           >
             Reset All Filters
           </button>
@@ -544,7 +731,7 @@ export default function AuditPhotoGalleryPage() {
               <div
                 key={photo.photoId}
                 onClick={() => {
-                  const idx = photos.findIndex((p) => p.photoId === photo.photoId);
+                  const idx = displayedPhotos.findIndex((p) => p.photoId === photo.photoId);
                   setLightboxIndex(idx !== -1 ? idx : 0);
                 }}
                 className={`group relative rounded-2xl border bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col ${
@@ -566,7 +753,7 @@ export default function AuditPhotoGalleryPage() {
                     loading="lazy"
                   />
 
-                  {/* GM Action Status Overlay Badge */}
+                  {/* Action Status Overlay Badge */}
                   {action && (
                     <div
                       className={`absolute bottom-2.5 left-2.5 right-2.5 px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center justify-between shadow-lg backdrop-blur-md border ${
@@ -597,7 +784,7 @@ export default function AuditPhotoGalleryPage() {
 
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="text-xs font-semibold text-white px-3.5 py-2 rounded-xl bg-black/70 backdrop-blur-sm flex items-center gap-2 border border-white/20">
-                      <ExternalLink className="h-3.5 w-3.5" /> Inspect & GM Remarks
+                      <ExternalLink className="h-3.5 w-3.5" /> Inspect & Remarks
                     </span>
                   </div>
                 </div>
@@ -643,7 +830,7 @@ export default function AuditPhotoGalleryPage() {
       )}
 
       {/* Pagination Footer */}
-      {pagination.totalPages > 1 && (
+      {actionFilter === 'all' && pagination.totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)] text-xs text-[var(--text-secondary)]">
           <p>
             Showing Page <strong className="text-[var(--text-primary)]">{pagination.currentPage}</strong> of{' '}
@@ -685,7 +872,7 @@ export default function AuditPhotoGalleryPage() {
                     onClick={() => setCurrentPage(pNum)}
                     className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-accent text-white shadow-md shadow-accent/20 scale-105'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-105'
                         : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)] hover:text-[var(--text-primary)]'
                     }`}
                   >
@@ -759,13 +946,13 @@ export default function AuditPhotoGalleryPage() {
 
             {/* List of Action Items */}
             <div className="space-y-3">
-              {allActionItemsList.length === 0 ? (
+              {filteredActionItems.length === 0 ? (
                 <div className="py-12 text-center text-xs text-[var(--text-muted)]">
                   <Flag className="h-8 w-8 mx-auto opacity-30 mb-2" />
                   No action directives assigned yet. Click on any photo in the gallery to flag an issue!
                 </div>
               ) : (
-                allActionItemsList.map((item) => (
+                filteredActionItems.map((item) => (
                   <div
                     key={item.id}
                     className="p-4 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] space-y-3 text-xs"
@@ -817,9 +1004,28 @@ export default function AuditPhotoGalleryPage() {
                       type="button"
                       onClick={() => {
                         setIsActionDrawerOpen(false);
-                        const idx = photos.findIndex((p) => p.photoId === item.photoId);
-                        if (idx !== -1) setLightboxIndex(idx);
-                        else if (photos.length > 0) setLightboxIndex(0);
+                        const existingIdx = photos.findIndex((p) => p.photoId === item.photoId);
+                        if (existingIdx !== -1) {
+                          setLightboxIndex(existingIdx);
+                        } else {
+                          const syntheticPhoto: AuditPhoto = {
+                            photoId: item.photoId,
+                            visitId: item.visitId || 'VISIT-REF',
+                            category: (item.category as any) || 'Audit Photo',
+                            cloudinaryUrl: item.originalPhotoUrl,
+                            publicId: item.photoId,
+                            uploadedAt: item.createdAt || new Date().toISOString(),
+                            appName: 'Field Audit',
+                            outlet: item.outlet,
+                            outletCode: item.outletCode || '',
+                            route: item.route,
+                            supervisor: item.supervisor,
+                            manager: item.manager || '',
+                            channel: item.channel || 'GT',
+                          };
+                          setPhotos((prev) => [syntheticPhoto, ...prev.filter((p) => p.photoId !== item.photoId)]);
+                          setLightboxIndex(0);
+                        }
                       }}
                       className="w-full py-1.5 rounded-lg text-xs font-bold bg-accent/10 hover:bg-accent/20 text-accent border border-accent/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
@@ -835,7 +1041,7 @@ export default function AuditPhotoGalleryPage() {
 
       {/* Lightbox Metadata Modal with GM Directive & Proof Verification */}
       <ImageLightboxModal
-        photos={photos}
+        photos={displayedPhotos}
         currentIndex={lightboxIndex ?? 0}
         isOpen={lightboxIndex !== null}
         onClose={() => setLightboxIndex(null)}

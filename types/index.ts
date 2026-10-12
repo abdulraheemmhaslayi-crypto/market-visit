@@ -21,7 +21,7 @@ export type ActionRequiredType =
   | "No Dandy Asset"
   | "Others"
   | "None";
-export type NPDStatus = "Available" | "Not Available" | "Not Required";
+export type NPDStatus = "Available" | "Not Available" | "Not Applicable" | "Not Required";
 
 export interface User {
   id: string;
@@ -95,6 +95,8 @@ export interface Visit {
   sosAsPerBda?: boolean | null;
   routeCode: string; // Transient helper
   customerCode: string; // Transient helper
+  customerName?: string; // Transient helper
+  supervisorName?: string; // Transient helper
   temperature?: number;
   tempInRange?: boolean;
   assetType?: AssetType;

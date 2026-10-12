@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/toast';
 import { useGeolocation } from '@/hooks/use-geolocation';
-import { saveVisitDraftAction, submitVisitAction } from '@/actions/visit-actions';
 import { isFleetRole } from '@/lib/roles';
 import { compressImage } from '@/utils/image-compressor';
 import { getSizeModelsForCategory } from '@/utils/asset-config';
@@ -166,8 +165,19 @@ function VisitWizardContent() {
         setVisitObservation(localMatch.observation || '');
         setAssets((localMatch.assets || []).map((a: any) => ({ ...a, visitId: resumeId })));
         setPhotos((localMatch.photos || []).map((p: any) => ({ ...p, visitId: resumeId })));
-        setPowerSkuResults(localMatch.powerSkuResults || {});
-        setNpdResponses(localMatch.npdResponses || {});
+        const cleanPowerSku: Record<string, string> = {};
+        Object.entries(localMatch.powerSkuResults || {}).forEach(([k, v]) => {
+          const val = String(v);
+          cleanPowerSku[k] = (val === 'Not Required' || val === 'Not Applicable') ? 'Not Available' : val;
+        });
+        setPowerSkuResults(cleanPowerSku);
+
+        const cleanNpd: Record<string, string> = {};
+        Object.entries(localMatch.npdResponses || {}).forEach(([k, v]) => {
+          const val = String(v);
+          cleanNpd[k] = val === 'Not Required' ? 'Not Applicable' : val;
+        });
+        setNpdResponses(cleanNpd);
         setSosAsPerBda(localMatch.sosAsPerBda !== undefined ? localMatch.sosAsPerBda : null);
         setCurrentStep(localMatch.currentStep || 0);
       } else {
@@ -186,6 +196,7 @@ function VisitWizardContent() {
           assetId: 'ast_' + Math.random().toString(36).substring(2, 9),
           visitId,
           assetType: 'Chiller',
+          sizeModel: 'Single Door',
           temperature: undefined as number | undefined,
           tempInRange: true,
           actionRequired: 'Select Status',
@@ -253,63 +264,112 @@ function VisitWizardContent() {
 
       let successCount = 0;
       let failCount = 0;
+      const totalFiles = files.length;
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fileNum = i + 1;
-        const totalFiles = files.length;
+      // Helper function to compress and upload a single photo with timeout and automatic retry
+      const processAndUploadFile = async (file: File, fileIndex: number): Promise<VisitPhoto> => {
+        const fileNum = fileIndex + 1;
         const origSizeMb = (file.size / (1024 * 1024)).toFixed(1);
 
-        try {
-          // 1. Show compression loading indicator
-          setPhotoProcessingStatus(
-            `Compressing photo ${fileNum} of ${totalFiles} (${origSizeMb} MB)...`
-          );
+        setPhotoProcessingStatus(
+          `Compressing photo ${fileNum} of ${totalFiles} (${origSizeMb} MB)...`
+        );
 
-          // 2. Perform client-side compression & resolution scaling
-          const compressed = await compressImage(file);
+        // 1. Client-side compression & WebP/JPEG scaling (preserves crisp detail at ~110KB-200KB)
+        const compressed = await compressImage(file);
+        const compressedSizeKb = (compressed.size / 1024).toFixed(0);
+        const ratio = compressed.compressionRatio;
+        const ext = compressed.mimeType === 'image/webp' ? 'webp' : 'jpg';
 
-          const compressedSizeKb = (compressed.size / 1024).toFixed(0);
-          const ratio = compressed.compressionRatio;
+        // 2. Upload with 25s timeout and 1 auto-retry to prevent indefinite hanging on weak mobile network
+        let lastErr: any = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-          // 3. Show upload status
-          setPhotoProcessingStatus(
-            `Uploading photo ${fileNum} of ${totalFiles} (${compressedSizeKb} KB, -${ratio}%)...`
-          );
+          try {
+            setPhotoProcessingStatus(
+              attempt === 1
+                ? `Uploading photo ${fileNum} of ${totalFiles} (${compressedSizeKb} KB, -${ratio}%)...`
+                : `Retrying photo ${fileNum} of ${totalFiles} (${compressedSizeKb} KB)...`
+            );
 
-          // 4. Send compressed base64 payload to server upload endpoint
-          const res = await fetch('/api/upload', {
-            method: 'POST',
-            body: JSON.stringify({ file: compressed.base64, category }),
-            headers: { 'Content-Type': 'application/json' },
-          });
+            // Use binary multipart/form-data for fastest upload (33% smaller than base64)
+            const formData = new FormData();
+            formData.append(
+              'file',
+              compressed.blob,
+              `photo_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`
+            );
+            formData.append('category', category);
 
-          if (!res.ok) throw new Error('Upload failed');
-          const uploaded = await res.json();
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
+              signal: controller.signal,
+            });
 
-          const newPhoto: VisitPhoto = {
-            photoId: uploaded.public_id,
-            visitId,
-            category,
-            cloudinaryUrl: uploaded.secure_url,
-            publicId: uploaded.public_id,
-            uploadedAt: new Date().toISOString(),
-          };
+            clearTimeout(timeoutId);
 
-          setPhotos((prev) => [...prev, newPhoto]);
-          successCount++;
-        } catch (err) {
-          console.error('Photo compression/upload error:', err);
-          failCount++;
+            if (!res.ok) {
+              const errJson = await res.json().catch(() => ({}));
+              throw new Error(errJson.error || `Upload failed with status ${res.status}`);
+            }
+
+            const uploaded = await res.json();
+            return {
+              photoId: uploaded.public_id,
+              visitId,
+              category,
+              cloudinaryUrl: uploaded.secure_url || uploaded.url,
+              publicId: uploaded.public_id,
+              uploadedAt: new Date().toISOString(),
+            };
+          } catch (err: any) {
+            clearTimeout(timeoutId);
+            lastErr = err;
+            console.warn(`Photo ${fileNum} upload attempt ${attempt} failed:`, err);
+            if (attempt < 2) {
+              // Quick backoff before retrying
+              await new Promise((r) => setTimeout(r, 600));
+            }
+          }
         }
-      }
+
+        throw lastErr || new Error('Upload failed after retries');
+      };
+
+      // Process with concurrency of 2 (uploads up to 2 photos in parallel)
+      const queue = files.map((file, i) => ({ file, i }));
+      const worker = async () => {
+        while (queue.length > 0) {
+          const item = queue.shift();
+          if (!item) break;
+          try {
+            const newPhoto = await processAndUploadFile(item.file, item.i);
+            // Instantly append to state as each photo finishes so user sees progress
+            setPhotos((prev) => [...prev, newPhoto]);
+            successCount++;
+          } catch (err) {
+            console.error('Photo upload error:', err);
+            failCount++;
+          }
+        }
+      };
+
+      // Run 2 parallel workers
+      await Promise.all([worker(), worker()]);
 
       if (successCount > 0) {
-        showToast(`${successCount} photo(s) compressed & uploaded successfully to ${category === 'Vegetables' ? 'Assets' : category}.`, 'success');
+        showToast(
+          `${successCount} photo(s) compressed & uploaded successfully to ${category === 'Vegetables' ? 'Assets' : category}.`,
+          'success'
+        );
       }
       if (failCount > 0) {
-        showToast(`Failed to process/upload ${failCount} photo(s).`, 'error');
+        showToast(`Failed to upload ${failCount} photo(s). Please check your connection and retry.`, 'error');
       }
+
       setUploadingPhoto(false);
       setPhotoProcessingStatus(null);
       e.target.value = '';
@@ -323,21 +383,20 @@ function VisitWizardContent() {
 
   const nextStep = () => {
     if (currentStep === 0) {
+      if (!selectedRoute) {
+        showToast('Please select a route.', 'warning');
+        return;
+      }
+      if (visitType === 'Visit' && !effectiveCustomerId) {
+        showToast('Please select a customer outlet.', 'warning');
+        return;
+      }
       if (visitType === 'No Visit') {
         if (!reasonCategory) {
           showToast('Please select a reason category for no-visit reports.', 'warning');
           return;
         }
         saveStateToLocalStorage(0);
-        return;
-      }
-
-      if (!selectedRoute) {
-        showToast('Please select a route.', 'warning');
-        return;
-      }
-      if (!effectiveCustomerId) {
-        showToast('Please select a customer.', 'warning');
         return;
       }
     }
@@ -364,13 +423,13 @@ function VisitWizardContent() {
   };
 
   const handleSaveDraft = async () => {
-    if (visitType === 'No Visit') {
-      setSavingDraft(true);
-    } else if (!effectiveCustomerId) {
-      showToast('Please select both a route and a customer before saving.', 'warning');
+    if (!selectedRoute) {
+      showToast('Please select a route before saving.', 'warning');
       return;
-    } else {
-      setSavingDraft(true);
+    }
+    if (visitType === 'Visit' && !effectiveCustomerId) {
+      showToast('Please select a customer before saving.', 'warning');
+      return;
     }
     setSavingDraft(true);
     try {
@@ -379,9 +438,11 @@ function VisitWizardContent() {
         visit_type: visitType,
         reason_category: reasonCategory,
         reason,
-        cust_rt_id: effectiveCustomerId,
+        observation: visitObservation,
+        cust_rt_id: effectiveCustomerId || (selectedRoute ? `ROUTE|${selectedRoute}` : ''),
         routeCode: selectedRoute,
         customerCode: activeCustomer?.customerCode || '',
+        customerName: activeCustomer?.customerName || (visitType === 'No Visit' ? 'Route No Visit' : ''),
         assets: assets.map(a => ({
           ...a,
           temperature: Number(a.temperature) || 0,
@@ -394,9 +455,18 @@ function VisitWizardContent() {
         status: 'Draft' as const,
       };
 
-      await saveVisitDraftAction(draftPayload as any);
-      showToast('Draft successfully synced to server.', 'success');
       saveStateToLocalStorage(currentStep);
+
+      const res = await fetch('/api/visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draftPayload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to sync draft to server.');
+      }
+      showToast('Draft successfully synced to server.', 'success');
       router.push('/supervisor');
     } catch (err: any) {
       showToast(err.message || 'Failed to sync draft to server.', 'error');
@@ -407,6 +477,10 @@ function VisitWizardContent() {
 
   const handleFinalSubmit = async () => {
     if (visitType === 'No Visit') {
+      if (!selectedRoute) {
+        showToast('Please select a route.', 'warning');
+        return;
+      }
       if (!reasonCategory) {
         showToast('Please select a reason category for no-visit reports.', 'warning');
         return;
@@ -415,24 +489,24 @@ function VisitWizardContent() {
       showToast('Please select both a route and a customer before submitting.', 'warning');
       return;
     }
-    if (visitType === 'No Visit' && !reasonCategory) {
-      showToast('Please select a reason category for no-visit reports.', 'warning');
-      return;
+    // Auto-default any unselected Power SKU or NPD checklist items to 'Not Available' ONLY for regular visits
+    const finalPowerSkuResults = visitType === 'No Visit' ? {} : { ...powerSkuResults };
+    if (visitType !== 'No Visit') {
+      powerSkus.forEach((s) => {
+        if (!finalPowerSkuResults[s.skuCode]) {
+          finalPowerSkuResults[s.skuCode] = 'Not Available';
+        }
+      });
     }
-    // Auto-default any unselected Power SKU or NPD checklist items to 'Not Available'
-    const finalPowerSkuResults = { ...powerSkuResults };
-    powerSkus.forEach((s) => {
-      if (!finalPowerSkuResults[s.skuCode]) {
-        finalPowerSkuResults[s.skuCode] = 'Not Available';
-      }
-    });
 
-    const finalNpdResponses = { ...npdResponses };
-    npdSkus.forEach((s) => {
-      if (!finalNpdResponses[s.skuCode]) {
-        finalNpdResponses[s.skuCode] = 'Not Available';
-      }
-    });
+    const finalNpdResponses = visitType === 'No Visit' ? {} : { ...npdResponses };
+    if (visitType !== 'No Visit') {
+      npdSkus.forEach((s) => {
+        if (!finalNpdResponses[s.skuCode]) {
+          finalNpdResponses[s.skuCode] = 'Not Available';
+        }
+      });
+    }
 
     setSubmittingVisit(true);
     try {
@@ -451,9 +525,10 @@ function VisitWizardContent() {
         reason_category: reasonCategory,
         reason,
         observation: visitObservation,
-        cust_rt_id: effectiveCustomerId,
+        cust_rt_id: effectiveCustomerId || (selectedRoute ? `ROUTE|${selectedRoute}` : ''),
         routeCode: selectedRoute,
         customerCode: activeCustomer?.customerCode || '',
+        customerName: activeCustomer?.customerName || (visitType === 'No Visit' ? 'Route No Visit' : ''),
         assets: validAssets,
         photos,
         powerSkuResults: finalPowerSkuResults,
@@ -465,7 +540,18 @@ function VisitWizardContent() {
         status: 'Submitted' as const,
       };
 
-      await submitVisitAction(finalPayload as any);
+      // Always ensure local draft is updated in case network drops
+      saveStateToLocalStorage(currentStep);
+
+      const res = await fetch('/api/visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalPayload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Submission failed.');
+      }
       showToast('Visit audit submitted successfully.', 'success');
 
       const stored = localStorage.getItem('supervisor_visit_drafts');
@@ -489,7 +575,8 @@ function VisitWizardContent() {
       {
         assetId: 'ast_' + Math.random().toString(36).substring(2, 9),
         visitId,
-        assetType: 'Chiller',
+        assetType: 'Freezer',
+        sizeModel: '400',
         temperature: undefined as number | undefined,
         tempInRange: true,
         actionRequired: 'Select Status',
@@ -639,190 +726,207 @@ function VisitWizardContent() {
       {/* STEP 0: ROUTE & CUSTOMER SELECTION */}
       {currentStep === 0 && (
         <div className="card p-5 space-y-4 animate-slide-up">
-          <span className="badge badge-accent">{visitType === 'No Visit' ? 'No Visit Report' : 'Route & Customer Selection'}</span>
+          <span className="badge badge-accent">
+            {visitType === 'No Visit' && activeCustomer ? 'No Visit Report' : 'Route & Customer Selection'}
+          </span>
 
-          {visitType === 'No Visit' ? (
-            <div className="rounded-xl p-4 border border-solid border-[var(--border-soft)] bg-[var(--surface-2)] space-y-3">
-              <p className="text-[11px] font-bold text-[var(--text-primary)]">No Visit reason</p>
+          <div>
+            <label className="form-label mb-1">Select Available Route</label>
+            <select
+              value={selectedRoute}
+              onChange={(e) => { setSelectedRoute(e.target.value); setSelectedCustomer(''); }}
+              className="form-input"
+            >
+              <option value="">— Choose Route —</option>
+              {routes.map((r) => (
+                <option key={r.routeCode} value={r.routeCode}>{r.routeCode} – {r.routeName} ({r.channel})</option>
+              ))}
+            </select>
+          </div>
+
+          {selectedRoute ? (
+            <div className="space-y-3 pt-2" style={{ borderTop: '1px dashed var(--border-soft)' }}>
               <div className="grid grid-cols-2 gap-3">
-                <select
-                  value={reasonCategory}
-                  onChange={(e) => setReasonCategory(e.target.value)}
-                  className="form-input h-9 text-[12px]"
-                >
-                  <option value="">— Select Reason Category —</option>
-                  <option value="Outlet Closed">Outlet Closed</option>
-                  <option value="No Permission">No Permission</option>
-                  <option value="Customer Absent">Customer Absent</option>
-                  <option value="Safety Concern">Safety Concern</option>
-                  <option value="Other">Other</option>
-                </select>
-                <input
-                  type="text"
-                  placeholder="Optional short note"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  className="form-input h-9 text-[12px]"
-                />
+                {(['Visit', 'No Visit'] as const).map((type) => {
+                  const isSelected = visitType === type;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setVisitType(type)}
+                      className="h-10 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+                      style={{
+                        background: isSelected ? 'var(--accent-light)' : 'var(--surface)',
+                        color: isSelected ? 'var(--accent)' : 'var(--text-muted)',
+                        border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                      }}
+                    >
+                      {type}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-[10px] text-[var(--text-muted)]">This report will be submitted immediately with the selected reason and will not require the full asset or photo workflow.</p>
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="form-label mb-1">Select Available Route</label>
-                <select
-                  value={selectedRoute}
-                  onChange={(e) => { setSelectedRoute(e.target.value); setSelectedCustomer(''); }}
-                  className="form-input"
-                >
-                  <option value="">— Choose Route —</option>
-                  {routes.map((r) => (
-                    <option key={r.routeCode} value={r.routeCode}>{r.routeCode} – {r.routeName} ({r.channel})</option>
-                  ))}
-                </select>
+              <div className="flex items-center justify-between">
+                <label className="form-label mb-0">
+                  Search & Select Customer Outlet {visitType === 'No Visit' && <span className="text-[11px] font-normal text-slate-500 lowercase">(optional)</span>}
+                </label>
+                {visitType === 'No Visit' && selectedCustomer && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCustomer('')}
+                    className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                  >
+                    ✕ Clear Selection
+                  </button>
+                )}
               </div>
+              <input
+                type="text"
+                placeholder="Type customer code or name to search..."
+                value={customerSearch}
+                onChange={(e) => setCustomerSearch(e.target.value)}
+                className="form-input"
+              />
 
-              {selectedRoute ? (
-                <div className="space-y-3 pt-2" style={{ borderTop: '1px dashed var(--border-soft)' }}>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(['Visit', 'No Visit'] as const).map((type) => {
-                      const isSelected = visitType === type;
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setVisitType(type)}
-                          className="h-10 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+              <div className="space-y-2 mt-2 max-h-[250px] overflow-y-auto pr-1 border border-solid border-[var(--border-soft)] rounded-xl p-2 bg-[var(--surface-2)]">
+                {filteredCustomers.length === 0 ? (
+                  <p className="text-[12px] italic text-center py-8 text-[var(--text-muted)]">
+                    No matching customers found for this route.
+                  </p>
+                ) : (
+                  filteredCustomers.map((c) => {
+                    const isSelected = selectedCustomer === c.cust_rt_id;
+                    return (
+                      <button
+                        key={c.cust_rt_id}
+                        type="button"
+                        onClick={() => setSelectedCustomer(c.cust_rt_id)}
+                        className="w-full text-left p-3 rounded-xl transition-all duration-200 flex items-center justify-between border border-solid cursor-pointer"
+                        style={{
+                          background: isSelected ? 'var(--accent-light)' : 'var(--surface)',
+                          borderColor: isSelected ? 'var(--accent)' : 'var(--border-soft)',
+                          boxShadow: isSelected ? '0 2px 8px rgba(79,70,229,0.08)' : 'none',
+                        }}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--surface-2)] text-[var(--accent)] border border-solid border-[var(--border-soft)]">
+                              {c.customerCode}
+                            </span>
+                            {c.dairyClassification ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
+                                {c.dairyClassification === '-' ? 'Not classified' : `Class ${c.dairyClassification}`} · Dairy
+                              </span>
+                            ) : c.classification ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
+                                {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Dairy
+                              </span>
+                            ) : null}
+
+                            {c.iceCreamClassification ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
+                                {c.iceCreamClassification === '-' ? 'Not classified' : `Class ${c.iceCreamClassification}`} · Ice Cream
+                              </span>
+                            ) : c.classification && !c.dairyClassification ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
+                                {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Ice Cream
+                              </span>
+                            ) : null}
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-solid border-blue-100">
+                              {c.channel}
+                            </span>
+                          </div>
+                          <h4 className="text-[13px] font-extrabold text-[var(--text-primary)] mt-0.5">
+                            {c.customerName}
+                          </h4>
+                        </div>
+                        <div className="flex items-center justify-center h-5 w-5 rounded-full border border-solid transition-all"
                           style={{
-                            background: isSelected ? 'var(--accent-light)' : 'var(--surface)',
-                            color: isSelected ? 'var(--accent)' : 'var(--text-muted)',
-                            border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                            background: isSelected ? 'var(--accent)' : 'transparent',
+                            borderColor: isSelected ? 'var(--accent)' : 'var(--border)',
                           }}
                         >
-                          {type}
-                        </button>
-                      );
-                    })}
+                          {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+
+              {activeCustomer && (
+                <div className="p-4 rounded-xl animate-fade-in border border-solid border-emerald-200/60 bg-emerald-50/30 flex items-start gap-3 mt-3">
+                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 flex-shrink-0">
+                    <ShieldCheck className="h-5 w-5" />
                   </div>
-                  <label className="form-label">Search & Select Customer Outlet</label>
-                  <input
-                    type="text"
-                    placeholder="Type customer code or name to search..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="form-input"
-                  />
-
-                  <div className="space-y-2 mt-2 max-h-[250px] overflow-y-auto pr-1 border border-solid border-[var(--border-soft)] rounded-xl p-2 bg-[var(--surface-2)]">
-                    {filteredCustomers.length === 0 ? (
-                      <p className="text-[12px] italic text-center py-8 text-[var(--text-muted)]">
-                        No matching customers found for this route.
-                      </p>
-                    ) : (
-                      filteredCustomers.map((c) => {
-                        const isSelected = selectedCustomer === c.cust_rt_id;
-                        return (
-                          <button
-                            key={c.cust_rt_id}
-                            type="button"
-                            onClick={() => setSelectedCustomer(c.cust_rt_id)}
-                            className="w-full text-left p-3 rounded-xl transition-all duration-200 flex items-center justify-between border border-solid cursor-pointer"
-                            style={{
-                              background: isSelected ? 'var(--accent-light)' : 'var(--surface)',
-                              borderColor: isSelected ? 'var(--accent)' : 'var(--border-soft)',
-                              boxShadow: isSelected ? '0 2px 8px rgba(79,70,229,0.08)' : 'none',
-                            }}
-                          >
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--surface-2)] text-[var(--accent)] border border-solid border-[var(--border-soft)]">
-                                  {c.customerCode}
-                                </span>
-                                {c.dairyClassification ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
-                                    {c.dairyClassification === '-' ? 'Not classified' : `Class ${c.dairyClassification}`} · Dairy
-                                  </span>
-                                ) : c.classification ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
-                                    {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Dairy
-                                  </span>
-                                ) : null}
-
-                                {c.iceCreamClassification ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
-                                    {c.iceCreamClassification === '-' ? 'Not classified' : `Class ${c.iceCreamClassification}`} · Ice Cream
-                                  </span>
-                                ) : c.classification && !c.dairyClassification ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
-                                    {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Ice Cream
-                                  </span>
-                                ) : null}
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-solid border-blue-100">
-                                  {c.channel}
-                                </span>
-                              </div>
-                              <h4 className="text-[13px] font-extrabold text-[var(--text-primary)] mt-0.5">
-                                {c.customerName}
-                              </h4>
-                            </div>
-                            <div className="flex items-center justify-center h-5 w-5 rounded-full border border-solid transition-all"
-                              style={{
-                                background: isSelected ? 'var(--accent)' : 'transparent',
-                                borderColor: isSelected ? 'var(--accent)' : 'var(--border)',
-                              }}
-                            >
-                              {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-
-                  {activeCustomer && (
-                    <div className="p-4 rounded-xl animate-fade-in border border-solid border-emerald-200/60 bg-emerald-50/30 flex items-start gap-3 mt-3">
-                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 flex-shrink-0">
-                        <ShieldCheck className="h-5 w-5" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Selected Outlet</p>
-                        <h3 className="text-[14px] font-extrabold text-[var(--text-primary)] leading-none mt-0.5">
-                          {activeCustomer.customerName}
-                        </h3>
-                        <p className="text-[11.5px] text-[var(--text-secondary)]">
-                          Code: <b>{activeCustomer.customerCode}</b> · Channel: <b>{activeCustomer.channel}</b>
-                          {(activeCustomer.dairyClassification || activeCustomer.classification) && (
-                            <>{' '}· Classification: <b>{(activeCustomer.dairyClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.dairyClassification || activeCustomer.classification}`} · Dairy</b></>
-                          )}
-                          {(activeCustomer.iceCreamClassification || activeCustomer.classification) && (
-                            <>{' '}· Classification: <b>{(activeCustomer.iceCreamClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.iceCreamClassification || activeCustomer.classification}`} · Ice Cream</b></>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Observation & Action */}
-                  <div className="mt-3 space-y-1">
-                    <label className="form-label mb-1 font-bold text-black" style={{ color: '#000000', fontWeight: 700 }}>
-                      Observation & Action
-                    </label>
-                    <textarea
-                      rows={3}
-                      placeholder="Write observation & action details…"
-                      value={visitObservation}
-                      onChange={(e) => setVisitObservation(e.target.value)}
-                      className="form-input text-[12px] w-full p-2.5 rounded-xl border border-solid border-[var(--border-soft)]"
-                    />
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Selected Outlet</p>
+                    <h3 className="text-[14px] font-extrabold text-[var(--text-primary)] leading-none mt-0.5">
+                      {activeCustomer.customerName}
+                    </h3>
+                    <p className="text-[11.5px] text-[var(--text-secondary)]">
+                      Code: <b>{activeCustomer.customerCode}</b> · Channel: <b>{activeCustomer.channel}</b>
+                      {(activeCustomer.dairyClassification || activeCustomer.classification) && (
+                        <>{' '}· Classification: <b>{(activeCustomer.dairyClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.dairyClassification || activeCustomer.classification}`} · Dairy</b></>
+                      )}
+                      {(activeCustomer.iceCreamClassification || activeCustomer.classification) && (
+                        <>{' '}· Classification: <b>{(activeCustomer.iceCreamClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.iceCreamClassification || activeCustomer.classification}`} · Ice Cream</b></>
+                      )}
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <p className="text-[11px] italic text-center py-4" style={{ color: 'var(--text-muted)' }}>
-                  Please select a route first to display available customer outlets.
-                </p>
               )}
-            </>
+
+              {visitType === 'No Visit' && (
+                <div className="rounded-xl p-4 border border-solid border-[var(--border-soft)] bg-[var(--surface-2)] space-y-3 mt-3 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="badge badge-accent">No Visit Report</span>
+                    {activeCustomer ? (
+                      <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        Outlet: {activeCustomer.customerCode} ({activeCustomer.customerName})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                        Route: {selectedRoute} (All Outlets)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] font-bold text-[var(--text-primary)]">
+                    No Visit Reason <span className="text-rose-500">*</span>
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <select
+                      value={reasonCategory}
+                      onChange={(e) => setReasonCategory(e.target.value)}
+                      className="form-input h-9 text-[12px]"
+                    >
+                      <option value="">— Select Reason Category —</option>
+                      <option value="Outlet Closed">Outlet Closed</option>
+                      <option value="No Permission">No Permission</option>
+                      <option value="Customer Absent">Customer Absent</option>
+                      <option value="Safety Concern">Safety Concern</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Optional short note"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      className="form-input h-9 text-[12px]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)]">
+                    {activeCustomer
+                      ? `This report will be submitted for outlet ${activeCustomer.customerCode} with the selected reason.`
+                      : `This report will be recorded for route ${selectedRoute} with the selected reason.`}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-[11px] italic text-center py-4" style={{ color: 'var(--text-muted)' }}>
+              Please select a route first to display available customer outlets.
+            </p>
           )}
         </div>
       )}
@@ -846,29 +950,25 @@ function VisitWizardContent() {
                       <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{sku.skuCode}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {['Available', 'Not Available', 'Not Required'].map((opt) => {
+                      {['Available', 'Not Available'].map((opt) => {
                         const isChecked = currentStatus === opt;
                         const col = opt === 'Available'
                           ? 'var(--success)'
-                          : opt === 'Not Available'
-                            ? 'var(--danger)'
-                            : '#d97706';
+                          : 'var(--danger)';
                         const bg = opt === 'Available'
                           ? 'var(--success-light)'
-                          : opt === 'Not Available'
-                            ? 'var(--danger-light)'
-                            : '#fef3c7';
+                          : 'var(--danger-light)';
                         return (
                           <button key={opt} type="button"
                             onClick={() => setPowerSkuResults((prev) => ({ ...prev, [sku.skuCode]: opt }))}
-                            className="flex-grow h-9 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                            className="flex-grow h-9 text-[11px] font-bold rounded-lg transition-all cursor-pointer"
                             style={{
                               background: isChecked ? bg : 'transparent',
                               color: isChecked ? col : 'var(--text-muted)',
                               border: `1px solid ${isChecked ? col : 'var(--border)'}`,
                             }}
                           >
-                            {opt === 'Not Required' ? 'Not Applicable' : opt}
+                            {opt}
                           </button>
                         );
                       })}
@@ -897,30 +997,30 @@ function VisitWizardContent() {
                       <p className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>{sku.skuName}</p>
                       <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{sku.skuCode}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {['Available', 'Not Available', 'Not Required'].map((opt) => {
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      {(['Available', 'Not Available', 'Not Applicable'] as const).map((opt) => {
                         const isChecked = currentStatus === opt;
                         const col = opt === 'Available'
                           ? 'var(--success)'
                           : opt === 'Not Available'
                             ? 'var(--danger)'
-                            : '#d97706';
+                            : 'var(--warning)';
                         const bg = opt === 'Available'
                           ? 'var(--success-light)'
                           : opt === 'Not Available'
                             ? 'var(--danger-light)'
-                            : '#fef3c7';
+                            : 'var(--warning-light)';
                         return (
                           <button key={opt} type="button"
                             onClick={() => setNpdResponses((prev) => ({ ...prev, [sku.skuCode]: opt }))}
-                            className="flex-grow h-9 text-[10px] font-bold rounded-lg transition-all cursor-pointer"
+                            className="flex-1 h-9 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap px-1"
                             style={{
                               background: isChecked ? bg : 'transparent',
                               color: isChecked ? col : 'var(--text-muted)',
                               border: `1px solid ${isChecked ? col : 'var(--border)'}`,
                             }}
                           >
-                            {opt === 'Not Required' ? 'Not Applicable' : opt}
+                            {opt}
                           </button>
                         );
                       })}
@@ -957,7 +1057,10 @@ function VisitWizardContent() {
 
                   <div className="grid grid-cols-2 gap-3">
                     {(['Chiller', 'Freezer'] as const).map(type => (
-                      <button key={type} type="button" onClick={() => updateAssetField(ast.assetId, 'assetType', type)}
+                      <button key={type} type="button" onClick={() => {
+                        updateAssetField(ast.assetId, 'assetType', type);
+                        updateAssetField(ast.assetId, 'sizeModel', type === 'Chiller' ? 'Single Door' : '400');
+                      }}
                         className="h-10 text-[11px] font-bold rounded-lg transition-all cursor-pointer"
                         style={{
                           background: ast.assetType === type ? 'var(--accent-light)' : 'var(--surface)',
@@ -1062,7 +1165,6 @@ function VisitWizardContent() {
                         <option value="Not working">Not working</option>
                         <option value="Working But Service Required">Working But Service Required</option>
                         <option value="Outlet Own Asset Available">Outlet Own Asset Available</option>
-                        <option value="No Dandy Asset">No Dandy Asset</option>
                         <option value="Others">Others</option>
                       </select>
                     </div>
@@ -1296,6 +1398,21 @@ function VisitWizardContent() {
             ))}
           </div>
 
+          {/* Observation & Action moved to final step before submission */}
+          <div className="rounded-xl p-4 border border-solid border-[var(--border-soft)] bg-[var(--surface-2)] space-y-2 mt-3">
+            <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center justify-between">
+              <span>Observation & Action</span>
+              <span className="text-[10px] font-normal text-slate-500 lowercase">(optional final remarks)</span>
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Write observation & action details before final submission…"
+              value={visitObservation}
+              onChange={(e) => setVisitObservation(e.target.value)}
+              className="form-input text-xs w-full p-2.5 rounded-xl border border-solid border-[var(--border-soft)]"
+            />
+          </div>
+
           <button
             onClick={handleFinalSubmit}
             disabled={submittingVisit || savingDraft}
@@ -1332,7 +1449,7 @@ function VisitWizardContent() {
         {currentStep < 5 && (
           <button
             onClick={isNoVisitFlow ? handleFinalSubmit : nextStep}
-            disabled={savingDraft || submittingVisit || (currentStep === 0 && (visitType === 'No Visit' ? !reasonCategory : (!selectedRoute || !effectiveCustomerId)))}
+            disabled={savingDraft || submittingVisit || (currentStep === 0 && (visitType === 'No Visit' ? (!selectedRoute || !reasonCategory) : (!selectedRoute || !effectiveCustomerId)))}
             className="btn-primary cursor-pointer"
             style={{
               height: '40px', padding: '0 20px',

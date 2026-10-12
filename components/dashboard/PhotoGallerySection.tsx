@@ -31,14 +31,29 @@ export interface DashboardPhoto {
   outlet: string;
   route: string;
   channel: string;
+  observation?: string;
+  observations?: string | string[];
+  notes?: string;
+  assetObservations?: Array<{
+    assetId?: string;
+    assetType?: string;
+    sizeModel?: string;
+    temperature?: number | null;
+    tempInRange?: boolean;
+    actionRequired?: string;
+    observation?: string;
+  }>;
+  visitObservation?: string;
+  visitReason?: string;
+  visitNotes?: string;
 }
 
 interface PhotoGallerySectionProps {
   photos: DashboardPhoto[];
   fFrom?: string;
   fTo?: string;
-  fMgr?: string;
-  fSuper?: string;
+  fMgr?: string | string[];
+  fSuper?: string | string[];
   fChannel?: string;
   fCust?: string;
   fRoute?: string;
@@ -60,6 +75,9 @@ export function PhotoGallerySection({
 
   // Filter photos based on active dashboard filters
   const filteredPhotos = useMemo(() => {
+    const mgrs = Array.isArray(fMgr) ? fMgr.filter(Boolean) : (fMgr ? [fMgr] : []);
+    const sups = Array.isArray(fSuper) ? fSuper.filter(Boolean) : (fSuper ? [fSuper] : []);
+
     return photos.filter((p) => {
       const pDate = new Date(p.uploadedAt);
       const from = fFrom ? new Date(`${fFrom}T00:00:00`) : null;
@@ -67,8 +85,8 @@ export function PhotoGallerySection({
 
       const fromOk = !from || pDate >= from;
       const toOk = !to || pDate <= to;
-      const mgrOk = !fMgr || p.manager.toUpperCase() === fMgr.toUpperCase();
-      const superOk = !fSuper || p.supervisor.toUpperCase() === fSuper.toUpperCase();
+      const mgrOk = mgrs.length === 0 || mgrs.some((m) => m.toUpperCase() === (p.manager || '').toUpperCase());
+      const superOk = sups.length === 0 || sups.some((s) => s.toUpperCase() === (p.supervisor || '').toUpperCase());
       const channelOk = !fChannel || p.channel === fChannel;
       const outletOk = !fCust || p.outlet.toLowerCase().includes(fCust.toLowerCase());
       const routeOk = !fRoute || (p.route && p.route.toUpperCase() === fRoute.toUpperCase());
@@ -279,7 +297,7 @@ export function PhotoGallerySection({
                         onClick={() => setCurrentPage(pNum)}
                         className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                           isActive
-                            ? 'bg-accent text-white shadow-md shadow-accent/20 scale-105'
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-105'
                             : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]'
                         }`}
                       >

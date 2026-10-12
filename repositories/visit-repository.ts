@@ -3,7 +3,26 @@ import pool from '@/lib/db';
 import mysql from 'mysql2/promise';
 
 function mapRowToVisit(row: any): Visit {
-  const [customerCode, routeCode] = (row.cust_rt_id || '').split('|');
+  let customerCode = row.customerCode || '';
+  let routeCode = row.routeCode || '';
+  if ((!customerCode || !routeCode) && row.cust_rt_id) {
+    const raw = String(row.cust_rt_id).trim();
+    if (raw.includes('|')) {
+      const parts = raw.split('|');
+      const p0 = parts[0]?.trim();
+      const p1 = parts[1]?.trim();
+      if (/^R\d+/i.test(p0)) {
+        routeCode = routeCode || p0;
+        customerCode = customerCode || p1;
+      } else {
+        customerCode = customerCode || p0;
+        routeCode = routeCode || p1;
+      }
+    } else {
+      if (/^R\d+/i.test(raw)) routeCode = routeCode || raw;
+      else customerCode = customerCode || raw;
+    }
+  }
   return {
     visitId: row.visitId,
     supervisorId: row.supervisorId,
@@ -49,11 +68,20 @@ function mapRowToNpd(row: any): NPDResponse {
   };
 }
 
+let visitSchemaChecked = false;
+let visitSchemaPromise: Promise<void> | null = null;
+
 async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolConnection): Promise<void> {
-  const [columnsResult]: any = await connection.execute(
-    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Visit'"
-  );
-  const existingColumns = new Set((columnsResult as any[]).map((row: any) => row.COLUMN_NAME));
+  if (visitSchemaChecked) return;
+  if (visitSchemaPromise) return visitSchemaPromise;
+
+  visitSchemaChecked = true;
+  visitSchemaPromise = (async () => {
+    try {
+      const [columnsResult]: any = await connection.execute(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Visit'"
+      );
+      const existingColumns = new Set((columnsResult as any[]).map((row: any) => row.COLUMN_NAME));
 
   const migrations: string[] = [];
 
@@ -84,6 +112,12 @@ async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolC
   }
   if (!existingColumns.has('iceCreamClassification')) {
     migrations.push("ALTER TABLE `Visit` ADD COLUMN `iceCreamClassification` VARCHAR(50) NULL");
+  }
+  if (!existingColumns.has('routeCode')) {
+    migrations.push("ALTER TABLE `Visit` ADD COLUMN `routeCode` VARCHAR(50) NULL");
+  }
+  if (!existingColumns.has('customerCode')) {
+    migrations.push("ALTER TABLE `Visit` ADD COLUMN `customerCode` VARCHAR(50) NULL");
   }
 
   const [custRtColumns]: any = await connection.execute("SHOW COLUMNS FROM `Visit` LIKE 'cust_rt_id'");
@@ -117,6 +151,30 @@ async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolC
     }
   }
 
+  // Drop foreign key constraints on Visit(cust_rt_id) pointing to Customer
+  // to prevent visit audits from failing due to foreign key constraint violations
+  try {
+    const [fkRows]: any = await connection.execute(`
+      SELECT CONSTRAINT_NAME 
+      FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+      WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'Visit' 
+        AND COLUMN_NAME = 'cust_rt_id'
+        AND REFERENCED_TABLE_NAME IS NOT NULL
+    `);
+    for (const row of (fkRows as any[] || [])) {
+      if (row.CONSTRAINT_NAME) {
+        try {
+          await connection.execute(`ALTER TABLE \`Visit\` DROP FOREIGN KEY \`${row.CONSTRAINT_NAME}\``);
+        } catch (e) {}
+      }
+    }
+  } catch (fkErr) {}
+
+  try {
+    await connection.execute("ALTER TABLE `Visit` DROP FOREIGN KEY `fk_visit_cust_rt`");
+  } catch (e) {}
+
   // Ensure VisitAsset table exists and has all required columns
   try {
     await connection.execute(`
@@ -148,6 +206,9 @@ async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolC
     if (!existingVaColumns.has('fefoFollowed')) {
       await connection.execute("ALTER TABLE `VisitAsset` ADD COLUMN `fefoFollowed` TINYINT(1) NULL DEFAULT 0");
     }
+    if (!existingVaColumns.has('sizeModel')) {
+      await connection.execute("ALTER TABLE `VisitAsset` ADD COLUMN `sizeModel` VARCHAR(255) NULL");
+    }
 
     // Migrate PRIMARY KEY if table was created with legacy composite (visitId, assetType)
     try {
@@ -165,7 +226,23 @@ async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolC
     // Non-blocking VisitAsset migration
   }
 
-  await ensureVisitPhotoTableSchema(connection);
+      await ensureVisitPhotoTableSchema(connection);
+
+      // Ensure NPDResponse and VisitPowerSkuResult support 'Not Applicable' status without enum restriction
+      try {
+        await connection.execute("ALTER TABLE `NPDResponse` MODIFY COLUMN `status` VARCHAR(50) NOT NULL");
+      } catch (e) {}
+      try {
+        await connection.execute("ALTER TABLE `VisitPowerSkuResult` MODIFY COLUMN `status` VARCHAR(50) NOT NULL");
+      } catch (e) {}
+    } catch (err) {
+      console.warn('ensureVisitTableSchema warning:', err);
+    } finally {
+      visitSchemaPromise = null;
+    }
+  })();
+
+  return visitSchemaPromise;
 }
 
 async function ensureVisitPhotoTableSchema(connection: mysql.Connection | mysql.PoolConnection): Promise<void> {
@@ -265,14 +342,17 @@ export const visitRepository = {
     }
   },
 
-  async getVisitsBySupervisor(supervisorId: string): Promise<Visit[]> {
+  async getVisitsBySupervisor(supervisorId: string, user?: { name?: string; email?: string }): Promise<Visit[]> {
     const connection = await pool.getConnection();
     try {
       await ensureVisitTableSchema(connection);
-      const [rows]: any = await connection.execute(
-        'SELECT * FROM `Visit` WHERE `supervisorId` = ?',
-        [supervisorId]
-      );
+      let query = 'SELECT * FROM `Visit` WHERE `supervisorId` = ?';
+      const params: any[] = [supervisorId];
+      if (user?.name || user?.email) {
+        query += ' OR LOWER(`createdBy`) = ? OR LOWER(`createdBy`) = ?';
+        params.push((user.name || '').toLowerCase(), (user.email || '').toLowerCase());
+      }
+      const [rows]: any = await connection.execute(query, params);
       return rows.map(mapRowToVisit);
     } finally {
       connection.release();
@@ -335,6 +415,25 @@ export const visitRepository = {
     }));
   },
 
+  async getAllVisitAssets(): Promise<VisitAsset[]> {
+    try {
+      const [rows]: any = await pool.execute('SELECT * FROM `VisitAsset`');
+      return rows.map((r: any) => ({
+        assetId: r.assetId || `ast_${Math.random().toString(36).substring(2, 9)}`,
+        visitId: r.visitId,
+        assetType: r.assetType as any,
+        temperature: r.temperature,
+        tempInRange: r.tempInRange === 1 || r.tempInRange === true,
+        actionRequired: r.actionRequired as any,
+        observation: r.observation || '',
+        isFirstInFlow: r.isFirstInFlow === 1 || r.isFirstInFlow === true,
+        fefoFollowed: r.fefoFollowed === 1 || r.fefoFollowed === true,
+      }));
+    } catch (e) {
+      return [];
+    }
+  },
+
   async getVisitPowerSkuResults(visitId: string): Promise<VisitPowerSkuResult[]> {
     const [rows]: any = await pool.execute(
       'SELECT * FROM `VisitPowerSkuResult` WHERE `visitId` = ?',
@@ -355,52 +454,166 @@ export const visitRepository = {
     const createdAtVal = toMysqlDatetime(visit.createdAt) || new Date();
     const updatedAtVal = toMysqlDatetime(visit.updatedAt) || new Date();
 
-    await executor.execute(
-      `
-      INSERT INTO \`Visit\` (
-        \`visitId\`, \`supervisorId\`, \`cust_rt_id\`, \`dairyClassification\`, \`iceCreamClassification\`, \`visit_type\`, \`reason_category\`, \`reason\`, \`observation\`,
-        \`latitude\`, \`longitude\`, \`accuracy\`, \`status\`, 
-        \`createdBy\`, \`visit_datetime\`, \`createdAt\`, \`updatedAt\`, \`sosAsPerBda\`
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        \`supervisorId\` = VALUES(\`supervisorId\`),
-        \`cust_rt_id\` = VALUES(\`cust_rt_id\`),
-        \`dairyClassification\` = VALUES(\`dairyClassification\`),
-        \`iceCreamClassification\` = VALUES(\`iceCreamClassification\`),
-        \`visit_type\` = VALUES(\`visit_type\`),
-        \`reason_category\` = VALUES(\`reason_category\`),
-        \`reason\` = VALUES(\`reason\`),
-        \`observation\` = VALUES(\`observation\`),
-        \`latitude\` = VALUES(\`latitude\`),
-        \`longitude\` = VALUES(\`longitude\`),
-        \`accuracy\` = VALUES(\`accuracy\`),
-        \`status\` = VALUES(\`status\`),
-        \`createdBy\` = VALUES(\`createdBy\`),
-        \`visit_datetime\` = VALUES(\`visit_datetime\`),
-        \`updatedAt\` = VALUES(\`updatedAt\`),
-        \`sosAsPerBda\` = VALUES(\`sosAsPerBda\`)
-    `,
-      [
-        visit.visitId,
-        visit.supervisorId,
-        visit.cust_rt_id || null,
-        visit.dairyClassification || null,
-        visit.iceCreamClassification || null,
-        visit.visit_type || 'Visit',
-        isNoVisit ? (visit.reason_category || null) : null,
-        isNoVisit ? (visit.reason || null) : (visit.observation || null),
-        visit.observation || null,
-        visit.latitude,
-        visit.longitude,
-        visit.accuracy,
-        visit.status,
-        visit.createdBy,
-        visitDatetimeVal,
-        createdAtVal,
-        updatedAtVal,
-        visit.sosAsPerBda === null ? null : (visit.sosAsPerBda ? 1 : 0),
-      ]
-    );
+    let custCode = visit.customerCode || '';
+    let rtCode = visit.routeCode || '';
+    if ((!custCode || !rtCode) && visit.cust_rt_id) {
+      const parts = visit.cust_rt_id.split('|');
+      if (parts.length >= 2) {
+        if (/^R\d+/i.test(parts[0])) {
+          rtCode = rtCode || parts[0];
+          custCode = custCode || parts[1];
+        } else {
+          custCode = custCode || parts[0];
+          rtCode = rtCode || parts[1];
+        }
+      } else {
+        custCode = custCode || parts[0];
+      }
+    }
+
+    // Auto-ensure customer and mapping exist in Customer table to preserve referential integrity
+    if (visit.cust_rt_id) {
+      try {
+        const custName = visit.customerName || custCode || 'Unknown Customer';
+        const ch = (rtCode && rtCode.startsWith('MT')) ? 'MT' : (rtCode && rtCode.startsWith('IS') ? 'INST' : 'TT');
+        await executor.execute(
+          `INSERT INTO \`Customer\` (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             \`customerName\` = IF(VALUES(\`customerName\`) != '' AND VALUES(\`customerName\`) != 'Unknown Customer', VALUES(\`customerName\`), \`customerName\`),
+             \`dairyClassification\` = COALESCE(VALUES(\`dairyClassification\`), \`Customer\`.\`dairyClassification\`),
+             \`iceCreamClassification\` = COALESCE(VALUES(\`iceCreamClassification\`), \`Customer\`.\`iceCreamClassification\`),
+             \`channel\` = COALESCE(VALUES(\`channel\`), \`Customer\`.\`channel\`),
+             \`routeCode\` = COALESCE(VALUES(\`routeCode\`), \`Customer\`.\`routeCode\`)`,
+          [
+            visit.cust_rt_id,
+            custCode || visit.cust_rt_id,
+            custName,
+            visit.dairyClassification || visit.iceCreamClassification || 'C',
+            visit.dairyClassification || null,
+            visit.iceCreamClassification || null,
+            ch,
+            rtCode || null,
+          ]
+        );
+      } catch (custErr) {
+        console.warn('Auto-ensuring Customer record for visit warning:', custErr);
+      }
+
+      if (custCode && rtCode) {
+        try {
+          await executor.execute(
+            `INSERT IGNORE INTO \`CustomerRouteMapping\` (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) VALUES (?, ?, ?)`,
+            [visit.cust_rt_id, custCode, rtCode]
+          );
+        } catch (crmErr) {}
+      }
+    }
+
+    try {
+      await executor.execute(
+        `
+        INSERT INTO \`Visit\` (
+          \`visitId\`, \`supervisorId\`, \`cust_rt_id\`, \`routeCode\`, \`customerCode\`, \`dairyClassification\`, \`iceCreamClassification\`, \`visit_type\`, \`reason_category\`, \`reason\`, \`observation\`,
+          \`latitude\`, \`longitude\`, \`accuracy\`, \`status\`, 
+          \`createdBy\`, \`visit_datetime\`, \`createdAt\`, \`updatedAt\`, \`sosAsPerBda\`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          \`supervisorId\` = VALUES(\`supervisorId\`),
+          \`cust_rt_id\` = VALUES(\`cust_rt_id\`),
+          \`routeCode\` = VALUES(\`routeCode\`),
+          \`customerCode\` = VALUES(\`customerCode\`),
+          \`dairyClassification\` = VALUES(\`dairyClassification\`),
+          \`iceCreamClassification\` = VALUES(\`iceCreamClassification\`),
+          \`visit_type\` = VALUES(\`visit_type\`),
+          \`reason_category\` = VALUES(\`reason_category\`),
+          \`reason\` = VALUES(\`reason\`),
+          \`observation\` = VALUES(\`observation\`),
+          \`latitude\` = VALUES(\`latitude\`),
+          \`longitude\` = VALUES(\`longitude\`),
+          \`accuracy\` = VALUES(\`accuracy\`),
+          \`status\` = VALUES(\`status\`),
+          \`createdBy\` = VALUES(\`createdBy\`),
+          \`visit_datetime\` = VALUES(\`visit_datetime\`),
+          \`updatedAt\` = VALUES(\`updatedAt\`),
+          \`sosAsPerBda\` = VALUES(\`sosAsPerBda\`)
+      `,
+        [
+          visit.visitId,
+          visit.supervisorId,
+          visit.cust_rt_id || null,
+          rtCode || null,
+          custCode || null,
+          visit.dairyClassification || null,
+          visit.iceCreamClassification || null,
+          visit.visit_type || 'Visit',
+          isNoVisit ? (visit.reason_category || null) : null,
+          isNoVisit ? (visit.reason || null) : (visit.observation || null),
+          visit.observation || null,
+          visit.latitude,
+          visit.longitude,
+          visit.accuracy,
+          visit.status,
+          visit.createdBy,
+          visitDatetimeVal,
+          createdAtVal,
+          updatedAtVal,
+          visit.sosAsPerBda === null ? null : (visit.sosAsPerBda ? 1 : 0),
+        ]
+      );
+    } catch (err: any) {
+      if (err.message && (err.message.includes('Unknown column') || err.message.includes('routeCode') || err.message.includes('customerCode'))) {
+        await ensureVisitTableSchema(executor);
+        await executor.execute(
+          `
+          INSERT INTO \`Visit\` (
+            \`visitId\`, \`supervisorId\`, \`cust_rt_id\`, \`dairyClassification\`, \`iceCreamClassification\`, \`visit_type\`, \`reason_category\`, \`reason\`, \`observation\`,
+            \`latitude\`, \`longitude\`, \`accuracy\`, \`status\`, 
+            \`createdBy\`, \`visit_datetime\`, \`createdAt\`, \`updatedAt\`, \`sosAsPerBda\`
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            \`supervisorId\` = VALUES(\`supervisorId\`),
+            \`cust_rt_id\` = VALUES(\`cust_rt_id\`),
+            \`dairyClassification\` = VALUES(\`dairyClassification\`),
+            \`iceCreamClassification\` = VALUES(\`iceCreamClassification\`),
+            \`visit_type\` = VALUES(\`visit_type\`),
+            \`reason_category\` = VALUES(\`reason_category\`),
+            \`reason\` = VALUES(\`reason\`),
+            \`observation\` = VALUES(\`observation\`),
+            \`latitude\` = VALUES(\`latitude\`),
+            \`longitude\` = VALUES(\`longitude\`),
+            \`accuracy\` = VALUES(\`accuracy\`),
+            \`status\` = VALUES(\`status\`),
+            \`createdBy\` = VALUES(\`createdBy\`),
+            \`visit_datetime\` = VALUES(\`visit_datetime\`),
+            \`updatedAt\` = VALUES(\`updatedAt\`),
+            \`sosAsPerBda\` = VALUES(\`sosAsPerBda\`)
+        `,
+          [
+            visit.visitId,
+            visit.supervisorId,
+            visit.cust_rt_id || null,
+            visit.dairyClassification || null,
+            visit.iceCreamClassification || null,
+            visit.visit_type || 'Visit',
+            isNoVisit ? (visit.reason_category || null) : null,
+            isNoVisit ? (visit.reason || null) : (visit.observation || null),
+            visit.observation || null,
+            visit.latitude,
+            visit.longitude,
+            visit.accuracy,
+            visit.status,
+            visit.createdBy,
+            visitDatetimeVal,
+            createdAtVal,
+            updatedAtVal,
+            visit.sosAsPerBda === null ? null : (visit.sosAsPerBda ? 1 : 0),
+          ]
+        );
+      } else {
+        throw err;
+      }
+    }
   },
 
   async deletePhotosForVisit(visitId: string, connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
@@ -462,8 +675,8 @@ export const visitRepository = {
       const assetIdVal = ast.assetId || `ast_${ast.visitId}_${ast.assetType}_${Math.random().toString(36).substring(2, 9)}`;
       try {
         await executor.execute(
-          `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
              \`assetType\` = VALUES(\`assetType\`),
              \`temperature\` = VALUES(\`temperature\`),
@@ -471,8 +684,9 @@ export const visitRepository = {
              \`actionRequired\` = VALUES(\`actionRequired\`),
              \`observation\` = VALUES(\`observation\`),
              \`isFirstInFlow\` = VALUES(\`isFirstInFlow\`),
-             \`fefoFollowed\` = VALUES(\`fefoFollowed\`)`,
-          [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0]
+             \`fefoFollowed\` = VALUES(\`fefoFollowed\`),
+             \`sizeModel\` = VALUES(\`sizeModel\`)`,
+          [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0, ast.sizeModel || null]
         );
       } catch (err: any) {
         if (err.message && err.message.includes('Unknown column')) {
@@ -517,6 +731,7 @@ export const visitRepository = {
   ): Promise<Visit> {
     const connection = await pool.getConnection();
     try {
+      await ensureVisitTableSchema(connection);
       await connection.beginTransaction();
 
       await this.saveVisitRecord(visit, connection);

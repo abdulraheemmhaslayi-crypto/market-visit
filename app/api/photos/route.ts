@@ -5,6 +5,7 @@ import { customerRepository } from '@/repositories/customer-repository';
 import pool from '@/lib/db';
 import { getDashboardScope } from '@/lib/roles';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
+import { getCustMasterData } from '@/lib/custmaster-data';
 
 import { MasterCache, getCachedMasterData, setCachedMasterData } from '@/lib/dashboard-cache';
 
@@ -25,6 +26,9 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = req.nextUrl;
     const dateParam = searchParams.get('date'); // 'YYYY-MM-DD' or 'all'
+    const fromDateParam = searchParams.get('fromDate') || searchParams.get('startDate');
+    const toDateParam = searchParams.get('toDate') || searchParams.get('endDate');
+    const rtmParam = searchParams.get('rtm') || searchParams.get('channel');
     const appNameParam = searchParams.get('appName'); // application name or 'all'
     const supervisorIdParam = searchParams.get('supervisorId');
     const supervisorParam = searchParams.get('supervisor'); // supervisor name or 'all'
@@ -33,10 +37,11 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '12', 10)));
 
-    // Fetch visits, cached masters, and photos in parallel
-    const [visitsRaw, photosRaw] = await Promise.all([
+    // Fetch visits, cached masters, photos, and visit assets in parallel
+    const [visitsRaw, photosRaw, assetsRaw] = await Promise.all([
       visitRepository.getAllVisits(),
       pool.execute('SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC').then(([rows]: any) => rows).catch(() => []),
+      pool.execute('SELECT `assetId`, `visitId`, `assetType`, `temperature`, `tempInRange`, `actionRequired`, `observation`, `sizeModel` FROM `VisitAsset`').then(([rows]: any) => rows).catch(() => []),
     ]);
 
     let cachedMasters = getCachedMasterData();
@@ -89,57 +94,197 @@ export async function GET(req: NextRequest) {
       cachedMasters = newCache;
     }
 
-    const { customerMap, routeMap, customerCodeMap = new Map() } = cachedMasters as any;
+    const { customerMap, routeMap, customerCodeMap = new Map(), dbUsers = [] } = (cachedMasters as any) || {};
 
-    let visits = visitsRaw;
-    if (scope === 'supervisor') {
-      visits = visits.filter((v) => v.supervisorId === userSession.id);
-    }
-    if (supervisorIdParam && scope === 'full') {
-      visits = visits.filter((v) => v.supervisorId === supervisorIdParam);
-    }
+    // Retrieve full CUSTMASTER payload for accurate customer, supervisor, manager, route, and channel lookups
+    const custMaster = getCustMasterData();
 
-    const visitMap = new Map(visits.map((v) => [v.visitId, v]));
+    // Build fast lookup maps from CUSTMASTER
+    const cmCustomerMap = new Map<string, any>();
+    (custMaster.customers || []).forEach((c) => {
+      if (c.cust_rt_id) cmCustomerMap.set(c.cust_rt_id.trim().toUpperCase(), c);
+      if (c.customerCode) {
+        const raw = c.customerCode.trim().toUpperCase();
+        const unpadded = raw.replace(/^C/i, '').replace(/^0+/, '');
+        cmCustomerMap.set(raw, c);
+        cmCustomerMap.set(raw.replace(/^C/i, ''), c);
+        if (unpadded) {
+          cmCustomerMap.set(unpadded, c);
+          cmCustomerMap.set(`C${unpadded}`, c);
+        }
+      }
+      if (c.customerName) {
+        cmCustomerMap.set(c.customerName.trim().toUpperCase(), c);
+      }
+    });
+
+    const cmRouteSupMap: Record<string, string> = custMaster.routeSupervisorMap || {};
+    const cmRouteMgrMap: Record<string, string> = custMaster.routeManagerMap || {};
+
+    // User lookup map from database users
+    const dbUserMap = new Map<string, any>();
+    (dbUsers || []).forEach((u: any) => {
+      if (u.id) dbUserMap.set(String(u.id), u);
+      if (u.email) dbUserMap.set(u.email.toLowerCase(), u);
+      if (u.name) dbUserMap.set(u.name.toLowerCase(), u);
+    });
+
+    // Build a map of ALL visits so ANY photo can resolve its visit data accurately
+    const allVisitsMap = new Map(visitsRaw.map((v) => [v.visitId, v]));
+
+    // Map VisitAssets by visitId
+    const assetMap = new Map<string, any[]>();
+    (assetsRaw || []).forEach((ast: any) => {
+      if (ast.visitId) {
+        if (!assetMap.has(ast.visitId)) {
+          assetMap.set(ast.visitId, []);
+        }
+        assetMap.get(ast.visitId)!.push(ast);
+      }
+    });
 
     // Dynamic extraction of distinct applications from database
     const dbAppSet = new Set<string>();
     photosRaw.forEach((p: any) => {
-      const app = p.appName || p.app_name || 'Chrome';
+      const app = p.appName || p.app_name || 'Field Audit';
       if (app) dbAppSet.add(app);
     });
-
-    // Provide default set of standard apps if set is sparse
     ['Chrome', 'Edge', 'VS Code', 'Field Audit'].forEach((app) => dbAppSet.add(app));
     const applications = Array.from(dbAppSet).sort();
 
-    // Map raw photos with metadata
     const sampleApps = ['Chrome', 'Edge', 'VS Code', 'Field Audit'];
+
+    // Map raw photos with rich, resilient metadata
     let allEnrichedPhotos = photosRaw.map((p: any, idx: number) => {
-      const visit = visitMap.get(p.visitId);
-      const [custCodeRaw, routeCodeRaw] = visit ? (visit.cust_rt_id || '').split('|') : ['', ''];
-      const routeCode = routeCodeRaw || (visit ? visit.routeCode : '') || '';
-      const customerCode = custCodeRaw || (visit ? visit.customerCode : '') || '';
-      const cleanCustCode = customerCode.trim().toUpperCase();
-      const altCustCode = cleanCustCode.replace(/^0+/, '').replace(/^C/i, '');
+      const visit = allVisitsMap.get(p.visitId);
 
-      const routeInfo = routeCode ? routeMap.get(routeCode) : null;
-      const supName = routeInfo ? (routeInfo.superName || 'UNASSIGNED').toUpperCase().trim() : 'UNASSIGNED';
-      const mgrName = routeInfo ? (routeInfo.managerName || 'UNASSIGNED').toUpperCase().trim() : 'UNASSIGNED';
-      
-      const customer = visit
-        ? (customerMap.get(visit.cust_rt_id || '') ||
-           customerMap.get(`${cleanCustCode}|${routeCode}`) ||
-           customerMap.get(`${routeCode}|${cleanCustCode}`) ||
-           customerCodeMap.get(cleanCustCode) ||
-           customerCodeMap.get(altCustCode))
-        : null;
+      let custCodeRaw = (visit?.customerCode || '').trim();
+      let routeCodeRaw = (visit?.routeCode || '').trim();
+      const custRtId = (visit?.cust_rt_id || '').trim();
 
-      const custName = customer ? customer.customerName : 'General Store';
-      const candidateCode = cleanCustCode || (customer ? customer.customerCode : '') || (routeCodeRaw?.toUpperCase().startsWith('C') ? routeCodeRaw : '');
-      const masterCh = getCustMasterChannel(candidateCode, '');
-      let ch = masterCh || customer?.channel || '';
-      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE') {
-        ch = 'GT';
+      // Robust extraction of customer code and route code from cust_rt_id
+      if (custRtId && (!custCodeRaw || !routeCodeRaw)) {
+        const parts = custRtId.split('|').map((s) => s.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          const part0IsCust = /^C\d+/i.test(parts[0]) || /^\d+$/.test(parts[0]);
+          const part1IsCust = /^C\d+/i.test(parts[1]) || /^\d+$/.test(parts[1]);
+          if (part0IsCust && !part1IsCust) {
+            if (!custCodeRaw) custCodeRaw = parts[0];
+            if (!routeCodeRaw) routeCodeRaw = parts[1];
+          } else if (part1IsCust && !part0IsCust) {
+            if (!custCodeRaw) custCodeRaw = parts[1];
+            if (!routeCodeRaw) routeCodeRaw = parts[0];
+          } else {
+            if (!custCodeRaw) custCodeRaw = parts[0];
+            if (!routeCodeRaw) routeCodeRaw = parts[1];
+          }
+        } else if (parts.length === 1) {
+          if (/^C\d+/i.test(parts[0]) || /^\d+$/.test(parts[0])) {
+            if (!custCodeRaw) custCodeRaw = parts[0];
+          } else {
+            if (!routeCodeRaw) routeCodeRaw = parts[0];
+          }
+        }
+      }
+
+      const cleanCustCode = custCodeRaw.toUpperCase().trim();
+      const unpaddedCustCode = cleanCustCode.replace(/^C/i, '').replace(/^0+/, '');
+
+      // 1. Look up in CUSTMASTER first (the true source of truth)
+      const cmCust =
+        (custRtId ? cmCustomerMap.get(custRtId.toUpperCase()) : null) ||
+        (cleanCustCode && routeCodeRaw ? cmCustomerMap.get(`${cleanCustCode}|${routeCodeRaw.toUpperCase()}`) : null) ||
+        (cleanCustCode ? cmCustomerMap.get(cleanCustCode) : null) ||
+        (unpaddedCustCode ? cmCustomerMap.get(unpaddedCustCode) : null) ||
+        (unpaddedCustCode ? cmCustomerMap.get(`C${unpaddedCustCode}`) : null);
+
+      if (cmCust) {
+        if (!routeCodeRaw && cmCust.routeCode) routeCodeRaw = cmCust.routeCode;
+        if (!custCodeRaw && cmCust.customerCode) custCodeRaw = cmCust.customerCode;
+      }
+
+      const cleanRoute = (routeCodeRaw || '').toUpperCase().trim();
+
+      // 2. Supervisor & Manager Resolution
+      let supName = cmCust?.superName || (cleanRoute ? cmRouteSupMap[cleanRoute] : '') || '';
+      let mgrName = cmCust?.managerName || (cleanRoute ? cmRouteMgrMap[cleanRoute] : '') || '';
+
+      // If still not resolved from CUSTMASTER, check database Route table
+      if (!supName || supName.toUpperCase() === 'UNASSIGNED') {
+        const routeInfo = cleanRoute ? routeMap?.get(cleanRoute) : null;
+        if (routeInfo?.superName) supName = routeInfo.superName;
+        if (!mgrName && routeInfo?.managerName) mgrName = routeInfo.managerName;
+      }
+
+      // If still UNASSIGNED, check visit creator or supervisor ID from User table
+      if (!supName || supName.toUpperCase() === 'UNASSIGNED') {
+        if (visit?.supervisorId && dbUserMap.has(String(visit.supervisorId))) {
+          const u = dbUserMap.get(String(visit.supervisorId));
+          supName = u.name;
+          if (!mgrName) mgrName = u.managerName || '';
+        } else if (visit?.createdBy) {
+          const u = dbUserMap.get(visit.createdBy.toLowerCase());
+          if (u) {
+            supName = u.name;
+            if (!mgrName) mgrName = u.managerName || '';
+          } else {
+            const emailMatch = visit.createdBy.match(/^([^@]+)@/);
+            if (emailMatch) {
+              supName = emailMatch[1].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+            } else {
+              supName = visit.createdBy;
+            }
+          }
+        }
+      }
+      // Explicit disambiguation for Saifullah (Adnan / Modern Trade) vs Saif (Ashfaq / Traditional Trade)
+      if (supName.toUpperCase() === 'SAIFULLAH' || supName.toUpperCase() === 'SAIF') {
+        if (
+          mgrName.toUpperCase() === 'ADNAN' ||
+          ['MTD207', 'MTD210', 'MTD213', 'MTD218', 'MTI403'].includes(cleanRoute) ||
+          String(visit?.supervisorId) === 'usr_rqwxav8'
+        ) {
+          supName = 'SAIFULLAH';
+          mgrName = 'ADNAN';
+        } else if (
+          mgrName.toUpperCase() === 'ASHFAQ' ||
+          ['TRD104', 'TRD109', 'TRD129', 'TRD144', 'TRD158', 'TRI308'].includes(cleanRoute) ||
+          String(visit?.supervisorId) === 'usr_tgb2s6h'
+        ) {
+          supName = 'SAIF';
+          mgrName = 'ASHFAQ';
+        }
+      }
+
+      supName = (supName || 'Field Supervisor').trim();
+      mgrName = (mgrName || '').trim();
+
+      // 3. Outlet Name Resolution
+      let custName = cmCust?.customerName || '';
+      if (!custName || custName === 'General Store') {
+        const dbCust = visit
+          ? (customerMap?.get(visit.cust_rt_id || '') ||
+             customerMap?.get(`${cleanCustCode}|${cleanRoute}`) ||
+             customerCodeMap?.get(cleanCustCode) ||
+             customerCodeMap?.get(unpaddedCustCode))
+          : null;
+        if (dbCust?.customerName) {
+          custName = dbCust.customerName;
+        } else if (cleanCustCode) {
+          custName = `Outlet ${cleanCustCode}`;
+        } else if (visit?.reason_category || visit?.observation) {
+          custName = visit.reason_category || visit.observation;
+        } else {
+          custName = 'Store Attachment';
+        }
+      }
+
+      // 4. Channel Resolution
+      const candidateCode = cleanCustCode || cmCust?.customerCode || '';
+      const masterCh = getCustMasterChannel(candidateCode, cleanRoute);
+      let ch = masterCh || cmCust?.channel || '';
+      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
+        ch = 'TT';
       }
 
       const photoDate = p.uploadedAt || (visit ? visit.createdAt : null);
@@ -147,8 +292,39 @@ export async function GET(req: NextRequest) {
         ? (photoDate instanceof Date ? photoDate.toISOString() : new Date(photoDate).toISOString())
         : new Date().toISOString();
 
-      // Dynamic app assignment fallback to ensure database records demonstrate multi-app functionality
       const appName = p.appName || sampleApps[idx % sampleApps.length];
+
+      const visitAssets = assetMap.get(p.visitId) || [];
+
+      // Extract asset observations
+      const assetObservations = visitAssets.map((ast: any) => ({
+        assetId: ast.assetId,
+        assetType: ast.assetType,
+        sizeModel: ast.sizeModel || '',
+        temperature: ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null,
+        tempInRange: Boolean(ast.tempInRange),
+        actionRequired: ast.actionRequired || '',
+        observation: (ast.observation || '').trim(),
+      }));
+
+      // Combined observation strings
+      const nonBlankAssetObs = visitAssets
+        .map((a: any) => {
+          const obs = (a.observation || '').trim();
+          if (!obs || obs === '—') return null;
+          const label = a.assetType ? `${a.assetType}${a.sizeModel ? ` (${a.sizeModel})` : ''}` : 'Asset';
+          return `${label}: ${obs}`;
+        })
+        .filter(Boolean) as string[];
+
+      const visitObs = (visit?.observation || '').trim();
+      const visitReason = (visit?.reason || '').trim();
+
+      const combinedObsList = [...nonBlankAssetObs];
+      if (visitObs && !combinedObsList.some((s) => s.includes(visitObs))) {
+        combinedObsList.push(visitObs);
+      }
+      const observation = combinedObsList.length > 0 ? combinedObsList.join('; ') : (visitObs || visitReason || '');
 
       return {
         photoId: p.photoId,
@@ -161,11 +337,42 @@ export async function GET(req: NextRequest) {
         supervisor: supName,
         manager: mgrName,
         outlet: custName,
-        outletCode: candidateCode || (customer ? customer.customerCode : '') || '',
-        route: routeCode || '',
+        outletCode: candidateCode || '',
+        route: cleanRoute || 'N/A',
         channel: ch,
+        observation,
+        observations: combinedObsList,
+        assetObservations,
+        visitObservation: visitObs,
+        visitReason,
+        notes: observation,
       };
     });
+
+    // Scoping for Supervisor role
+    if (scope === 'supervisor') {
+      const supNameLower = (userSession.name || '').trim().toLowerCase();
+      const supEmailLower = (userSession.email || '').trim().toLowerCase();
+      const supId = String(userSession.id || '');
+
+      allEnrichedPhotos = allEnrichedPhotos.filter((p: any) => {
+        const visit = allVisitsMap.get(p.visitId);
+        const matchesVisit = visit && (
+          String(visit.supervisorId) === supId ||
+          (visit.createdBy && visit.createdBy.toLowerCase() === supEmailLower) ||
+          (visit.createdBy && visit.createdBy.toLowerCase() === supNameLower)
+        );
+        const matchesSupervisorField = p.supervisor && p.supervisor.toLowerCase() === supNameLower;
+        return matchesVisit || matchesSupervisorField;
+      });
+    }
+
+    if (supervisorIdParam && scope === 'full') {
+      allEnrichedPhotos = allEnrichedPhotos.filter((p: any) => {
+        const visit = allVisitsMap.get(p.visitId);
+        return visit && String(visit.supervisorId) === supervisorIdParam;
+      });
+    }
 
     // If database has no photos or is unreachable in dev/test, provide realistic audit photos
     if (allEnrichedPhotos.length === 0) {
@@ -239,30 +446,48 @@ export async function GET(req: NextRequest) {
     const EXCLUDED_SUPS = new Set(['INTERNAL', 'SAMRA', 'ADMIN']);
     const routeParam = searchParams.get('routeCode') || searchParams.get('route'); // route code or 'all'
 
-    // Filter by Date first so available Outlets, Routes & Supervisors match the selected date
+    // Filter by Date range (From Date & To Date) or single date
     let dateFilteredPhotos = allEnrichedPhotos;
-    if (dateParam && dateParam !== 'all') {
+    if (fromDateParam || toDateParam) {
+      dateFilteredPhotos = allEnrichedPhotos.filter((p: any) => {
+        const photoDay = p.uploadedAt ? p.uploadedAt.split('T')[0] : '';
+        if (!photoDay) return false;
+        if (fromDateParam && fromDateParam !== 'all' && photoDay < fromDateParam.trim()) return false;
+        if (toDateParam && toDateParam !== 'all' && photoDay > toDateParam.trim()) return false;
+        return true;
+      });
+    } else if (dateParam && dateParam !== 'all') {
       const targetDate = dateParam.trim(); // YYYY-MM-DD
       dateFilteredPhotos = allEnrichedPhotos.filter((p: any) => {
-        const photoDay = p.uploadedAt.split('T')[0];
+        const photoDay = p.uploadedAt ? p.uploadedAt.split('T')[0] : '';
         return photoDay === targetDate;
       });
     }
 
-    // Dynamic extraction of distinct Supervisors, Outlets & Routes for the selected date
+    // Dynamic extraction of distinct Supervisors, Outlets, Routes & RTM Channels
     const dbSupSet = new Set<string>();
     const dbOutletSet = new Set<string>();
     const dbRouteSet = new Set<string>();
+    const dbRtmSet = new Set<string>();
 
     dateFilteredPhotos.forEach((p: any) => {
       if (p.supervisor && !EXCLUDED_SUPS.has(p.supervisor.toUpperCase())) dbSupSet.add(p.supervisor);
       if (p.outlet) dbOutletSet.add(p.outlet);
       if (p.route) dbRouteSet.add(p.route);
+      if (p.channel) dbRtmSet.add(p.channel);
     });
+
+    allEnrichedPhotos.forEach((p: any) => {
+      if (p.channel) dbRtmSet.add(p.channel);
+    });
+    if (dbRtmSet.size === 0) {
+      ['TT', 'MT', 'INST'].forEach((c) => dbRtmSet.add(c));
+    }
 
     const supervisors = Array.from(dbSupSet).sort();
     const outlets = Array.from(dbOutletSet).sort();
     const routes = Array.from(dbRouteSet).sort();
+    const rtms = Array.from(dbRtmSet).sort();
 
     let filtered = dateFilteredPhotos;
 
@@ -290,6 +515,12 @@ export async function GET(req: NextRequest) {
       filtered = filtered.filter((p: any) => p.outlet.toLowerCase() === targetOutlet);
     }
 
+    // Filter by RTM / Channel
+    if (rtmParam && rtmParam !== 'all') {
+      const targetRtm = rtmParam.trim().toUpperCase();
+      filtered = filtered.filter((p: any) => (p.channel || '').toUpperCase() === targetRtm);
+    }
+
     // Search filter
     if (searchParam && searchParam.trim()) {
       const q = searchParam.trim().toLowerCase();
@@ -299,7 +530,8 @@ export async function GET(req: NextRequest) {
           p.supervisor.toLowerCase().includes(q) ||
           p.manager.toLowerCase().includes(q) ||
           p.route.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q)
+          p.category.toLowerCase().includes(q) ||
+          (p.observation && p.observation.toLowerCase().includes(q))
       );
     }
 
@@ -319,6 +551,8 @@ export async function GET(req: NextRequest) {
       supervisors,
       outlets,
       routes,
+      rtms,
+      channels: rtms,
       pagination: {
         totalCount,
         totalPages,

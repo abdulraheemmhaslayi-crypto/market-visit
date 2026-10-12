@@ -67,9 +67,11 @@ export default function PWARegister() {
       if (
         message.includes('Loading chunk') ||
         message.includes('ChunkLoadError') ||
-        message.includes('dynamically imported module')
+        message.includes('dynamically imported module') ||
+        message.includes('was not found on the server') ||
+        message.includes('failed-to-find-server-action')
       ) {
-        console.warn('Chunk load error detected. Reloading page for updated deployment assets...');
+        console.warn('Chunk load error or server action mismatch detected. Reloading page for updated deployment assets...');
         const reloadKey = 'global_chunk_reload_' + Date.now();
         const lastReload = sessionStorage.getItem('last_chunk_reload');
         // Prevent infinite loops if network is down

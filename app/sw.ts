@@ -71,9 +71,14 @@ const serwist = new Serwist({
       matcher: ({ url }) => url.pathname.startsWith("/api/auth/"),
       handler: new NetworkOnly(),
     },
-    // 5. General API requests -> Network First
+    // 4b. Uploads -> Network Only (never buffer or intercept photo uploads in Service Worker)
     {
-      matcher: ({ url }) => url.pathname.startsWith("/api/"),
+      matcher: ({ url }) => url.pathname.startsWith("/api/upload"),
+      handler: new NetworkOnly(),
+    },
+    // 5. General API GET requests -> Network First
+    {
+      matcher: ({ url, request }) => url.pathname.startsWith("/api/") && request.method === "GET",
       handler: new NetworkFirst({
         cacheName: CACHE_NAMES.api,
         plugins: [
@@ -84,11 +89,12 @@ const serwist = new Serwist({
         ],
       }),
     },
-    // 6. HTML pages -> Stale While Revalidate
+    // 6. HTML pages -> Network First (ensures latest build assets, falls back to cache when offline)
     {
       matcher: ({ request }) => request.destination === "document",
-      handler: new StaleWhileRevalidate({
+      handler: new NetworkFirst({
         cacheName: CACHE_NAMES.pages,
+        networkTimeoutSeconds: 3,
         plugins: [
           new ExpirationPlugin({
             maxEntries: 50,

@@ -40,8 +40,11 @@ export function initCustMasterChannels(): Map<string, string> {
       const list = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
       if (Array.isArray(list)) {
         for (const item of list) {
-          const rawCh = String(item.channel || '').trim().toUpperCase();
-          if (rawCh && rawCh !== 'GENERAL TRADE' && rawCh !== 'GENERAL STORE' && rawCh !== 'GT') {
+          let rawCh = String(item.channel || '').trim().toUpperCase();
+          if (rawCh === 'GENERAL TRADE' || rawCh === 'GENERAL STORE' || rawCh === 'GT') {
+            rawCh = 'TT';
+          }
+          if (rawCh) {
             for (const v of getVariants(item.customerCode)) {
               map.set(v, rawCh);
             }
@@ -118,7 +121,7 @@ export function initCustMasterChannels(): Map<string, string> {
  * Returns the trade channel for a customer, mapped from CUSTMASTER 'Segment_Fin(120MT)'
  * e.g., 'MT', 'TT', 'INST', 'EXPORT'
  */
-export function getCustMasterChannel(customerCode?: string | null, fallback = 'GT'): string {
+export function getCustMasterChannel(customerCode?: string | null, fallback = 'TT'): string {
   if (!customerCode) return fallback;
   const cache = initCustMasterChannels();
   const variants = getVariants(customerCode);

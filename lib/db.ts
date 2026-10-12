@@ -22,6 +22,7 @@ if (process.env.NODE_ENV === 'production') {
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
+    connectTimeout: 8000,
   });
 } else {
   if (!global.__mysqlPool) {
@@ -38,6 +39,7 @@ if (process.env.NODE_ENV === 'production') {
       queueLimit: 0,
       enableKeepAlive: true,
       keepAliveInitialDelay: 0,
+      connectTimeout: 8000,
     });
   }
   pool = global.__mysqlPool;

@@ -20,12 +20,17 @@ import {
   RotateCw,
   ZoomIn,
   ZoomOut,
+  ChevronUp,
+  ChevronDown,
   Maximize2,
+  Minimize2,
   Sparkles,
   Camera,
   Check,
-  Image as ImageIcon,
   FlipHorizontal,
+  Loader2,
+  FileText,
+  Thermometer,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { AuditActionItem } from '@/lib/audit-actions';
@@ -46,6 +51,22 @@ export interface LightboxItem {
   uploadedAt?: string;
   visitId?: string;
   appName?: string;
+  observation?: string;
+  observations?: string | string[];
+  notes?: string;
+  remarks?: string;
+  assetObservations?: Array<{
+    assetId?: string;
+    assetType?: string;
+    sizeModel?: string;
+    temperature?: number | null;
+    tempInRange?: boolean;
+    actionRequired?: string;
+    observation?: string;
+  }>;
+  visitObservation?: string;
+  visitReason?: string;
+  visitNotes?: string;
   [key: string]: any;
 }
 
@@ -95,7 +116,82 @@ export default function ImageLightboxModal({
   const [isVerifying, setIsVerifying] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'before_after'>('details');
 
-  const currentAction = current?.photoId ? actionItems[current.photoId] : null;
+  // Mobile layout view switcher ('photo' | 'details')
+  const [mobileTab, setMobileTab] = useState<'photo' | 'details'>('photo');
+
+  useEffect(() => {
+    setMobileTab('photo');
+  }, [currentIndex]);
+
+  // Internal Action Item fallback state
+  const [internalActionItem, setInternalActionItem] = useState<AuditActionItem | null>(null);
+
+  // Derive currentAction from passed actionItems dictionary or internal dynamic fetch
+  const currentAction = (current?.photoId ? actionItems[current.photoId] : null) || internalActionItem;
+
+  // Auto-fetch action directive if not already provided in actionItems
+  useEffect(() => {
+    if (!current?.photoId) {
+      setInternalActionItem(null);
+      return;
+    }
+    if (actionItems && actionItems[current.photoId]) {
+      setInternalActionItem(actionItems[current.photoId]);
+      return;
+    }
+    let isMounted = true;
+    fetch(`/api/admin/audit-actions?photoId=${encodeURIComponent(current.photoId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (isMounted && data.success && Array.isArray(data.items) && data.items.length > 0) {
+          setInternalActionItem(data.items[0]);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [current?.photoId, actionItems]);
+
+  // Cache of visit observations fetched on-demand
+  const [asyncObservations, setAsyncObservations] = useState<Record<string, any>>({});
+  const [isLoadingObservations, setIsLoadingObservations] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!current?.visitId) return;
+    const vId = current.visitId;
+
+    // Skip if current item already has assetObservations or already cached in state
+    if (
+      (current.assetObservations && current.assetObservations.length > 0) ||
+      asyncObservations[vId]
+    ) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingObservations(true);
+    fetch(`/api/visit/observations?visitId=${encodeURIComponent(vId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (isMounted && data.success) {
+          setAsyncObservations((prev) => ({
+            ...prev,
+            [vId]: data,
+          }));
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load visit observations:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingObservations(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [current?.visitId, current?.assetObservations, asyncObservations]);
 
   // Role Detection
   const { data: session } = useSession();
@@ -112,6 +208,20 @@ export default function ImageLightboxModal({
   // Zoom & Rotation States
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
+  const [isStageExpanded, setIsStageExpanded] = useState<boolean>(false);
+
+  // Horizontal & Vertical Pan Sliders
+  const [sliderX, setSliderX] = useState<number>(0); // -100 to 100, 0 = center
+  const [sliderY, setSliderY] = useState<number>(0); // -100 to 100, 0 = center
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; sliderX: number; sliderY: number }>({ x: 0, y: 0, sliderX: 0, sliderY: 0 });
+
+  // Reset zoom, rotation and pan when switching photos
+  useEffect(() => {
+    setSliderX(0);
+    setSliderY(0);
+  }, [currentIndex]);
 
   // Camera & Gallery Proof States
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -119,7 +229,6 @@ export default function ImageLightboxModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
   const nativeCameraInputRef = useRef<HTMLInputElement>(null);
 
   const stopCamera = useCallback(() => {
@@ -142,8 +251,8 @@ export default function ImageLightboxModal({
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: mode },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
         },
         audio: false,
       });
@@ -154,7 +263,7 @@ export default function ImageLightboxModal({
       }
     } catch (err: any) {
       console.warn('getUserMedia error:', err);
-      setCameraError('Direct camera stream unavailable or blocked. You can use your device camera app or choose from gallery.');
+      setCameraError('Direct camera stream unavailable or blocked. Please use your device camera app.');
     }
   };
 
@@ -177,34 +286,54 @@ export default function ImageLightboxModal({
         ctx.scale(-1, 1);
       }
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       setProofPhotoUrl(dataUrl);
       stopCamera();
     }
   };
 
-  const handleGalleryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) setProofPhotoUrl(result);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  };
 
   const handleNativeCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setProofPhotoUrl(result);
+      const rawUrl = event.target?.result as string;
+      if (!rawUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1920;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.86);
+          setProofPhotoUrl(compressed);
+        } else {
+          setProofPhotoUrl(rawUrl);
+        }
         stopCamera();
-      }
+      };
+      img.onerror = () => {
+        setProofPhotoUrl(rawUrl);
+        stopCamera();
+      };
+      img.src = rawUrl;
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -270,6 +399,39 @@ export default function ImageLightboxModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose, handlePrev, handleNext, isFlagging, isSubmittingProof]);
 
+  // Mouse Center Scroll Wheel Zoom In / Out
+  useEffect(() => {
+    if (!isOpen) return;
+    const stageEl = stageRef.current;
+    if (!stageEl) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const zoomStep = 0.2;
+      if (e.deltaY < 0) {
+        // Scroll UP: Zoom In
+        setZoom((prev) => Math.min(5, Math.round((prev + zoomStep) * 100) / 100));
+      } else if (e.deltaY > 0) {
+        // Scroll DOWN: Zoom Out
+        setZoom((prev) => {
+          const next = Math.max(0.5, Math.round((prev - zoomStep) * 100) / 100);
+          if (next <= 1) {
+            setSliderX(0);
+            setSliderY(0);
+          }
+          return next;
+        });
+      }
+    };
+
+    stageEl.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      stageEl.removeEventListener('wheel', handleWheel);
+    };
+  }, [isOpen, currentIndex, activeTab]);
+
   // Handle GM Directive Submission
   const handleSubmitDirective = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -284,9 +446,11 @@ export default function ImageLightboxModal({
           photoId: current.photoId,
           visitId: current.visitId || 'VISIT-N/A',
           outlet: current.outlet || 'General Outlet',
+          outletCode: outletCode || '',
           route: current.route || 'N/A',
           supervisor: current.supervisor || 'Field Supervisor',
           manager: current.manager || '',
+          channel: current.channel || '',
           category: current.category || 'Audit Photo',
           originalPhotoUrl: current.cloudinaryUrl || current.url || '',
           gmComment: gmComment.trim(),
@@ -310,16 +474,29 @@ export default function ImageLightboxModal({
   // Handle Supervisor Proof Submission
   const handleSubmitSupervisorProof = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentAction?.id) return;
+
+    if (!proofPhotoUrl) {
+      alert('Please take a proof photo with your camera first.');
+      if (nativeCameraInputRef.current) {
+        nativeCameraInputRef.current.click();
+      } else {
+        startCamera('environment');
+      }
+      return;
+    }
+
+    const actionId = currentAction?.id || internalActionItem?.id || current?.photoId;
+    if (!actionId) {
+      alert('Unable to identify action directive to update.');
+      return;
+    }
 
     setIsSavingProof(true);
     try {
-      let finalProofUrl =
-        proofPhotoUrl ||
-        'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80';
+      let finalProofUrl = proofPhotoUrl;
 
       // If proofPhotoUrl is a base64 data URL, upload to /api/upload
-      if (proofPhotoUrl && proofPhotoUrl.startsWith('data:image')) {
+      if (proofPhotoUrl.startsWith('data:image')) {
         try {
           const upRes = await fetch('/api/upload', {
             method: 'POST',
@@ -339,28 +516,41 @@ export default function ImageLightboxModal({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: currentAction.id,
+          id: actionId,
+          photoId: current?.photoId,
           actionStatus: 'SUBMITTED',
-          supervisorComment: supervisorComment.trim() || 'Corrective action executed as instructed.',
+          supervisorComment: supervisorComment.trim() || 'Corrective action verified with camera photo proof.',
           proofPhotoUrl: finalProofUrl,
         }),
       });
 
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.item) {
+          setInternalActionItem(data.item);
+          if (actionItems && current?.photoId) {
+            actionItems[current.photoId] = data.item;
+          }
+        }
         setIsSubmittingProof(false);
         stopCamera();
         setActiveTab('before_after');
         if (onActionUpdated) onActionUpdated();
+        alert('Resolution proof submitted successfully! Sent for GM verification.');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(`Failed to save resolution proof: ${errData.error || res.statusText || 'Server error'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to submit proof:', err);
+      alert(`Submission error: ${err.message || 'Network error'}`);
     } finally {
       setIsSavingProof(false);
     }
   };
 
-  // Handle GM Verification (Approve or Reject)
-  const handleVerifyAction = async (status: 'RESOLVED' | 'PENDING') => {
+  // Handle GM Verification (Approve & Close only - Reopen option disabled)
+  const handleVerifyAction = async (status: 'RESOLVED') => {
     if (!currentAction?.id) return;
     setIsVerifying(true);
     try {
@@ -371,9 +561,7 @@ export default function ImageLightboxModal({
           id: currentAction.id,
           actionStatus: status,
           gmResolutionNotes:
-            status === 'RESOLVED'
-              ? 'Approved by General Manager. Corrective action verified with photo proof.'
-              : 'Re-opened. Proof insufficient, please rectify and re-submit.',
+            'Approved by General Manager. Corrective action verified with photo proof.',
         }),
       });
       if (res.ok && onActionUpdated) {
@@ -386,131 +574,217 @@ export default function ImageLightboxModal({
     }
   };
 
-  // Quick Preset Proof Photo for demonstration
-  const handleSelectSampleProof = (url: string) => {
-    setProofPhotoUrl(url);
-  };
-
   if (!isOpen || !current || total === 0) return null;
 
   const imageUrl = current.cloudinaryUrl || current.url || '';
   const categoryName = current.category || 'Audit Photo';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
-      {/* Dark Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity"
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950 flex flex-col lg:flex-row overflow-hidden animate-in fade-in duration-150 text-white">
+      {/* Mobile Responsive Header Bar */}
+      <div className="lg:hidden flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-800 z-30 flex-shrink-0">
+        <span className="text-[11px] font-mono font-bold text-slate-300">
+          Photo {currentIndex + 1} / {total}
+        </span>
+        <div className="flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setMobileTab('photo')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              mobileTab === 'photo'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Photo
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('details')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+              mobileTab === 'details'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Remarks {currentAction ? '●' : ''}
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
 
-      {/* Main Lightbox Dialog Container */}
-      <div className="relative w-full max-w-6xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col lg:flex-row max-h-[94vh] text-white">
-        
-        {/* Left Side: Image Container */}
-        <div className="flex-1 bg-black/95 relative flex items-center justify-center min-h-[320px] max-h-[55vh] lg:max-h-[92vh] select-none overflow-hidden group">
+      {/* Left Side: Image Stage & Bottom Controls Dock */}
+      <div className={`${mobileTab === 'photo' ? 'flex' : 'hidden lg:flex'} flex-1 h-full min-h-0 bg-black relative flex-col select-none overflow-hidden group`}>
+        {/* Mobile Quick Switcher Floating Button */}
+        <button
+          type="button"
+          onClick={() => setMobileTab('details')}
+          className="lg:hidden absolute top-3 right-3 z-30 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-xs font-bold text-amber-300 border border-amber-500/40 shadow-xl backdrop-blur-md flex items-center gap-1.5"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          <span>{currentAction ? 'Inspect Remarks' : 'Remarks'}</span>
+        </button>
+
+        {/* Main Viewing Stage (flex-1 min-h-0 guarantees image scales completely above the footer) */}
+        <div
+          ref={stageRef}
+          className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-hidden p-2 sm:p-4"
+          onPointerDown={(e) => {
+            if (activeTab === 'before_after') return;
+            if ((e.target as HTMLElement).closest('button, input, textarea, a')) return;
+            setIsDragging(true);
+            dragStartRef.current = {
+              x: e.clientX,
+              y: e.clientY,
+              sliderX,
+              sliderY,
+            };
+            try {
+              (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+            } catch {}
+          }}
+          onPointerMove={(e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - dragStartRef.current.x;
+            const dy = e.clientY - dragStartRef.current.y;
+            const w = stageRef.current?.clientWidth || 800;
+            const h = stageRef.current?.clientHeight || 600;
+            const sensX = 100 / Math.max(80, (w * (zoom - 1)) / 2 || w * 0.4);
+            const sensY = 100 / Math.max(80, (h * (zoom - 1)) / 2 || h * 0.4);
+            const nextX = Math.max(-100, Math.min(100, Math.round(dragStartRef.current.sliderX - dx * sensX)));
+            const nextY = Math.max(-100, Math.min(100, Math.round(dragStartRef.current.sliderY - dy * sensY)));
+            setSliderX(nextX);
+            setSliderY(nextY);
+          }}
+          onPointerUp={(e) => {
+            setIsDragging(false);
+            try {
+              (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+            } catch {}
+          }}
+          onPointerCancel={() => setIsDragging(false)}
+        >
           {activeTab === 'before_after' && currentAction?.proofPhotoUrl ? (
             /* Side-by-Side Comparison Mode */
-            <div className="w-full h-full p-4 grid grid-cols-2 gap-3 items-center justify-center">
+            <div className="w-full h-full p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center justify-center">
               {/* Left: Original Audit Photo */}
-              <div className="relative h-full flex flex-col items-center justify-center rounded-xl bg-slate-950/80 border border-amber-500/30 overflow-hidden">
-                <span className="absolute top-2.5 left-2.5 z-10 px-2 py-1 rounded text-[10px] font-bold bg-amber-500/90 text-black uppercase tracking-wider shadow">
+              <div className="relative h-full flex flex-col items-center justify-center rounded-2xl bg-slate-950/80 border border-amber-500/30 overflow-hidden shadow-xl">
+                <span className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded text-xs font-bold bg-amber-500/90 text-black uppercase tracking-wider shadow">
                   Before: Audit Issue
                 </span>
                 <img
                   src={imageUrl}
                   alt="Original Issue"
-                  className="max-h-[75vh] w-full object-contain"
+                  className="max-h-full max-w-full object-contain p-2"
                 />
               </div>
 
               {/* Right: Supervisor Proof Photo */}
-              <div className="relative h-full flex flex-col items-center justify-center rounded-xl bg-slate-950/80 border border-emerald-500/30 overflow-hidden">
-                <span className="absolute top-2.5 left-2.5 z-10 px-2 py-1 rounded text-[10px] font-bold bg-emerald-500 text-white uppercase tracking-wider shadow flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> After: Supervisor Proof
+              <div className="relative h-full flex flex-col items-center justify-center rounded-2xl bg-slate-950/80 border border-emerald-500/30 overflow-hidden shadow-xl">
+                <span className="absolute top-3 left-3 z-10 px-2.5 py-1 rounded text-xs font-bold bg-emerald-500 text-white uppercase tracking-wider shadow flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> After: Supervisor Proof
                 </span>
                 <img
                   src={currentAction.proofPhotoUrl}
                   alt="Resolution Proof"
-                  className="max-h-[75vh] w-full object-contain"
+                  className="max-h-full max-w-full object-contain p-2"
                 />
               </div>
             </div>
           ) : (
-            /* Standard Single Image View with Zoom & Rotation */
-            <div className="w-full h-full flex items-center justify-center overflow-hidden p-2">
-              <img
-                key={imageUrl}
-                src={imageUrl}
-                alt={categoryName}
-                style={{
-                  transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                  transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  transformOrigin: 'center center',
-                }}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
-                draggable={false}
-              />
+            /* Standard Single Image View with Zoom, Pan & Rotation */
+            <div className="w-full h-full flex items-center justify-center overflow-hidden relative">
+              {(() => {
+                const stageWidth = stageRef.current?.clientWidth || 900;
+                const stageHeight = stageRef.current?.clientHeight || 700;
+                const maxPanX = Math.max(30, (stageWidth * Math.max(0.15, zoom - 1)) / 2);
+                const maxPanY = Math.max(30, (stageHeight * Math.max(0.15, zoom - 1)) / 2);
+                const panX = -(sliderX / 100) * maxPanX;
+                const panY = -(sliderY / 100) * maxPanY;
+
+                return (
+                  <img
+                    key={imageUrl}
+                    src={imageUrl}
+                    alt={categoryName}
+                    style={{
+                      transform: `translate(${panX}px, ${panY}px) scale(${zoom}) rotate(${rotation}deg)`,
+                      transition: isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                      transformOrigin: 'center center',
+                      imageRendering: 'auto',
+                      cursor: isDragging ? 'grabbing' : zoom > 1 ? 'grab' : 'default',
+                    }}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
+                    draggable={false}
+                  />
+                );
+              })()}
             </div>
           )}
 
-          {/* Floating Image Zoom & Rotation Controls */}
+          {/* Vertical Pan Slider (Right Side of Stage) */}
           {activeTab !== 'before_after' && (
-            <div className="absolute bottom-14 inset-x-0 z-30 flex items-center justify-center pointer-events-none">
-              <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-950/85 border border-slate-700/80 backdrop-blur-md shadow-2xl pointer-events-auto text-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}
-                  title="Zoom Out"
-                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </button>
-                <span className="text-[11px] font-mono font-bold min-w-[40px] text-center text-slate-300 select-none">
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setZoom((z) => Math.min(4, Math.round((z + 0.25) * 100) / 100))}
-                  title="Zoom In"
-                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </button>
-                <div className="h-3.5 w-px bg-slate-700 mx-1" />
-                <button
-                  type="button"
-                  onClick={() => setRotation((r) => (r - 90) % 360)}
-                  title="Rotate Counter-Clockwise (-90°)"
-                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRotation((r) => (r + 90) % 360)}
-                  title="Rotate Clockwise (+90°)"
-                  className="p-1 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <RotateCw className="h-3.5 w-3.5" />
-                </button>
-                {(zoom !== 1 || rotation !== 0) && (
-                  <>
-                    <div className="h-3.5 w-px bg-slate-700 mx-1" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setZoom(1);
-                        setRotation(0);
-                      }}
-                      title="Reset Zoom & Rotation"
-                      className="px-2 py-0.5 text-[10px] font-bold bg-white/10 hover:bg-white/20 rounded-md text-amber-300 transition-colors"
-                    >
-                      Reset
-                    </button>
-                  </>
-                )}
+            <div
+              className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-slate-950/85 border border-slate-700/80 backdrop-blur-md shadow-2xl pointer-events-auto select-none"
+              title="Vertical Pan Slider: Slide to inspect top/bottom shelves"
+            >
+              <button
+                type="button"
+                onClick={() => setSliderY((y) => Math.max(-100, y - 20))}
+                className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-white/10 cursor-pointer"
+                title="Pan Up (Top Shelves)"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+
+              <div className="relative flex items-center justify-center my-1" style={{ height: '140px', width: '28px' }}>
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={sliderY}
+                  onChange={(e) => setSliderY(Number(e.target.value))}
+                  className="cursor-pointer"
+                  style={{
+                    writingMode: 'vertical-lr',
+                    direction: 'rtl',
+                    width: '24px',
+                    height: '140px',
+                    accentColor: '#6366F1',
+                  }}
+                  title={`Vertical Position: ${sliderY === 0 ? 'Center' : sliderY < 0 ? `${Math.abs(sliderY)}% Up` : `${sliderY}% Down`}`}
+                />
               </div>
+
+              <button
+                type="button"
+                onClick={() => setSliderY((y) => Math.min(100, y + 20))}
+                className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-white/10 cursor-pointer"
+                title="Pan Down (Bottom Shelves)"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+
+              <span className="text-[9px] font-mono font-bold text-slate-400 select-none">
+                {sliderY === 0 ? '0' : sliderY < 0 ? `↑${Math.abs(sliderY)}` : `↓${sliderY}`}
+              </span>
+
+              {sliderY !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSliderY(0)}
+                  className="text-[8px] font-bold text-amber-300 hover:text-amber-200 px-1 py-0.5 rounded bg-white/10 mt-0.5"
+                  title="Center Vertical"
+                >
+                  Mid
+                </button>
+              )}
             </div>
           )}
 
@@ -539,31 +813,51 @@ export default function ImageLightboxModal({
             )}
           </div>
 
-          {/* View Toggle (If proof exists) */}
-          {currentAction?.proofPhotoUrl && (
-            <div className="absolute top-3 right-3 z-20 flex items-center bg-black/60 p-1 rounded-xl border border-slate-700 backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => setActiveTab('details')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === 'details' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Single
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('before_after')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1 ${
-                  activeTab === 'before_after' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Sparkles className="h-3 w-3 text-amber-300" /> Before / After
-              </button>
-            </div>
-          )}
+          {/* Top-Right Stage Controls: Single/Before-After Toggle, Fullscreen Toggle, and Close Button */}
+          <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+            {currentAction?.proofPhotoUrl && (
+              <div className="flex items-center bg-black/70 p-1 rounded-xl border border-slate-700 backdrop-blur-md shadow-md">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('details')}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                    activeTab === 'details' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Single
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('before_after')}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1 ${
+                    activeTab === 'before_after' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="h-3 w-3 text-amber-300" /> Before / After
+                </button>
+              </div>
+            )}
 
-          {/* Previous Button */}
+            <button
+              type="button"
+              onClick={() => setIsStageExpanded((prev) => !prev)}
+              className="p-2 rounded-xl bg-black/70 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 backdrop-blur-md shadow-md transition-colors cursor-pointer"
+              title={isStageExpanded ? 'Show Metadata Panel' : 'Maximize Image View'}
+            >
+              {isStageExpanded ? <Minimize2 className="h-4 w-4 text-sky-400" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl bg-black/70 hover:bg-red-950/80 text-slate-300 hover:text-red-300 border border-slate-700 hover:border-red-800 backdrop-blur-md shadow-md transition-colors cursor-pointer"
+              title="Close Full Screen (Esc)"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Previous Button (Stage Left Chevron) */}
           <button
             type="button"
             onClick={(e) => {
@@ -581,7 +875,7 @@ export default function ImageLightboxModal({
             <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
 
-          {/* Next Button */}
+          {/* Next Button (Stage Right Chevron) */}
           <button
             type="button"
             onClick={(e) => {
@@ -598,34 +892,309 @@ export default function ImageLightboxModal({
           >
             <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
-
-          {/* Bottom Bar: Mini Navigation Controls */}
-          <div className="absolute bottom-3 inset-x-0 z-20 flex items-center justify-center gap-4 pointer-events-none">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 border border-white/10 backdrop-blur-md shadow-lg pointer-events-auto">
-              <button
-                onClick={handlePrev}
-                disabled={!hasPrev}
-                className="text-xs font-semibold px-2 py-0.5 rounded text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" /> Prev
-              </button>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {currentIndex + 1} of {total}
-              </span>
-              <button
-                onClick={handleNext}
-                disabled={!hasNext}
-                className="text-xs font-semibold px-2 py-0.5 rounded text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
-              >
-                Next <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
         </div>
 
-        {/* Right Side: GM Directive, Supervisor Proof & Metadata Panel */}
-        <div className="w-full lg:w-[420px] p-5 sm:p-6 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between space-y-4 overflow-y-auto max-h-[94vh]">
+        {/* BOTTOM CENTER: Observations / Notes (Optional) - Dedicated area BELOW picture, never covering the picture */}
+        {(() => {
+          const currentVisitId = current.visitId || '';
+          const asyncData = currentVisitId ? asyncObservations[currentVisitId] : null;
+
+          const rawAssetObs: any[] =
+            (current.assetObservations && current.assetObservations.length > 0)
+              ? current.assetObservations
+              : (asyncData?.assetObservations || []);
+
+          // Determine the asset type of the currently viewed photo
+          const catLower = (current.category || '').toLowerCase();
+          const assetTypeLower = (current.assetType || '').toLowerCase();
+
+          let targetAssetType: 'Freezer' | 'Chiller' | null = null;
+          if (
+            catLower.includes('ice') ||
+            catLower.includes('freezer') ||
+            assetTypeLower.includes('freezer')
+          ) {
+            targetAssetType = 'Freezer';
+          } else if (
+            catLower.includes('dairy') ||
+            catLower.includes('beverage') ||
+            catLower.includes('chiller') ||
+            catLower.includes('vegetable') ||
+            assetTypeLower.includes('chiller')
+          ) {
+            targetAssetType = 'Chiller';
+          }
+
+          // Filter assets strictly to the current photo's asset type (Freezer OR Chiller, never both!)
+          const matchedAssets = targetAssetType
+            ? rawAssetObs.filter((ast: any) =>
+                String(ast.assetType || '').toLowerCase().includes(targetAssetType.toLowerCase())
+              )
+            : rawAssetObs;
+
+          // Find specific observations for this asset type
+          const assetObsList = matchedAssets
+            .map((ast: any) => (ast.observation || '').trim())
+            .filter((obs: string) => obs && obs !== '—');
+
+          // Check visit-level observation
+          const visitObsRaw = String(
+            current.visitObservation ||
+            asyncData?.visitObservation ||
+            current.observation ||
+            asyncData?.observation ||
+            current.notes ||
+            ''
+          ).trim();
+
+          // Does visitObsRaw specifically pertain to the other asset type?
+          const otherAssetWord = targetAssetType === 'Chiller' ? 'freezer' : targetAssetType === 'Freezer' ? 'chiller' : null;
+
+          let displayNote = '';
+          if (assetObsList.length > 0) {
+            displayNote = assetObsList.join('; ');
+          } else if (visitObsRaw && visitObsRaw !== '—') {
+            const parts = visitObsRaw.split(';').map((p) => p.trim()).filter(Boolean);
+            const filteredParts = parts.filter((part) => {
+              if (otherAssetWord && part.toLowerCase().includes(otherAssetWord)) {
+                return false;
+              }
+              return true;
+            });
+            if (filteredParts.length > 0) {
+              displayNote = filteredParts.join('; ');
+            }
+          }
+
+          const hasAssets = matchedAssets.length > 0;
+          const hasNote = Boolean(displayNote);
+
+          return (
+            <div className="w-full flex-shrink-0 bg-slate-950/95 border-t border-slate-800/80 px-4 py-2 z-20 flex justify-center items-center shadow-xl backdrop-blur-md">
+              <div className="max-w-4xl w-full bg-slate-900/95 border border-slate-800/90 rounded-xl px-4 py-2 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                {/* Left: Section Header & Matched Asset Badges */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] uppercase tracking-wider font-extrabold text-sky-400 flex items-center gap-1.5 flex-shrink-0">
+                    <FileText className="h-3.5 w-3.5 text-sky-400" />
+                    <span>Observations / Notes (Optional)</span>
+                  </span>
+
+                  {matchedAssets.map((ast: any, idx: number) => {
+                    const isFreezer = String(ast.assetType).toLowerCase().includes('freezer');
+                    const tempVal = ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null;
+                    return (
+                      <div key={ast.assetId || idx} className="inline-flex items-center gap-1.5 text-[10px] font-semibold">
+                        <span
+                          className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${
+                            isFreezer
+                              ? 'bg-cyan-950 text-cyan-300 border border-cyan-800/70'
+                              : 'bg-blue-950 text-blue-300 border border-blue-800/70'
+                          }`}
+                        >
+                          {ast.assetType || (isFreezer ? 'Freezer' : 'Chiller')}
+                        </span>
+                        {ast.sizeModel && (
+                          <span className="text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700/60 font-mono">
+                            {ast.sizeModel}
+                          </span>
+                        )}
+                        {tempVal !== null && !isNaN(tempVal) && (
+                          <span className="font-mono text-emerald-400 bg-slate-800 px-1.5 py-0.5 rounded border border-emerald-900/60 flex items-center gap-0.5">
+                            <Thermometer className="h-2.5 w-2.5" />
+                            {tempVal > 0 ? `+${tempVal}` : tempVal}°C
+                          </span>
+                        )}
+                        {ast.actionRequired && ast.actionRequired !== 'Select Status' && ast.actionRequired !== 'None' && (
+                          <span className="text-indigo-300 bg-slate-800 px-1.5 py-0.5 rounded border border-indigo-800/60">
+                            {ast.actionRequired}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Right: The Observation Quote for THIS Asset */}
+                <div className="flex-1 min-w-0 md:text-right">
+                  {hasNote ? (
+                    <p className="text-xs text-slate-100 font-medium italic break-words md:text-right">
+                      &ldquo;{displayNote}&rdquo;
+                    </p>
+                  ) : hasAssets ? (
+                    <p className="text-[11px] text-slate-400 italic md:text-right">
+                      No observation notes recorded for {targetAssetType || 'this asset'}.
+                    </p>
+                  ) : isLoadingObservations ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 md:justify-end">
+                      <Loader2 className="h-3 w-3 animate-spin text-sky-400" /> Loading notes…
+                    </span>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 italic md:text-right">
+                      No observations recorded.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Bottom Dock Bar: Navigation, Zoom & Rotation, and Pan Controls in Dedicated Blank Footer */}
+        <div className="w-full flex-shrink-0 bg-slate-950/95 border-t border-slate-800/80 px-3 sm:px-6 py-2.5 z-30 select-none shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
+          {/* Group 1: Navigation Controls */}
+          <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-xl px-2.5 py-1.5 shadow-inner">
+            <button
+              type="button"
+              onClick={handlePrev}
+              disabled={!hasPrev}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition-colors cursor-pointer"
+              title="Previous Photo (Left Arrow)"
+            >
+              <ChevronLeft className="h-4 w-4" /> Prev
+            </button>
+            <span className="text-xs font-mono font-bold text-slate-300 px-2.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 select-none">
+              {currentIndex + 1} / {total}
+            </span>
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={!hasNext}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition-colors cursor-pointer"
+              title="Next Photo (Right Arrow)"
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Group 2: Zoom Magnifier & Rotation Controls */}
+          {activeTab !== 'before_after' && (
+            <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-1.5 shadow-inner text-slate-200">
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}
+                title="Zoom Out (Scroll Wheel Down)"
+                className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </button>
+              <span
+                className="text-xs font-mono font-bold min-w-[48px] text-center text-sky-400 select-none px-1"
+                title="Zoom Level (Scroll mouse center wheel up/down to zoom)"
+              >
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(5, Math.round((z + 0.25) * 100) / 100))}
+                title="Zoom In (Scroll Wheel Up)"
+                className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </button>
+
+              <div className="h-4 w-px bg-slate-700/80 mx-1" />
+
+              <button
+                type="button"
+                onClick={() => setRotation((r) => (r - 90) % 360)}
+                title="Rotate Counter-Clockwise (-90°)"
+                className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setRotation((r) => (r + 90) % 360)}
+                title="Rotate Clockwise (+90°)"
+                className="p-1.5 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <RotateCw className="h-4 w-4" />
+              </button>
+
+              {(zoom !== 1 || rotation !== 0 || sliderX !== 0 || sliderY !== 0) && (
+                <>
+                  <div className="h-4 w-px bg-slate-700/80 mx-1" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoom(1);
+                      setRotation(0);
+                      setSliderX(0);
+                      setSliderY(0);
+                    }}
+                    title="Reset Zoom, Pan & Rotation"
+                    className="px-2.5 py-1 text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Reset
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Group 3: Horizontal Pan Slider */}
+          {activeTab !== 'before_after' && (
+            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-1.5 shadow-inner text-slate-200">
+              <button
+                type="button"
+                onClick={() => setSliderX((x) => Math.max(-100, x - 20))}
+                className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-slate-800 cursor-pointer"
+                title="Pan Left"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              <span className="text-[10px] font-mono font-bold text-slate-400 whitespace-nowrap min-w-[28px] text-center select-none">
+                {sliderX === 0 ? '0' : sliderX < 0 ? `←${Math.abs(sliderX)}` : `→${sliderX}`}
+              </span>
+
+              <input
+                type="range"
+                min="-100"
+                max="100"
+                value={sliderX}
+                onChange={(e) => setSliderX(Number(e.target.value))}
+                className="w-24 sm:w-36 md:w-44 h-1.5 rounded-lg bg-slate-800 accent-indigo-500 cursor-pointer"
+                title={`Horizontal Position: ${sliderX === 0 ? 'Center' : sliderX < 0 ? `${Math.abs(sliderX)}% Left` : `${sliderX}% Right`}`}
+              />
+
+              <button
+                type="button"
+                onClick={() => setSliderX((x) => Math.min(100, x + 20))}
+                className="p-1 hover:text-white rounded-lg transition-colors text-slate-400 hover:bg-slate-800 cursor-pointer"
+                title="Pan Right"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+
+              {sliderX !== 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSliderX(0)}
+                  className="text-[10px] font-bold text-indigo-300 hover:text-white px-2 py-0.5 rounded-lg bg-indigo-500/20 border border-indigo-500/40 hover:bg-indigo-500/40 whitespace-nowrap transition-colors cursor-pointer"
+                  title="Center Horizontal Pan"
+                >
+                  Center
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+        {/* Right Side: Action Directive, Supervisor Proof & Metadata Panel */}
+        {!isStageExpanded && (
+          <div className={`${mobileTab === 'details' ? 'flex' : 'hidden lg:flex'} w-full lg:w-96 xl:w-[420px] 2xl:w-[450px] p-4 sm:p-6 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex-col justify-between space-y-4 overflow-y-auto h-full flex-shrink-0 z-20`}>
           <div className="space-y-4">
+            {/* Mobile Back To Photo Banner */}
+            <button
+              type="button"
+              onClick={() => setMobileTab('photo')}
+              className="lg:hidden w-full py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-sky-300 text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-700 shadow-sm"
+            >
+              <ChevronLeft className="h-4 w-4" /> Back to Full Photo View
+            </button>
+
             {/* Header with Title and Close Button */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
@@ -646,11 +1215,11 @@ export default function ImageLightboxModal({
               </button>
             </div>
 
-            {/* SECTION 1: GM DIRECTIVE & SUPERVISOR RESOLUTION PROOF */}
+            {/* SECTION 1: DIRECTIVE & SUPERVISOR RESOLUTION PROOF */}
             <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                  <Flag className="h-3.5 w-3.5" /> GM Action & Tracking
+                  <Flag className="h-3.5 w-3.5" /> Action & Remarks Tracking
                 </span>
                 {!currentAction && !isFlagging && (
                   isSupervisor ? (
@@ -674,12 +1243,12 @@ export default function ImageLightboxModal({
                 )}
               </div>
 
-              {/* Form to Create GM Directive */}
+              {/* Form to Create Action Directive */}
               {isFlagging && (
                 <form onSubmit={handleSubmitDirective} className="space-y-3 pt-2 border-t border-slate-800/80">
                   <div>
                     <label className="text-[11px] font-semibold text-slate-300 block mb-1">
-                      GM Remark / Directive for Supervisor:
+                      Directive / Action Remark for Supervisor:
                     </label>
                     <textarea
                       rows={3}
@@ -735,10 +1304,10 @@ export default function ImageLightboxModal({
                     </span>
                   </div>
 
-                  {/* GM Remark Block */}
+                  {/* Action Remark Block */}
                   <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-1">
                     <p className="text-[10px] text-slate-400 font-bold flex items-center justify-between">
-                      <span>GM Directive ({currentAction.gmName}):</span>
+                      <span>Action Directive ({currentAction.gmName || 'Management'}):</span>
                       <span className="font-mono text-slate-500">{new Date(currentAction.createdAt).toLocaleDateString()}</span>
                     </p>
                     <p className="text-amber-200 font-medium italic">"{currentAction.gmComment}"</p>
@@ -773,24 +1342,16 @@ export default function ImageLightboxModal({
                         />
                       </div>
 
-                      {/* GM Closure Action Buttons */}
+                      {/* Closure Action Button (Re-open option disabled) */}
                       {currentAction.actionStatus !== 'RESOLVED' && (
                         <div className="flex items-center gap-2 pt-1">
                           <button
                             type="button"
                             disabled={isVerifying}
                             onClick={() => handleVerifyAction('RESOLVED')}
-                            className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all flex items-center justify-center gap-1 cursor-pointer shadow"
+                            className="w-full py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow"
                           >
                             <Check className="h-3.5 w-3.5" /> {isVerifying ? 'Saving...' : 'Approve & Close'}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isVerifying}
-                            onClick={() => handleVerifyAction('PENDING')}
-                            className="py-1.5 px-3 rounded-lg text-xs font-semibold bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 transition-all cursor-pointer flex items-center gap-1"
-                          >
-                            <RotateCcw className="h-3 w-3" /> Re-open
                           </button>
                         </div>
                       )}
@@ -813,33 +1374,25 @@ export default function ImageLightboxModal({
                           </p>
                           <div>
                             <label className="text-[10px] text-slate-400 block mb-1">
-                              Action Taken Notes:
+                              Action Taken Notes (Optional):
                             </label>
                             <textarea
                               rows={2}
-                              required
                               value={supervisorComment}
                               onChange={(e) => setSupervisorComment(e.target.value)}
-                              placeholder="e.g. Cleaned chiller shelf, re-arranged Dandy 2L milk facing and verified expiry."
-                              className="w-full text-xs p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100"
+                              placeholder="Type optional resolution notes (or submit photo proof directly)..."
+                              className="w-full text-xs p-2 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-sky-500"
                             />
                           </div>
 
-                          {/* Proof Photo Attachment with 2 distinct options: Camera & Gallery */}
+                          {/* Proof Photo Attachment (Camera Only) */}
                           <div className="space-y-2">
                             <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                               <Camera className="h-3.5 w-3.5 text-sky-400" />
-                              Proof Photo Attachment:
+                              Proof Photo Attachment (Camera Only):
                             </label>
 
-                            {/* Hidden File Inputs for native camera and gallery */}
-                            <input
-                              ref={galleryInputRef}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={handleGalleryFileChange}
-                            />
+                            {/* Hidden File Input for native camera */}
                             <input
                               ref={nativeCameraInputRef}
                               type="file"
@@ -947,21 +1500,14 @@ export default function ImageLightboxModal({
                                           setProofPhotoUrl('');
                                           startCamera('environment');
                                         }}
-                                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
+                                        className="text-[10px] font-semibold px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer flex items-center gap-1"
                                       >
-                                        Retake (Camera)
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => galleryInputRef.current?.click()}
-                                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
-                                      >
-                                        Change (Gallery)
+                                        <Camera className="h-3 w-3" /> Retake (Camera)
                                       </button>
                                       <button
                                         type="button"
                                         onClick={() => setProofPhotoUrl('')}
-                                        className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 cursor-pointer"
+                                        className="text-[10px] font-semibold px-2.5 py-1 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 cursor-pointer"
                                       >
                                         Remove
                                       </button>
@@ -970,80 +1516,70 @@ export default function ImageLightboxModal({
                                 </div>
                               </div>
                             ) : (
-                              /* Two Distinct Options: Camera & Gallery */
+                              /* Camera-only capture options (Gallery upload removed per directive) */
                               <div className="space-y-2">
-                                <div className="grid grid-cols-2 gap-2">
-                                  {/* Option 1: Camera */}
-                                  <button
-                                    type="button"
-                                    onClick={() => startCamera('environment')}
-                                    className="p-3 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700 hover:border-sky-500/50 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group hover:-translate-y-0.5 shadow-sm text-left"
-                                  >
-                                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:bg-sky-500 group-hover:text-black transition-all">
-                                      <Camera className="h-5 w-5" />
-                                    </div>
-                                    <span className="text-xs font-bold text-slate-100">
-                                      1. Camera
+                                <button
+                                  type="button"
+                                  onClick={() => nativeCameraInputRef.current?.click()}
+                                  className="w-full p-3.5 rounded-xl bg-gradient-to-r from-sky-600/30 to-blue-600/30 hover:from-sky-600/40 hover:to-blue-600/40 border-2 border-sky-400 flex items-center justify-center gap-3 transition-all cursor-pointer group shadow-lg shadow-sky-500/10 active:scale-98"
+                                >
+                                  <div className="p-2 rounded-full bg-sky-400 text-black group-hover:scale-110 transition-all shadow-md">
+                                    <Camera className="h-5 w-5" />
+                                  </div>
+                                  <div className="text-left">
+                                    <span className="text-xs font-extrabold text-white block">
+                                      Take Proof Photo (Camera App)
                                     </span>
-                                    <span className="text-[9.5px] text-slate-400 text-center leading-tight">
-                                      Front & Back Switch
+                                    <span className="text-[10px] text-sky-200 block">
+                                      Tap to open device camera directly (Live Camera Only)
                                     </span>
-                                  </button>
+                                  </div>
+                                </button>
 
-                                  {/* Option 2: Gallery */}
-                                  <button
-                                    type="button"
-                                    onClick={() => galleryInputRef.current?.click()}
-                                    className="p-3 rounded-xl bg-slate-850 hover:bg-slate-800 border border-slate-700 hover:border-sky-500/50 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group hover:-translate-y-0.5 shadow-sm text-left"
-                                  >
-                                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 group-hover:bg-sky-500 group-hover:text-black transition-all">
-                                      <ImageIcon className="h-5 w-5" />
-                                    </div>
-                                    <span className="text-xs font-bold text-slate-100">
-                                      2. Upload Gallery
-                                    </span>
-                                    <span className="text-[9.5px] text-slate-400 text-center leading-tight">
-                                      Pick from device files
-                                    </span>
-                                  </button>
-                                </div>
-
-                                {/* Testing Preset Samples */}
-                                <div className="flex items-center gap-1.5 pt-0.5">
-                                  <span className="text-[9.5px] text-slate-500 uppercase tracking-wider font-semibold">
-                                    Presets:
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSelectSampleProof('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80')}
-                                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
-                                  >
-                                    Clean Shelf
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSelectSampleProof('https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?auto=format&fit=crop&w=800&q=80')}
-                                    className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer"
-                                  >
-                                    Rectified Display
-                                  </button>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => startCamera('environment')}
+                                  className="w-full py-2 px-3 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-medium border border-slate-700 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                  <Camera className="h-3.5 w-3.5 text-slate-400" />
+                                  Or use in-app live viewfinder
+                                </button>
                               </div>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2 pt-1">
+                          <div className="flex items-center gap-2 pt-2">
                             <button
                               type="submit"
-                              disabled={isSavingProof || !supervisorComment.trim()}
-                              className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-black transition-all cursor-pointer"
+                              disabled={isSavingProof}
+                              className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                                proofPhotoUrl
+                                  ? 'bg-gradient-to-r from-emerald-400 to-green-500 hover:from-emerald-300 hover:to-green-400 text-slate-950 shadow-emerald-500/25 ring-2 ring-emerald-400/50'
+                                  : 'bg-sky-500 hover:bg-sky-400 text-black'
+                              }`}
                             >
-                              {isSavingProof ? 'Submitting...' : 'Confirm Resolution'}
+                              {isSavingProof ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" /> Submitting Proof...
+                                </>
+                              ) : proofPhotoUrl ? (
+                                <>
+                                  <Check className="h-4 w-4" /> Confirm & Submit Resolution
+                                </>
+                              ) : (
+                                <>
+                                  <Camera className="h-4 w-4" /> Snap Photo & Confirm Resolution
+                                </>
+                              )}
                             </button>
                             <button
                               type="button"
-                              onClick={() => setIsSubmittingProof(false)}
-                              className="py-1.5 px-2.5 rounded-lg text-xs bg-slate-800 text-slate-300"
+                              disabled={isSavingProof}
+                              onClick={() => {
+                                setIsSubmittingProof(false);
+                                stopCamera();
+                              }}
+                              className="py-2.5 px-3 rounded-xl text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-40"
                             >
                               Cancel
                             </button>
@@ -1068,52 +1604,56 @@ export default function ImageLightboxModal({
 
             {/* SECTION 2: METADATA DETAILS */}
             <div className="space-y-3 text-xs pt-1">
-              {current.outlet && (
+              <div>
+                <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                  Outlet / Store
+                </label>
+                <p className="text-sm font-semibold text-slate-100 mt-0.5">
+                  {outletCode ? <span className="font-mono text-sky-400 font-bold mr-1.5">{outletCode} -</span> : null}
+                  {(current.outlet && current.outlet !== 'General Store') ? current.outlet : (currentAction?.outlet || current.outlet || 'Store Attachment')}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                  Supervisor / Manager
+                </label>
+                <p className="text-xs font-medium text-slate-200 mt-0.5">
+                  {(() => {
+                    const sup = (current.supervisor && current.supervisor !== 'UNASSIGNED')
+                      ? current.supervisor
+                      : (currentAction?.supervisor && currentAction.supervisor !== 'UNASSIGNED' ? currentAction.supervisor : (current.supervisor || 'Field Supervisor'));
+                    const mgr = (current.manager && current.manager !== 'UNASSIGNED')
+                      ? current.manager
+                      : (currentAction?.manager && currentAction.manager !== 'UNASSIGNED' ? currentAction.manager : (current.manager || ''));
+                    return (
+                      <>
+                        {sup}{' '}
+                        {mgr && mgr !== 'UNASSIGNED' ? <span className="text-slate-400">({mgr})</span> : null}
+                      </>
+                    );
+                  })()}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                    Outlet / Store
+                    Route
                   </label>
-                  <p className="text-sm font-semibold text-slate-100 mt-0.5">
-                    {outletCode ? <span className="font-mono text-sky-400 font-bold mr-1.5">{outletCode} -</span> : null}
-                    {current.outlet}
+                  <p className="text-xs font-mono font-medium text-slate-300 mt-0.5">
+                    {(current.route && current.route !== 'N/A') ? current.route : (currentAction?.route && currentAction.route !== 'N/A' ? currentAction.route : 'N/A')}
                   </p>
                 </div>
-              )}
-
-              {(current.supervisor || current.manager) && (
                 <div>
                   <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                    Supervisor / Manager
+                    Channel
                   </label>
-                  <p className="text-xs font-medium text-slate-200 mt-0.5">
-                    {current.supervisor || 'N/A'}{' '}
-                    {current.manager && (
-                      <span className="text-slate-400">({current.manager})</span>
-                    )}
+                  <p className="text-xs font-medium text-slate-300 mt-0.5">
+                    {current.channel || currentAction?.channel || 'GT'}
                   </p>
                 </div>
-              )}
-
-              {(current.route || current.channel) && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                      Route
-                    </label>
-                    <p className="text-xs font-mono font-medium text-slate-300 mt-0.5">
-                      {current.route || 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                      Channel
-                    </label>
-                    <p className="text-xs font-medium text-slate-300 mt-0.5">
-                      {current.channel || 'GT'}
-                    </p>
-                  </div>
-                </div>
-              )}
+              </div>
 
               {current.uploadedAt && (
                 <div>
@@ -1177,7 +1717,7 @@ export default function ImageLightboxModal({
             )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

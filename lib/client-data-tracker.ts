@@ -118,8 +118,19 @@ export function initClientDataTracker(user: { id: string; name: string; role: st
       } else if (init.body instanceof Blob) {
         uploadBytes = init.body.size;
       } else if (init.body instanceof FormData) {
-        // Approximate FormData size
-        uploadBytes = 2048;
+        let fdSize = 0;
+        try {
+          init.body.forEach((val) => {
+            if (val instanceof Blob) {
+              fdSize += val.size;
+            } else if (typeof val === 'string') {
+              fdSize += val.length;
+            }
+          });
+        } catch {
+          fdSize = 2048;
+        }
+        uploadBytes = fdSize || 2048;
       }
     } else if (input instanceof Request) {
       uploadBytes = 200; // Base HTTP header approximation

@@ -68,6 +68,35 @@ export default function SupervisorReportsPage() {
   const [fSizeModels, setFSizeModels] = useState<string[]>([]);
   const [masters, setMasters] = useState<any>(null);
 
+  const latestDateRef = useRef<string>('');
+  const initialDateApplied = useRef<boolean>(false);
+
+  // Helper to extract YYYY-MM-DD from row date
+  const getRowDateStr = (r: any): string => {
+    const raw = r.createdAt || r.date;
+    if (!raw) return '';
+    if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
+      return raw.trim();
+    }
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return String(raw).split('T')[0];
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getLatestDateFromRows = (rowList: any[]): string => {
+    let latest = '';
+    for (const r of rowList) {
+      const dStr = getRowDateStr(r);
+      if (dStr && (!latest || dStr > latest)) {
+        latest = dStr;
+      }
+    }
+    return latest;
+  };
+
   // Canvas Refs
   const canvasTrendRef = useRef<HTMLCanvasElement>(null);
   const canvasChannelRef = useRef<HTMLCanvasElement>(null);
@@ -92,7 +121,17 @@ export default function SupervisorReportsPage() {
         const res = await fetch("/api/dashboard");
         const data = await res.json();
         if (data.success && active) {
-          setRows(data.rows);
+          const newRows = data.rows || [];
+          const foundLatestDate = data.latestDate || getLatestDateFromRows(newRows);
+          if (foundLatestDate) {
+            latestDateRef.current = foundLatestDate;
+            if (!initialDateApplied.current) {
+              setFFrom(foundLatestDate);
+              setFTo(foundLatestDate);
+              initialDateApplied.current = true;
+            }
+          }
+          setRows(newRows);
           setMasters(data.masters || null);
           setLastUpdated(new Date());
         }
@@ -129,19 +168,26 @@ export default function SupervisorReportsPage() {
   const normalizeDate = (value: string) =>
     value ? new Date(`${value}T00:00:00`) : null;
 
-  // Compute dropdown values from unfiltered rows
-  const channelOptions = useMemo(() => {
-    return Array.from(new Set(rows.map((r) => r.ch))).sort();
-  }, [rows]);
+  // Compute dropdown values from unfiltered rows & CUSTMASTER
+  const rtmOptions = useMemo<string[]>(() => {
+    if (!masters) return ['INST', 'MT', 'TT'];
+    const rtmList = Array.from(new Set((masters.customers || []).map((c: any) => c.rtm || c.channel).filter(Boolean))).sort() as string[];
+    if (rtmList.length > 0) return rtmList;
+    return ((masters.rtms || masters.channels || ['INST', 'MT', 'TT']) as string[]);
+  }, [masters]);
 
   const custOptions = useMemo<string[]>(() => {
     if (!masters) return [];
-    return Array.from(new Set((masters.customers || []).map((c: any) => c.customerName))).sort() as string[];
-  }, [masters]);
+    let list = masters.customers || [];
+    if (fChannel) {
+      list = list.filter((c: any) => (c.rtm || c.channel) === fChannel);
+    }
+    return Array.from(new Set(list.map((c: any) => c.customerName).filter(Boolean))).sort() as string[];
+  }, [masters, fChannel]);
 
   const classOptions = useMemo(() => {
     const filteredByUpstream = rows.filter(
-      (r) => !fChannel || r.ch === fChannel,
+      (r) => !fChannel || r.ch === fChannel || r.rtm === fChannel,
     );
     return Array.from(new Set(filteredByUpstream.map((r) => r.gr))).sort();
   }, [rows, fChannel]);
@@ -153,8 +199,9 @@ export default function SupervisorReportsPage() {
 
   // Reset helper
   const resetFilters = () => {
-    setFFrom("");
-    setFTo("");
+    const defaultDate = latestDateRef.current || '';
+    setFFrom(defaultDate);
+    setFTo(defaultDate);
     setFMgr("");
     setFSuper("");
     setFChannel("");
@@ -226,8 +273,12 @@ export default function SupervisorReportsPage() {
     label: string,
   ) => {
     const matched = filteredForClassCharts
-      .filter((r) => r[gradeField] === label)
-      .map((r) => ({ ...r, gr: r[gradeField] }));
+      .filter((r) => {
+        const val = r[gradeField];
+        const norm = ['A', 'B', 'C', 'D'].includes(val) ? val : 'E';
+        return norm === label;
+      })
+      .map((r) => ({ ...r, gr: label }));
     setModalTitle(chartTitle);
     setModalData(matched);
     setModalOpen(true);
@@ -293,7 +344,7 @@ export default function SupervisorReportsPage() {
       parts.push(`Date: <b>${fFrom || "Start"} → ${fTo || "Now"}</b>`);
     if (fMgr) parts.push(`Manager: <b>${fMgr}</b>`);
     if (fSuper) parts.push(`Supervisor: <b>${fSuper}</b>`);
-    if (fChannel) parts.push(`Channel: <b>${fChannel}</b>`);
+    if (fChannel) parts.push(`RTM: <b>${fChannel}</b>`);
     if (fClass) parts.push(`Classification: <b>${fClass}</b>`);
     if (fCust) parts.push(`Outlet: <b>${fCust}</b>`);
     return parts.length
@@ -311,16 +362,24 @@ export default function SupervisorReportsPage() {
       userRole: userRole || "Supervisor",
       columns: [
         {
-          header: "Visit Date",
+          header: "Date",
           key: "createdAt",
-          formatter: (val) => (val ? new Date(val).toLocaleString() : "—"),
+          formatter: (val) =>
+            val
+              ? new Date(val).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "—",
         },
-        { header: "Visit ID", key: "visitId" },
-        { header: "Manager", key: "mgr" },
-        { header: "Supervisor", key: "sup" },
-        { header: "Channel", key: "ch" },
-        { header: "Outlet Name", key: "cust" },
-        { header: "Classification", key: "gr" },
+        { header: "Channel", key: "ch", formatter: (val, row) => val || row.channel || "GT" },
+        { header: "Manager", key: "mgr", formatter: (val, row) => val || row.manager || "—" },
+        { header: "Supervisor", key: "sup", formatter: (val, row) => val || row.supervisor || "—" },
+        { header: "Route Code", key: "rt", formatter: (val, row) => val || row.route || row.routeCode || (row.cust_rt_id ? row.cust_rt_id.split("|")[1] || row.cust_rt_id.split("|")[0] : "—") },
+        { header: "Outlet Code", key: "code", formatter: (val, row) => val || row.custCode || row.outletCode || (row.cust_rt_id ? row.cust_rt_id.split("|")[0] : "—") },
+        { header: "Outlet Name", key: "cust", formatter: (val, row) => val || row.outletName || "—" },
+        { header: "Classification", key: "gr", formatter: (val, row) => val || row.class || row.classification || "—" },
         { header: "Asset Type", key: "atype" },
         {
           header: "Asset Temp (°C)",
@@ -333,11 +392,6 @@ export default function SupervisorReportsPage() {
           key: "ok",
           formatter: (val) => (val ? "OK / In Range" : "Temp Breach"),
         },
-        // {
-        //   header: "FEFO Compliance",
-        //   key: "fefo",
-        //   formatter: (val) => (val ? "Compliant" : "Non-Compliant"),
-        // },
         { header: "Visit Type", key: "visitType" },
         { header: "Action Required", key: "action" },
       ],
@@ -414,14 +468,13 @@ export default function SupervisorReportsPage() {
             })
           : "—",
     },
-    { header: "Visit ID", key: "visitId" },
-    { header: "Manager", key: "mgr" },
-    { header: "Supervisor", key: "sup" },
-    { header: "Outlet Name", key: "cust" },
-    { header: "Shop Code", key: "code" },
-    { header: "Route", key: "rt" },
-    { header: "Channel", key: "ch" },
-    { header: "Class", key: "gr" },
+    { header: "Channel", key: "ch", formatter: (val: any, row: any) => val || row.channel || "GT" },
+    { header: "Manager", key: "mgr", formatter: (val: any, row: any) => val || row.manager || "—" },
+    { header: "Supervisor", key: "sup", formatter: (val: any, row: any) => val || row.supervisor || "—" },
+    { header: "Route Code", key: "rt", formatter: (val: any, row: any) => val || row.route || row.routeCode || (row.cust_rt_id ? row.cust_rt_id.split("|")[1] || row.cust_rt_id.split("|")[0] : "—") },
+    { header: "Outlet Code", key: "code", formatter: (val: any, row: any) => val || row.custCode || row.outletCode || (row.cust_rt_id ? row.cust_rt_id.split("|")[0] : "—") },
+    { header: "Outlet Name", key: "cust", formatter: (val: any, row: any) => val || row.outletName || "—" },
+    { header: "Classification", key: "gr", formatter: (val: any, row: any) => val || row.class || row.classification || "—" },
     { header: "Asset", key: "atype" },
     {
       header: "Temp (°C)",
@@ -530,11 +583,24 @@ export default function SupervisorReportsPage() {
     if (canvasTrendRef.current) {
       if (chartsRef.current.cTrend) chartsRef.current.cTrend.destroy();
 
+      const formatLocalDateKey = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      };
+
       const getDateKey = (r: any) => {
         const raw = r.createdAt || r.date;
         if (!raw) return "";
-        if (raw instanceof Date) return raw.toISOString().split("T")[0];
-        return String(raw).split("T")[0];
+        if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.trim())) {
+          return raw.trim();
+        }
+        const dt = new Date(raw);
+        if (isNaN(dt.getTime())) {
+          return String(raw).split("T")[0];
+        }
+        return formatLocalDateKey(dt);
       };
 
       const dateCounts: Record<string, number> = {};
@@ -548,12 +614,14 @@ export default function SupervisorReportsPage() {
       // Build sorted date sequence
       let sortedDates: string[] = [];
       if (fFrom && fTo && fFrom <= fTo) {
-        const curr = new Date(fFrom + "T00:00:00");
-        const end = new Date(fTo + "T00:00:00");
+        const [fy, fm, fd] = fFrom.split("-").map(Number);
+        const [ty, tm, td] = fTo.split("-").map(Number);
+        const curr = new Date(fy, fm - 1, fd);
+        const end = new Date(ty, tm - 1, td);
         const diffDays = Math.round((end.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays >= 0 && diffDays <= 90) {
           while (curr <= end) {
-            sortedDates.push(curr.toISOString().split("T")[0]);
+            sortedDates.push(formatLocalDateKey(curr));
             curr.setDate(curr.getDate() + 1);
           }
         } else {
@@ -564,7 +632,11 @@ export default function SupervisorReportsPage() {
       }
 
       if (sortedDates.length === 0) {
-        sortedDates = [new Date().toISOString().split("T")[0]];
+        if (fFrom && fTo && fFrom === fTo) {
+          sortedDates = [fFrom];
+        } else {
+          sortedDates = [formatLocalDateKey(new Date())];
+        }
       }
 
       const formatDateShort = (dStr: string) => {
@@ -602,6 +674,7 @@ export default function SupervisorReportsPage() {
               backgroundColor: BLUE,
               hoverBackgroundColor: "#4338ca",
               borderRadius: 6,
+              maxBarThickness: 48,
             },
           ],
         },
@@ -671,6 +744,7 @@ export default function SupervisorReportsPage() {
               grid: { color: gridColor },
               ticks: {
                 color: textColor,
+                font: { weight: "bold" },
                 maxRotation: 45,
                 minRotation: 45,
                 autoSkip: false,
@@ -795,7 +869,7 @@ export default function SupervisorReportsPage() {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: "bold" } } },
             y: {
               beginAtZero: true,
               grace: "15%",
@@ -886,7 +960,7 @@ export default function SupervisorReportsPage() {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: "bold" } } },
             y: {
               beginAtZero: true,
               grid: { color: gridColor },
@@ -901,15 +975,20 @@ export default function SupervisorReportsPage() {
     // 6. Focus SKU Availability Bar Chart
     if (canvasPskuRef.current) {
       if (chartsRef.current.cPsku) chartsRef.current.cPsku.destroy();
-      const psku = countFreq(filtered, (r) => r.psku);
+      let availCount = 0;
+      let notAvailCount = 0;
+      filtered.forEach((r) => {
+        if (r.psku === "A") availCount++;
+        else notAvailCount++;
+      });
       chartsRef.current.cPsku = new Chart(canvasPskuRef.current, {
         type: "bar",
         data: {
-          labels: ["Available", "Not avail.", "Not req."],
+          labels: ["Available", "Not Available"],
           datasets: [
             {
-              data: [psku.A || 0, psku.N || 0, psku.X || 0],
-              backgroundColor: [GREEN, RED, GREY],
+              data: [availCount, notAvailCount],
+              backgroundColor: [GREEN, RED],
               borderRadius: 6,
             },
           ],
@@ -920,15 +999,10 @@ export default function SupervisorReportsPage() {
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? "") as string;
-              const pskuCode =
-                label === "Available"
-                  ? "A"
-                  : label === "Not avail."
-                    ? "N"
-                    : "X";
+              const pskuCode = label === "Available" ? "A" : "N";
               handleChartClick(
                 `Visits with Power SKU Status: ${label}`,
-                (r) => r.psku === pskuCode,
+                (r) => (pskuCode === "A" ? r.psku === "A" : r.psku !== "A"),
               );
             }
           },
@@ -936,7 +1010,7 @@ export default function SupervisorReportsPage() {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: "bold" } } },
             y: {
               beginAtZero: true,
               grid: { color: gridColor },
@@ -969,27 +1043,26 @@ export default function SupervisorReportsPage() {
         C: new Set(),
         D: new Set(),
         E: new Set(),
-        "-": new Set(),
       };
 
       filteredForClassCharts.forEach((r: any) => {
         const key = r.outletCode || r.cust_rt_id || r.cust || r.outletName;
         if (key) {
           visitedOutletKeys.add(key);
-          const gr = r.dairyGr || r.gr || "-";
-          const normalizedGr = ["A", "B", "C", "D", "E"].includes(gr) ? gr : "-";
+          const gr = r.dairyGr || r.gr;
+          const normalizedGr = ["A", "B", "C", "D"].includes(gr) ? gr : "E";
           if (!visitedByGrade[normalizedGr]) visitedByGrade[normalizedGr] = new Set();
           visitedByGrade[normalizedGr].add(key);
         }
       });
 
-      const allGrades = ["A", "B", "C", "D", "E", "-"];
-      const gradeLabels: (string | string[])[] = ["A", "B", "C", "D", "E", ["Not", "Classified"]];
+      const allGrades = ["A", "B", "C", "D", "E"];
+      const gradeLabels: (string | string[])[] = ["A", "B", "C", "D", "E"];
 
       const stats: Record<string, { total: number; visited: number; unvisited: number; coveragePct: number }> = {};
       allGrades.forEach((g) => {
         const outletsInGrade = masterOutlets.filter((o: any) => {
-          const ogr = ["A", "B", "C", "D", "E"].includes(o.dairyGr) ? o.dairyGr : "-";
+          const ogr = ["A", "B", "C", "D"].includes(o.dairyGr) ? o.dairyGr : "E";
           return ogr === g;
         });
 
@@ -1112,7 +1185,7 @@ export default function SupervisorReportsPage() {
                 title: (items: any[]) => {
                   const raw = items[0]?.label;
                   const label = Array.isArray(raw) ? raw.join(" ") : String(raw || "");
-                  return `Classification · Dairy: ${label === "Not Classified" ? "Not Classified" : `Class ${label}`}`;
+                  return `Classification · Dairy: Class ${label}`;
                 },
                 label: (ctx: any) => {
                   const g = allGrades[ctx.dataIndex];
@@ -1140,11 +1213,10 @@ export default function SupervisorReportsPage() {
             if (el.length > 0) {
               const rawLabel = chart.data.labels?.[el[0].index];
               const label = Array.isArray(rawLabel) ? rawLabel.join(" ") : String(rawLabel ?? "");
-              const gradeValue = label === "Not Classified" ? "-" : label;
               handleClassChartClick(
                 `Visits for Classification Grade ${label} · Dairy`,
                 "dairyGr",
-                gradeValue,
+                label,
               );
             }
           },
@@ -1183,9 +1255,13 @@ export default function SupervisorReportsPage() {
     if (canvasClassIceRef.current) {
       if (chartsRef.current.cClassIce) chartsRef.current.cClassIce.destroy();
       const iceRows = filteredForClassCharts.filter((r) => r.iceGr);
-      const cli = countFreq(iceRows, (r) => r.iceGr);
-      const allGrades = ["A", "B", "C", "D", "E", "-"];
-      const gradeLabels = ["A", "B", "C", "D", "E", "Not Classified"];
+      const cli: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+      iceRows.forEach((r) => {
+        const norm = ['A', 'B', 'C', 'D'].includes(r.iceGr) ? r.iceGr : 'E';
+        cli[norm] = (cli[norm] || 0) + 1;
+      });
+      const allGrades = ["A", "B", "C", "D", "E"];
+      const gradeLabels = ["A", "B", "C", "D", "E"];
       chartsRef.current.cClassIce = new Chart(canvasClassIceRef.current, {
         type: "bar",
         data: {
@@ -1194,9 +1270,7 @@ export default function SupervisorReportsPage() {
             {
               label: "Visits",
               data: allGrades.map((g) => cli[g] || 0),
-              backgroundColor: allGrades.map((g) =>
-                g === "-" ? "#9aa9b4" : GCOL[g],
-              ),
+              backgroundColor: allGrades.map((g) => GCOL[g] || "#9aa9b4"),
               borderRadius: 6,
             },
           ],
@@ -1207,11 +1281,10 @@ export default function SupervisorReportsPage() {
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? "") as string;
-              const gradeValue = label === "Not Classified" ? "-" : label;
               handleClassChartClick(
                 `Visits for Classification Grade ${label} · Ice Cream`,
                 "iceGr",
-                gradeValue,
+                label,
               );
             }
           },
@@ -1219,7 +1292,7 @@ export default function SupervisorReportsPage() {
             chart.canvas.style.cursor = el.length ? "pointer" : "default";
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: "bold" } } },
             y: {
               beginAtZero: true,
               grid: { color: gridColor },
@@ -1565,8 +1638,8 @@ export default function SupervisorReportsPage() {
             />
           </div>
 
-          {/* <div className="fld">
-            <label>Channel</label>
+          <div className="fld min-w-[120px]">
+            <label>RTM</label>
             <select
               value={fChannel}
               onChange={(e) => {
@@ -1575,12 +1648,14 @@ export default function SupervisorReportsPage() {
                 setFCust("");
               }}
             >
-              <option value="">All Channels</option>
-              <option value="TT">TT</option>
-              <option value="MT">MT</option>
-              <option value="INST">INST</option>
+              <option value="">All RTM</option>
+              {rtmOptions.map((c: string) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
-          </div> */}
+          </div>
 
           <div className="fld">
             <label>Classification</label>
