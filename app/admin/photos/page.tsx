@@ -51,6 +51,21 @@ export interface AuditPhoto {
   outletCode?: string;
   route: string;
   channel: string;
+  observation?: string;
+  observations?: string | string[];
+  notes?: string;
+  assetObservations?: Array<{
+    assetId?: string;
+    assetType?: string;
+    sizeModel?: string;
+    temperature?: number | null;
+    tempInRange?: boolean;
+    actionRequired?: string;
+    observation?: string;
+  }>;
+  visitObservation?: string;
+  visitReason?: string;
+  visitNotes?: string;
 }
 
 export default function AuditPhotoGalleryPage() {
@@ -189,6 +204,7 @@ export default function AuditPhotoGalleryPage() {
         { header: 'Route Code', key: 'route', formatter: (val: any) => val || '—' },
         { header: 'Outlet Name', key: 'outlet', formatter: (val: any) => val || '—' },
         { header: 'Category / Asset', key: 'category' },
+        { header: 'Observations / Notes', key: 'observation', formatter: (val: any, row: any) => val || row.notes || '—' },
         { header: 'Application', key: 'appName' },
         { header: 'Action Status', key: 'photoId', formatter: (val: any) => actionItemsMap[val]?.actionStatus || 'None' },
         { header: 'Image URL', key: 'cloudinaryUrl' },

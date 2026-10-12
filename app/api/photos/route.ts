@@ -34,10 +34,11 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '12', 10)));
 
-    // Fetch visits, cached masters, and photos in parallel
-    const [visitsRaw, photosRaw] = await Promise.all([
+    // Fetch visits, cached masters, photos, and visit assets in parallel
+    const [visitsRaw, photosRaw, assetsRaw] = await Promise.all([
       visitRepository.getAllVisits(),
       pool.execute('SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC').then(([rows]: any) => rows).catch(() => []),
+      pool.execute('SELECT `assetId`, `visitId`, `assetType`, `temperature`, `tempInRange`, `actionRequired`, `observation`, `sizeModel` FROM `VisitAsset`').then(([rows]: any) => rows).catch(() => []),
     ]);
 
     let cachedMasters = getCachedMasterData();
@@ -127,6 +128,17 @@ export async function GET(req: NextRequest) {
 
     // Build a map of ALL visits so ANY photo can resolve its visit data accurately
     const allVisitsMap = new Map(visitsRaw.map((v) => [v.visitId, v]));
+
+    // Map VisitAssets by visitId
+    const assetMap = new Map<string, any[]>();
+    (assetsRaw || []).forEach((ast: any) => {
+      if (ast.visitId) {
+        if (!assetMap.has(ast.visitId)) {
+          assetMap.set(ast.visitId, []);
+        }
+        assetMap.get(ast.visitId)!.push(ast);
+      }
+    });
 
     // Dynamic extraction of distinct applications from database
     const dbAppSet = new Set<string>();
@@ -279,6 +291,38 @@ export async function GET(req: NextRequest) {
 
       const appName = p.appName || sampleApps[idx % sampleApps.length];
 
+      const visitAssets = assetMap.get(p.visitId) || [];
+
+      // Extract asset observations
+      const assetObservations = visitAssets.map((ast: any) => ({
+        assetId: ast.assetId,
+        assetType: ast.assetType,
+        sizeModel: ast.sizeModel || '',
+        temperature: ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null,
+        tempInRange: Boolean(ast.tempInRange),
+        actionRequired: ast.actionRequired || '',
+        observation: (ast.observation || '').trim(),
+      }));
+
+      // Combined observation strings
+      const nonBlankAssetObs = visitAssets
+        .map((a: any) => {
+          const obs = (a.observation || '').trim();
+          if (!obs || obs === '—') return null;
+          const label = a.assetType ? `${a.assetType}${a.sizeModel ? ` (${a.sizeModel})` : ''}` : 'Asset';
+          return `${label}: ${obs}`;
+        })
+        .filter(Boolean) as string[];
+
+      const visitObs = (visit?.observation || '').trim();
+      const visitReason = (visit?.reason || '').trim();
+
+      const combinedObsList = [...nonBlankAssetObs];
+      if (visitObs && !combinedObsList.some((s) => s.includes(visitObs))) {
+        combinedObsList.push(visitObs);
+      }
+      const observation = combinedObsList.length > 0 ? combinedObsList.join('; ') : (visitObs || visitReason || '');
+
       return {
         photoId: p.photoId,
         visitId: p.visitId,
@@ -293,6 +337,12 @@ export async function GET(req: NextRequest) {
         outletCode: candidateCode || '',
         route: cleanRoute || 'N/A',
         channel: ch,
+        observation,
+        observations: combinedObsList,
+        assetObservations,
+        visitObservation: visitObs,
+        visitReason,
+        notes: observation,
       };
     });
 
@@ -453,7 +503,8 @@ export async function GET(req: NextRequest) {
           p.supervisor.toLowerCase().includes(q) ||
           p.manager.toLowerCase().includes(q) ||
           p.route.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q)
+          p.category.toLowerCase().includes(q) ||
+          (p.observation && p.observation.toLowerCase().includes(q))
       );
     }
 
