@@ -31,6 +31,21 @@ export interface DashboardPhoto {
   outlet: string;
   route: string;
   channel: string;
+  observation?: string;
+  observations?: string | string[];
+  notes?: string;
+  assetObservations?: Array<{
+    assetId?: string;
+    assetType?: string;
+    sizeModel?: string;
+    temperature?: number | null;
+    tempInRange?: boolean;
+    actionRequired?: string;
+    observation?: string;
+  }>;
+  visitObservation?: string;
+  visitReason?: string;
+  visitNotes?: string;
 }
 
 interface PhotoGallerySectionProps {

@@ -983,6 +983,10 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
             route: selectedVisit.routeCode,
             channel: selectedVisit.channel,
             uploadedAt: p.uploadedAt || selectedVisit.date,
+            visitId: selectedVisit.visitId,
+            observation: selectedVisit.observation || selectedVisit.reason,
+            visitObservation: selectedVisit.observation,
+            visitReason: selectedVisit.reason,
           }))}
           currentIndex={lightboxIndex}
           isOpen={lightboxIndex !== null}
