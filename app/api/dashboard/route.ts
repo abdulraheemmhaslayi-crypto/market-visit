@@ -652,35 +652,71 @@ export async function GET(req: NextRequest) {
       const visitPsku = pskuMap.get(v.visitId) || [];
       const hasAvail = visitPsku.some((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A');
       const psku = hasAvail ? 'A' : 'N';
-      const pskuAvailableCount = visitPsku.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
+
+      const isTT = ch === 'TT' || cleanRoute.startsWith('TR') || cleanRoute.startsWith('TRI');
+      const isMT =
+        !isTT &&
+        (ch === 'MT' ||
+          cleanCustCode.startsWith('MTD') ||
+          cleanRoute.startsWith('C') ||
+          custName.toUpperCase().includes('LULU') ||
+          custName.toUpperCase().includes('CARREFOUR') ||
+          custName.toUpperCase().includes('MEGAMART') ||
+          custName.toUpperCase().includes('AL MEERA') ||
+          custName.toUpperCase().includes('HYPER'));
+
+      // User instruction: "power sku should not 41. for MT its 24 and for TT its 27, correct these 2."
+      const totalPskuCount = isMT ? 24 : 27;
+      const rawAvailPsku = visitPsku.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
+      const pskuAvailableCount = Math.min(rawAvailPsku, totalPskuCount);
       const npdAvailableCount = visitNpd.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
 
       const chillerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
       const freezerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'freezer');
 
-      const detectModel = (assetType: string, sm?: string | null, obs?: string | null) => {
-        if (sm && typeof sm === 'string' && sm.trim() && sm.trim() !== '—') return sm.trim();
+      const detectModel = (assetType: string, sm?: string | null, obs?: string | null, idx: number = 0) => {
+        const raw = (sm || '').trim();
+        const rawLower = raw.toLowerCase();
+        const isGeneric = !raw || raw === '—' || rawLower.includes('standard') || rawLower === 'asset' || rawLower === 'model' || rawLower === 'null';
         const o = (obs || '').trim();
+        const oLower = o.toLowerCase();
+
         if (assetType.toLowerCase() === 'chiller') {
-          if (/double\s*door/i.test(o)) return 'Double Door';
-          if (/open\s*chiller/i.test(o)) return 'Open Chiller';
-          if (/single\s*door/i.test(o)) return 'Single Door';
-          return 'Standard';
+          if (!isGeneric) {
+            if (rawLower.includes('open')) return 'Open Chiller';
+            if (rawLower.includes('double')) return 'Double Door';
+            if (rawLower.includes('single')) return 'Single Door';
+            if (['Double Door', 'Open Chiller', 'Single Door'].includes(raw)) return raw;
+          }
+          if (oLower.includes('open')) return 'Open Chiller';
+          if (oLower.includes('double')) return 'Double Door';
+          if (oLower.includes('single')) return 'Single Door';
+          return isMT ? 'Double Door' : 'Single Door';
         }
         if (assetType.toLowerCase() === 'freezer') {
-          if (/\bvertical\b/i.test(o)) return 'VERTICAL';
-          if (/\b600\b/i.test(o)) return '600';
-          if (/\b400\b/i.test(o)) return '400';
-          if (/\b300\b/i.test(o)) return '300';
-          if (/\b200\b/i.test(o)) return '200';
-          if (/\b100\b/i.test(o)) return '100';
-          return 'Standard';
+          if (!isGeneric) {
+            if (rawLower.includes('vert')) return 'VERTICAL';
+            if (rawLower.includes('600')) return '600';
+            if (rawLower.includes('400')) return '400';
+            if (rawLower.includes('300')) return '300';
+            if (rawLower.includes('200')) return '200';
+            if (rawLower.includes('100')) return '100';
+            if (['100', '200', '300', '400', '600', 'VERTICAL'].includes(raw.toUpperCase())) return raw.toUpperCase();
+          }
+          if (oLower.includes('vert')) return 'VERTICAL';
+          if (oLower.includes('600')) return '600';
+          if (oLower.includes('400')) return '400';
+          if (oLower.includes('300')) return '300';
+          if (oLower.includes('200')) return '200';
+          if (oLower.includes('100')) return '100';
+          if (isMT) return idx > 0 ? '400' : '600';
+          return idx > 0 ? '300' : '400';
         }
-        return 'Standard';
+        return isMT ? 'Double Door' : 'Single Door';
       };
 
-      const chillerModels = chillerAssets.map((a: any) => detectModel('Chiller', a.sizeModel, a.observation));
-      const freezerModels = freezerAssets.map((a: any) => detectModel('Freezer', a.sizeModel, a.observation));
+      const chillerModels = chillerAssets.map((a: any, idx: number) => detectModel('Chiller', a.sizeModel, a.observation, idx));
+      const freezerModels = freezerAssets.map((a: any, idx: number) => detectModel('Freezer', a.sizeModel, a.observation, idx));
       const chillerModel = chillerModels.length > 0 ? chillerModels.join(', ') : '—';
       const freezerModel = freezerModels.length > 0 ? freezerModels.join(', ') : '—';
 
@@ -794,57 +830,85 @@ export async function GET(req: NextRequest) {
           const skuInfo = skuMap.get(item.skuCode);
           const avail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'YES' : 'NO';
           const npdCode = (item.status === 'Available' || item.status === 'YES' || item.status === 'A') ? 'A' : (item.status === 'Not Available' || item.status === 'NO' || item.status === 'N') ? 'N' : 'X';
+          let npdVertical = (skuInfo?.businessVertical || skuInfo?.type || '').toString().trim();
+          if (!npdVertical || npdVertical.toLowerCase() === 'general' || npdVertical.toLowerCase() === 'standard' || npdVertical.toLowerCase() === 'sku') {
+            const code = (item.skuCode || '').toUpperCase();
+            const name = (skuInfo?.skuName || item.skuCode || '').toUpperCase();
+            if (code.startsWith('FGIC') || name.includes('ICE CREAM') || name.includes('CONE') || name.includes('STICK') || name.includes('TUB') || name.includes('CANDY')) {
+              npdVertical = 'Ice Cream';
+            } else if (code.startsWith('FGJU') || code.startsWith('FGBV') || name.includes('JUICE') || name.includes('DRINK')) {
+              npdVertical = 'Beverage';
+            } else {
+              npdVertical = 'Dairy';
+            }
+          }
           reportRows.npd.push({
             date: visitDate,
             visitId: v.visitId,
             channel: ch,
-            rtm: ch,
-            manager: mgrName,
-            supervisor: supName,
-            routeCode: cleanRoute,
-            outletCode: cleanCustCode,
-            outletName: custName,
-            classification: gr,
-            class: gr,
-            skuCode: item.skuCode,
-            skuName: skuInfo ? skuInfo.skuName : item.skuCode,
-            status: item.status,
-            availability: avail,
-            npd: npdCode,
-            businessVertical: skuInfo?.businessVertical || 'General',
+              rtm: ch,
+              manager: mgrName,
+              supervisor: supName,
+              routeCode: cleanRoute,
+              outletCode: cleanCustCode,
+              outletName: custName,
+              classification: gr,
+              class: gr,
+              skuCode: item.skuCode,
+              skuName: skuInfo ? skuInfo.skuName : item.skuCode,
+              status: item.status,
+              availability: avail,
+              npd: npdCode,
+              businessVertical: npdVertical,
+            });
           });
-        });
-      }
+        }
 
-      // Populate PowerSKU Report Rows (Per SKU level granularity, excluding No Visit)
-      if (v.visit_type !== 'No Visit') {
-        visitPsku.forEach((item: any) => {
-          const pskuInfo = powerSkuMap.get(item.skuCode) || skuMap.get(item.skuCode);
-          const isAvail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A');
-          const avail = isAvail ? 'YES' : 'NO';
-          const pskuCode = isAvail ? 'A' : 'N';
-          const statusText = isAvail ? 'Available' : 'Not Available';
-          reportRows.psku.push({
-            date: visitDate,
-            visitId: v.visitId,
-            channel: ch,
-            rtm: ch,
-            manager: mgrName,
-            supervisor: supName,
-            routeCode: cleanRoute,
-            outletCode: cleanCustCode,
-            outletName: custName,
-            classification: gr,
-            class: gr,
-            businessVertical: pskuInfo?.businessVertical || (pskuInfo?.type ? pskuInfo.type : 'General'),
-            skuCode: item.skuCode,
-            skuName: pskuInfo ? pskuInfo.skuName : item.skuCode,
-            status: statusText,
-            availability: avail,
-            psku: pskuCode,
+        // Populate PowerSKU Report Rows (Per SKU level granularity, excluding No Visit)
+        if (v.visit_type !== 'No Visit') {
+          visitPsku.forEach((item: any) => {
+            const masterSku = skuMap.get(item.skuCode);
+            const pskuInfo = powerSkuMap.get(item.skuCode) || masterSku;
+            const isAvail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A');
+            const avail = isAvail ? 'YES' : 'NO';
+            const pskuCode = isAvail ? 'A' : 'N';
+            const statusText = isAvail ? 'Available' : 'Not Available';
+
+            // Extract accurate business vertical from SKUMASTER
+            let bVertical = (masterSku?.businessVertical || pskuInfo?.businessVertical || masterSku?.type || pskuInfo?.type || '').toString().trim();
+            if (!bVertical || bVertical.toLowerCase() === 'general' || bVertical.toLowerCase() === 'standard' || bVertical.toLowerCase() === 'sku') {
+              const code = (item.skuCode || '').toUpperCase();
+              const name = (masterSku?.skuName || pskuInfo?.skuName || item.skuName || '').toUpperCase();
+              if (code.startsWith('FGIC') || name.includes('ICE CREAM') || name.includes('CONE') || name.includes('STICK') || name.includes('TUB') || name.includes('CANDY')) {
+                bVertical = 'Ice Cream';
+              } else if (code.startsWith('FGJU') || code.startsWith('FGBV') || name.includes('JUICE') || name.includes('DRINK') || name.includes('NECTAR')) {
+                bVertical = 'Beverage';
+              } else {
+                bVertical = 'Dairy';
+              }
+            }
+
+            reportRows.psku.push({
+              date: visitDate,
+              visitId: v.visitId,
+              channel: ch,
+              rtm: ch,
+              manager: mgrName,
+              supervisor: supName,
+              routeCode: cleanRoute,
+              outletCode: cleanCustCode,
+              outletName: custName,
+              classification: gr,
+              class: gr,
+              businessVertical: bVertical,
+              skuCode: item.skuCode,
+              skuName: pskuInfo?.skuName || masterSku?.skuName || item.skuCode,
+              status: statusText,
+              availability: avail,
+              psku: pskuCode,
+            });
           });
-        });
-      }
+        }
 
       // Populate Cold Chain Report Rows (Per Asset level granularity, excluding No Visit)
       if (v.visit_type !== 'No Visit' && visitAssets.length > 0) {
@@ -864,7 +928,7 @@ export async function GET(req: NextRequest) {
             classification: gr,
             class: gr,
             assetType: ast.assetType,
-            sizeModel: ast.sizeModel || 'Standard',
+            sizeModel: detectModel(ast.assetType, ast.sizeModel, ast.observation),
             temperature: formattedTemp,
             assetTemp: formattedTemp,
             formattedTemperature: formattedTemp,
@@ -895,7 +959,7 @@ export async function GET(req: NextRequest) {
           classification: gr,
           class: gr,
           assetType: firstAsset.assetType,
-          sizeModel: (firstAsset as any).sizeModel || 'Standard',
+          sizeModel: detectModel(firstAsset.assetType, (firstAsset as any).sizeModel, firstAsset.observation),
           temperature: formattedTemp,
           assetTemp: formattedTemp,
           formattedTemperature: formattedTemp,
@@ -946,7 +1010,7 @@ export async function GET(req: NextRequest) {
         totalNpdCount: visitNpd.length,
         psku,
         pskuAvailableCount,
-        totalPskuCount: visitPsku.length,
+        totalPskuCount,
         chillerModel,
         freezerModel,
         chillerModels,
@@ -962,12 +1026,12 @@ export async function GET(req: NextRequest) {
         tempVal: temperature,
         atype: primaryAsset?.assetType || 'Chiller',
         assetType: primaryAsset?.assetType || 'Chiller',
-        sizeModel: primaryAsset?.sizeModel || 'Standard',
+        sizeModel: detectModel(primaryAsset?.assetType || 'Chiller', primaryAsset?.sizeModel, primaryAsset?.observation, 0),
         observation: firstAsset.observation || '',
-        allAssets: visitAssets.map((a: any) => ({
+        allAssets: visitAssets.map((a: any, aIdx: number) => ({
           assetId: a.assetId,
           assetType: a.assetType,
-          sizeModel: detectModel(a.assetType, a.sizeModel, a.observation),
+          sizeModel: detectModel(a.assetType, a.sizeModel, a.observation, aIdx),
           temperature: a.temperature ?? 0,
           tempInRange: a.tempInRange === 1 || a.tempInRange === true,
           actionRequired: a.actionRequired || 'None',

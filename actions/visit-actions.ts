@@ -226,7 +226,11 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
     status: status as any,
   }));
 
-  const [customerCode, routeCode] = (input.cust_rt_id || '').split('|');
+  const [custPartDraft, rtPartDraft] = (input.cust_rt_id || '').includes('|')
+    ? (input.cust_rt_id || '').split('|')
+    : ['', payload.routeCode || ''];
+  const customerCode = custPartDraft || '';
+  const routeCode = rtPartDraft || payload.routeCode || '';
 
   const visitRecord: Visit = {
     visitId,
@@ -304,7 +308,11 @@ export async function submitVisitAction(data: VisitInput) {
 
 
 
-  const [customerCode, routeCode] = input.cust_rt_id.split('|');
+  const [custPart, rtPart] = (input.cust_rt_id || '').includes('|')
+    ? (input.cust_rt_id || '').split('|')
+    : ['', payload.routeCode || ''];
+  const customerCode = custPart || '';
+  const routeCode = rtPart || payload.routeCode || '';
 
   // Enforce route ownership for supervisor only when a route is present
   if (user.role === 'Supervisor' && routeCode) {

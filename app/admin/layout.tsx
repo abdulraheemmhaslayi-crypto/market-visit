@@ -37,7 +37,6 @@ const navGroups = [
       { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
       { name: 'Visit Logs', path: '/admin/visits', icon: CalendarCheck },
       { name: 'No Visits', path: '/admin/no-visits', icon: AlertTriangle },
-      { name: 'Supervisors', path: '/admin/supervisors', icon: Users },
     ],
   },
   {
@@ -51,6 +50,7 @@ const navGroups = [
   {
     label: 'System',
     items: [
+      { name: 'Supervisors', path: '/admin/supervisors', icon: Users },
       { name: 'Data Usage Tracker', path: '/admin/data-usage', icon: Activity },
       { name: 'Master Import', path: '/admin/import', icon: FileSpreadsheet },
     ],
@@ -77,8 +77,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Audit Photo Gallery', path: '/admin/photos', icon: Camera },
     { name: 'Visits Log', path: '/admin/visits', icon: CalendarCheck },
     { name: 'No Visits', path: '/admin/no-visits', icon: AlertTriangle },
-    { name: 'Supervisors List', path: '/admin/supervisors', icon: Users },
-    { name: 'AI Dashboard & Recommendations', path: '/admin/reports', icon: Sparkles },
+    { name: 'AI Dashboard', path: '/admin/reports', icon: Sparkles },
+    { name: 'Routes', path: '/admin/routes', icon: Map },
+    { name: 'Supervisors Management', path: '/admin/supervisors', icon: Users },
     { name: 'Data Usage Tracker', path: '/admin/data-usage', icon: Activity },
     { name: 'Import Master Data', path: '/admin/import', icon: FileSpreadsheet },
     { name: 'Toggle Light/Dark Theme', action: 'theme', icon: Moon },
@@ -640,7 +641,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )}
           </Link>
 
-          {/* AI Dashboard Tab */}
+          {/* Reports Tab */}
           <Link
             href="/admin/reports"
             className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
@@ -649,8 +650,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               width: canImportMaster ? '20%' : '25%',
             }}
           >
-            <Sparkles className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/reports') ? 'scale(1.1)' : 'scale(1)' }} />
-            <span className="text-[9px] tracking-wide font-semibold" style={{ fontWeight: pathname.startsWith('/admin/reports') ? 700 : 500 }}>AI Dashboard</span>
+            <FileBarChart2 className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/admin/reports') ? 'scale(1.1)' : 'scale(1)' }} />
+            <span className="text-[9px] tracking-wide font-semibold" style={{ fontWeight: pathname.startsWith('/admin/reports') ? 700 : 500 }}>Reports</span>
             {pathname.startsWith('/admin/reports') && (
               <span className="absolute bottom-0 w-1 h-1 rounded-full bg-[var(--accent)]" />
             )}

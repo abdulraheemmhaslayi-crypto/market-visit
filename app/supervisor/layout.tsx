@@ -84,7 +84,7 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
     { name: 'My Visits', path: '/supervisor/my-visits', icon: MapPin },
     { name: 'No Visits', path: '/supervisor/no-visits', icon: AlertTriangle },
     { name: 'New Audit Wizard', path: '/supervisor/visit', icon: Plus },
-    { name: 'AI Dashboard & Recommendations', path: '/supervisor/reports', icon: Sparkles },
+    { name: 'AI Dashboard', path: '/supervisor/reports', icon: Sparkles },
     { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
     { name: 'My Profile', path: '/supervisor/profile', icon: User },
     { name: 'Toggle Light/Dark Theme', action: 'theme', icon: Moon },

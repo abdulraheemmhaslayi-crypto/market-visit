@@ -127,6 +127,12 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl;
+    const isAll = searchParams.get('all') === 'true' || searchParams.get('clear') === 'true';
+    if (isAll) {
+      await auditActionRepository.clearAll();
+      return NextResponse.json({ success: true, message: 'All action directives cleared successfully' });
+    }
+
     const id = searchParams.get('id');
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });

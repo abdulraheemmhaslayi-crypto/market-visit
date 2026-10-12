@@ -84,11 +84,51 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { theme } = useTheme();
 
-  // Filter States
-  const [fFrom, setFFrom] = useState('');
-  const [fTo, setFTo] = useState('');
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Date Helpers for Quick Presets and -1 Day Benchmark Default
+  const getMinusOneDayStr = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getTodayStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getNDaysAgoStr = (n: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getFirstDayOfMonthStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  };
+
+  // Filter States - Defaulting to -1 Day Data (Prior Completed Operations)
+  const defaultMinusOne = getMinusOneDayStr();
+  const [fFrom, setFFrom] = useState<string>(defaultMinusOne);
+  const [fTo, setFTo] = useState<string>(defaultMinusOne);
   const [fMgr, setFMgr] = useState<string[]>([]);
   const [fSuper, setFSuper] = useState<string[]>([]);
   const [fChannel, setFChannel] = useState('');
@@ -101,8 +141,29 @@ export default function AdminDashboardPage() {
   const [fSizeModels, setFSizeModels] = useState<string[]>([]);
   const [masters, setMasters] = useState<any>(null);
 
+  const setQuickDate = (preset: 'minus1' | 'today' | '7d' | 'mtd' | 'all') => {
+    if (preset === 'minus1') {
+      const d = getMinusOneDayStr();
+      setFFrom(d);
+      setFTo(d);
+    } else if (preset === 'today') {
+      const today = getTodayStr();
+      setFFrom(today);
+      setFTo(today);
+    } else if (preset === '7d') {
+      setFFrom(getNDaysAgoStr(7));
+      setFTo(getTodayStr());
+    } else if (preset === 'mtd') {
+      setFFrom(getFirstDayOfMonthStr());
+      setFTo(getTodayStr());
+    } else if (preset === 'all') {
+      setFFrom('');
+      setFTo('');
+    }
+  };
+
   const latestDateRef = useRef<string>('');
-  const initialDateApplied = useRef<boolean>(false);
+  const initialDateApplied = useRef<boolean>(true); // Already initialized to -1 day
 
   // Helper to extract YYYY-MM-DD from row date
   const getRowDateStr = (r: any): string => {
@@ -144,10 +205,10 @@ export default function AdminDashboardPage() {
   // Chart instances
   const chartsRef = useRef<Record<string, any>>({});
 
-  // Initialize cached data immediately from sessionStorage to eliminate skeleton hangs & 0-data flash
+  // Initialize cached data immediately from sessionStorage/localStorage for instant 0ms painting
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('admin_dashboard_cache_v5');
+      const cached = sessionStorage.getItem('admin_dashboard_cache_v5') || (typeof window !== 'undefined' ? localStorage.getItem('admin_dashboard_cache_v7') : null);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && typeof parsed === 'object' && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
@@ -156,15 +217,6 @@ export default function AdminDashboardPage() {
           if (parsed.managerSupervisorMap) setManagerSupervisorMap(parsed.managerSupervisorMap);
           if (parsed.photos) setPhotos(parsed.photos);
           if (parsed.masters) setMasters(parsed.masters);
-          const cLatest = parsed.latestDate || getLatestDateFromRows(parsed.rows);
-          if (cLatest) {
-            latestDateRef.current = cLatest;
-            if (!initialDateApplied.current) {
-              setFFrom(cLatest);
-              setFTo(cLatest);
-              initialDateApplied.current = true;
-            }
-          }
           setIsLoading(false);
         }
       }
@@ -200,11 +252,6 @@ export default function AdminDashboardPage() {
 
           if (foundLatestDate) {
             latestDateRef.current = foundLatestDate;
-            if (!initialDateApplied.current) {
-              setFFrom(foundLatestDate);
-              setFTo(foundLatestDate);
-              initialDateApplied.current = true;
-            }
           }
 
           setRows(newRows);
@@ -215,14 +262,18 @@ export default function AdminDashboardPage() {
           setLastUpdated(new Date());
 
           try {
-            sessionStorage.setItem('admin_dashboard_cache_v5', JSON.stringify({
+            const cachePayload = JSON.stringify({
               rows: newRows,
               reportRows: newReportRows,
               managerSupervisorMap: newMgrSupMap,
               photos: newPhotos,
               masters: newMasters,
               latestDate: foundLatestDate || latestDateRef.current,
-            }));
+            });
+            sessionStorage.setItem('admin_dashboard_cache_v5', cachePayload);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('admin_dashboard_cache_v7', cachePayload);
+            }
           } catch (e) {
             // Ignore quota errors
           }
@@ -396,7 +447,7 @@ export default function AdminDashboardPage() {
 
   // Reset helper
   const resetFilters = () => {
-    const defaultDate = latestDateRef.current || '';
+    const defaultDate = getMinusOneDayStr();
     setFFrom(defaultDate);
     setFTo(defaultDate);
     setFMgr([]);
@@ -720,7 +771,7 @@ export default function AdminDashboardPage() {
   const outletsCount = useMemo(() => new Set(filtered.map((r) => r.cust)).size, [filtered]);
   const breachesCount = useMemo(() => filtered.filter((r) => !r.ok).length, [filtered]);
   const fefoCount = useMemo(() => filtered.filter((r) => r.fefo).length, [filtered]);
-  const noVisitCount = useMemo(() => filtered.filter((r) => r.visitType === 'No Visit').length, [filtered]);
+  const noVisitCount = useMemo(() => filtered.filter((r) => r.visitType === 'No Visit' || r.visitType === 'NO_VISIT' || r.notes === 'No visit').length, [filtered]);
   const breachPct = useMemo(
     () => (filtered.length ? ((breachesCount / filtered.length) * 100).toFixed(1) + '% of assets' : '–'),
     [filtered, breachesCount]
@@ -1114,10 +1165,10 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (isLoading || !filtered) return;
 
-    const BLUE = '#4F46E5', BLUE_DEEP = '#3730A3', GREEN = '#059669', AMBER = '#D97706', RED = '#DC2626', GREY = '#94A3B8';
+    const BLUE = '#4F46E5', BLUE_DEEP = '#4338CA', GREEN = '#0f9d63', AMBER = '#d08a12', RED = '#d63d2e', GREY = '#c3d2de';
     const isDark = theme === 'dark';
-    const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)';
-    const textColor = isDark ? '#F1F5F9' : '#0F172A';
+    const gridColor = isDark ? '#2A3A55' : '#E4E9F0';
+    const textColor = isDark ? '#94A3B8' : '#5A6478';
 
     const countFreq = (arr: any[], fn: (r: any) => string | number) => {
       const m: Record<string, number> = {};
@@ -1138,11 +1189,11 @@ export default function AdminDashboardPage() {
           if (typeof value !== 'number') return;
           const label = `${value}%`;
           ctx.save();
-          ctx.font = '800 11.5px Inter, sans-serif';
+          ctx.font = '700 11px Inter, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
-          ctx.fillStyle = theme === 'dark' ? '#F8FAFC' : '#0F172A';
-          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.95)';
+          ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
+          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
           ctx.shadowBlur = 4;
           ctx.fillText(label, bar.x, bar.y - 4);
           ctx.restore();
@@ -1160,11 +1211,11 @@ export default function AdminDashboardPage() {
           if (typeof value !== 'number') return;
           const label = `${value}`;
           ctx.save();
-          ctx.font = '800 11.5px Inter, sans-serif';
+          ctx.font = '700 11px Inter, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
-          ctx.fillStyle = theme === 'dark' ? '#F8FAFC' : '#0F172A';
-          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.95)';
+          ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
+          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
           ctx.shadowBlur = 4;
           ctx.fillText(label, bar.x, bar.y - 4);
           ctx.restore();
@@ -1193,12 +1244,12 @@ export default function AdminDashboardPage() {
           const labelY = y + Math.sin(angle) * radius;
 
           ctx.save();
-          ctx.font = '800 12px Inter, sans-serif';
+          ctx.font = '700 11px Inter, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = '#ffffff';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-          ctx.shadowBlur = 5;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+          ctx.shadowBlur = 4;
           ctx.fillText(label, labelX, labelY);
           ctx.restore();
         });
@@ -1878,15 +1929,15 @@ export default function AdminDashboardPage() {
                 ctx.textBaseline = 'bottom';
 
                 // Line 1: Coverage %
-                ctx.font = '800 11.5px Inter, sans-serif';
+                ctx.font = '700 11px Inter, sans-serif';
                 ctx.fillStyle = s.coveragePct >= 50
                   ? (theme === 'dark' ? '#34d399' : '#059669')
                   : (theme === 'dark' ? '#fbbf24' : '#d97706');
                 ctx.fillText(`${s.coveragePct}%`, topBar.x, topBar.y - 14);
 
                 // Line 2: Ratio (visited/total)
-                ctx.font = '700 10.5px Inter, sans-serif';
-                ctx.fillStyle = theme === 'dark' ? '#CBD5E1' : '#0F172A';
+                ctx.font = '600 9.5px Inter, sans-serif';
+                ctx.fillStyle = theme === 'dark' ? '#94a3b8' : '#64748b';
                 ctx.fillText(`${s.visited}/${s.total}`, topBar.x, topBar.y - 2);
 
                 ctx.restore();
@@ -2070,529 +2121,344 @@ export default function AdminDashboardPage() {
       )}
       <style dangerouslySetInnerHTML={{ __html: `
         .dandy-dashboard-body {
-          --ink: var(--text-primary, #0F172A);
-          --soft: var(--text-secondary, #334155);
-          --line: var(--border, #CBD5E1);
-          --card: var(--surface, #FFFFFF);
-          --bg: var(--bg, #F8FAFC);
-          --blue: #4F46E5;
-          --blue-deep: #3730A3;
-          --green: #059669;
-          --amber: #D97706;
-          --red: #DC2626;
-          --cyan: #0284C7;
-          --purple: #7C3AED;
-          --shadow-subtle: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
-          --shadow-elevated: 0 14px 34px -6px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.05);
-
-          font-family: var(--font-sans), 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-          background: radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.04) 0px, transparent 45%),
-                      radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.04) 0px, transparent 40%),
-                      var(--bg);
-          color: var(--ink);
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
-          padding-bottom: 32px;
-          margin: -20px;
-          min-height: 100vh;
+          --ink: var(--text-primary);
+          --soft: var(--text-secondary);
+          --line: var(--border);
+          --card: var(--surface);
+          --bg: var(--bg);
+          --blue:#4F46E5; --blue-deep:#4338CA; --green:#0f9d63; --amber:#d08a12; --red:#d63d2e;
+          --shadow:0 2px 8px rgba(13,33,54,.06),0 8px 24px rgba(13,33,54,.05);
+          font-family: var(--font-sans), 'Inter', system-ui, sans-serif;
+          background:var(--bg);
+          color:var(--ink);
+          -webkit-font-smoothing:antialiased;
+          padding-bottom:20px;
+          margin:-20px; /* offset standard padding */
         }
-
-        :global(.dark) .dandy-dashboard-body {
-          background: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.10) 0px, transparent 45%),
-                      radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.07) 0px, transparent 40%),
-                      var(--bg);
-        }
-
-        /* ── Flagship Executive Header Ribbon ── */
         .top {
-          background: linear-gradient(135deg, #07172F 0%, #0C2854 38%, #133E7C 80%, #174E96 100%);
-          color: #FFFFFF;
-          padding: 16px 24px;
-          display: flex;
-          align-items: center;
-          gap: 18px;
-          position: relative;
-          overflow: hidden;
-          border-bottom: 2px solid rgba(255, 255, 255, 0.14);
-          box-shadow: 0 12px 32px -8px rgba(7, 23, 47, 0.4);
-        }
-        .top::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.18) 0%, transparent 55%),
-                      radial-gradient(circle at 10% 80%, rgba(99, 102, 241, 0.16) 0%, transparent 45%);
-          pointer-events: none;
+          background:linear-gradient(135deg, #0369a1 0%, #0284c7 55%, #00529b 100%);
+          color:#fff;
+          padding:12px 18px;
+          display:flex;
+          align-items:center;
+          gap:14px;
+          box-shadow:var(--shadow);
+          border-bottom: 2px solid rgba(255,255,255,0.12);
         }
         .top .logo {
-          height: 48px;
-          padding: 4px 10px;
-          border-radius: 12px;
-          background: #FFFFFF;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), inset 0 0 0 1px rgba(255, 255, 255, 0.8);
-          flex-shrink: 0;
-          position: relative;
-          z-index: 1;
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
-        }
-        .top .logo:hover {
-          transform: scale(1.04);
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+          height:42px;
+          padding:3px 8px;
+          border-radius:10px;
+          background:#fff;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          box-shadow:0 2px 8px rgba(0,0,0,0.15);
+          flex-shrink:0;
         }
         .top .logo img {
-          height: 38px;
-          width: auto;
-          object-fit: contain;
-        }
-        .top .title-block {
-          position: relative;
-          z-index: 1;
+          height:36px;
+          width:auto;
+          object-fit:contain;
         }
         .top h1 {
-          font-size: 19px;
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          color: #FFFFFF;
-          text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-          margin: 0;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
+          font-size:17px;
+          font-weight:800;
+          letter-spacing:-.3px;
         }
         .top .sub {
-          font-size: 12px;
-          color: rgba(241, 245, 249, 0.92);
-          font-weight: 600;
-          margin-top: 3px;
-          letter-spacing: 0.01em;
+          font-size:11px;
+          opacity:.85;
+          font-weight:500;
+          margin-top:2px;
         }
         .demo-tag {
-          margin-left: auto;
-          position: relative;
-          z-index: 1;
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          background: rgba(16, 185, 129, 0.16);
-          border: 1.5px solid rgba(52, 211, 153, 0.45);
-          color: #A7F3D0;
-          padding: 6px 14px;
-          border-radius: 9999px;
-          font-size: 11px;
-          font-weight: 850;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          backdrop-filter: blur(10px);
-          box-shadow: 0 0 18px rgba(16, 185, 129, 0.25);
+          margin-left:auto;
+          background:rgba(255,255,255,.18);
+          padding:4px 10px;
+          border-radius:99px;
+          font-size:10px;
+          font-weight:700;
+          letter-spacing:.03em;
         }
-        .demo-tag::before {
-          content: '';
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #34D399;
-          box-shadow: 0 0 8px #34D399;
-          animation: pulse-dot 1.8s infinite;
-        }
-
-        /* ── Page Grid & Container ── */
         .wrap {
-          max-width: 100%;
-          padding: 16px 20px;
+          max-width:100%;
+          padding:14px 14px;
         }
-
-        /* ── Frosted Command Deck (Filters) ── */
         .filters {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-          margin-bottom: 12px;
-          align-items: flex-end;
-          background: var(--card);
-          border: 1.5px solid var(--line);
-          border-radius: 18px;
-          padding: 14px 18px;
-          box-shadow: var(--shadow-subtle);
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-        .filters:focus-within {
-          border-color: rgba(99, 102, 241, 0.4);
-          box-shadow: 0 8px 24px -4px rgba(79, 70, 229, 0.08);
+          display:flex;
+          gap:8px;
+          flex-wrap:wrap;
+          margin-bottom:8px;
+          align-items:flex-end;
         }
         .fld {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-          position: relative;
+          display:flex;
+          flex-direction:column;
+          gap:4px;
+          position:relative;
         }
         .fld label {
-          font-size: 11px;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          color: #0F172A; /* High contrast: deep charcoal in light mode */
-          padding-left: 3px;
-        }
-        :global(.dark) .fld label {
-          color: #F1F5F9; /* High contrast: bright slate-white in dark mode */
+          font-size:10.5px;
+          font-weight:800;
+          text-transform:uppercase;
+          letter-spacing:.05em;
+          color:var(--soft);
+          padding-left:4px;
         }
         .filters select,
         .filters input {
-          padding: 8px 12px;
-          border: 1.5px solid var(--line);
-          border-radius: 11px;
-          background: var(--surface-2, #F8FAFC);
-          font-family: inherit;
-          font-size: 12px;
-          font-weight: 700;
-          color: #0F172A;
-          cursor: pointer;
-          min-width: 125px;
-          height: 38px;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        :global(.dark) .filters select,
-        :global(.dark) .filters input {
-          color: #F8FAFC;
-          background: var(--surface-2, #162033);
-          border-color: #2A3A55;
+          padding:8px 11px;
+          border:1.5px solid var(--line);
+          border-radius:11px;
+          background:var(--card);
+          font-family:inherit;
+          font-size:12px;
+          font-weight:600;
+          color:var(--ink);
+          cursor:pointer;
+          min-width:120px;
         }
         .filters input {
-          cursor: text;
-        }
-        .filters select:hover,
-        .filters input:hover {
-          border-color: #818CF8;
-          background: var(--card);
+          cursor:text;
         }
         .filters select:focus,
         .filters input:focus {
-          outline: none;
-          border-color: #4F46E5;
-          box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.16);
-          background: var(--card);
+          outline:none;
+          border-color:var(--blue);
         }
         .reset {
-          padding: 8px 16px;
-          border: 1.5px solid #C7D2FE;
-          border-radius: 11px;
-          background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
-          font-family: inherit;
-          font-size: 12px;
-          font-weight: 800;
-          color: #3730A3;
-          cursor: pointer;
-          height: 38px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 6px rgba(79, 70, 229, 0.08);
-        }
-        :global(.dark) .reset {
-          background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%);
-          border-color: rgba(99, 102, 241, 0.4);
-          color: #C7D2FE;
-        }
-        .reset:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
-          border-color: #818CF8;
-        }
-        .reset:active {
-          transform: translateY(0);
+          padding:8px 12px;
+          border:1.5px solid var(--line);
+          border-radius:11px;
+          background:var(--card);
+          font-family:inherit;
+          font-size:12px;
+          font-weight:700;
+          color:var(--blue-deep);
+          cursor:pointer;
         }
         .live-badge {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 7px 14px;
-          border: 1.5px solid var(--line);
-          border-radius: 11px;
-          background: var(--surface-2, #F8FAFC);
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          font-size: 11px;
-          font-weight: 800;
-          color: #0F172A;
-          user-select: none;
-          height: 38px;
-          margin-left: auto;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-        }
-        :global(.dark) .live-badge {
-          background: #111827;
-          border-color: #2A3A55;
-          color: #E2E8F0;
+          display:flex;
+          align-items:center;
+          gap:8px;
+          padding:8px 12px;
+          border:1.5px solid var(--line);
+          border-radius:11px;
+          background:var(--card);
+          font-family:monospace;
+          font-size:10.5px;
+          font-weight:700;
+          color:var(--soft);
+          user-select:none;
         }
         .live-dot {
-          height: 9px;
-          width: 9px;
-          border-radius: 50%;
-          display: inline-block;
+          height:8px;
+          width:8px;
+          border-radius:50%;
+          display:inline-block;
         }
         .live-dot.active {
-          background: #10B981;
-          box-shadow: 0 0 10px #10B981;
+          background:var(--green);
+          box-shadow: 0 0 8px var(--green);
           animation: pulse-dot 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
         .live-dot.syncing {
-          background: #4F46E5;
-          box-shadow: 0 0 10px #4F46E5;
+          background:var(--blue);
+          box-shadow: 0 0 8px var(--blue);
           animation: pulse-dot 0.6s ease-in-out infinite alternate;
         }
         @keyframes pulse-dot {
-          0%, 100% { opacity: 0.4; transform: scale(0.9); }
-          50% { opacity: 1; transform: scale(1.2); }
+          0%, 100% { opacity: 0.35; transform: scale(0.9); }
+          50% { opacity: 1; transform: scale(1.15); }
         }
-
-        /* ── Active Filter Note ── */
         .active-note {
-          font-size: 11.5px;
-          color: #1E293B;
-          font-weight: 750;
-          padding-left: 4px;
-          min-height: 18px;
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 5px;
-        }
-        :global(.dark) .active-note {
-          color: #E2E8F0;
+          font-size:11px;
+          color:var(--soft);
+          font-weight:600;
+          margin-bottom:12px;
+          padding-left:2px;
+          min-height:16px;
         }
         .active-note b {
-          color: #3730A3;
-          background: #EEF2FF;
-          padding: 2px 8px;
-          border-radius: 6px;
-          border: 1px solid #C7D2FE;
-          font-weight: 850;
+          color:var(--blue-deep);
         }
-        :global(.dark) .active-note b {
-          color: #E0E7FF;
-          background: rgba(99, 102, 241, 0.22);
-          border-color: rgba(99, 102, 241, 0.45);
-        }
-
-        /* ── Executive Metric Jewel Cards ── */
         .kpis {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          gap: 12px;
-          margin-bottom: 16px;
+          display:grid;
+          grid-template-columns:repeat(5, minmax(0, 1fr));
+          gap:12px;
+          margin-bottom:14px;
+        }
+        @media(max-width:1024px){
+          .kpis { grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); }
         }
         .kpi {
-          background: var(--card);
-          border-radius: 16px;
-          padding: 16px 18px;
-          box-shadow: var(--shadow-subtle);
-          border: 1.5px solid var(--line);
-          position: relative;
-          overflow: hidden;
-          transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1);
-          cursor: default;
+          position:relative;
+          background:linear-gradient(180deg, var(--card) 0%, rgba(248, 250, 252, 0.6) 100%);
+          border-radius:14px;
+          padding:12px 14px 10px;
+          box-shadow:0 4px 12px -2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03);
+          border:1px solid var(--line);
+          overflow:hidden;
+          transition:transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .kpi:hover {
+          transform:translateY(-2px);
+          box-shadow:0 10px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
         }
         .kpi::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 4px;
+          content:'';
+          position:absolute;
+          top:0;
+          left:0;
+          right:0;
+          height:3.5px;
         }
-        .kpi.b::before { background: linear-gradient(90deg, #4F46E5 0%, #818CF8 100%); }
-        .kpi.g::before { background: linear-gradient(90deg, #059669 0%, #34D399 100%); }
-        .kpi.a::before { background: linear-gradient(90deg, #D97706 0%, #FBBF24 100%); }
-        .kpi.c::before { background: linear-gradient(90deg, #0284C7 0%, #38BDF8 100%); }
-        .kpi.r::before { background: linear-gradient(90deg, #DC2626 0%, #FB7185 100%); }
-
-        .kpi:hover {
-          transform: translateY(-4px);
-          box-shadow: var(--shadow-elevated);
+        .kpi.b::before { background:linear-gradient(90deg, #4338ca, #6366f1); }
+        .kpi.g::before { background:linear-gradient(90deg, #059669, #10b981); }
+        .kpi.a::before { background:linear-gradient(90deg, #d97706, #f59e0b); }
+        .kpi.r::before { background:linear-gradient(90deg, #dc2626, #f43f5e); }
+        .kpi-head {
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          margin-bottom:3px;
         }
-        .kpi.b:hover { border-color: rgba(99, 102, 241, 0.6); }
-        .kpi.g:hover { border-color: rgba(16, 185, 129, 0.6); }
-        .kpi.a:hover { border-color: rgba(245, 158, 11, 0.6); }
-        .kpi.c:hover { border-color: rgba(14, 165, 233, 0.6); }
-        .kpi.r:hover { border-color: rgba(239, 68, 68, 0.6); }
-
         .kpi .lbl {
-          font-size: 11px;
-          color: #0F172A;
-          font-weight: 850;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
+          font-size:10px;
+          color:var(--soft);
+          font-weight:800;
+          text-transform:uppercase;
+          letter-spacing:.05em;
         }
-        :global(.dark) .kpi .lbl {
-          color: #F1F5F9;
+        .kpi-tag {
+          font-size:9px;
+          font-weight:800;
+          text-transform:uppercase;
+          letter-spacing:.04em;
+          padding:1px 6px;
+          border-radius:99px;
         }
+        .kpi.b .kpi-tag { background:#eef2ff; color:#4338ca; }
+        .kpi.g .kpi-tag { background:#ecfdf5; color:#047857; }
+        .kpi.a .kpi-tag { background:#fffbeb; color:#b45309; }
+        .kpi.r .kpi-tag { background:#fef2f2; color:#b91c1c; }
         .kpi .val {
-          font-size: 32px;
-          font-weight: 950;
-          letter-spacing: -0.03em;
-          line-height: 1.1;
-          margin-top: 6px;
+          font-size:28px;
+          font-weight:900;
+          letter-spacing:-1.2px;
+          line-height:1.1;
+          margin-top:2px;
         }
-        .kpi.b .val { color: #3730A3; }
-        :global(.dark) .kpi.b .val { color: #A5B4FC; }
-
-        .kpi.g .val { color: #065F46; }
-        :global(.dark) .kpi.g .val { color: #6EE7B7; }
-
-        .kpi.a .val { color: #92400E; }
-        :global(.dark) .kpi.a .val { color: #FCD34D; }
-
-        .kpi.c .val { color: #075985; }
-        :global(.dark) .kpi.c .val { color: #7DD3FC; }
-
-        .kpi.r .val { color: #9F1239; }
-        :global(.dark) .kpi.r .val { color: #FDA4AF; }
-
         .kpi .delta {
-          font-size: 11.5px;
-          font-weight: 750;
-          margin-top: 5px;
-          color: #334155;
-          display: flex;
-          align-items: center;
-          gap: 5px;
+          font-size:11px;
+          font-weight:600;
+          margin-top:3px;
+          color:var(--soft);
         }
-        :global(.dark) .kpi .delta {
-          color: #CBD5E1;
-        }
-        .kpi .delta .kpi-icon {
-          font-size: 8px;
-          opacity: 0.7;
-        }
-
-        /* ── Chart Panels ── */
+        .kpi.b .val { color:#3730a3; }
+        .kpi.g .val { color:#047857; }
+        .kpi.a .val { color:#b45309; }
+        .kpi.r .val { color:#b91c1c; }
         .grid {
-          display: grid;
-          grid-template-columns: 2fr 1fr;
-          gap: 14px;
-          margin-bottom: 14px;
+          display:grid;
+          grid-template-columns:2fr 1fr;
+          gap:12px;
+          margin-bottom:12px;
         }
         .grid3 {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 14px;
-          margin-bottom: 14px;
+          display:grid;
+          grid-template-columns:1fr 1fr 1fr;
+          gap:12px;
+          margin-bottom:12px;
         }
-        @media(max-width: 820px){
-          .grid, .grid3 { grid-template-columns: 1fr; }
+        @media(max-width:820px){
+          .grid, .grid3 { grid-template-columns:1fr; }
         }
         .panel {
-          background: var(--card);
-          border-radius: 18px;
-          padding: 16px 18px 10px;
-          box-shadow: var(--shadow-subtle);
-          border: 1.5px solid var(--line);
-          transition: border-color 0.25s ease, box-shadow 0.25s ease;
+          background:var(--card);
+          border-radius:12px;
+          padding:10px 14px 6px;
+          box-shadow:var(--shadow);
+          border:1px solid var(--line);
         }
-        .panel:hover {
-          border-color: rgba(99, 102, 241, 0.35);
-          box-shadow: 0 10px 26px -6px rgba(15, 23, 42, 0.08);
-        }
-        .panel.tbl { padding-bottom: 14px; }
+        .panel.tbl { padding-bottom:12px; }
         .panel h3 {
-          font-size: 14px;
-          font-weight: 900;
-          color: #0F172A;
-          letter-spacing: -0.01em;
-          margin-bottom: 3px;
-        }
-        :global(.dark) .panel h3 {
-          color: #F8FAFC;
+          font-size:13px;
+          font-weight:800;
+          margin-bottom:3px;
         }
         .panel .psub {
-          font-size: 11.5px;
-          color: #334155;
-          font-weight: 700;
-          margin-bottom: 10px;
+          font-size:10px;
+          color:var(--soft);
+          font-weight:600;
+          margin-bottom:8px;
         }
-        :global(.dark) .panel .psub {
-          color: #CBD5E1;
-        }
-        .chart-box { position: relative; height: 185px; }
-        .chart-sm { position: relative; height: 155px; }
-
-        /* ── Tables & Lists ── */
+        .chart-box { position:relative; height:165px; }
+        .chart-sm { position:relative; height:165px; }
         table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 12px;
+          width:100%;
+          border-collapse:collapse;
+          font-size:11.5px;
         }
         th {
-          text-align: left;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: #0F172A;
-          padding: 9px 12px;
-          border-bottom: 2px solid var(--line);
-          font-weight: 900;
-          position: sticky;
-          top: 0;
-          background: var(--surface-2, #F8FAFC);
-          z-index: 5;
-        }
-        :global(.dark) th {
-          color: #F1F5F9;
-          background: #162033;
+          text-align:left;
+          font-size:10px;
+          text-transform:uppercase;
+          letter-spacing:.03em;
+          color:var(--soft);
+          padding:6px 8px;
+          border-bottom:2px solid var(--line);
+          font-weight:800;
+          position:sticky;
+          top:0;
+          background:var(--card);
         }
         td {
-          padding: 8px 12px;
-          border-bottom: 1px solid var(--border-soft, #EEF1F7);
-          color: #0F172A;
-          font-weight: 600;
+          padding:6px 8px;
+          border-bottom:1px solid var(--line);
         }
-        :global(.dark) td {
-          color: #E2E8F0;
-        }
-        tr:hover td { background: var(--surface-2, #F8FAFC); }
+        tr:hover td { background:var(--surface-2); }
         .tbl-wrap {
-          max-height: 260px;
-          overflow-y: auto;
-          overflow-x: auto;
-          border-radius: 14px;
-          border: 1.5px solid var(--line);
-          -webkit-overflow-scrolling: touch;
+          max-height:240px;
+          overflow-y:auto;
+          overflow-x:auto;
+          border-radius:12px;
+          border:1px solid var(--line);
+          -webkit-overflow-scrolling:touch;
         }
         .pill {
-          display: inline-block;
-          padding: 3px 10px;
-          border-radius: 99px;
-          font-size: 11px;
-          font-weight: 850;
+          display:inline-block;
+          padding:2px 9px;
+          border-radius:99px;
+          font-size:11px;
+          font-weight:800;
         }
-        .pill.g { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
-        .pill.r { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
-        :global(.dark) .pill.g { background: rgba(5, 150, 105, 0.2); color: #6EE7B7; border-color: rgba(5, 150, 105, 0.4); }
-        :global(.dark) .pill.r { background: rgba(220, 38, 38, 0.2); color: #FCA5A5; border-color: rgba(220, 38, 38, 0.4); }
-
+        .pill.g { background:#e3f6ec; color:#0b7a4c; }
+        .pill.r { background:#fdebe9; color:var(--red); }
+        .grade {
+          width:24px;
+          height:24px;
+          border-radius:6px;
+          display:inline-grid;
+          place-items:center;
+          color:#fff;
+          font-weight:800;
+          font-size:11px;
+        }
         .foot {
-          text-align: center;
-          color: #475569;
-          font-size: 11.5px;
-          font-weight: 650;
-          margin-top: 18px;
-          line-height: 1.6;
+          text-align:center;
+          color:var(--soft);
+          font-size:11px;
+          margin-top:14px;
+          line-height:1.6;
         }
-        :global(.dark) .foot {
-          color: #94A3B8;
-        }
-
         @media(max-width: 640px) {
           .top {
             flex-direction: column;
             align-items: flex-start;
-            gap: 10px;
-            padding: 14px 16px;
+            gap: 8px;
+            padding: 12px;
           }
           .top .demo-tag {
             margin-left: 0;
@@ -2618,27 +2484,17 @@ export default function AdminDashboardPage() {
             min-height: 40px;
             text-align: center;
           }
-          .live-badge {
-            width: 100%;
-            justify-content: center;
-          }
         }
       ` }} />
 
-      {/* Flagship Executive Header Banner */}
+      {/* Header Banner */}
       <div className="top">
         <div className="logo">
           <img src="/images/dandy-logo.png" alt="Dandy" />
         </div>
-        <div className="title-block">
-          <h1>
-            <span>Dandy Market Visit</span>
-            <span className="text-[rgba(255,255,255,0.4)] text-base font-normal">|</span>
-            <span className="text-sky-300 font-extrabold text-[15px] tracking-normal uppercase bg-sky-500/20 px-2.5 py-0.5 rounded-md border border-sky-400/30">
-              Executive Command
-            </span>
-          </h1>
-          <div className="sub">Field-force visit compliance, cold chain telemetry & retail execution · Dandy Company Ltd</div>
+        <div>
+          <h1>Dandy Market Visit — Management Dashboard</h1>
+          <div className="sub">Field-force visit compliance & execution · Dandy Company Ltd</div>
         </div>
         <div className="demo-tag">LIVE DATABASE DATA</div>
       </div>
@@ -2646,178 +2502,222 @@ export default function AdminDashboardPage() {
       <div className="wrap">
         {/* Filters Panel */}
         <div className="filters">
-          <div className="fld">
-            <label>From</label>
-            <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
+          {/* Quick Date Presets Strip */}
+          <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-1 text-xs">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--soft)] mr-1 flex items-center gap-1">
+              <span>Date Presets:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setQuickDate('minus1')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                fFrom === defaultMinusOne && fTo === defaultMinusOne
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
+              }`}
+            >
+              <span>⚡ -1 Day (Yesterday)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('today')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                fFrom === getTodayStr() && fTo === getTodayStr()
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('7d')}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+            >
+              Last 7 Days
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('mtd')}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+            >
+              This Month
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('all')}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+            >
+              All Dates
+            </button>
           </div>
 
-          <div className="fld">
-            <label>To</label>
-            <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
-          </div>
+          <div className="flex gap-2 flex-wrap items-end">
+            <div className="fld">
+              <label>From</label>
+              <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
+            </div>
 
+            <div className="fld">
+              <label>To</label>
+              <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
+            </div>
 
+            <div className="fld min-w-[155px]">
+              <label>Manager</label>
+              <MultiSelectDropdown
+                placeholder="All Managers"
+                options={mgrOptions}
+                selectedValues={fMgr}
+                onChange={(selected) => {
+                  setFMgr(selected);
+                  if (selected.length > 0 && masters) {
+                    const validSups = new Set<string>();
+                    selected.forEach((m) => {
+                      const mUpper = m.toUpperCase();
+                      if (masters.managerSupervisorMap && masters.managerSupervisorMap[mUpper]) {
+                        (masters.managerSupervisorMap[mUpper] as string[]).forEach((s) => validSups.add(s));
+                      } else {
+                        (masters.routes || [])
+                          .filter((r: any) => (r.managerName || '').toUpperCase() === mUpper)
+                          .forEach((r: any) => { if (r.superName) validSups.add(r.superName); });
+                      }
+                    });
+                    setFSuper((prev) => prev.filter((s) => validSups.has(s)));
+                  }
+                  setFChannel('');
+                  setFClass('');
+                  setFCust('');
+                  setFRoute('');
+                }}
+              />
+            </div>
 
-          <div className="fld min-w-[155px]">
-            <label>Manager</label>
-            <MultiSelectDropdown
-              placeholder="All Managers"
-              options={mgrOptions}
-              selectedValues={fMgr}
-              onChange={(selected) => {
-                setFMgr(selected);
-                // Retain only supervisors that belong to selected managers, if any managers are selected
-                if (selected.length > 0 && masters) {
-                  const validSups = new Set<string>();
-                  selected.forEach((m) => {
-                    const mUpper = m.toUpperCase();
-                    if (masters.managerSupervisorMap && masters.managerSupervisorMap[mUpper]) {
-                      (masters.managerSupervisorMap[mUpper] as string[]).forEach((s) => validSups.add(s));
-                    } else {
-                      (masters.routes || [])
-                        .filter((r: any) => (r.managerName || '').toUpperCase() === mUpper)
-                        .forEach((r: any) => { if (r.superName) validSups.add(r.superName); });
+            <div className="fld min-w-[165px]">
+              <label>Supervisor</label>
+              <MultiSelectDropdown
+                placeholder="All Supervisors"
+                options={supOptions}
+                selectedValues={fSuper}
+                onChange={(selected) => {
+                  setFSuper(selected);
+                  setFChannel('');
+                  setFClass('');
+                  setFCust('');
+                  setFRoute('');
+                  if (selected.length > 0 && masters?.routes && fMgr.length === 0) {
+                    const matchingRoutes = (masters.routes as any[]).filter(
+                      (r) => selected.some((s) => (r.superName || '').toUpperCase() === s.toUpperCase())
+                    );
+                    const mgrs = Array.from(new Set(matchingRoutes.map((r) => r.managerName).filter(Boolean)));
+                    if (mgrs.length === 1) {
+                      setFMgr([mgrs[0]]);
                     }
-                  });
-                  setFSuper((prev) => prev.filter((s) => validSups.has(s)));
-                }
-                setFChannel('');
-                setFClass('');
-                setFCust('');
-                setFRoute('');
-              }}
-            />
-          </div>
+                  }
+                }}
+              />
+            </div>
 
-          <div className="fld min-w-[165px]">
-            <label>Supervisor</label>
-            <MultiSelectDropdown
-              placeholder="All Supervisors"
-              options={supOptions}
-              selectedValues={fSuper}
-              onChange={(selected) => {
-                setFSuper(selected);
-                setFChannel('');
-                setFClass('');
+            <div className="fld min-w-[120px]">
+              <label>RTM</label>
+              <select
+                value={fChannel}
+                onChange={(e) => {
+                  setFChannel(e.target.value);
+                  setFClass('');
+                  setFCust('');
+                }}
+              >
+                <option value="">All RTM</option>
+                {rtmOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="fld">
+              <label>Classification</label>
+              <select value={fClass} onChange={(e) => {
+                setFClass(e.target.value);
                 setFCust('');
-                setFRoute('');
-                // If user selected supervisors and no manager was selected, check if they all belong to a single manager
-                if (selected.length > 0 && masters?.routes && fMgr.length === 0) {
-                  const matchingRoutes = (masters.routes as any[]).filter(
-                    (r) => selected.some((s) => (r.superName || '').toUpperCase() === s.toUpperCase())
-                  );
-                  const mgrs = Array.from(new Set(matchingRoutes.map((r) => r.managerName).filter(Boolean)));
-                  if (mgrs.length === 1) {
-                    setFMgr([mgrs[0]]);
+              }}>
+                <option value="">All Classifications</option>
+                {classOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="fld">
+              <label>Outlet / Customer</label>
+              <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
+                <option value="">All Outlets</option>
+                {custOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="fld">
+              <label>Route Code</label>
+              <select value={fRoute} onChange={(e) => {
+                const val = e.target.value;
+                setFRoute(val);
+                setFCust('');
+                if (val && masters?.routes) {
+                  const rtInfo = (masters.routes as any[]).find((r) => r.routeCode === val);
+                  if (rtInfo) {
+                    if (rtInfo.managerName && fMgr.length === 0) setFMgr([rtInfo.managerName]);
+                    if (rtInfo.superName && fSuper.length === 0) setFSuper([rtInfo.superName]);
                   }
                 }
-              }}
-            />
-          </div>
+              }}>
+                <option value="">All Route Codes</option>
+                {routeOptions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="fld min-w-[120px]">
-            <label>RTM</label>
-            <select
-              value={fChannel}
-              onChange={(e) => {
-                setFChannel(e.target.value);
-                setFClass('');
-                setFCust('');
-              }}
-            >
-              <option value="">All RTM</option>
-              {rtmOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
+            <button className="reset" onClick={resetFilters}>Reset</button>
 
-          <div className="fld">
-            <label>Classification</label>
-            <select value={fClass} onChange={(e) => {
-              setFClass(e.target.value);
-              setFCust('');
-            }}>
-              <option value="">All Classifications</option>
-              {classOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="fld">
-            <label>Outlet / Customer</label>
-            <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
-              <option value="">All Outlets</option>
-              {custOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="fld">
-            <label>Route Code</label>
-            <select value={fRoute} onChange={(e) => {
-              const val = e.target.value;
-              setFRoute(val);
-              setFCust('');
-              if (val && masters?.routes) {
-                const rtInfo = (masters.routes as any[]).find((r) => r.routeCode === val);
-                if (rtInfo) {
-                  if (rtInfo.managerName && fMgr.length === 0) setFMgr([rtInfo.managerName]);
-                  if (rtInfo.superName && fSuper.length === 0) setFSuper([rtInfo.superName]);
-                }
-              }
-            }}>
-              <option value="">All Route Codes</option>
-              {routeOptions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* <div className="fld">
-            <label>Asset Category</label>
-            <select
-              value={fAssetCategory}
-              onChange={(e) => {
-                setFAssetCategory(e.target.value);
-                setFSizeModels([]);
-              }}
-            >
-              <option value="All">All Categories</option>
-              {ASSET_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div> */}
-
-          {/* <div className="fld min-w-[190px]">
-            <label>Size / Model</label>
-            <MultiSelectDropdown
-              placeholder="Select Size/Model"
-              options={availableSizeModels}
-              selectedValues={fSizeModels}
-              onChange={setFSizeModels}
-            />
-          </div> */}
-
-          <button className="reset" onClick={resetFilters}>Reset</button>
-
-          {/* <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" /> */}
-
-          <div className="live-badge">
-            <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
-            <span>{isSyncing ? 'SYNCING...' : 'LIVE SYNC ACTIVE'}</span>
-            <span style={{ opacity: 0.3 }}>|</span>
-            <span>UPDATED {lastUpdated.toLocaleTimeString()}</span>
+            <div className="live-badge" suppressHydrationWarning>
+              <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
+              <span>{isSyncing ? 'SYNCING...' : 'LIVE SYNC ACTIVE'}</span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span suppressHydrationWarning>UPDATED {mounted ? lastUpdated.toLocaleTimeString() : '...'}</span>
+            </div>
           </div>
         </div>
 
-        {isLoading && (
-          <div className="flex items-center justify-center gap-2.5 p-3 mb-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs font-bold text-indigo-600 dark:text-indigo-400 backdrop-blur-sm animate-pulse shadow-xs">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            <span>Synchronizing executive analytics & live telemetry...</span>
+        {/* High-Visibility Dark Executive Loading Banner */}
+        {(isLoading || isSyncing) && (
+          <div className="relative overflow-hidden mb-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-indigo-500/40 p-4 shadow-2xl text-white animate-fade-in">
+            <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-indigo-600/30 border border-indigo-400/50 flex items-center justify-center text-cyan-300 shadow-inner flex-shrink-0 animate-spin">
+                  <RefreshCw className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                      LIVE DATABASE SYNC
+                    </span>
+                    <span className="text-[11px] text-slate-300 font-semibold">
+                      Benchmark: -1 Day Operations ({fFrom || defaultMinusOne})
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold text-white mt-0.5 tracking-tight">
+                    Loading executive market visit analytics, cold chain audits, and master records in background...
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-[11px] font-mono text-cyan-300 shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+                <span className="font-bold">SYNCHRONIZING</span>
+              </div>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-cyan-400 to-indigo-600 animate-pulse" />
           </div>
         )}
 
@@ -2829,40 +2729,45 @@ export default function AdminDashboardPage() {
 
         {/* KPI Row */}
         <div className="kpis">
-          <div className="kpi b" title="Total Visits Logged in Filtered Period">
-            <div className="lbl">Total Visits</div>
-            <div className="val">{isLoading && rows.length === 0 ? '...' : filtered.length}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> visits logged
+          <div className="kpi b">
+            <div className="kpi-head">
+              <span className="lbl">Total Visits</span>
+              <span className="kpi-tag">Execution</span>
             </div>
+            <div className="val">{isLoading && rows.length === 0 ? '...' : filtered.length}</div>
+            <div className="delta">visits logged</div>
           </div>
-          <div className="kpi g" title="Unique Outlets Visited in Filtered Period">
-            <div className="lbl">Outlets Covered</div>
+          <div className="kpi g">
+            <div className="kpi-head">
+              <span className="lbl">Outlets Covered</span>
+              <span className="kpi-tag">Reach</span>
+            </div>
             <div className="val">{isLoading && rows.length === 0 ? '...' : outletsCount}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> unique outlets
-            </div>
+            <div className="delta">unique outlets</div>
           </div>
-          <div className="kpi a" title="Skipped / No-Visit Outlets">
-            <div className="lbl">No Visits</div>
+          <div className="kpi a">
+            <div className="kpi-head">
+              <span className="lbl">No Visits</span>
+              <span className="kpi-tag">Skipped</span>
+            </div>
             <div className="val">{isLoading && rows.length === 0 ? '...' : noVisitCount}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> skipped outlet visits
-            </div>
+            <div className="delta">skipped outlet visits</div>
           </div>
-          <div className="kpi c" title="Total Cold Chain & Chiller Assets Inspected">
-            <div className="lbl">Assets Checked</div>
+          <div className="kpi b">
+            <div className="kpi-head">
+              <span className="lbl">Assets Checked</span>
+              <span className="kpi-tag">Cold Chain</span>
+            </div>
             <div className="val">{isLoading && rows.length === 0 ? '...' : filtered.length}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> chillers/freezers
-            </div>
+            <div className="delta">chillers/freezers</div>
           </div>
-          <div className="kpi r" title="Temperature Violations Detected">
-            <div className="lbl">Temp Breaches</div>
-            <div className="val">{isLoading && rows.length === 0 ? '...' : breachesCount}</div>
-            <div className="delta">
-              <span className="kpi-icon">●</span> {isLoading && rows.length === 0 ? '...' : breachPct}
+          <div className="kpi r">
+            <div className="kpi-head">
+              <span className="lbl">Temp Breaches</span>
+              <span className="kpi-tag">Integrity</span>
             </div>
+            <div className="val">{isLoading && rows.length === 0 ? '...' : breachesCount}</div>
+            <div className="delta">{isLoading && rows.length === 0 ? '...' : breachPct}</div>
           </div>
         </div>
 
@@ -2880,18 +2785,6 @@ export default function AdminDashboardPage() {
               <canvas ref={canvasTrendRef}></canvas>
             </div>
           </div>
-          {/* <div className="panel">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3>Visits by Channel</h3>
-                <div className="psub">Share across MT / TT / INST</div>
-              </div>
-              <ExportButton onClick={handleExportChannelChart} label="Export" variant="compact" />
-            </div>
-            <div className="chart-sm">
-              <canvas ref={canvasChannelRef}></canvas>
-            </div>
-          </div> */}
         </div>
 
         {/* Chart Row 2 */}
@@ -2924,18 +2817,6 @@ export default function AdminDashboardPage() {
  
         {/* Chart Row 3 */}
         <div className="grid" style={{ gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 1.5fr)' }}>
-          {/* <div className="panel">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3>NPD Availability</h3>
-                <div className="psub">New-product presence</div>
-              </div>
-              <ExportButton onClick={handleExportNpdChart} label="Export" variant="compact" />
-            </div>
-            <div className="chart-sm">
-              <canvas ref={canvasNpdRef}></canvas>
-            </div>
-          </div> */}
           <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -2944,7 +2825,7 @@ export default function AdminDashboardPage() {
               </div>
               <ExportButton onClick={handleExportPowerSkuChart} label="Export" variant="compact" />
             </div>
-            <div style={{ position: 'relative', height: '210px' }}>
+            <div style={{ position: 'relative', height: '175px' }}>
               <canvas ref={canvasPskuRef}></canvas>
             </div>
           </div>
@@ -2956,7 +2837,7 @@ export default function AdminDashboardPage() {
               </div>
               <ExportButton onClick={handleExportClassificationDairyChart} label="Export" variant="compact" />
             </div>
-            <div style={{ position: 'relative', height: '210px' }}>
+            <div style={{ position: 'relative', height: '175px' }}>
               <canvas ref={canvasClassDairyRef}></canvas>
             </div>
           </div>

@@ -39,6 +39,7 @@ import {
   AlertOctagon,
   Wrench,
   Navigation,
+  Trash2,
 } from 'lucide-react';
 import InteractiveChartTableModal from '@/components/dashboard/InteractiveChartTableModal';
 import { exportToExcel } from '@/utils/excelExport';
@@ -249,6 +250,22 @@ export default function GmExecutiveReportsPage() {
     }
   };
 
+  const handleClearDirectivesLog = async () => {
+    if (!confirm('Are you sure you want to clear all stored action directives log data?')) return;
+    try {
+      const res = await fetch('/api/admin/audit-actions?all=true', { method: 'DELETE' });
+      if (res.ok) {
+        setAuditActions([]);
+        try {
+          sessionStorage.removeItem('gm_executive_reports_cache');
+          localStorage.removeItem('dandy_ai_directive_statuses');
+        } catch {}
+      }
+    } catch (e) {
+      console.error('Failed to clear directives log:', e);
+    }
+  };
+
   // Base dataset extraction
   const allRows = useMemo<any[]>(() => {
     return (stats?.rows || stats?.reportRows?.['cold-chain'] || []) as any[];
@@ -452,7 +469,7 @@ export default function GmExecutiveReportsPage() {
         affectedEntities: brokenAssets.slice(0, 4).map((r) => ({
           label: r.outletName || r.cust || `Outlet ${r.outletCode}`,
           code: r.routeCode || '—',
-          detail: `Status: ${r.assetStatus || r.action || 'Needs Service'} · Chiller: ${r.chillerModel || 'Standard'}`,
+          detail: `Status: ${r.assetStatus || r.action || 'Needs Service'} · Chiller: ${r.chillerModel || 'Single Door'}`,
         })),
         suggestedActionType: 'Schedule Fleet Maintenance Dispatch',
         status: actionStatuses['ai-dir-asset-health'] || 'pending',
@@ -1131,29 +1148,6 @@ export default function GmExecutiveReportsPage() {
                       </div>
                     )}
                   </div>
-
-                  {/* Card Bottom CTA Actions */}
-                  <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleToggleDirectiveStatus(directive.id, directive.status)}
-                      className={`text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                        isImplemented ? 'text-emerald-400 hover:underline' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                      {isImplemented ? 'Re-open Directive' : 'Mark Completed'}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenDirectiveModal(directive)}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-indigo-500/30 cursor-pointer active:scale-95 transition-all"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      Deploy Field Directive
-                    </button>
-                  </div>
                 </div>
               );
             })}
@@ -1292,22 +1286,32 @@ export default function GmExecutiveReportsPage() {
       {activeTab === 'directives' && (
         <div className="space-y-4">
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-sky-400" />
                   Audit Action Directives Log
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  Track field issue resolutions, supervisor camera proofs, and GM sign-offs
+                  Track field issue resolutions, supervisor camera proofs, and management sign-offs
                 </p>
               </div>
-              <a
-                href="/admin/photos"
-                className="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 font-bold text-xs flex items-center gap-1 border border-sky-500/40"
-              >
-                Go to Audit Gallery <ExternalLink className="h-3 w-3" />
-              </a>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleClearDirectivesLog}
+                  className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 font-bold text-xs flex items-center gap-1.5 border border-rose-500/30 transition-all cursor-pointer"
+                  title="Clear all stored corrective action directive entries"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Clear Stored Data
+                </button>
+                <a
+                  href="/admin/photos"
+                  className="px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 font-bold text-xs flex items-center gap-1 border border-sky-500/40"
+                >
+                  Go to Audit Gallery <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
             </div>
 
             {auditActions.length === 0 ? (

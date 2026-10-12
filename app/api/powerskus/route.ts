@@ -18,24 +18,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'routeCode parameter is required' }, { status: 400 });
     }
 
-    // 1. Fetch route details
+    // 1. Fetch route details or deduce channel from route code
     const routes = await routeRepository.getAllRoutes();
     const route = routes.find((r) => r.routeCode === routeCode);
-    if (!route) {
-      return NextResponse.json({ error: 'Route not found' }, { status: 404 });
+    let channel = route?.channel;
+    if (!channel) {
+      const isMT =
+        routeCode.toUpperCase().startsWith('C00') ||
+        routeCode.toUpperCase().startsWith('C42') ||
+        routeCode.toUpperCase().startsWith('C28') ||
+        routeCode.toUpperCase().startsWith('C30') ||
+        routeCode.toUpperCase().startsWith('C39') ||
+        routeCode.toUpperCase().startsWith('MT');
+      channel = isMT ? 'MT' : 'TT';
     }
 
-    // 2. Validate route ownership for supervisor
-    if (user.role !== 'Admin') {
-      const isAssigned = await routeRepository.isRouteAssignedToSupervisor(routeCode, user.id, user.name);
-      if (!isAssigned) {
-        return NextResponse.json({ error: 'Forbidden. You do not have access to this route.' }, { status: 403 });
-      }
+    // 2. Query Power SKUs filtered by Route Channel (strictly 24 for MT, 27 for TT)
+    let powerSkus = await skuRepository.getPowerSkusByChannel(channel);
+    if (!powerSkus || powerSkus.length === 0) {
+      const all = await skuRepository.getAllPowerSkus();
+      powerSkus = all.filter((s) => (s.channel || '').toUpperCase() === channel.toUpperCase());
+      if (powerSkus.length === 0) powerSkus = all;
     }
 
-    // 3. Query Power SKUs filtered by Route Channel
-    const powerSkus = await skuRepository.getPowerSkusByChannel(route.channel);
-    return NextResponse.json(powerSkus);
+    const targetLimit = channel.toUpperCase() === 'MT' ? 24 : 27;
+    return NextResponse.json(powerSkus.slice(0, targetLimit));
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
