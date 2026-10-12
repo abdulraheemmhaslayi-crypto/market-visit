@@ -363,6 +363,10 @@ export default function MyVisitsPage() {
             supervisor: reviewData.visit.supervisorId,
             route: reviewData.visit.routeCode,
             uploadedAt: p.uploadedAt || reviewData.visit.createdAt,
+            assetObservations: reviewData.assets,
+            visitObservation: reviewData.visit.observation,
+            visitNotes: reviewData.visit.reason,
+            observation: reviewData.assets?.map((a: any) => a.observation).filter(Boolean).join('; ') || reviewData.visit.observation,
           }))}
           currentIndex={visitPhotoIndex ?? 0}
           isOpen={visitPhotoIndex !== null}

@@ -29,6 +29,8 @@ import {
   Check,
   FlipHorizontal,
   Loader2,
+  FileText,
+  Thermometer,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { AuditActionItem } from '@/lib/audit-actions';
@@ -49,6 +51,22 @@ export interface LightboxItem {
   uploadedAt?: string;
   visitId?: string;
   appName?: string;
+  observation?: string;
+  observations?: string | string[];
+  notes?: string;
+  remarks?: string;
+  assetObservations?: Array<{
+    assetId?: string;
+    assetType?: string;
+    sizeModel?: string;
+    temperature?: number | null;
+    tempInRange?: boolean;
+    actionRequired?: string;
+    observation?: string;
+  }>;
+  visitObservation?: string;
+  visitReason?: string;
+  visitNotes?: string;
   [key: string]: any;
 }
 
@@ -134,6 +152,46 @@ export default function ImageLightboxModal({
       isMounted = false;
     };
   }, [current?.photoId, actionItems]);
+
+  // Cache of visit observations fetched on-demand
+  const [asyncObservations, setAsyncObservations] = useState<Record<string, any>>({});
+  const [isLoadingObservations, setIsLoadingObservations] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!current?.visitId) return;
+    const vId = current.visitId;
+
+    // Skip if current item already has assetObservations or already cached in state
+    if (
+      (current.assetObservations && current.assetObservations.length > 0) ||
+      asyncObservations[vId]
+    ) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingObservations(true);
+    fetch(`/api/visit/observations?visitId=${encodeURIComponent(vId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (isMounted && data.success) {
+          setAsyncObservations((prev) => ({
+            ...prev,
+            [vId]: data,
+          }));
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load visit observations:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingObservations(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [current?.visitId, current?.assetObservations, asyncObservations]);
 
   // Role Detection
   const { data: session } = useSession();
@@ -1480,6 +1538,195 @@ export default function ImageLightboxModal({
                   </p>
                 </div>
               )}
+
+              {/* SECTION: OBSERVATIONS / NOTES (OPTIONAL) */}
+              {(() => {
+                const currentVisitId = current.visitId || '';
+                const asyncData = currentVisitId ? asyncObservations[currentVisitId] : null;
+
+                const rawAssetObs: any[] =
+                  (current.assetObservations && current.assetObservations.length > 0)
+                    ? current.assetObservations
+                    : (asyncData?.assetObservations || []);
+
+                const assetObsWithContent = rawAssetObs.filter(
+                  (ast: any) => ast?.observation && String(ast.observation).trim() !== '' && String(ast.observation).trim() !== '—'
+                );
+
+                const generalObsText = String(
+                  current.visitObservation ||
+                  asyncData?.visitObservation ||
+                  current.observation ||
+                  asyncData?.observation ||
+                  current.notes ||
+                  current.remarks ||
+                  ''
+                ).trim();
+
+                return (
+                  <div className="pt-3 border-t border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] uppercase tracking-wider font-extrabold text-sky-400 flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5 text-sky-400" />
+                        <span>Observations / Notes (Optional)</span>
+                      </label>
+                      {assetObsWithContent.length > 0 && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-950 text-sky-300 border border-sky-800/60 font-mono">
+                          {assetObsWithContent.length} Note{assetObsWithContent.length === 1 ? '' : 's'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Case 1: Specific asset observation notes are present */}
+                    {assetObsWithContent.length > 0 ? (
+                      <div className="space-y-2">
+                        {assetObsWithContent.map((ast: any, idx: number) => {
+                          const assetLabel = ast.assetType || `Asset #${idx + 1}`;
+                          const isChiller = String(ast.assetType).toLowerCase().includes('chiller');
+                          const isFreezer = String(ast.assetType).toLowerCase().includes('freezer');
+                          const tempVal = ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null;
+
+                          return (
+                            <div
+                              key={ast.assetId || idx}
+                              className="rounded-xl p-3 bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 shadow-inner space-y-2"
+                            >
+                              {/* Asset Header Tags */}
+                              <div className="flex items-center justify-between gap-1 flex-wrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                                      isFreezer
+                                        ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-800/60'
+                                        : isChiller
+                                        ? 'bg-blue-950/80 text-blue-300 border border-blue-800/60'
+                                        : 'bg-indigo-950/80 text-indigo-300 border border-indigo-800/60'
+                                    }`}
+                                  >
+                                    {assetLabel}
+                                  </span>
+                                  {ast.sizeModel && (
+                                    <span className="text-[10px] text-slate-300 font-medium bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700/50">
+                                      {ast.sizeModel}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                  {tempVal !== null && !isNaN(tempVal) && (
+                                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-800/90 text-emerald-400 border border-emerald-900/50 flex items-center gap-0.5">
+                                      <Thermometer className="h-2.5 w-2.5 text-emerald-400" />
+                                      {tempVal > 0 ? `+${tempVal}` : tempVal}°C
+                                    </span>
+                                  )}
+                                  {ast.actionRequired && ast.actionRequired !== 'Select Status' && ast.actionRequired !== 'None' && (
+                                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/60">
+                                      {ast.actionRequired}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Quoted Observation Text */}
+                              <div className="relative pl-3 border-l-2 border-sky-500/80 py-0.5">
+                                <p className="text-xs text-slate-100 font-normal leading-relaxed whitespace-pre-wrap break-words">
+                                  &ldquo;{ast.observation}&rdquo;
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* If there is also an additional visit-level audit note distinct from the asset notes */}
+                        {generalObsText &&
+                          generalObsText !== '—' &&
+                          !assetObsWithContent.some((a) => a.observation && generalObsText.includes(a.observation)) && (
+                            <div className="rounded-xl p-3 bg-slate-950/80 border border-slate-800/90 space-y-1.5">
+                              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1">
+                                <MessageSquare className="h-3 w-3 text-slate-400" /> Additional Visit Note
+                              </span>
+                              <div className="relative pl-3 border-l-2 border-slate-600 py-0.5">
+                                <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
+                                  &ldquo;{generalObsText}&rdquo;
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    ) : generalObsText && generalObsText !== '—' ? (
+                      /* Case 2: General visit observation / note is present */
+                      <div className="space-y-2">
+                        <div className="rounded-xl p-3 bg-gradient-to-br from-slate-950 to-slate-900 border border-slate-800 shadow-inner space-y-1.5">
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-sky-400 flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3 text-sky-400" /> Visit Observation & Note
+                          </span>
+                          <div className="relative pl-3 border-l-2 border-sky-500/80 py-0.5">
+                            <p className="text-xs text-slate-100 font-normal leading-relaxed whitespace-pre-wrap break-words">
+                              &ldquo;{generalObsText}&rdquo;
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Asset Summary badges if assets exist */}
+                        {rawAssetObs.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {rawAssetObs.map((ast: any, idx: number) => {
+                              const tempVal = ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null;
+                              return (
+                                <span
+                                  key={ast.assetId || idx}
+                                  className="inline-flex items-center gap-1 text-[10px] bg-slate-800/80 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700/60 font-medium"
+                                >
+                                  <strong className="text-sky-400">{ast.assetType || `Asset #${idx + 1}`}</strong>
+                                  {ast.sizeModel ? `(${ast.sizeModel})` : ''}
+                                  {tempVal !== null && !isNaN(tempVal) ? `• ${tempVal > 0 ? `+${tempVal}` : tempVal}°C` : ''}
+                                  {ast.actionRequired && ast.actionRequired !== 'Select Status' ? `• ${ast.actionRequired}` : ''}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ) : isLoadingObservations ? (
+                      /* Case 3: Still loading from background API */
+                      <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/50 flex items-center gap-2 text-xs text-slate-400">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
+                        <span>Loading audit observations…</span>
+                      </div>
+                    ) : rawAssetObs.length > 0 ? (
+                      /* Case 4: Assets recorded, but optional observation text was left blank */
+                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/70 space-y-2">
+                        <p className="text-[11px] text-slate-400 italic">
+                          No specific observation notes recorded for this audit.
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-800/60">
+                          {rawAssetObs.map((ast: any, idx: number) => {
+                            const tempVal = ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null;
+                            return (
+                              <span
+                                key={ast.assetId || idx}
+                                className="inline-flex items-center gap-1 text-[10px] bg-slate-800/80 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700/60 font-medium"
+                              >
+                                <strong className="text-sky-400">{ast.assetType || `Asset #${idx + 1}`}</strong>
+                                {ast.sizeModel ? `(${ast.sizeModel})` : ''}
+                                {tempVal !== null && !isNaN(tempVal) ? `• ${tempVal > 0 ? `+${tempVal}` : tempVal}°C` : ''}
+                                {ast.actionRequired && ast.actionRequired !== 'Select Status' ? `• ${ast.actionRequired}` : ''}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Case 5: Empty fallback */
+                      <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/50">
+                        <p className="text-[11px] text-slate-500 italic">
+                          No observations or notes recorded for this audit.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

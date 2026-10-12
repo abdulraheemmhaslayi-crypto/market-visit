@@ -342,14 +342,17 @@ export const visitRepository = {
     }
   },
 
-  async getVisitsBySupervisor(supervisorId: string): Promise<Visit[]> {
+  async getVisitsBySupervisor(supervisorId: string, user?: { name?: string; email?: string }): Promise<Visit[]> {
     const connection = await pool.getConnection();
     try {
       await ensureVisitTableSchema(connection);
-      const [rows]: any = await connection.execute(
-        'SELECT * FROM `Visit` WHERE `supervisorId` = ?',
-        [supervisorId]
-      );
+      let query = 'SELECT * FROM `Visit` WHERE `supervisorId` = ?';
+      const params: any[] = [supervisorId];
+      if (user?.name || user?.email) {
+        query += ' OR LOWER(`createdBy`) = ? OR LOWER(`createdBy`) = ?';
+        params.push((user.name || '').toLowerCase(), (user.email || '').toLowerCase());
+      }
+      const [rows]: any = await connection.execute(query, params);
       return rows.map(mapRowToVisit);
     } finally {
       connection.release();
