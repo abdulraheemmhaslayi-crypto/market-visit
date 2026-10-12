@@ -198,7 +198,7 @@ export default function SupervisorDashboard() {
   // Instant restore from sessionStorage/localStorage to eliminate 0-data flash on dashboard load
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v7') || (typeof window !== 'undefined' ? localStorage.getItem('supervisor_dashboard_cache_v7') : null) || sessionStorage.getItem('supervisor_dashboard_cache_v5');
+      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v8') || (typeof window !== 'undefined' ? localStorage.getItem('supervisor_dashboard_cache_v8') : null);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.rows && parsed.rows.length > 0) {
@@ -242,9 +242,9 @@ export default function SupervisorDashboard() {
             masters: newMasters,
             latestDate: foundLatestDate || latestDateRef.current,
           });
-          sessionStorage.setItem('supervisor_dashboard_cache_v7', cachePayload);
+          sessionStorage.setItem('supervisor_dashboard_cache_v8', cachePayload);
           if (typeof window !== 'undefined') {
-            localStorage.setItem('supervisor_dashboard_cache_v7', cachePayload);
+            localStorage.setItem('supervisor_dashboard_cache_v8', cachePayload);
           }
         } catch (e) {
           // Ignore storage quota errors
@@ -1168,19 +1168,24 @@ export default function SupervisorDashboard() {
     const createBarPctLabelPlugin = () => ({
       id: 'barPctLabels',
       afterDatasetsDraw(chart: any) {
-        const { ctx } = chart;
+        const { ctx, chartArea } = chart;
         const dataset = chart.data.datasets[0];
-        chart.getDatasetMeta(0).data.forEach((bar: any, index: number) => {
+        if (!dataset || !dataset.data) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data) return;
+        meta.data.forEach((bar: any, index: number) => {
           const value = dataset.data[index];
           if (typeof value !== 'number') return;
+          const label = `${value}%`;
           ctx.save();
-          ctx.font = '700 11px Inter, sans-serif';
+          ctx.font = '700 12px Inter, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
           ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
           ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
           ctx.shadowBlur = 4;
-          ctx.fillText(`${value}%`, bar.x, bar.y - 4);
+          const labelY = Math.max(bar.y - 6, (chartArea?.top || 16) - 2);
+          ctx.fillText(label, bar.x, labelY);
           ctx.restore();
         });
       },
@@ -1403,7 +1408,7 @@ export default function SupervisorDashboard() {
           },
           scales: {
             x: {
-              grid: { color: gridColor },
+              grid: { display: false },
               ticks: {
                 color: textColor,
                 font: { weight: 'bold' },
@@ -1415,7 +1420,7 @@ export default function SupervisorDashboard() {
             y: {
               beginAtZero: true,
               grace: '15%',
-              grid: { color: gridColor },
+              grid: { display: false },
               ticks: {
                 color: textColor,
                 precision: 0,
@@ -1468,8 +1473,8 @@ export default function SupervisorDashboard() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: 'bold' } } },
-            y: { beginAtZero: true, grace: '15%', grid: { color: gridColor }, ticks: { color: textColor, precision: 0 } },
+            x: { grid: { display: false }, ticks: { color: textColor, font: { weight: 'bold' } } },
+            y: { beginAtZero: true, grace: '15%', grid: { display: false }, ticks: { color: textColor, precision: 0 } },
           },
         },
       });
@@ -1677,13 +1682,20 @@ export default function SupervisorDashboard() {
             {
               data: [pskuPct(availCount), pskuPct(notAvailCount)],
               backgroundColor: [GREEN, RED],
-              borderRadius: 6,
+              hoverBackgroundColor: ['#059669', '#dc2626'],
+              borderRadius: 8,
+              borderSkipped: false,
+              maxBarThickness: 56,
+              barPercentage: 0.65,
             },
           ],
         },
         plugins: [createBarPctLabelPlugin()],
         options: {
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 24, bottom: 4, left: 8, right: 8 },
+          },
           plugins: {
             legend: { display: false },
             tooltip: { callbacks: { label: (ctx) => `${ctx.raw}% of ${pskuTotal} visits` } },
@@ -1707,8 +1719,20 @@ export default function SupervisorDashboard() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: 'bold' } } },
-            y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: (v: any) => `${v}%` } },
+            x: {
+              grid: { display: false },
+              ticks: { color: textColor, font: { weight: 'bold', size: 12 } },
+            },
+            y: {
+              beginAtZero: true,
+              max: 115,
+              grid: { display: false },
+              ticks: {
+                color: textColor,
+                callback: (v: any) => `${v}%`,
+                stepSize: 20,
+              },
+            },
           },
         },
       });
@@ -1932,7 +1956,7 @@ export default function SupervisorDashboard() {
               stacked: true,
               beginAtZero: true,
               suggestedMax: yMax,
-              grid: { color: gridColor },
+              grid: { display: false },
               ticks: {
                 color: textColor,
                 precision: 0,

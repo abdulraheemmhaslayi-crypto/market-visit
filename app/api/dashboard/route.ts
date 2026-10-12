@@ -15,6 +15,14 @@ async function ensureDashboardSchema() {
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`PowerSKU\` (\`skuCode\` VARCHAR(191) NOT NULL, \`skuName\` VARCHAR(191) NOT NULL, \`channel\` VARCHAR(191) NOT NULL, PRIMARY KEY (\`skuCode\`, \`channel\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`VisitAsset\` (\`assetId\` VARCHAR(191) PRIMARY KEY, \`visitId\` VARCHAR(191) NOT NULL, \`assetType\` VARCHAR(50) NOT NULL, \`temperature\` DOUBLE NULL, \`tempInRange\` TINYINT(1) NULL, \`actionRequired\` VARCHAR(50) NULL, \`observation\` TEXT NULL, \`isFirstInFlow\` TINYINT(1) NULL DEFAULT 0, \`fefoFollowed\` TINYINT(1) NULL DEFAULT 0, INDEX \`idx_asset_visit\` (\`visitId\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`VisitPowerSkuResult\` (\`visitId\` VARCHAR(191) NOT NULL, \`skuCode\` VARCHAR(191) NOT NULL, \`status\` VARCHAR(50) NOT NULL, PRIMARY KEY (\`visitId\`, \`skuCode\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
+
+    // Ensure collation is unified across all tables to prevent ER_CANT_AGGREGATE_2COLLATIONS
+    try {
+      await pool.execute(`ALTER TABLE \`VisitPowerSkuResult\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+      await pool.execute(`ALTER TABLE \`VisitAsset\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+      await pool.execute(`ALTER TABLE \`PowerSKU\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+    } catch (_) {}
+
     dashboardSchemaChecked = true;
   } catch (e) {}
 }
@@ -171,35 +179,38 @@ export async function GET(req: NextRequest) {
     const supervisorId = isSupervisor ? userSession.id : null;
 
     // 1. Fetch cached master data & raw visits concurrently with role-based scoping
+    const userLowerName = (userSession.name || '').toLowerCase().trim();
+    const userLowerEmail = (userSession.email || '').toLowerCase().trim();
+
     const [masters, visitsRaw, assets, pskuResults, npdResults, photosRaw] = await Promise.all([
       getMasterData(),
       isSupervisor
-        ? visitRepository.getVisitsBySupervisor(supervisorId!).catch(() => [])
+        ? visitRepository.getVisitsBySupervisor(supervisorId!, { name: userSession.name, email: userSession.email }).catch(() => [])
         : visitRepository.getAllVisits().catch(() => []),
       pool.execute(
         isSupervisor
-          ? 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId = v.visitId WHERE v.supervisorId = ?'
+          ? 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
           : 'SELECT * FROM `VisitAsset`',
-        isSupervisor ? [supervisorId] : []
-      ).then(([rows]: any) => rows).catch(() => []),
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Asset query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId = v.visitId WHERE v.supervisorId = ?'
+          ? 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
           : 'SELECT * FROM `VisitPowerSkuResult`',
-        isSupervisor ? [supervisorId] : []
-      ).then(([rows]: any) => rows).catch(() => []),
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard PSKU query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId = v.visitId WHERE v.supervisorId = ?'
+          ? 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
           : 'SELECT * FROM `NPDResponse`',
-        isSupervisor ? [supervisorId] : []
-      ).then(([rows]: any) => rows).catch(() => []),
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard NPD query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId = v.visitId WHERE v.supervisorId = ? ORDER BY vp.uploadedAt DESC LIMIT 100'
+          ? 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?) ORDER BY vp.uploadedAt DESC LIMIT 100'
           : 'SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC LIMIT 200',
-        isSupervisor ? [supervisorId] : []
-      ).then(([rows]: any) => rows).catch(() => []),
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Photo query error:', err); return []; }),
     ]);
 
     const {
@@ -220,7 +231,11 @@ export async function GET(req: NextRequest) {
 
     let visits = visitsRaw;
     if (scope === 'supervisor') {
-      visits = visits.filter((v: any) => v.supervisorId === userSession.id);
+      visits = visits.filter((v: any) => {
+        if (v.supervisorId === userSession.id) return true;
+        const cb = (v.createdBy || '').toLowerCase().trim();
+        return (userLowerEmail && cb === userLowerEmail) || (userLowerName && cb === userLowerName);
+      });
     }
 
     let filteredVisits: any[] = visits.filter((v: any) => v.status === 'Submitted');
@@ -308,7 +323,11 @@ export async function GET(req: NextRequest) {
       filteredVisits = filteredVisits.filter((v: any) => new Date(v.createdAt) <= end);
     }
     if (scope === 'supervisor') {
-      filteredVisits = filteredVisits.filter((v: any) => v.supervisorId === userSession.id);
+      filteredVisits = filteredVisits.filter((v: any) => {
+        if (v.supervisorId === userSession.id) return true;
+        const cb = (v.createdBy || '').toLowerCase().trim();
+        return (userLowerEmail && cb === userLowerEmail) || (userLowerName && cb === userLowerName);
+      });
     }
 
     // Filter by Manager parameter (if passed)
