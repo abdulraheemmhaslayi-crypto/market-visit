@@ -66,9 +66,44 @@ export default function SupervisorDashboard() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
 
-  // Analytics Filter States
-  const [fFrom, setFFrom] = useState('');
-  const [fTo, setFTo] = useState('');
+  // Date Helpers for Quick Presets and -1 Day Benchmark Default
+  const getMinusOneDayStr = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getTodayStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getNDaysAgoStr = (n: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getFirstDayOfMonthStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  };
+
+  // Analytics Filter States - Defaulting to -1 Day Data (Yesterday)
+  const defaultMinusOne = getMinusOneDayStr();
+  const [fFrom, setFFrom] = useState<string>(defaultMinusOne);
+  const [fTo, setFTo] = useState<string>(defaultMinusOne);
   const [fMgr, setFMgr] = useState('');
   const [fSuper, setFSuper] = useState('');
   const [fChannel, setFChannel] = useState('');
@@ -80,8 +115,29 @@ export default function SupervisorDashboard() {
   const [fAssetType, setFAssetType] = useState('');
   const [masters, setMasters] = useState<any>(null);
 
+  const setQuickDate = (preset: 'minus1' | 'today' | '7d' | 'mtd' | 'all') => {
+    if (preset === 'minus1') {
+      const d = getMinusOneDayStr();
+      setFFrom(d);
+      setFTo(d);
+    } else if (preset === 'today') {
+      const today = getTodayStr();
+      setFFrom(today);
+      setFTo(today);
+    } else if (preset === '7d') {
+      setFFrom(getNDaysAgoStr(7));
+      setFTo(getTodayStr());
+    } else if (preset === 'mtd') {
+      setFFrom(getFirstDayOfMonthStr());
+      setFTo(getTodayStr());
+    } else if (preset === 'all') {
+      setFFrom('');
+      setFTo('');
+    }
+  };
+
   const latestDateRef = useRef<string>('');
-  const initialDateApplied = useRef<boolean>(false);
+  const initialDateApplied = useRef<boolean>(true);
 
   // Helper to extract YYYY-MM-DD from row date
   const getRowDateStr = (r: any): string => {
@@ -139,25 +195,16 @@ export default function SupervisorDashboard() {
     } catch { /* ignore */ }
   };
 
-  // Instant restore from sessionStorage to eliminate 0-data flash on dashboard load
+  // Instant restore from sessionStorage/localStorage to eliminate 0-data flash on dashboard load
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v5');
+      const cached = sessionStorage.getItem('supervisor_dashboard_cache_v7') || (typeof window !== 'undefined' ? localStorage.getItem('supervisor_dashboard_cache_v7') : null) || sessionStorage.getItem('supervisor_dashboard_cache_v5');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.rows && parsed.rows.length > 0) {
           setRows(parsed.rows);
           if (parsed.reportRows) setReportRows(parsed.reportRows);
           if (parsed.masters) setMasters(parsed.masters);
-          const cLatest = parsed.latestDate || getLatestDateFromRows(parsed.rows);
-          if (cLatest) {
-            latestDateRef.current = cLatest;
-            if (!initialDateApplied.current) {
-              setFFrom(cLatest);
-              setFTo(cLatest);
-              initialDateApplied.current = true;
-            }
-          }
           setIsAnalyticsLoading(false);
         }
       }
@@ -183,23 +230,22 @@ export default function SupervisorDashboard() {
 
         if (foundLatestDate) {
           latestDateRef.current = foundLatestDate;
-          if (!initialDateApplied.current) {
-            setFFrom(foundLatestDate);
-            setFTo(foundLatestDate);
-            initialDateApplied.current = true;
-          }
         }
 
         setRows(newRows);
         setReportRows(newReportRows);
         setMasters(newMasters);
         try {
-          sessionStorage.setItem('supervisor_dashboard_cache_v5', JSON.stringify({
+          const cachePayload = JSON.stringify({
             rows: newRows,
             reportRows: newReportRows,
             masters: newMasters,
             latestDate: foundLatestDate || latestDateRef.current,
-          }));
+          });
+          sessionStorage.setItem('supervisor_dashboard_cache_v7', cachePayload);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('supervisor_dashboard_cache_v7', cachePayload);
+          }
         } catch (e) {
           // Ignore storage quota errors
         }
@@ -2298,42 +2344,80 @@ export default function SupervisorDashboard() {
         .kpis {
           display:grid;
           grid-template-columns:repeat(5, minmax(0, 1fr));
-          gap:10px;
-          margin-bottom:12px;
+          gap:12px;
+          margin-bottom:14px;
         }
-        @media(max-width:980px){
-          .kpis { grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); }
+        @media(max-width:1024px){
+          .kpis { grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); }
         }
         .kpi {
-          background:var(--card);
-          border-radius:12px;
-          padding:10px 14px;
-          box-shadow:var(--shadow);
+          position:relative;
+          background:linear-gradient(180deg, var(--card) 0%, rgba(248, 250, 252, 0.6) 100%);
+          border-radius:14px;
+          padding:12px 14px 10px;
+          box-shadow:0 4px 12px -2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03);
           border:1px solid var(--line);
+          overflow:hidden;
+          transition:transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .kpi:hover {
+          transform:translateY(-2px);
+          box-shadow:0 10px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+        }
+        .kpi::before {
+          content:'';
+          position:absolute;
+          top:0;
+          left:0;
+          right:0;
+          height:3.5px;
+        }
+        .kpi.b::before { background:linear-gradient(90deg, #4338ca, #6366f1); }
+        .kpi.g::before { background:linear-gradient(90deg, #059669, #10b981); }
+        .kpi.a::before { background:linear-gradient(90deg, #d97706, #f59e0b); }
+        .kpi.r::before { background:linear-gradient(90deg, #dc2626, #f43f5e); }
+        .kpi-head {
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          margin-bottom:3px;
         }
         .kpi .lbl {
           font-size:10px;
           color:var(--soft);
-          font-weight:700;
+          font-weight:800;
+          text-transform:uppercase;
+          letter-spacing:.05em;
+        }
+        .kpi-tag {
+          font-size:9px;
+          font-weight:800;
           text-transform:uppercase;
           letter-spacing:.04em;
+          padding:1px 6px;
+          border-radius:99px;
         }
+        .kpi.b .kpi-tag { background:#eef2ff; color:#4338ca; }
+        .kpi.g .kpi-tag { background:#ecfdf5; color:#047857; }
+        .kpi.a .kpi-tag { background:#fffbeb; color:#b45309; }
+        .kpi.r .kpi-tag { background:#fef2f2; color:#b91c1c; }
         .kpi .val {
-          font-size:24px;
-          font-weight:800;
-          letter-spacing:-1px;
+          font-size:28px;
+          font-weight:900;
+          letter-spacing:-1.2px;
+          line-height:1.1;
           margin-top:2px;
         }
         .kpi .delta {
           font-size:11px;
-          font-weight:700;
-          margin-top:2px;
+          font-weight:600;
+          margin-top:3px;
           color:var(--soft);
         }
-        .kpi.b .val { color:var(--blue-deep); }
-        .kpi.g .val { color:var(--green); }
-        .kpi.a .val { color:var(--amber); }
-        .kpi.r .val { color:var(--red); }
+        .kpi.b .val { color:#3730a3; }
+        .kpi.g .val { color:#047857; }
+        .kpi.a .val { color:#b45309; }
+        .kpi.r .val { color:#b91c1c; }
         .grid {
           display:grid;
           grid-template-columns:2fr 1fr;
@@ -2553,123 +2637,206 @@ export default function SupervisorDashboard() {
           );
         })()}
 
-          {/* Dropdown Filters */}
+          {/* Dropdown Filters with Quick Date Presets */}
           <div className="filters">
-            <div className="fld">
-              <label>From</label>
-              <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
-            </div>
-
-            <div className="fld">
-              <label>To</label>
-              <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
-            </div>
-
-
-
-            <div className="fld min-w-[120px]">
-              <label>RTM</label>
-              <select
-                value={fChannel}
-                onChange={(e) => {
-                  setFChannel(e.target.value);
-                  setFClass('');
-                  setFCust('');
-                }}
+            {/* Quick Date Presets */}
+            <div className="w-full flex items-center gap-2 flex-wrap mb-2 pb-2 border-b border-[var(--line)]">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--soft)] mr-1">
+                Date Presets:
+              </span>
+              <button
+                type="button"
+                onClick={() => setQuickDate('minus1')}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  fFrom === getMinusOneDayStr() && fTo === getMinusOneDayStr()
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
+                }`}
               >
-                <option value="">All RTM</option>
-                {rtmOptions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+                <span>⚡ -1 Day (Yesterday)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickDate('today')}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  fFrom === getTodayStr() && fTo === getTodayStr()
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickDate('7d')}
+                className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+              >
+                Last 7 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickDate('mtd')}
+                className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+              >
+                This Month
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickDate('all')}
+                className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+              >
+                All Dates
+              </button>
             </div>
 
-            <div className="fld">
-              <label>Classification</label>
-            <select value={fClass} onChange={(e) => {
-              setFClass(e.target.value);
-              setFCust('');
-            }}>
-              <option value="">All Classifications</option>
-              {classOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            <div className="flex gap-2 flex-wrap items-end w-full">
+              <div className="fld">
+                <label>From</label>
+                <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
+              </div>
+
+              <div className="fld">
+                <label>To</label>
+                <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
+              </div>
+
+              <div className="fld min-w-[120px]">
+                <label>RTM</label>
+                <select
+                  value={fChannel}
+                  onChange={(e) => {
+                    setFChannel(e.target.value);
+                    setFClass('');
+                    setFCust('');
+                  }}
+                >
+                  <option value="">All RTM</option>
+                  {rtmOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="fld">
+                <label>Classification</label>
+                <select value={fClass} onChange={(e) => {
+                  setFClass(e.target.value);
+                  setFCust('');
+                }}>
+                  <option value="">All Classifications</option>
+                  {classOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="fld">
+                <label>Outlet / Customer</label>
+                <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
+                  <option value="">All Outlets</option>
+                  {custOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="fld">
+                <label>Route Code</label>
+                <select value={fRoute} onChange={(e) => {
+                  setFRoute(e.target.value);
+                  setFCust('');
+                }}>
+                  <option value="">All Route Codes</option>
+                  {routeOptions.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button className="reset" onClick={resetFilters}>Reset</button>
+            </div>
           </div>
 
-          <div className="fld">
-            <label>Outlet / Customer</label>
-            <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
-              <option value="">All Outlets</option>
-              {custOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+          {/* High-Visibility Dark Executive Loading Banner */}
+          {isAnalyticsLoading && (
+            <div className="relative overflow-hidden mb-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-indigo-500/40 p-4 shadow-2xl text-white animate-fade-in">
+              <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-600/30 border border-indigo-400/50 flex items-center justify-center text-cyan-300 shadow-inner flex-shrink-0 animate-spin">
+                    <RefreshCw className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                        LIVE DATABASE SYNC
+                      </span>
+                      <span className="text-[11px] text-slate-300 font-semibold">
+                        Benchmark: -1 Day Operations ({fFrom || defaultMinusOne})
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-white mt-0.5 tracking-tight">
+                      Loading supervisor market visit analytics, cold chain audits, and master records in background...
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-[11px] font-mono text-cyan-300 shadow-sm">
+                  <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+                  <span className="font-bold">SYNCHRONIZING</span>
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-cyan-400 to-indigo-600 animate-pulse" />
+            </div>
+          )}
+
+          {/* Active description */}
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="active-note flex-grow" dangerouslySetInnerHTML={{ __html: activeNote }} />
+            <ExportButton onClick={handleExportKpis} label="Export KPI Summary" variant="compact" />
           </div>
 
-          <div className="fld">
-            <label>Route Code</label>
-            <select value={fRoute} onChange={(e) => {
-              setFRoute(e.target.value);
-              setFCust('');
-            }}>
-              <option value="">All Route Codes</option>
-              {routeOptions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
+          {/* Luxury Executive KPI Cards */}
+          <div className="kpis">
+            <div className="kpi b">
+              <div className="kpi-head">
+                <span className="lbl">Total Visits</span>
+                <span className="kpi-tag">Execution</span>
+              </div>
+              <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : filtered.length}</div>
+              <div className="delta">visits logged</div>
+            </div>
+            <div className="kpi g">
+              <div className="kpi-head">
+                <span className="lbl">Outlets Covered</span>
+                <span className="kpi-tag">Reach</span>
+              </div>
+              <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : outletsCount}</div>
+              <div className="delta">unique outlets</div>
+            </div>
+            <div className="kpi a">
+              <div className="kpi-head">
+                <span className="lbl">No Visits</span>
+                <span className="kpi-tag">Skipped</span>
+              </div>
+              <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : noVisitCount}</div>
+              <div className="delta">skipped outlet visits</div>
+            </div>
+            <div className="kpi b">
+              <div className="kpi-head">
+                <span className="lbl">Assets Checked</span>
+                <span className="kpi-tag">Cold Chain</span>
+              </div>
+              <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : filtered.length}</div>
+              <div className="delta">chillers/freezers</div>
+            </div>
+            <div className="kpi r">
+              <div className="kpi-head">
+                <span className="lbl">Temp Breaches</span>
+                <span className="kpi-tag">Alert</span>
+              </div>
+              <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : breachesCount}</div>
+              <div className="delta">{breachPct}</div>
+            </div>
           </div>
-
-          <button className="reset" onClick={resetFilters}>Reset</button>
-          {/* <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" /> */}
-        </div>
-
-        {isAnalyticsLoading && (
-          <div className="flex items-center justify-center gap-2 p-3 mb-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-[var(--accent)] animate-pulse">
-            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            <span>Updating analytics and chart performance metrics in background...</span>
-          </div>
-        )}
-
-        {/* Active description */}
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="active-note flex-grow" dangerouslySetInnerHTML={{ __html: activeNote }} />
-          <ExportButton onClick={handleExportKpis} label="Export KPI Summary" variant="compact" />
-        </div>
-
-        {/* KPI Cards */}
-        <div className="kpis">
-          <div className="kpi b">
-            <div className="lbl">Total Visits</div>
-            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : filtered.length}</div>
-            <div className="delta">visits logged</div>
-          </div>
-          <div className="kpi g">
-            <div className="lbl">Outlets Covered</div>
-            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : outletsCount}</div>
-            <div className="delta">unique outlets</div>
-          </div>
-          <div className="kpi a">
-            <div className="lbl">No Visits</div>
-            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : noVisitCount}</div>
-            <div className="delta">skipped outlet visits</div>
-          </div>
-          <div className="kpi b">
-            <div className="lbl">Assets Checked</div>
-            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : filtered.length}</div>
-            <div className="delta">chillers/freezers</div>
-          </div>
-          <div className="kpi r">
-            <div className="lbl">Temp Breaches</div>
-            <div className="val">{isAnalyticsLoading && rows.length === 0 ? '...' : breachesCount}</div>
-            <div className="delta">{breachPct}</div>
-          </div>
-          {/* <div className="kpi g">
-            <div className="lbl">FEFO Compliance</div>
-            <div className="val">{fefoPct}</div>
-            <div className="delta">assets following FEFO</div>
-          </div> */}
-        </div>
 
         {/* Row 1 Grid */}
         <div style={{ marginBottom: '16px' }}>
