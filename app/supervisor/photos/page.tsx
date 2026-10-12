@@ -26,6 +26,8 @@ import {
   Clock,
   Eye,
   X,
+  Layers,
+  RotateCcw,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
@@ -72,7 +74,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
     return `${y}-${m}-${day}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
+  const [fromDate, setFromDate] = useState<string>(getTodayStr());
+  const [toDate, setToDate] = useState<string>(getTodayStr());
+  const [selectedRtm, setSelectedRtm] = useState<string>('all');
+  const [rtms, setRtms] = useState<string[]>(['TT', 'MT', 'INST']);
   const [selectedApp, setSelectedApp] = useState<string>('all');
   const [selectedRoute, setSelectedRoute] = useState<string>('all');
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all');
@@ -107,9 +112,11 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
       try {
         const params = new URLSearchParams();
-        if (selectedDate) params.set('date', selectedDate);
-        else params.set('date', 'all');
+        if (fromDate) params.set('fromDate', fromDate);
+        if (toDate) params.set('toDate', toDate);
+        if (!fromDate && !toDate) params.set('date', 'all');
 
+        if (selectedRtm && selectedRtm !== 'all') params.set('rtm', selectedRtm);
         if (selectedApp && selectedApp !== 'all') params.set('appName', selectedApp);
         if (selectedRoute && selectedRoute !== 'all') params.set('routeCode', selectedRoute);
         if (selectedOutlet && selectedOutlet !== 'all') params.set('outlet', selectedOutlet);
@@ -122,6 +129,11 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
         if (data.success) {
           setPhotos(data.photos || []);
+          if (data.rtms && Array.isArray(data.rtms)) {
+            setRtms(data.rtms);
+          } else if (data.channels && Array.isArray(data.channels)) {
+            setRtms(data.channels);
+          }
           if (data.applications && Array.isArray(data.applications)) {
             setApplications(data.applications);
           }
@@ -142,7 +154,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
         setIsRefreshing(false);
       }
     },
-    [selectedDate, selectedApp, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
+    [fromDate, toDate, selectedRtm, selectedApp, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
   );
 
   // Fetch GM / Admin Action Directives
@@ -168,7 +180,9 @@ export default function SupervisorAuditPhotoGalleryPage() {
   }, [fetchPhotos, fetchActionItems]);
 
   const handleResetFilters = () => {
-    setSelectedDate(getTodayStr());
+    setFromDate(getTodayStr());
+    setToDate(getTodayStr());
+    setSelectedRtm('all');
     setSelectedApp('all');
     setSelectedRoute('all');
     setSelectedOutlet('all');
@@ -181,7 +195,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
       filename: `my_audit_photos_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Audit Photos',
       title: 'My Audit Photo Gallery Log',
-      filterSummary: `Date: ${selectedDate || 'All'} | App: ${selectedApp} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
+      filterSummary: `Dates: ${fromDate || 'Start'} to ${toDate || 'End'} | RTM: ${selectedRtm} | App: ${selectedApp} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
       columns: [
         { header: 'Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
         { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
@@ -348,31 +362,70 @@ export default function SupervisorAuditPhotoGalleryPage() {
             <SlidersHorizontal className="h-4 w-4 text-accent" />
             Filter Gallery
           </div>
-          {(selectedDate || selectedApp !== 'all' || selectedOutlet !== 'all' || searchQuery) && (
+          {(fromDate !== getTodayStr() || toDate !== getTodayStr() || selectedRtm !== 'all' || selectedApp !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery) && (
             <button
               onClick={handleResetFilters}
-              className="text-[11px] font-medium text-accent hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:underline cursor-pointer"
             >
+              <RotateCcw className="h-3 w-3" />
               Reset Filters
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-          {/* Date Selector */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {/* From Date Slicer */}
           <div className="space-y-1">
             <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-accent" /> Date Filter
+              <Calendar className="h-3.5 w-3.5 text-accent" /> From Date
             </label>
             <input
               type="date"
-              value={selectedDate}
+              value={fromDate}
               onChange={(e) => {
-                setSelectedDate(e.target.value);
+                setFromDate(e.target.value);
                 setCurrentPage(1);
               }}
               className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
             />
+          </div>
+
+          {/* To Date Slicer */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-accent" /> To Date
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
+            />
+          </div>
+
+          {/* RTM Slicer */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 text-accent" /> RTM Slicer
+            </label>
+            <select
+              value={selectedRtm}
+              onChange={(e) => {
+                setSelectedRtm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors cursor-pointer"
+            >
+              <option value="all">All RTM Channels</option>
+              {rtms.map((rtm) => (
+                <option key={rtm} value={rtm}>
+                  {rtm}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Dynamic Route Code Filter */}
@@ -386,7 +439,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
                 setSelectedRoute(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
+              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors cursor-pointer"
             >
               <option value="all">All Routes ({routes.length})</option>
               {routes.map((rt) => (
@@ -408,7 +461,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
                 setSelectedOutlet(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors"
+              className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors cursor-pointer"
             >
               <option value="all">All Outlets ({outlets.length})</option>
               {outlets.map((outlet) => (
@@ -439,6 +492,56 @@ export default function SupervisorAuditPhotoGalleryPage() {
             </div>
           </div>
         </div>
+
+        {/* Quick Date Shortcuts */}
+        <div className="pt-2 border-t border-[var(--border-soft)] flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-[11px] text-[var(--text-muted)]">
+            Viewing records{' '}
+            {fromDate || toDate ? (
+              <>
+                from <strong className="text-[var(--text-primary)]">{fromDate || 'Beginning'}</strong> to{' '}
+                <strong className="text-[var(--text-primary)]">{toDate || 'Present'}</strong>
+              </>
+            ) : (
+              <strong className="text-[var(--text-primary)]">All Available Dates</strong>
+            )}
+            {selectedRtm !== 'all' && (
+              <>
+                {' '}• RTM Channel: <strong className="text-accent">{selectedRtm}</strong>
+              </>
+            )}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                setFromDate(getTodayStr());
+                setToDate(getTodayStr());
+                setCurrentPage(1);
+              }}
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
+                fromDate === getTodayStr() && toDate === getTodayStr()
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => {
+                setFromDate('');
+                setToDate('');
+                setCurrentPage(1);
+              }}
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
+                !fromDate && !toDate
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+              }`}
+            >
+              All Dates
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Main Photo Grid */}
@@ -452,8 +555,8 @@ export default function SupervisorAuditPhotoGalleryPage() {
           <ImageIcon className="h-12 w-12 text-[var(--text-muted)] mx-auto opacity-40" />
           <h3 className="text-base font-bold text-[var(--text-primary)]">No Audit Photos Found</h3>
           <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto">
-            {selectedDate
-              ? `There are no photos recorded for ${selectedDate}. Try selecting "All Dates" or clearing filters.`
+            {fromDate || toDate
+              ? `There are no photos recorded for the selected date range (${fromDate || 'Start'} to ${toDate || 'End'}). Try selecting "All Dates" or clearing filters.`
               : 'You have not submitted any audit photos yet.'}
           </p>
         </div>
