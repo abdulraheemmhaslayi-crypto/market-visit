@@ -22,6 +22,7 @@ import { ExportButton } from '@/components/ui/ExportButton';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
 import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
+import AuditActionsTrackerSummary from '@/components/dashboard/AuditActionsTrackerSummary';
 
 const GCOL: Record<string, string> = {
   A: '#0b7a4c',
@@ -3191,17 +3192,14 @@ export default function SupervisorDashboard() {
           onRowClick={(r) => handleOpenReview(r.visitId || r.id)}
         />
 
-        {/* Audit Photo Gallery Section with Pagination */}
-        {/* <PhotoGallerySection
-          photos={photos}
-          fFrom={fFrom}
-          fTo={fTo}
-          fMgr={fMgr}
-          fSuper={fSuper}
-          fChannel={fChannel}
-          fCust={fCust}
-          fRoute={fRoute}
-        /> */}
+        {/* Corrective Actions & Audit Directives Tracker Summary Sheet */}
+        <AuditActionsTrackerSummary
+          selectedSupervisor={fSuper || 'all'}
+          selectedRtm={fChannel || 'all'}
+          userRole="Supervisor"
+          title="Directives & Corrective Actions Tracker"
+          subtitle="Field supervisor accountability sheet: Track audit issues flagged, proof submissions, open directives, and resolution compliance."
+        />
 
         {/* Footer */}
         <div className="foot">

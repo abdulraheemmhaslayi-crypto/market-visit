@@ -14,6 +14,7 @@ import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
 import { getSizeModelsForCategory, ASSET_CATEGORIES } from '@/utils/asset-config';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
 import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
+import AuditActionsTrackerSummary from '@/components/dashboard/AuditActionsTrackerSummary';
 import { RefreshCw } from 'lucide-react';
 
 const GCOL: Record<string, string> = {
@@ -3113,17 +3114,15 @@ export default function AdminDashboardPage() {
           subtitle="Outlet-level audit details, SKU availability counts, and cold chain asset models"
         />
 
-        {/* Audit Photo Gallery Section with Pagination */}
-        {/* <PhotoGallerySection
-          photos={photos}
-          fFrom={fFrom}
-          fTo={fTo}
-          fMgr={fMgr}
-          fSuper={fSuper}
-          fChannel={fChannel}
-          fCust={fCust}
-          fRoute={fRoute}
-        /> */}
+        {/* Corrective Actions & Audit Directives Tracker Summary Sheet */}
+        <AuditActionsTrackerSummary
+          selectedManager={fMgr.length === 1 ? fMgr[0] : 'all'}
+          selectedSupervisor={fSuper.length === 1 ? fSuper[0] : 'all'}
+          selectedRtm={fChannel || 'all'}
+          userRole={userRole || 'Admin'}
+          title="Directives & Corrective Actions Tracker"
+          subtitle="Manager & Supervisor accountability sheet: Track audit issues flagged, proof submissions, open directives, and resolution compliance."
+        />
 
         {/* Footer */}
         <div className="foot">
