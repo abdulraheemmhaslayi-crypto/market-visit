@@ -34,6 +34,7 @@ import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 import { AuditActionItem } from '@/lib/audit-actions';
+import { useSession } from 'next-auth/react';
 
 export interface AuditPhoto {
   photoId: string;
@@ -68,6 +69,11 @@ export interface AuditPhoto {
 }
 
 export default function SupervisorAuditPhotoGalleryPage() {
+  const { data: session } = useSession();
+  const currentSupervisorName = useMemo(() => {
+    return (session?.user?.name || '').trim();
+  }, [session?.user?.name]);
+
   const getMinusOneDayStr = (): string => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
@@ -184,14 +190,25 @@ export default function SupervisorAuditPhotoGalleryPage() {
     [fromDate, toDate, selectedRtm, selectedApp, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
   );
 
-  // Fetch GM / Admin Action Directives
+  // Fetch GM / Admin Action Directives scoped to this supervisor
   const fetchActionItems = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/audit-actions');
+      const url = currentSupervisorName
+        ? `/api/admin/audit-actions?supervisor=${encodeURIComponent(currentSupervisorName)}`
+        : '/api/admin/audit-actions';
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success && Array.isArray(data.items)) {
         const map: Record<string, AuditActionItem> = {};
         data.items.forEach((item: AuditActionItem) => {
+          // Strict isolation: only map directives assigned to this supervisor
+          if (currentSupervisorName) {
+            const itemSup = (item.supervisor || '').trim().toLowerCase();
+            const currSup = currentSupervisorName.toLowerCase();
+            if (itemSup && itemSup !== currSup) {
+              return;
+            }
+          }
           map[item.photoId] = item;
         });
         setActionItemsMap(map);
@@ -199,7 +216,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
     } catch (err) {
       console.error('Failed to load supervisor audit action items:', err);
     }
-  }, []);
+  }, [currentSupervisorName]);
 
   useEffect(() => {
     fetchPhotos(false);
@@ -248,10 +265,17 @@ export default function SupervisorAuditPhotoGalleryPage() {
     return { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' };
   };
 
-  const pendingActionItems = useMemo(
-    () => Object.values(actionItemsMap).filter((a) => a.actionStatus === 'PENDING'),
-    [actionItemsMap]
-  );
+  const pendingActionItems = useMemo(() => {
+    return Object.values(actionItemsMap).filter((a) => {
+      if (a.actionStatus !== 'PENDING') return false;
+      if (currentSupervisorName) {
+        const itemSup = (a.supervisor || '').trim().toLowerCase();
+        const currSup = currentSupervisorName.toLowerCase();
+        if (itemSup && itemSup !== currSup) return false;
+      }
+      return true;
+    });
+  }, [actionItemsMap, currentSupervisorName]);
   const pendingActionCount = pendingActionItems.length;
 
   const displayedPhotos = useMemo(() => {

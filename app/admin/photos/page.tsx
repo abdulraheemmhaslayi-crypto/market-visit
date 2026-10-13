@@ -981,8 +981,13 @@ export default function AuditPhotoGalleryPage() {
                     </p>
                     <p className="text-[11px] text-[var(--text-secondary)] truncate flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 text-[var(--text-muted)] flex-shrink-0" />
-                      <span>
+                      <span className="flex items-center flex-wrap gap-1">
                         Supervisor: <strong className="text-[var(--text-primary)]">{photo.supervisor}</strong>
+                        {action?.supervisor && action.supervisor.toUpperCase() !== (photo.supervisor || '').toUpperCase() ? (
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            Directive: {action.supervisor}
+                          </span>
+                        ) : null}
                       </span>
                     </p>
 
@@ -1244,6 +1249,7 @@ export default function AuditPhotoGalleryPage() {
         title="Admin Audit Photo Gallery"
         userRole="Admin"
         actionItems={actionItemsMap}
+        supervisors={supervisors.length > 0 ? supervisors : filteredSupervisorOptions}
         onActionUpdated={() => {
           fetchActionItems();
           fetchPhotos(true);

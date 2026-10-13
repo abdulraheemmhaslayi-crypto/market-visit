@@ -85,7 +85,20 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, photoId, actionStatus, supervisorComment, proofPhotoUrl, gmResolutionNotes } = body;
+    const {
+      id,
+      photoId,
+      actionStatus,
+      supervisorComment,
+      proofPhotoUrl,
+      gmResolutionNotes,
+      supervisor,
+      manager,
+      channel,
+      gmComment,
+      priority,
+      deadline,
+    } = body;
 
     const targetId = id || photoId;
     if (!targetId) {
@@ -96,6 +109,25 @@ export async function PATCH(req: NextRequest) {
 
     if (actionStatus) {
       updates.actionStatus = actionStatus;
+    }
+
+    // Support reassigning supervisor / manager / channel
+    if (supervisor !== undefined && String(supervisor).trim()) {
+      updates.supervisor = String(supervisor).trim();
+      if (manager !== undefined) updates.manager = manager;
+      if (channel !== undefined) updates.channel = channel;
+    }
+
+    if (gmComment !== undefined && String(gmComment).trim()) {
+      updates.gmComment = String(gmComment).trim();
+    }
+
+    if (priority !== undefined) {
+      updates.priority = priority;
+    }
+
+    if (deadline !== undefined) {
+      updates.deadline = deadline;
     }
 
     // When supervisor submits proof:
