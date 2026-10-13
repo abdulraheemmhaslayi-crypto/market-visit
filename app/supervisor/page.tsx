@@ -11,7 +11,7 @@ import { useTheme } from '@/providers/theme-provider';
 import {
   FileText, Clock, CheckCircle2, Eye, PlusCircle,
   AlertTriangle, MapPin, X, Calendar, Trash2, Thermometer,
-  RefreshCw, ChevronRight,
+  RefreshCw, ChevronRight
 } from 'lucide-react';
 import { Visit, VisitPhoto, VisitWizardState, NPDResponse, VisitAsset, VisitPowerSkuResult } from '@/types';
 import InteractiveChartTableModal from '@/components/dashboard/InteractiveChartTableModal';
@@ -2450,56 +2450,61 @@ export default function SupervisorDashboard() {
           padding:14px 14px;
         }
         .filters {
-          display:flex;
-          gap:8px;
-          flex-wrap:wrap;
-          margin-bottom:8px;
-          align-items:flex-end;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          margin-bottom: 8px;
         }
         .fld {
-          display:flex;
-          flex-direction:column;
-          gap:4px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          position: relative;
         }
         .fld label {
-          font-size:10.5px;
-          font-weight:800;
-          text-transform:uppercase;
-          letter-spacing:.05em;
-          color:var(--soft);
-          padding-left:4px;
+          font-size: 10.5px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+          color: var(--soft);
+          padding-left: 2px;
         }
         .filters select,
-        .filters input {
-          padding:8px 11px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:600;
-          color:var(--ink);
-          cursor:pointer;
-          min-width:120px;
+        .filters input:not([type="checkbox"]) {
+          padding: 8px 11px;
+          height: 38px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--ink);
+          cursor: pointer;
+          min-width: 120px;
         }
-        .filters input {
-          cursor:text;
+        .filters input:not([type="checkbox"]) {
+          cursor: text;
+        }
+        .filters input[type="date"] {
+          cursor: pointer;
         }
         .filters select:focus,
-        .filters input:focus {
-          outline:none;
-          border-color:var(--blue);
+        .filters input:not([type="checkbox"]):focus {
+          outline: none;
+          border-color: var(--blue);
         }
         .reset {
-          padding:8px 12px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:700;
-          color:var(--blue-deep);
-          cursor:pointer;
+          padding: 8px 12px;
+          height: 38px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--blue-deep, #4F46E5);
+          cursor: pointer;
         }
         .active-note {
           font-size:11px;
@@ -2817,9 +2822,9 @@ export default function SupervisorDashboard() {
           {/* Dropdown Filters with Quick Date Presets */}
           <div className="filters">
             {/* Quick Date Presets */}
-            <div className="w-full flex items-center gap-2 flex-wrap mb-2 pb-2 border-b border-[var(--line)]">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--soft)] mr-1">
-                Date Presets:
+            <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-1 text-xs">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--soft)] mr-1 flex items-center gap-1">
+                <span>DATE PRESETS:</span>
               </span>
               <button
                 type="button"
@@ -2866,14 +2871,15 @@ export default function SupervisorDashboard() {
               </button>
             </div>
 
-            <div className="flex gap-2 flex-wrap items-end w-full">
+            {/* Row 1 Slicers */}
+            <div className="flex gap-2 flex-wrap items-end">
               <div className="fld">
-                <label>From</label>
+                <label>FROM</label>
                 <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
               </div>
 
               <div className="fld">
-                <label>To</label>
+                <label>TO</label>
                 <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
               </div>
 
@@ -2894,8 +2900,8 @@ export default function SupervisorDashboard() {
                 </select>
               </div>
 
-              <div className="fld">
-                <label>Classification</label>
+              <div className="fld min-w-[150px]">
+                <label>CLASSIFICATION</label>
                 <select value={fClass} onChange={(e) => {
                   setFClass(e.target.value);
                   setFCust('');
@@ -2906,9 +2912,12 @@ export default function SupervisorDashboard() {
                   ))}
                 </select>
               </div>
+            </div>
 
-              <div className="fld">
-                <label>Outlet / Customer</label>
+            {/* Row 2: OUTLET / CUSTOMER, ROUTE CODE, Reset */}
+            <div className="flex gap-2 flex-wrap items-end mt-2">
+              <div className="fld flex-1 min-w-[280px] max-w-[420px]">
+                <label>OUTLET / CUSTOMER</label>
                 <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
                   <option value="">All Outlets</option>
                   {custOptions.map((c) => (
@@ -2917,10 +2926,11 @@ export default function SupervisorDashboard() {
                 </select>
               </div>
 
-              <div className="fld">
-                <label>Route Code</label>
+              <div className="fld min-w-[150px]">
+                <label>ROUTE CODE</label>
                 <select value={fRoute} onChange={(e) => {
-                  setFRoute(e.target.value);
+                  const val = e.target.value;
+                  setFRoute(val);
                   setFCust('');
                 }}>
                   <option value="">All Route Codes</option>

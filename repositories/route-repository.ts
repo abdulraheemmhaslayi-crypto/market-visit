@@ -294,8 +294,7 @@ export const routeRepository = {
   async clearObsoleteRoutes(activeCodes: string[]): Promise<number> {
     await ensureRouteTableSchema();
     if (activeCodes.length === 0) {
-      const [result]: any = await pool.execute('DELETE FROM `Route`');
-      return result.affectedRows || 0;
+      return 0;
     }
 
     const activeSet = new Set(activeCodes);
@@ -310,11 +309,18 @@ export const routeRepository = {
     for (let i = 0; i < toDelete.length; i += chunkSize) {
       const chunk = toDelete.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => '?').join(',');
-      const [res]: any = await pool.execute(
-        `DELETE FROM \`Route\` WHERE \`routeCode\` IN (${placeholders})`,
-        chunk
-      );
-      deleted += res.affectedRows || 0;
+      try {
+        const [res]: any = await pool.execute(
+          `DELETE FROM \`Route\` 
+           WHERE \`routeCode\` IN (${placeholders})
+             AND \`routeCode\` NOT IN (SELECT DISTINCT \`routeCode\` FROM \`CustomerRouteMapping\`)
+             AND \`routeCode\` NOT IN (SELECT DISTINCT \`routeCode\` FROM \`Visit\`)`,
+          chunk
+        );
+        deleted += res.affectedRows || 0;
+      } catch (err: any) {
+        console.warn('Skipped deleting some obsolete routes due to foreign key constraints:', err.message);
+      }
     }
     return deleted;
   },

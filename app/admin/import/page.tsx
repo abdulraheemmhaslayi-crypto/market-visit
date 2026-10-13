@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { validateExcelAction, importExcelAction } from '@/actions/import-actions';
 import { useToast } from '@/components/ui/toast';
 import {
   UploadCloud, FileSpreadsheet, CheckCircle2,
@@ -197,10 +196,34 @@ export default function MasterImportPage() {
     setLoading(true);
     setStep('IMPORTING');
     try {
-      const summaryResult = await importExcelAction({
-        ...importPayload,
-        clearObsolete: true,
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...importPayload,
+          clearObsolete: activeImportKey === 'ALL',
+        }),
       });
+
+      if (!response.ok) {
+        let errorMsg = `Server error (${response.status})`;
+        try {
+          const errData = await response.json();
+          if (errData.error) errorMsg = errData.error;
+        } catch {
+          const errText = await response.text();
+          if (errText) errorMsg = errText;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const summaryResult = await response.json();
+      if (summaryResult.error) {
+        throw new Error(summaryResult.error);
+      }
+
       setSummary(summaryResult);
       setStep('SUMMARY');
       showToast('Database synchronization complete.', 'success');

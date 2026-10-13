@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { importExcelAction } from '@/actions/import-actions';
 
+export const maxDuration = 120;
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Authentication required. Please re-login.' }, { status: 401 });
     }
     const user = session.user as any;
     if (user.role !== 'Admin' || user.status !== 'Active') {
-      return NextResponse.json({ error: 'Access denied. Admin role required.' }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied. Administrator privileges required.' }, { status: 403 });
     }
 
     const payload = await req.json();

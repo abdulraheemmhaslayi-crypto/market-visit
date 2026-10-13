@@ -497,16 +497,81 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Build supervisor to channel mapping from custMaster & enriched photos
+    const supervisorChannelMap: Record<string, string[]> = {};
+    (custMaster?.routes || []).forEach((r: any) => {
+      const sup = (r.superName || '').trim().toUpperCase();
+      if (sup && !EXCLUDED_SUPS.has(sup)) {
+        const ch = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+        if (!supervisorChannelMap[sup]) supervisorChannelMap[sup] = [];
+        if (!supervisorChannelMap[sup].includes(ch)) supervisorChannelMap[sup].push(ch);
+      }
+    });
+    (custMaster?.customers || []).forEach((c: any) => {
+      const sup = (c.superName || '').trim().toUpperCase();
+      if (sup && !EXCLUDED_SUPS.has(sup)) {
+        let ch = (c.rtm || c.channel || '').toUpperCase();
+        if (!ch && c.routeCode) ch = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+        if (ch) {
+          if (!supervisorChannelMap[sup]) supervisorChannelMap[sup] = [];
+          if (!supervisorChannelMap[sup].includes(ch)) supervisorChannelMap[sup].push(ch);
+        }
+      }
+    });
+    allEnrichedPhotos.forEach((p: any) => {
+      const sup = (p.supervisor || '').trim().toUpperCase();
+      const ch = (p.rtm || p.channel || '').trim().toUpperCase();
+      if (sup && ch && !EXCLUDED_SUPS.has(sup)) {
+        if (!supervisorChannelMap[sup]) supervisorChannelMap[sup] = [];
+        if (!supervisorChannelMap[sup].includes(ch)) supervisorChannelMap[sup].push(ch);
+      }
+    });
+
     // Dynamic extraction of distinct Supervisors, Outlets, Routes & RTM Channels
     const dbSupSet = new Set<string>();
     const dbOutletSet = new Set<string>();
     const dbRouteSet = new Set<string>();
     const dbRtmSet = new Set<string>();
 
-    dateFilteredPhotos.forEach((p: any) => {
-      if (p.supervisor && !EXCLUDED_SUPS.has(p.supervisor.toUpperCase())) dbSupSet.add(p.supervisor);
+    // Candidate photos for supervisor dropdown respecting manager and RTM filters
+    let supCandidatePhotos = dateFilteredPhotos;
+    if (managerParam && managerParam !== 'all') {
+      const targetMgr = managerParam.trim().toLowerCase();
+      supCandidatePhotos = supCandidatePhotos.filter((p: any) => (p.manager || '').toLowerCase() === targetMgr);
+    }
+    if (rtmParam && rtmParam !== 'all') {
+      const targetRtm = rtmParam.trim().toUpperCase();
+      supCandidatePhotos = supCandidatePhotos.filter((p: any) => (p.rtm || p.channel || '').toUpperCase() === targetRtm);
+    }
+    supCandidatePhotos.forEach((p: any) => {
+      if (p.supervisor && !EXCLUDED_SUPS.has(p.supervisor.toUpperCase())) {
+        if (rtmParam && rtmParam !== 'all') {
+          const supChans = supervisorChannelMap[p.supervisor.toUpperCase()] || [(p.rtm || p.channel || '').toUpperCase()];
+          if (supChans.includes(rtmParam.trim().toUpperCase())) {
+            dbSupSet.add(p.supervisor);
+          }
+        } else {
+          dbSupSet.add(p.supervisor);
+        }
+      }
+    });
+
+    // Routes and Outlets respecting manager and RTM filters
+    let routeOutletCandidatePhotos = dateFilteredPhotos;
+    if (managerParam && managerParam !== 'all') {
+      const targetMgr = managerParam.trim().toLowerCase();
+      routeOutletCandidatePhotos = routeOutletCandidatePhotos.filter((p: any) => (p.manager || '').toLowerCase() === targetMgr);
+    }
+    if (rtmParam && rtmParam !== 'all') {
+      const targetRtm = rtmParam.trim().toUpperCase();
+      routeOutletCandidatePhotos = routeOutletCandidatePhotos.filter((p: any) => (p.rtm || p.channel || '').toUpperCase() === targetRtm);
+    }
+    routeOutletCandidatePhotos.forEach((p: any) => {
       if (p.outlet) dbOutletSet.add(p.outlet);
       if (p.route) dbRouteSet.add(p.route);
+    });
+
+    dateFilteredPhotos.forEach((p: any) => {
       if (p.channel) dbRtmSet.add(p.channel);
     });
 
@@ -595,6 +660,7 @@ export async function GET(req: NextRequest) {
       applications,
       managers: custMaster.managers || [],
       supervisors,
+      supervisorChannels: supervisorChannelMap,
       outlets,
       routes,
       classifications: custMaster.classifications || ['A', 'B', 'C', 'D', 'E'],
