@@ -1256,12 +1256,14 @@ export async function GET(req: NextRequest) {
               routeName: r.routeName || `Route ${r.routeCode}`,
               superName: (r.superName || '').trim(),
               managerName: (r.managerName || '').trim(),
+              channel: r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT'),
             }))
           : routeRows.map((r: any) => ({
               routeCode: r.routeCode,
               routeName: r.routeName,
               superName: (r.superName || '').trim(),
               managerName: (r.managerName || '').trim(),
+              channel: r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT'),
             })),
         customers: custMaster?.customers?.length > 0
           ? custMaster.customers.map((c: any) => ({

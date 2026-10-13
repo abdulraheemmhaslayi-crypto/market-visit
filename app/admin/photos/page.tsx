@@ -151,11 +151,44 @@ export default function AuditPhotoGalleryPage() {
   const [photos, setPhotos] = useState<AuditPhoto[]>([]);
   const [applications, setApplications] = useState<string[]>([]);
   const [supervisors, setSupervisors] = useState<string[]>([]);
+  const [supervisorChannels, setSupervisorChannels] = useState<Record<string, string[]>>({});
   const [routes, setRoutes] = useState<string[]>([]);
   const [outlets, setOutlets] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  // Fallback supervisor to channel mapping for instant UI filtering
+  const KNOWN_SUPERVISOR_CHANNELS: Record<string, string[]> = {
+    WASIM: ['INST'],
+    ASAD: ['MT'],
+    RASHWIN: ['MT'],
+    MOHSIN: ['MT'],
+    JAVED: ['MT'],
+    SAIFULLAH: ['MT'],
+    KISHAN: ['MT'],
+    MUSAVEER: ['TT'],
+    WALI: ['TT'],
+    SAIF: ['TT'],
+    DANISH: ['TT'],
+    YASAR: ['TT'],
+    JAHID: ['TT'],
+    ZEESHAN: ['TT'],
+    RIZVI: ['TT'],
+  };
+
+  const filteredSupervisorOptions = useMemo(() => {
+    if (!selectedRtm || selectedRtm === 'all') return supervisors;
+    const target = selectedRtm.trim().toUpperCase();
+    return supervisors.filter((sup) => {
+      const upper = sup.trim().toUpperCase();
+      const chans = supervisorChannels[upper] || KNOWN_SUPERVISOR_CHANNELS[upper];
+      if (chans && chans.length > 0) {
+        return chans.includes(target);
+      }
+      return true;
+    });
+  }, [supervisors, selectedRtm, supervisorChannels]);
 
   const [pagination, setPagination] = useState({
     totalCount: 0,
@@ -224,6 +257,9 @@ export default function AuditPhotoGalleryPage() {
           }
           if (data.supervisors && Array.isArray(data.supervisors)) {
             setSupervisors(data.supervisors);
+          }
+          if (data.supervisorChannels && typeof data.supervisorChannels === 'object') {
+            setSupervisorChannels(data.supervisorChannels);
           }
           if (data.routes && Array.isArray(data.routes)) {
             setRoutes(data.routes);
@@ -672,7 +708,7 @@ export default function AuditPhotoGalleryPage() {
               className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
               <option value="all">All Supervisors</option>
-              {supervisors.map((sup) => (
+              {filteredSupervisorOptions.map((sup) => (
                 <option key={sup} value={sup}>
                   {sup}
                 </option>
@@ -689,8 +725,17 @@ export default function AuditPhotoGalleryPage() {
             <select
               value={selectedRtm}
               onChange={(e) => {
-                setSelectedRtm(e.target.value);
+                const newRtm = e.target.value;
+                setSelectedRtm(newRtm);
                 setCurrentPage(1);
+                if (newRtm !== 'all' && selectedSupervisor !== 'all') {
+                  const target = newRtm.trim().toUpperCase();
+                  const upperSup = selectedSupervisor.trim().toUpperCase();
+                  const chans = supervisorChannels[upperSup] || KNOWN_SUPERVISOR_CHANNELS[upperSup];
+                  if (chans && chans.length > 0 && !chans.includes(target)) {
+                    setSelectedSupervisor('all');
+                  }
+                }
               }}
               className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >

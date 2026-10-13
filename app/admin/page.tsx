@@ -323,9 +323,10 @@ export default function AdminDashboardPage() {
     );
   }, [masters]);
 
-  // 2. Supervisor Options: Filtered strictly by Manager if selected, otherwise all supervisors from CUSTMASTER
+  // 2. Supervisor Options: Filtered strictly by Manager and/or RTM Channel if selected, otherwise all supervisors from CUSTMASTER
   const supOptions = useMemo<string[]>(() => {
     if (!masters) return [];
+    let list: string[] = [];
     if (fMgr.length > 0) {
       const mgrUppers = fMgr.map((m) => m.toUpperCase());
       const supsSet = new Set<string>();
@@ -344,10 +345,37 @@ export default function AdminDashboardPage() {
             });
         }
       });
-      return Array.from(supsSet).sort();
+      list = Array.from(supsSet);
+    } else {
+      list = ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
     }
-    return ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
-  }, [masters, fMgr]);
+
+    if (fChannel) {
+      const targetChan = fChannel.trim().toUpperCase();
+      const channelSups = new Set<string>();
+
+      (masters.routes || []).forEach((r: any) => {
+        const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+        if (rChan === targetChan && r.superName) {
+          channelSups.add(r.superName.trim().toUpperCase());
+        }
+      });
+
+      (masters.customers || []).forEach((c: any) => {
+        let cChan = (c.rtm || c.channel || '').toUpperCase();
+        if (!cChan && c.routeCode) {
+          cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+        }
+        if (cChan === targetChan && c.superName) {
+          channelSups.add(c.superName.trim().toUpperCase());
+        }
+      });
+
+      list = list.filter((s) => channelSups.has(s.trim().toUpperCase()));
+    }
+
+    return list.sort();
+  }, [masters, fMgr, fChannel]);
 
   // 3. RTM Options: Strictly from CUSTMASTER Segment_Fin(120MT), filtered by selected Manager/Supervisor if applicable
   const rtmOptions = useMemo<string[]>(() => {
@@ -2777,7 +2805,22 @@ export default function AdminDashboardPage() {
                 selectedValues={fSuper}
                 onChange={(selected) => {
                   setFSuper(selected);
-                  setFChannel('');
+                  // Only reset fChannel if current fChannel doesn't belong to any of the newly selected supervisors
+                  if (fChannel && masters && selected.length > 0) {
+                    const targetChan = fChannel.trim().toUpperCase();
+                    const channelSups = new Set<string>();
+                    (masters.routes || []).forEach((r: any) => {
+                      const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+                      if (rChan === targetChan && r.superName) channelSups.add(r.superName.trim().toUpperCase());
+                    });
+                    (masters.customers || []).forEach((c: any) => {
+                      let cChan = (c.rtm || c.channel || '').toUpperCase();
+                      if (!cChan && c.routeCode) cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+                      if (cChan === targetChan && c.superName) channelSups.add(c.superName.trim().toUpperCase());
+                    });
+                    const hasInvalid = selected.some((s) => !channelSups.has(s.trim().toUpperCase()));
+                    if (hasInvalid) setFChannel('');
+                  }
                   setFClass('');
                   setFCust('');
                   setFRoute('');
@@ -2799,9 +2842,24 @@ export default function AdminDashboardPage() {
               <select
                 value={fChannel}
                 onChange={(e) => {
-                  setFChannel(e.target.value);
+                  const newChan = e.target.value;
+                  setFChannel(newChan);
                   setFClass('');
                   setFCust('');
+                  if (newChan && masters) {
+                    const targetChan = newChan.trim().toUpperCase();
+                    const channelSups = new Set<string>();
+                    (masters.routes || []).forEach((r: any) => {
+                      const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+                      if (rChan === targetChan && r.superName) channelSups.add(r.superName.trim().toUpperCase());
+                    });
+                    (masters.customers || []).forEach((c: any) => {
+                      let cChan = (c.rtm || c.channel || '').toUpperCase();
+                      if (!cChan && c.routeCode) cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+                      if (cChan === targetChan && c.superName) channelSups.add(c.superName.trim().toUpperCase());
+                    });
+                    setFSuper((prev) => prev.filter((s) => channelSups.has(s.trim().toUpperCase())));
+                  }
                 }}
               >
                 <option value="">All RTM</option>

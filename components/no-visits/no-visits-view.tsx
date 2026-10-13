@@ -69,7 +69,66 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [supervisorFilter, setSupervisorFilter] = useState('All');
-  const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days'>('all');
+
+  const getMinusOneDayStr = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getTodayStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getNDaysAgoStr = (n: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getFirstDayOfMonthStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  };
+
+  const defaultMinusOne = getMinusOneDayStr();
+  const [fromDate, setFromDate] = useState<string>(defaultMinusOne);
+  const [toDate, setToDate] = useState<string>(defaultMinusOne);
+
+  const setQuickDate = (preset: 'minus1' | 'today' | '7d' | 'mtd' | 'all') => {
+    if (preset === 'minus1') {
+      const d = getMinusOneDayStr();
+      setFromDate(d);
+      setToDate(d);
+    } else if (preset === 'today') {
+      const today = getTodayStr();
+      setFromDate(today);
+      setToDate(today);
+    } else if (preset === '7d') {
+      setFromDate(getNDaysAgoStr(7));
+      setToDate(getTodayStr());
+    } else if (preset === 'mtd') {
+      setFromDate(getFirstDayOfMonthStr());
+      setToDate(getTodayStr());
+    } else if (preset === 'all') {
+      setFromDate('');
+      setToDate('');
+    }
+    setCurrentPage(1);
+  };
+
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedVisit, setSelectedVisit] = useState<NoVisitItem | null>(null);
@@ -107,19 +166,6 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
 
   // Filter logic
   const filteredVisits = useMemo(() => {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 7);
-
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(now.getDate() - 30);
-
     return visits.filter((item) => {
       // 1. Text search
       if (search.trim()) {
@@ -149,24 +195,22 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
       }
 
       // 4. Date Range Filter
-      if (dateRangeFilter !== 'all') {
-        const itemDateStr = item.date.split('T')[0];
-        const itemDate = new Date(item.date);
-
-        if (dateRangeFilter === 'today' && itemDateStr !== todayStr) return false;
-        if (dateRangeFilter === 'yesterday' && itemDateStr !== yesterdayStr) return false;
-        if (dateRangeFilter === '7days' && itemDate < sevenDaysAgo) return false;
-        if (dateRangeFilter === '30days' && itemDate < thirtyDaysAgo) return false;
+      if (fromDate || toDate) {
+        const itemDay = item.date ? item.date.split('T')[0] : '';
+        if (itemDay) {
+          if (fromDate && itemDay < fromDate) return false;
+          if (toDate && itemDay > toDate) return false;
+        }
       }
 
       return true;
     });
-  }, [visits, search, categoryFilter, supervisorFilter, dateRangeFilter, role]);
+  }, [visits, search, categoryFilter, supervisorFilter, fromDate, toDate, role]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, categoryFilter, supervisorFilter, dateRangeFilter, pageSize]);
+  }, [search, categoryFilter, supervisorFilter, fromDate, toDate, pageSize]);
 
   // Summary Metrics
   const metrics = useMemo(() => {
@@ -199,12 +243,14 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
   const paginatedVisits = filteredVisits.slice(startIndex, startIndex + pageSize);
 
   // Clear filters
-  const isFiltered = search !== '' || categoryFilter !== 'All' || supervisorFilter !== 'All' || dateRangeFilter !== 'all';
+  const isFiltered = search !== '' || categoryFilter !== 'All' || supervisorFilter !== 'All' || fromDate !== defaultMinusOne || toDate !== defaultMinusOne;
   const handleClearFilters = () => {
     setSearch('');
     setCategoryFilter('All');
     setSupervisorFilter('All');
-    setDateRangeFilter('all');
+    setFromDate(defaultMinusOne);
+    setToDate(defaultMinusOne);
+    setCurrentPage(1);
   };
 
   // Export to Excel
@@ -391,17 +437,79 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
       </div>
 
       {/* ─── Search & Filters Bar ─── */}
-      <div className="rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 p-4 shadow-sm space-y-3">
-        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+      <div className="rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 p-4 shadow-sm space-y-3.5">
+        {/* Quick Date Presets Strip matching Management Dashboard & Photo Audit Gallery */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1 flex-shrink-0">
+            <span>Date Presets:</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setQuickDate('minus1')}
+            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 flex-shrink-0 ${
+              fromDate === defaultMinusOne && toDate === defaultMinusOne
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <span>⚡ -1 Day (Yesterday)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickDate('today')}
+            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex-shrink-0 ${
+              fromDate === getTodayStr() && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickDate('7d')}
+            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex-shrink-0 ${
+              fromDate === getNDaysAgoStr(7) && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            Last 7 Days
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickDate('mtd')}
+            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex-shrink-0 ${
+              fromDate === getFirstDayOfMonthStr() && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            This Month
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickDate('all')}
+            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex-shrink-0 ${
+              !fromDate && !toDate
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            All Dates
+          </button>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80">
           {/* Search box */}
-          <div className="relative flex-grow max-w-xl">
+          <div className="relative flex-grow max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search outlet name, supervisor, route code, reason notes..."
-              className="w-full text-xs font-semibold pl-10 pr-9 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-inner"
+              className="w-full text-xs font-semibold pl-10 pr-9 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-inner"
             />
             {search && (
               <button
@@ -413,17 +521,49 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
             )}
           </div>
 
-          {/* Dropdown Filters */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          {/* Slicers & Dropdown Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* From Date Slicer */}
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-xl">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Calendar className="h-3 w-3 text-indigo-500" /> From:
+              </span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none py-1 cursor-pointer"
+              />
+            </div>
+
+            {/* To Date Slicer */}
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-xl">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Calendar className="h-3 w-3 text-indigo-500" /> To:
+              </span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none py-1 cursor-pointer"
+              />
+            </div>
+
             {/* Category Filter */}
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-xl">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-xl">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
                 <Tag className="h-3 w-3 text-indigo-500" /> Reason:
               </span>
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none py-1.5 pr-2 cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none py-1 pr-1 cursor-pointer"
               >
                 <option value="All" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Reasons</option>
                 {availableCategories.map((cat) => (
@@ -436,14 +576,14 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
 
             {/* Supervisor Filter (Admin Only) */}
             {role === 'admin' && (
-              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-xl">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-xl">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
                   <User className="h-3 w-3 text-indigo-500" /> Supervisor:
                 </span>
                 <select
                   value={supervisorFilter}
                   onChange={(e) => setSupervisorFilter(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none py-1.5 pr-2 max-w-[150px] cursor-pointer"
+                  className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none py-1 pr-1 max-w-[140px] cursor-pointer"
                 >
                   <option value="All" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Supervisors</option>
                   {availableSupervisors.map((sup) => (
@@ -455,29 +595,11 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
               </div>
             )}
 
-            {/* Date Range Preset */}
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-xl">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                <Calendar className="h-3 w-3 text-indigo-500" /> Date:
-              </span>
-              <select
-                value={dateRangeFilter}
-                onChange={(e) => setDateRangeFilter(e.target.value as any)}
-                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none py-1.5 pr-2 cursor-pointer"
-              >
-                <option value="all" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Dates</option>
-                <option value="today" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Today</option>
-                <option value="yesterday" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Yesterday</option>
-                <option value="7days" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Last 7 Days</option>
-                <option value="30days" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Last 30 Days</option>
-              </select>
-            </div>
-
             {/* Clear Filters */}
             {isFiltered && (
               <button
                 onClick={handleClearFilters}
-                className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition-all cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition-all cursor-pointer shadow-xs"
                 title="Reset all filters"
               >
                 <RotateCcw className="h-3 w-3" />
@@ -485,6 +607,28 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Active Range & Count Subtitle */}
+        <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 px-1 pt-0.5">
+          <div>
+            Viewing records: {fromDate && toDate ? (
+              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                {fromDate === toDate ? fromDate : `${fromDate} to ${toDate}`}
+              </span>
+            ) : fromDate ? (
+              <span className="font-semibold text-slate-700 dark:text-slate-300">From {fromDate}</span>
+            ) : toDate ? (
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Up to {toDate}</span>
+            ) : (
+              <span className="font-semibold text-slate-700 dark:text-slate-300">All Dates</span>
+            )}
+            {categoryFilter !== 'All' && <span> · Reason: <b className="text-slate-700 dark:text-slate-300">{categoryFilter}</b></span>}
+            {role === 'admin' && supervisorFilter !== 'All' && <span> · Supervisor: <b className="text-slate-700 dark:text-slate-300">{supervisorFilter}</b></span>}
+          </div>
+          <span className="font-bold text-slate-600 dark:text-slate-400">
+            {filteredVisits.length} record{filteredVisits.length === 1 ? '' : 's'} found
+          </span>
         </div>
       </div>
 
