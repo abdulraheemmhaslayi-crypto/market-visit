@@ -14,6 +14,7 @@ import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
 import { getSizeModelsForCategory, ASSET_CATEGORIES } from '@/utils/asset-config';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
 import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
+import AuditActionsTrackerSummary from '@/components/dashboard/AuditActionsTrackerSummary';
 import { RefreshCw } from 'lucide-react';
 
 const GCOL: Record<string, string> = {
@@ -323,9 +324,10 @@ export default function AdminDashboardPage() {
     );
   }, [masters]);
 
-  // 2. Supervisor Options: Filtered strictly by Manager if selected, otherwise all supervisors from CUSTMASTER
+  // 2. Supervisor Options: Filtered strictly by Manager and/or RTM Channel if selected, otherwise all supervisors from CUSTMASTER
   const supOptions = useMemo<string[]>(() => {
     if (!masters) return [];
+    let list: string[] = [];
     if (fMgr.length > 0) {
       const mgrUppers = fMgr.map((m) => m.toUpperCase());
       const supsSet = new Set<string>();
@@ -344,10 +346,37 @@ export default function AdminDashboardPage() {
             });
         }
       });
-      return Array.from(supsSet).sort();
+      list = Array.from(supsSet);
+    } else {
+      list = ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
     }
-    return ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
-  }, [masters, fMgr]);
+
+    if (fChannel) {
+      const targetChan = fChannel.trim().toUpperCase();
+      const channelSups = new Set<string>();
+
+      (masters.routes || []).forEach((r: any) => {
+        const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+        if (rChan === targetChan && r.superName) {
+          channelSups.add(r.superName.trim().toUpperCase());
+        }
+      });
+
+      (masters.customers || []).forEach((c: any) => {
+        let cChan = (c.rtm || c.channel || '').toUpperCase();
+        if (!cChan && c.routeCode) {
+          cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+        }
+        if (cChan === targetChan && c.superName) {
+          channelSups.add(c.superName.trim().toUpperCase());
+        }
+      });
+
+      list = list.filter((s) => channelSups.has(s.trim().toUpperCase()));
+    }
+
+    return list.sort();
+  }, [masters, fMgr, fChannel]);
 
   // 3. RTM Options: Strictly from CUSTMASTER Segment_Fin(120MT), filtered by selected Manager/Supervisor if applicable
   const rtmOptions = useMemo<string[]>(() => {
@@ -2356,77 +2385,90 @@ export default function AdminDashboardPage() {
           padding:14px 14px;
         }
         .filters {
-          display:flex;
-          gap:8px;
-          flex-wrap:wrap;
-          margin-bottom:8px;
-          align-items:flex-end;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          margin-bottom: 8px;
         }
         .fld {
-          display:flex;
-          flex-direction:column;
-          gap:4px;
-          position:relative;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          position: relative;
         }
         .fld label {
-          font-size:10.5px;
-          font-weight:800;
-          text-transform:uppercase;
-          letter-spacing:.05em;
-          color:var(--soft);
-          padding-left:4px;
+          font-size: 10.5px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+          color: var(--soft);
+          padding-left: 2px;
         }
         .filters select,
-        .filters input {
-          padding:8px 11px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:600;
-          color:var(--ink);
-          cursor:pointer;
-          min-width:120px;
+        .filters input:not([type="checkbox"]) {
+          padding: 8px 11px;
+          height: 38px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--ink);
+          cursor: pointer;
+          min-width: 120px;
         }
-        .filters input {
-          cursor:text;
+        .filters input:not([type="checkbox"]) {
+          cursor: text;
+        }
+        .filters input[type="date"] {
+          cursor: pointer;
         }
         .filters select:focus,
-        .filters input:focus {
-          outline:none;
-          border-color:var(--blue);
+        .filters input:not([type="checkbox"]):focus {
+          outline: none;
+          border-color: var(--blue);
+        }
+        .filters input[type="checkbox"] {
+          width: 16px !important;
+          min-width: 16px !important;
+          max-width: 16px !important;
+          height: 16px !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
         .reset {
-          padding:8px 12px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:700;
-          color:var(--blue-deep);
-          cursor:pointer;
+          padding: 8px 12px;
+          height: 38px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--blue-deep, #4F46E5);
+          cursor: pointer;
         }
         .live-badge {
-          display:flex;
-          align-items:center;
-          gap:8px;
-          padding:8px 12px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:monospace;
-          font-size:10.5px;
-          font-weight:700;
-          color:var(--soft);
-          user-select:none;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          height: 38px;
+          padding: 0 12px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: monospace;
+          font-size: 10.5px;
+          font-weight: 700;
+          color: var(--soft);
+          user-select: none;
         }
         .live-dot {
-          height:8px;
-          width:8px;
-          border-radius:50%;
-          display:inline-block;
+          height: 8px;
+          width: 8px;
+          border-radius: 50%;
+          display: inline-block;
         }
         .live-dot.active {
           background:var(--green);
@@ -2681,7 +2723,7 @@ export default function AdminDashboardPage() {
           {/* Quick Date Presets Strip */}
           <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-1 text-xs">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--soft)] mr-1 flex items-center gap-1">
-              <span>Date Presets:</span>
+              <span>DATE PRESETS:</span>
             </span>
             <button
               type="button"
@@ -2728,19 +2770,20 @@ export default function AdminDashboardPage() {
             </button>
           </div>
 
+          {/* Row 1 Slicers */}
           <div className="flex gap-2 flex-wrap items-end">
             <div className="fld">
-              <label>From</label>
+              <label>FROM</label>
               <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
             </div>
 
             <div className="fld">
-              <label>To</label>
+              <label>TO</label>
               <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
             </div>
 
             <div className="fld min-w-[155px]">
-              <label>Manager</label>
+              <label>MANAGER</label>
               <MultiSelectDropdown
                 placeholder="All Managers"
                 options={mgrOptions}
@@ -2770,14 +2813,28 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="fld min-w-[165px]">
-              <label>Supervisor</label>
+              <label>SUPERVISOR</label>
               <MultiSelectDropdown
                 placeholder="All Supervisors"
                 options={supOptions}
                 selectedValues={fSuper}
                 onChange={(selected) => {
                   setFSuper(selected);
-                  setFChannel('');
+                  if (fChannel && masters && selected.length > 0) {
+                    const targetChan = fChannel.trim().toUpperCase();
+                    const channelSups = new Set<string>();
+                    (masters.routes || []).forEach((r: any) => {
+                      const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+                      if (rChan === targetChan && r.superName) channelSups.add(r.superName.trim().toUpperCase());
+                    });
+                    (masters.customers || []).forEach((c: any) => {
+                      let cChan = (c.rtm || c.channel || '').toUpperCase();
+                      if (!cChan && c.routeCode) cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+                      if (cChan === targetChan && c.superName) channelSups.add(c.superName.trim().toUpperCase());
+                    });
+                    const hasInvalid = selected.some((s) => !channelSups.has(s.trim().toUpperCase()));
+                    if (hasInvalid) setFChannel('');
+                  }
                   setFClass('');
                   setFCust('');
                   setFRoute('');
@@ -2799,9 +2856,24 @@ export default function AdminDashboardPage() {
               <select
                 value={fChannel}
                 onChange={(e) => {
-                  setFChannel(e.target.value);
+                  const newChan = e.target.value;
+                  setFChannel(newChan);
                   setFClass('');
                   setFCust('');
+                  if (newChan && masters) {
+                    const targetChan = newChan.trim().toUpperCase();
+                    const channelSups = new Set<string>();
+                    (masters.routes || []).forEach((r: any) => {
+                      const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+                      if (rChan === targetChan && r.superName) channelSups.add(r.superName.trim().toUpperCase());
+                    });
+                    (masters.customers || []).forEach((c: any) => {
+                      let cChan = (c.rtm || c.channel || '').toUpperCase();
+                      if (!cChan && c.routeCode) cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+                      if (cChan === targetChan && c.superName) channelSups.add(c.superName.trim().toUpperCase());
+                    });
+                    setFSuper((prev) => prev.filter((s) => channelSups.has(s.trim().toUpperCase())));
+                  }
                 }}
               >
                 <option value="">All RTM</option>
@@ -2811,8 +2883,8 @@ export default function AdminDashboardPage() {
               </select>
             </div>
 
-            <div className="fld">
-              <label>Classification</label>
+            <div className="fld min-w-[150px]">
+              <label>CLASSIFICATION</label>
               <select value={fClass} onChange={(e) => {
                 setFClass(e.target.value);
                 setFCust('');
@@ -2823,9 +2895,12 @@ export default function AdminDashboardPage() {
                 ))}
               </select>
             </div>
+          </div>
 
-            <div className="fld">
-              <label>Outlet / Customer</label>
+          {/* Row 2: OUTLET / CUSTOMER, ROUTE CODE, Reset, Live Badge */}
+          <div className="flex gap-2 flex-wrap items-end mt-2">
+            <div className="fld flex-1 min-w-[280px] max-w-[420px]">
+              <label>OUTLET / CUSTOMER</label>
               <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
                 <option value="">All Outlets</option>
                 {custOptions.map((c) => (
@@ -2834,8 +2909,8 @@ export default function AdminDashboardPage() {
               </select>
             </div>
 
-            <div className="fld">
-              <label>Route Code</label>
+            <div className="fld min-w-[150px]">
+              <label>ROUTE CODE</label>
               <select value={fRoute} onChange={(e) => {
                 const val = e.target.value;
                 setFRoute(val);
@@ -3039,17 +3114,15 @@ export default function AdminDashboardPage() {
           subtitle="Outlet-level audit details, SKU availability counts, and cold chain asset models"
         />
 
-        {/* Audit Photo Gallery Section with Pagination */}
-        {/* <PhotoGallerySection
-          photos={photos}
-          fFrom={fFrom}
-          fTo={fTo}
-          fMgr={fMgr}
-          fSuper={fSuper}
-          fChannel={fChannel}
-          fCust={fCust}
-          fRoute={fRoute}
-        /> */}
+        {/* Corrective Actions & Audit Directives Tracker Summary Sheet */}
+        <AuditActionsTrackerSummary
+          selectedManager={fMgr.length === 1 ? fMgr[0] : 'all'}
+          selectedSupervisor={fSuper.length === 1 ? fSuper[0] : 'all'}
+          selectedRtm={fChannel || 'all'}
+          userRole={userRole || 'Admin'}
+          title="Directives & Corrective Actions Tracker"
+          subtitle="Manager & Supervisor accountability sheet: Track audit issues flagged, proof submissions, open directives, and resolution compliance."
+        />
 
         {/* Footer */}
         <div className="foot">

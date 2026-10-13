@@ -8,6 +8,7 @@ import { getCustMasterChannel } from '@/lib/custmaster-channel';
 import { getCustMasterData } from '@/lib/custmaster-data';
 
 import { MasterCache, getCachedMasterData, setCachedMasterData } from '@/lib/dashboard-cache';
+import { auditActionRepository } from '@/lib/audit-actions';
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,12 +40,18 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '12', 10)));
 
-    // Fetch visits, cached masters, photos, and visit assets in parallel
-    const [visitsRaw, photosRaw, assetsRaw] = await Promise.all([
+    // Fetch visits, cached masters, photos, visit assets, and audit actions in parallel
+    const [visitsRaw, photosRaw, assetsRaw, auditActionsRaw] = await Promise.all([
       visitRepository.getAllVisits(),
       pool.execute('SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC').then(([rows]: any) => rows).catch(() => []),
       pool.execute('SELECT `assetId`, `visitId`, `assetType`, `temperature`, `tempInRange`, `actionRequired`, `observation`, `sizeModel` FROM `VisitAsset`').then(([rows]: any) => rows).catch(() => []),
+      auditActionRepository.getAll().catch(() => []),
     ]);
+
+    const auditActionMap = new Map<string, any>();
+    (auditActionsRaw || []).forEach((item: any) => {
+      if (item.photoId) auditActionMap.set(item.photoId, item);
+    });
 
     let cachedMasters = getCachedMasterData();
     if (!cachedMasters) {
@@ -357,6 +364,10 @@ export async function GET(req: NextRequest) {
       }
       const observation = combinedObsList.length > 0 ? combinedObsList.join('; ') : (visitObs || visitReason || '');
 
+      const activeAction = auditActionMap.get(p.photoId);
+      const actionSupervisor = activeAction?.supervisor ? activeAction.supervisor.trim() : null;
+      const actionStatus = activeAction?.actionStatus || null;
+
       return {
         photoId: p.photoId,
         visitId: p.visitId,
@@ -367,6 +378,9 @@ export async function GET(req: NextRequest) {
         appName,
         supervisor: supName,
         manager: mgrName,
+        actionSupervisor,
+        actionStatus,
+        actionItem: activeAction || null,
         outlet: custName,
         outletCode: candidateCode || '',
         route: cleanRoute || 'N/A',
@@ -396,7 +410,8 @@ export async function GET(req: NextRequest) {
           (visit.createdBy && visit.createdBy.toLowerCase() === supNameLower)
         );
         const matchesSupervisorField = p.supervisor && p.supervisor.toLowerCase() === supNameLower;
-        return matchesVisit || matchesSupervisorField;
+        const matchesActionSupervisor = p.actionSupervisor && p.actionSupervisor.toLowerCase() === supNameLower;
+        return matchesVisit || matchesSupervisorField || matchesActionSupervisor;
       });
     }
 
@@ -497,16 +512,81 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Build supervisor to channel mapping from custMaster & enriched photos
+    const supervisorChannelMap: Record<string, string[]> = {};
+    (custMaster?.routes || []).forEach((r: any) => {
+      const sup = (r.superName || '').trim().toUpperCase();
+      if (sup && !EXCLUDED_SUPS.has(sup)) {
+        const ch = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+        if (!supervisorChannelMap[sup]) supervisorChannelMap[sup] = [];
+        if (!supervisorChannelMap[sup].includes(ch)) supervisorChannelMap[sup].push(ch);
+      }
+    });
+    (custMaster?.customers || []).forEach((c: any) => {
+      const sup = (c.superName || '').trim().toUpperCase();
+      if (sup && !EXCLUDED_SUPS.has(sup)) {
+        let ch = (c.rtm || c.channel || '').toUpperCase();
+        if (!ch && c.routeCode) ch = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+        if (ch) {
+          if (!supervisorChannelMap[sup]) supervisorChannelMap[sup] = [];
+          if (!supervisorChannelMap[sup].includes(ch)) supervisorChannelMap[sup].push(ch);
+        }
+      }
+    });
+    allEnrichedPhotos.forEach((p: any) => {
+      const sup = (p.supervisor || '').trim().toUpperCase();
+      const ch = (p.rtm || p.channel || '').trim().toUpperCase();
+      if (sup && ch && !EXCLUDED_SUPS.has(sup)) {
+        if (!supervisorChannelMap[sup]) supervisorChannelMap[sup] = [];
+        if (!supervisorChannelMap[sup].includes(ch)) supervisorChannelMap[sup].push(ch);
+      }
+    });
+
     // Dynamic extraction of distinct Supervisors, Outlets, Routes & RTM Channels
     const dbSupSet = new Set<string>();
     const dbOutletSet = new Set<string>();
     const dbRouteSet = new Set<string>();
     const dbRtmSet = new Set<string>();
 
-    dateFilteredPhotos.forEach((p: any) => {
-      if (p.supervisor && !EXCLUDED_SUPS.has(p.supervisor.toUpperCase())) dbSupSet.add(p.supervisor);
+    // Candidate photos for supervisor dropdown respecting manager and RTM filters
+    let supCandidatePhotos = dateFilteredPhotos;
+    if (managerParam && managerParam !== 'all') {
+      const targetMgr = managerParam.trim().toLowerCase();
+      supCandidatePhotos = supCandidatePhotos.filter((p: any) => (p.manager || '').toLowerCase() === targetMgr);
+    }
+    if (rtmParam && rtmParam !== 'all') {
+      const targetRtm = rtmParam.trim().toUpperCase();
+      supCandidatePhotos = supCandidatePhotos.filter((p: any) => (p.rtm || p.channel || '').toUpperCase() === targetRtm);
+    }
+    supCandidatePhotos.forEach((p: any) => {
+      if (p.supervisor && !EXCLUDED_SUPS.has(p.supervisor.toUpperCase())) {
+        if (rtmParam && rtmParam !== 'all') {
+          const supChans = supervisorChannelMap[p.supervisor.toUpperCase()] || [(p.rtm || p.channel || '').toUpperCase()];
+          if (supChans.includes(rtmParam.trim().toUpperCase())) {
+            dbSupSet.add(p.supervisor);
+          }
+        } else {
+          dbSupSet.add(p.supervisor);
+        }
+      }
+    });
+
+    // Routes and Outlets respecting manager and RTM filters
+    let routeOutletCandidatePhotos = dateFilteredPhotos;
+    if (managerParam && managerParam !== 'all') {
+      const targetMgr = managerParam.trim().toLowerCase();
+      routeOutletCandidatePhotos = routeOutletCandidatePhotos.filter((p: any) => (p.manager || '').toLowerCase() === targetMgr);
+    }
+    if (rtmParam && rtmParam !== 'all') {
+      const targetRtm = rtmParam.trim().toUpperCase();
+      routeOutletCandidatePhotos = routeOutletCandidatePhotos.filter((p: any) => (p.rtm || p.channel || '').toUpperCase() === targetRtm);
+    }
+    routeOutletCandidatePhotos.forEach((p: any) => {
       if (p.outlet) dbOutletSet.add(p.outlet);
       if (p.route) dbRouteSet.add(p.route);
+    });
+
+    dateFilteredPhotos.forEach((p: any) => {
       if (p.channel) dbRtmSet.add(p.channel);
     });
 
@@ -530,10 +610,14 @@ export async function GET(req: NextRequest) {
       filtered = filtered.filter((p: any) => (p.manager || '').toLowerCase() === targetMgr);
     }
 
-    // Filter by Supervisor
+    // Filter by Supervisor (matches either visit supervisor or assigned directive supervisor)
     if (supervisorParam && supervisorParam !== 'all') {
       const targetSup = supervisorParam.trim().toLowerCase();
-      filtered = filtered.filter((p: any) => p.supervisor.toLowerCase() === targetSup);
+      filtered = filtered.filter((p: any) => {
+        const photoSupMatches = (p.supervisor || '').toLowerCase() === targetSup;
+        const actionSupMatches = (p.actionSupervisor || '').toLowerCase() === targetSup;
+        return photoSupMatches || actionSupMatches;
+      });
     }
 
     // Filter by RTM / Channel
@@ -595,6 +679,7 @@ export async function GET(req: NextRequest) {
       applications,
       managers: custMaster.managers || [],
       supervisors,
+      supervisorChannels: supervisorChannelMap,
       outlets,
       routes,
       classifications: custMaster.classifications || ['A', 'B', 'C', 'D', 'E'],

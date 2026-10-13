@@ -34,6 +34,7 @@ import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 import { AuditActionItem } from '@/lib/audit-actions';
+import { useSession } from 'next-auth/react';
 
 export interface AuditPhoto {
   photoId: string;
@@ -68,6 +69,11 @@ export interface AuditPhoto {
 }
 
 export default function SupervisorAuditPhotoGalleryPage() {
+  const { data: session } = useSession();
+  const currentSupervisorName = useMemo(() => {
+    return (session?.user?.name || '').trim();
+  }, [session?.user?.name]);
+
   const getMinusOneDayStr = (): string => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
@@ -184,14 +190,25 @@ export default function SupervisorAuditPhotoGalleryPage() {
     [fromDate, toDate, selectedRtm, selectedApp, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
   );
 
-  // Fetch GM / Admin Action Directives
+  // Fetch GM / Admin Action Directives scoped to this supervisor
   const fetchActionItems = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/audit-actions');
+      const url = currentSupervisorName
+        ? `/api/admin/audit-actions?supervisor=${encodeURIComponent(currentSupervisorName)}`
+        : '/api/admin/audit-actions';
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success && Array.isArray(data.items)) {
         const map: Record<string, AuditActionItem> = {};
         data.items.forEach((item: AuditActionItem) => {
+          // Strict isolation: only map directives assigned to this supervisor
+          if (currentSupervisorName) {
+            const itemSup = (item.supervisor || '').trim().toLowerCase();
+            const currSup = currentSupervisorName.toLowerCase();
+            if (itemSup && itemSup !== currSup) {
+              return;
+            }
+          }
           map[item.photoId] = item;
         });
         setActionItemsMap(map);
@@ -199,7 +216,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
     } catch (err) {
       console.error('Failed to load supervisor audit action items:', err);
     }
-  }, []);
+  }, [currentSupervisorName]);
 
   useEffect(() => {
     fetchPhotos(false);
@@ -248,10 +265,17 @@ export default function SupervisorAuditPhotoGalleryPage() {
     return { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' };
   };
 
-  const pendingActionItems = useMemo(
-    () => Object.values(actionItemsMap).filter((a) => a.actionStatus === 'PENDING'),
-    [actionItemsMap]
-  );
+  const pendingActionItems = useMemo(() => {
+    return Object.values(actionItemsMap).filter((a) => {
+      if (a.actionStatus !== 'PENDING') return false;
+      if (currentSupervisorName) {
+        const itemSup = (a.supervisor || '').trim().toLowerCase();
+        const currSup = currentSupervisorName.toLowerCase();
+        if (itemSup && itemSup !== currSup) return false;
+      }
+      return true;
+    });
+  }, [actionItemsMap, currentSupervisorName]);
   const pendingActionCount = pendingActionItems.length;
 
   const displayedPhotos = useMemo(() => {
@@ -345,16 +369,16 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
       {/* Management Action Directives Alert Banner for Supervisor */}
       {pendingActionCount > 0 && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-200 shadow-sm animate-in fade-in duration-200">
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-in fade-in duration-200">
           <div className="flex items-start sm:items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 flex-shrink-0">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400 flex-shrink-0">
               <AlertTriangle className="h-5 w-5 animate-pulse" />
             </div>
             <div>
-              <h4 className="text-xs sm:text-sm font-bold text-amber-200 flex items-center gap-2">
+              <h4 className="text-xs sm:text-sm font-extrabold text-amber-950 dark:text-amber-200 flex items-center gap-2">
                 Management Directives Awaiting Corrective Action ({pendingActionCount})
               </h4>
-              <p className="text-[11px] text-amber-300/80 mt-0.5">
+              <p className="text-[11px] text-amber-900/90 dark:text-amber-300/80 mt-0.5 font-medium">
                 Admin or Sub-Admin has flagged {pendingActionCount} audit {pendingActionCount === 1 ? 'photo' : 'photos'} for action. Click flagged photos to review directives and submit resolution proof.
               </p>
             </div>
@@ -363,17 +387,17 @@ export default function SupervisorAuditPhotoGalleryPage() {
             <button
               type="button"
               onClick={() => setIsActionDrawerOpen(true)}
-              className="text-xs font-extrabold px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black border border-amber-400 shadow-md transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+              className="text-xs font-black px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-400 shadow-md transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
             >
               <Eye className="h-3.5 w-3.5" /> Review Directives ({pendingActionCount})
             </button>
             <button
               type="button"
               onClick={() => setActionFilter(actionFilter === 'PENDING' ? 'all' : 'PENDING')}
-              className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
+              className={`text-xs font-extrabold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
                 actionFilter === 'PENDING'
-                  ? 'bg-amber-500 text-black border-amber-400 shadow-md font-extrabold'
-                  : 'bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black'
+                  : 'bg-white hover:bg-amber-100/70 text-amber-950 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40 dark:hover:bg-amber-500/30'
               }`}
             >
               {actionFilter === 'PENDING' ? 'Show All Photos' : 'Filter Directives'}
@@ -765,13 +789,13 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
                     {/* Eye-Catchy Highlighted Observation Badge */}
                     {cardObs && (
-                      <div className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/20 to-yellow-500/15 border border-amber-400/50 text-amber-200 text-[11px] shadow-xs flex items-start gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
+                      <div className="px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-400/50 text-[11px] shadow-xs flex items-start gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
                         <div className="min-w-0">
-                          <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-400 block">
+                          <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-800 dark:text-amber-300 block">
                             Observation / Notes:
                           </span>
-                          <p className="line-clamp-2 text-white font-bold text-xs drop-shadow-xs">
+                          <p className="line-clamp-2 text-slate-900 dark:text-white font-bold text-xs">
                             &ldquo;{cardObs}&rdquo;
                           </p>
                         </div>
@@ -781,11 +805,11 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
                   {/* GM Directive Remark Banner */}
                   {actionItem && actionItem.gmComment && (
-                    <div className="mt-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] space-y-0.5">
-                      <p className="font-bold text-amber-400 flex items-center gap-1 text-[10px] uppercase tracking-wider">
+                    <div className="mt-1 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-500/30 text-[11px] space-y-0.5">
+                      <p className="font-extrabold text-amber-800 dark:text-amber-400 flex items-center gap-1 text-[10px] uppercase tracking-wider">
                         <AlertTriangle className="h-3 w-3" /> Management Directive:
                       </p>
-                      <p className="text-[11px] text-amber-200 italic line-clamp-2">
+                      <p className="text-[11px] text-amber-950 dark:text-amber-200 font-medium italic line-clamp-2">
                         "{actionItem.gmComment}"
                       </p>
                     </div>
@@ -984,7 +1008,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
                         </div>
 
                         <div className="p-2.5 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-xs space-y-1">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                             Directive from {item.gmName}:
                           </p>
                           <p className="text-[var(--text-primary)] italic">"{item.gmComment}"</p>
@@ -998,8 +1022,8 @@ export default function SupervisorAuditPhotoGalleryPage() {
                               className="h-10 w-14 object-cover rounded"
                             />
                             <div className="text-[10px] truncate">
-                              <p className="font-bold text-emerald-400">Resolution Proof Attached</p>
-                              <p className="text-slate-300 truncate">"{item.supervisorComment}"</p>
+                              <p className="font-bold text-emerald-500 dark:text-emerald-400">Resolution Proof Attached</p>
+                              <p className="text-[var(--text-secondary)] truncate">"{item.supervisorComment}"</p>
                             </div>
                           </div>
                         )}
