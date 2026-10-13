@@ -14,7 +14,7 @@ import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
 import { getSizeModelsForCategory, ASSET_CATEGORIES } from '@/utils/asset-config';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
 import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
-import { RefreshCw, Calendar, Briefcase, User, Layers, Award, Store, Navigation, RotateCcw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 const GCOL: Record<string, string> = {
   A: '#0b7a4c',
@@ -2384,49 +2384,38 @@ export default function AdminDashboardPage() {
           padding:14px 14px;
         }
         .filters {
-          background: var(--card);
-          border: 1px solid var(--line);
-          border-radius: 18px;
-          padding: 14px 16px;
-          box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03);
-          margin-bottom: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          margin-bottom: 8px;
         }
         .fld {
           display: flex;
           flex-direction: column;
           gap: 4px;
           position: relative;
-          min-width: 0;
         }
         .fld label {
-          font-size: 10px;
+          font-size: 10.5px;
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: .05em;
           color: var(--soft);
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          padding-left: 2px;
         }
         .filters select,
         .filters input:not([type="checkbox"]) {
+          padding: 8px 11px;
           height: 38px;
-          min-height: 38px;
-          padding: 0 10px;
           border: 1.5px solid var(--line);
-          border-radius: 12px;
+          border-radius: 11px;
           background: var(--card);
           font-family: inherit;
           font-size: 12px;
           font-weight: 600;
           color: var(--ink);
-          width: 100%;
           cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+          min-width: 120px;
         }
         .filters input:not([type="checkbox"]) {
           cursor: text;
@@ -2438,61 +2427,45 @@ export default function AdminDashboardPage() {
         .filters input:not([type="checkbox"]):focus {
           outline: none;
           border-color: var(--blue);
-          box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
-        }
-        .filters select:hover,
-        .filters input:not([type="checkbox"]):hover {
-          border-color: #cbd5e1;
         }
         .filters input[type="checkbox"] {
           width: 16px !important;
           min-width: 16px !important;
           max-width: 16px !important;
           height: 16px !important;
-          padding: 0 !important;
           margin: 0 !important;
+          padding: 0 !important;
         }
         .reset {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          height: 32px;
-          padding: 0 12px;
-          border: 1px solid var(--line);
-          border-radius: 9999px;
-          background: var(--surface-2);
+          padding: 8px 12px;
+          height: 38px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
           font-family: inherit;
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 700;
-          color: var(--ink);
+          color: var(--blue-deep, #4F46E5);
           cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-        }
-        .reset:hover {
-          background: #fee2e2;
-          color: #dc2626;
-          border-color: #fca5a5;
         }
         .live-badge {
-          display: inline-flex;
+          display: flex;
           align-items: center;
-          gap: 6px;
-          height: 32px;
+          gap: 8px;
+          height: 38px;
           padding: 0 12px;
-          border: 1px solid var(--line);
-          border-radius: 9999px;
-          background: var(--surface-2);
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          font-size: 10px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: monospace;
+          font-size: 10.5px;
           font-weight: 700;
           color: var(--soft);
           user-select: none;
-          letter-spacing: 0.03em;
         }
         .live-dot {
-          height: 7px;
-          width: 7px;
+          height: 8px;
+          width: 8px;
           border-radius: 50%;
           display: inline-block;
         }
@@ -2746,102 +2719,70 @@ export default function AdminDashboardPage() {
       <div className="wrap">
         {/* Filters Panel */}
         <div className="filters">
-          {/* Top Bar: Date Presets on left, Reset & Live Status on right */}
-          <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--line)]/60 flex-wrap">
-            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 text-xs flex-wrap">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--soft)] mr-1 flex items-center gap-1">
-                <span>Date Presets:</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setQuickDate('minus1')}
-                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  fFrom === defaultMinusOne && fTo === defaultMinusOne
-                    ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/20'
-                    : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
-                }`}
-              >
-                <span>⚡ -1 Day (Yesterday)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickDate('today')}
-                className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
-                  fFrom === getTodayStr() && fTo === getTodayStr()
-                    ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/20'
-                    : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
-                }`}
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickDate('7d')}
-                className="px-3 py-1 rounded-full text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
-              >
-                Last 7 Days
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickDate('mtd')}
-                className="px-3 py-1 rounded-full text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
-              >
-                This Month
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickDate('all')}
-                className="px-3 py-1 rounded-full text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
-              >
-                All Dates
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="reset"
-                onClick={resetFilters}
-                title="Reset all slicers to default"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
-              </button>
-              <div className="live-badge" suppressHydrationWarning>
-                <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
-                <span>{isSyncing ? 'SYNCING...' : 'LIVE SYNC'}</span>
-                <span style={{ opacity: 0.3 }}>|</span>
-                <span suppressHydrationWarning>{mounted ? lastUpdated.toLocaleTimeString() : '...'}</span>
-              </div>
-            </div>
+          {/* Quick Date Presets Strip */}
+          <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-1 text-xs">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--soft)] mr-1 flex items-center gap-1">
+              <span>DATE PRESETS:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setQuickDate('minus1')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                fFrom === defaultMinusOne && fTo === defaultMinusOne
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
+              }`}
+            >
+              <span>⚡ -1 Day (Yesterday)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('today')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                fFrom === getTodayStr() && fTo === getTodayStr()
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('7d')}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+            >
+              Last 7 Days
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('mtd')}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+            >
+              This Month
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('all')}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+            >
+              All Dates
+            </button>
           </div>
 
-          {/* Slicers 8-Column Responsive Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 items-end pt-3">
-            {/* 1. From Date */}
+          {/* Row 1 Slicers */}
+          <div className="flex gap-2 flex-wrap items-end">
             <div className="fld">
-              <label>
-                <Calendar className="w-3 h-3 text-blue-500 shrink-0" />
-                <span>From</span>
-              </label>
+              <label>FROM</label>
               <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
             </div>
 
-            {/* 2. To Date */}
             <div className="fld">
-              <label>
-                <Calendar className="w-3 h-3 text-blue-500 shrink-0" />
-                <span>To</span>
-              </label>
+              <label>TO</label>
               <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
             </div>
 
-            {/* 3. Manager */}
-            <div className="fld">
-              <label>
-                <Briefcase className="w-3 h-3 text-indigo-500 shrink-0" />
-                <span>Manager</span>
-              </label>
+            <div className="fld min-w-[155px]">
+              <label>MANAGER</label>
               <MultiSelectDropdown
                 placeholder="All Managers"
                 options={mgrOptions}
@@ -2870,12 +2811,8 @@ export default function AdminDashboardPage() {
               />
             </div>
 
-            {/* 4. Supervisor */}
-            <div className="fld">
-              <label>
-                <User className="w-3 h-3 text-indigo-500 shrink-0" />
-                <span>Supervisor</span>
-              </label>
+            <div className="fld min-w-[165px]">
+              <label>SUPERVISOR</label>
               <MultiSelectDropdown
                 placeholder="All Supervisors"
                 options={supOptions}
@@ -2913,12 +2850,8 @@ export default function AdminDashboardPage() {
               />
             </div>
 
-            {/* 5. RTM */}
-            <div className="fld">
-              <label>
-                <Layers className="w-3 h-3 text-purple-500 shrink-0" />
-                <span>RTM</span>
-              </label>
+            <div className="fld min-w-[120px]">
+              <label>RTM</label>
               <select
                 value={fChannel}
                 onChange={(e) => {
@@ -2949,29 +2882,24 @@ export default function AdminDashboardPage() {
               </select>
             </div>
 
-            {/* 6. Classification */}
-            <div className="fld">
-              <label>
-                <Award className="w-3 h-3 text-amber-500 shrink-0" />
-                <span>Class</span>
-              </label>
+            <div className="fld min-w-[150px]">
+              <label>CLASSIFICATION</label>
               <select value={fClass} onChange={(e) => {
                 setFClass(e.target.value);
                 setFCust('');
               }}>
-                <option value="">All Classes</option>
+                <option value="">All Classifications</option>
                 {classOptions.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
+          </div>
 
-            {/* 7. Outlet / Customer */}
-            <div className="fld">
-              <label>
-                <Store className="w-3 h-3 text-emerald-500 shrink-0" />
-                <span>Outlet / Cust</span>
-              </label>
+          {/* Row 2: OUTLET / CUSTOMER, ROUTE CODE, Reset, Live Badge */}
+          <div className="flex gap-2 flex-wrap items-end mt-2">
+            <div className="fld flex-1 min-w-[280px] max-w-[420px]">
+              <label>OUTLET / CUSTOMER</label>
               <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
                 <option value="">All Outlets</option>
                 {custOptions.map((c) => (
@@ -2980,12 +2908,8 @@ export default function AdminDashboardPage() {
               </select>
             </div>
 
-            {/* 8. Route Code */}
-            <div className="fld">
-              <label>
-                <Navigation className="w-3 h-3 text-cyan-500 shrink-0" />
-                <span>Route</span>
-              </label>
+            <div className="fld min-w-[150px]">
+              <label>ROUTE CODE</label>
               <select value={fRoute} onChange={(e) => {
                 const val = e.target.value;
                 setFRoute(val);
@@ -2998,11 +2922,20 @@ export default function AdminDashboardPage() {
                   }
                 }
               }}>
-                <option value="">All Routes</option>
+                <option value="">All Route Codes</option>
                 {routeOptions.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>
+            </div>
+
+            <button className="reset" onClick={resetFilters}>Reset</button>
+
+            <div className="live-badge" suppressHydrationWarning>
+              <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
+              <span>{isSyncing ? 'SYNCING...' : 'LIVE SYNC ACTIVE'}</span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span suppressHydrationWarning>UPDATED {mounted ? lastUpdated.toLocaleTimeString() : '...'}</span>
             </div>
           </div>
         </div>
