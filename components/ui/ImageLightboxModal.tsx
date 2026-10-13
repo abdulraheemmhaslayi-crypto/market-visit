@@ -1889,19 +1889,6 @@ export default function ImageLightboxModal({
                 </div>
               </div>
 
-              {/* Eye-Catchy Highlighted Observation / Notes in Details Sidebar */}
-              {(current.observation || current.notes || current.visitObservation) && (
-                <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/10 border-2 border-amber-400/80 shadow-md shadow-amber-500/10 space-y-1">
-                  <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
-                    <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                    <span>Observation / Notes</span>
-                  </div>
-                  <p className="text-xs font-extrabold text-white leading-relaxed break-words">
-                    &ldquo;{current.observation || current.notes || current.visitObservation}&rdquo;
-                  </p>
-                </div>
-              )}
-
               {current.uploadedAt && (
                 <div>
                   <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
