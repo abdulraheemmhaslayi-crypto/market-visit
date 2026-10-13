@@ -489,8 +489,7 @@ export const customerRepository = {
   async clearObsoleteCustomers(activeIds: string[]): Promise<number> {
     await ensureCustomerTableSchema();
     if (activeIds.length === 0) {
-      const [result]: any = await pool.execute('DELETE FROM `Customer`');
-      return result.affectedRows || 0;
+      return 0;
     }
 
     const activeSet = new Set(activeIds);
@@ -505,11 +504,17 @@ export const customerRepository = {
     for (let i = 0; i < toDelete.length; i += chunkSize) {
       const chunk = toDelete.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => '?').join(',');
-      const [res]: any = await pool.execute(
-        `DELETE FROM \`Customer\` WHERE \`cust_rt_id\` IN (${placeholders})`,
-        chunk
-      );
-      deleted += res.affectedRows || 0;
+      try {
+        const [res]: any = await pool.execute(
+          `DELETE FROM \`Customer\` 
+           WHERE \`cust_rt_id\` IN (${placeholders})
+             AND \`cust_rt_id\` NOT IN (SELECT DISTINCT \`cust_rt_id\` FROM \`CustomerRouteMapping\`)`,
+          chunk
+        );
+        deleted += res.affectedRows || 0;
+      } catch (err: any) {
+        console.warn('Skipped deleting some obsolete customers due to foreign key constraints:', err.message);
+      }
     }
     return deleted;
   },
@@ -517,8 +522,7 @@ export const customerRepository = {
   async clearObsoleteMappings(activeIds: string[]): Promise<number> {
     await ensureCustomerTableSchema();
     if (activeIds.length === 0) {
-      const [result]: any = await pool.execute('DELETE FROM `CustomerRouteMapping`');
-      return result.affectedRows || 0;
+      return 0;
     }
 
     const activeSet = new Set(activeIds);
@@ -533,11 +537,15 @@ export const customerRepository = {
     for (let i = 0; i < toDelete.length; i += chunkSize) {
       const chunk = toDelete.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => '?').join(',');
-      const [res]: any = await pool.execute(
-        `DELETE FROM \`CustomerRouteMapping\` WHERE \`cust_rt_id\` IN (${placeholders})`,
-        chunk
-      );
-      deleted += res.affectedRows || 0;
+      try {
+        const [res]: any = await pool.execute(
+          `DELETE FROM \`CustomerRouteMapping\` WHERE \`cust_rt_id\` IN (${placeholders})`,
+          chunk
+        );
+        deleted += res.affectedRows || 0;
+      } catch (err: any) {
+        console.warn('Skipped deleting some obsolete mappings due to foreign key constraints:', err.message);
+      }
     }
     return deleted;
   },
