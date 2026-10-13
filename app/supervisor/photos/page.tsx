@@ -28,6 +28,7 @@ import {
   X,
   Layers,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
@@ -48,6 +49,7 @@ export interface AuditPhoto {
   outletCode?: string;
   route: string;
   channel: string;
+  rtm?: string;
   observation?: string;
   observations?: string | string[];
   notes?: string;
@@ -66,7 +68,16 @@ export interface AuditPhoto {
 }
 
 export default function SupervisorAuditPhotoGalleryPage() {
-  const getTodayStr = () => {
+  const getMinusOneDayStr = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getTodayStr = (): string => {
     const d = new Date();
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -74,10 +85,26 @@ export default function SupervisorAuditPhotoGalleryPage() {
     return `${y}-${m}-${day}`;
   };
 
-  const [fromDate, setFromDate] = useState<string>(getTodayStr());
-  const [toDate, setToDate] = useState<string>(getTodayStr());
+  const getLast7DaysStr = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getFirstDayOfMonthStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  };
+
+  const [fromDate, setFromDate] = useState<string>(getMinusOneDayStr());
+  const [toDate, setToDate] = useState<string>(getMinusOneDayStr());
   const [selectedRtm, setSelectedRtm] = useState<string>('all');
-  const [rtms, setRtms] = useState<string[]>(['TT', 'MT', 'INST']);
+  const [rtms, setRtms] = useState<string[]>(['INST', 'MT', 'TT']);
   const [selectedApp, setSelectedApp] = useState<string>('all');
   const [selectedRoute, setSelectedRoute] = useState<string>('all');
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all');
@@ -180,8 +207,8 @@ export default function SupervisorAuditPhotoGalleryPage() {
   }, [fetchPhotos, fetchActionItems]);
 
   const handleResetFilters = () => {
-    setFromDate(getTodayStr());
-    setToDate(getTodayStr());
+    setFromDate(getMinusOneDayStr());
+    setToDate(getMinusOneDayStr());
     setSelectedRtm('all');
     setSelectedApp('all');
     setSelectedRoute('all');
@@ -198,7 +225,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
       filterSummary: `Dates: ${fromDate || 'Start'} to ${toDate || 'End'} | RTM: ${selectedRtm} | App: ${selectedApp} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
       columns: [
         { header: 'Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
+        { header: 'RTM', key: 'channel', formatter: (val: any, row: any) => row.rtm || val || 'TT' },
         { header: 'Route Code', key: 'route', formatter: (val: any) => val || '—' },
         { header: 'Outlet Name', key: 'outlet', formatter: (val: any) => val || '—' },
         { header: 'Category / Asset', key: 'category' },
@@ -362,7 +389,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
             <SlidersHorizontal className="h-4 w-4 text-accent" />
             Filter Gallery
           </div>
-          {(fromDate !== getTodayStr() || toDate !== getTodayStr() || selectedRtm !== 'all' || selectedApp !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery) && (
+          {(fromDate !== getMinusOneDayStr() || toDate !== getMinusOneDayStr() || selectedRtm !== 'all' || selectedApp !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery) && (
             <button
               onClick={handleResetFilters}
               className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:underline cursor-pointer"
@@ -371,6 +398,90 @@ export default function SupervisorAuditPhotoGalleryPage() {
               Reset Filters
             </button>
           )}
+        </div>
+
+        {/* DATE PRESETS matching Management Dashboard */}
+        <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-[var(--border-soft)]">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
+            DATE PRESETS:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const y = getMinusOneDayStr();
+              setFromDate(y);
+              setToDate(y);
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              fromDate === getMinusOneDayStr() && toDate === getMinusOneDayStr()
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            ⚡ -1 Day (Yesterday)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const t = getTodayStr();
+              setFromDate(t);
+              setToDate(t);
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              fromDate === getTodayStr() && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFromDate(getLast7DaysStr());
+              setToDate(getTodayStr());
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              fromDate === getLast7DaysStr() && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            Last 7 Days
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFromDate(getFirstDayOfMonthStr());
+              setToDate(getTodayStr());
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              fromDate === getFirstDayOfMonthStr() && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            This Month
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFromDate('');
+              setToDate('');
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              !fromDate && !toDate
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            All Dates
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -409,7 +520,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
           {/* RTM Slicer */}
           <div className="space-y-1">
             <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 text-accent" /> RTM Slicer
+              <Layers className="h-3.5 w-3.5 text-accent" /> RTM
             </label>
             <select
               value={selectedRtm}
@@ -419,7 +530,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
               }}
               className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors cursor-pointer"
             >
-              <option value="all">All RTM Channels</option>
+              <option value="all">All RTM</option>
               {rtms.map((rtm) => (
                 <option key={rtm} value={rtm}>
                   {rtm}
@@ -575,6 +686,13 @@ export default function SupervisorAuditPhotoGalleryPage() {
               hour: '2-digit',
               minute: '2-digit',
             });
+            const cardObs = (
+              photo.observation ||
+              photo.notes ||
+              photo.visitObservation ||
+              (photo.assetObservations && photo.assetObservations.find((a: any) => a.observation && a.observation !== '—')?.observation) ||
+              ''
+            ).trim();
 
             return (
               <div
@@ -631,8 +749,8 @@ export default function SupervisorAuditPhotoGalleryPage() {
                 </div>
 
                 {/* Details Footer */}
-                <div className="p-3 space-y-1.5 flex-1 flex flex-col justify-between">
-                  <div className="space-y-1">
+                <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
+                  <div className="space-y-1.5">
                     <p className="text-xs font-bold text-[var(--text-primary)] truncate flex items-center gap-1.5">
                       <Store className="h-3.5 w-3.5 text-accent flex-shrink-0" />
                       <span className="truncate">
@@ -642,8 +760,23 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     </p>
                     <p className="text-[11px] text-[var(--text-secondary)] truncate flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 text-[var(--text-muted)] flex-shrink-0" />
-                      <span>Route: {photo.route || 'N/A'} ({photo.channel})</span>
+                      <span>Route: {photo.route || 'N/A'}</span>
                     </p>
+
+                    {/* Eye-Catchy Highlighted Observation Badge */}
+                    {cardObs && (
+                      <div className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/20 to-yellow-500/15 border border-amber-400/50 text-amber-200 text-[11px] shadow-xs flex items-start gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
+                        <div className="min-w-0">
+                          <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-400 block">
+                            Observation / Notes:
+                          </span>
+                          <p className="line-clamp-2 text-white font-bold text-xs drop-shadow-xs">
+                            &ldquo;{cardObs}&rdquo;
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* GM Directive Remark Banner */}
@@ -662,6 +795,11 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     <span className="flex items-center gap-1 font-mono">
                       <Calendar className="h-3 w-3 text-accent" /> {formattedDate} {formattedTime}
                     </span>
+                    {(photo.rtm || photo.channel) && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                        RTM: {photo.rtm || photo.channel}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

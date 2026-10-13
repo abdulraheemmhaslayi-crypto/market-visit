@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
     const fromDateParam = searchParams.get('fromDate') || searchParams.get('startDate');
     const toDateParam = searchParams.get('toDate') || searchParams.get('endDate');
     const rtmParam = searchParams.get('rtm') || searchParams.get('channel');
+    const managerParam = searchParams.get('manager');
+    const classParam = searchParams.get('classification') || searchParams.get('class');
     const appNameParam = searchParams.get('appName'); // application name or 'all'
     const supervisorIdParam = searchParams.get('supervisorId');
     const supervisorParam = searchParams.get('supervisor'); // supervisor name or 'all'
@@ -99,19 +101,36 @@ export async function GET(req: NextRequest) {
     // Retrieve full CUSTMASTER payload for accurate customer, supervisor, manager, route, and channel lookups
     const custMaster = getCustMasterData();
 
-    // Build fast lookup maps from CUSTMASTER
+    // Build fast lookup maps from CUSTMASTER matching dashboard
     const cmCustomerMap = new Map<string, any>();
+    const cmCustomerByCode = new Map<string, any>();
+    const cmCustomerByCustRt = new Map<string, any>();
     (custMaster.customers || []).forEach((c) => {
-      if (c.cust_rt_id) cmCustomerMap.set(c.cust_rt_id.trim().toUpperCase(), c);
-      if (c.customerCode) {
-        const raw = c.customerCode.trim().toUpperCase();
-        const unpadded = raw.replace(/^C/i, '').replace(/^0+/, '');
-        cmCustomerMap.set(raw, c);
-        cmCustomerMap.set(raw.replace(/^C/i, ''), c);
-        if (unpadded) {
-          cmCustomerMap.set(unpadded, c);
-          cmCustomerMap.set(`C${unpadded}`, c);
+      const code = String(c.customerCode || '').trim().toUpperCase();
+      const rawNum = code.replace(/^C/i, '');
+      const unpadded = rawNum.replace(/^0+/, '');
+      const padded5 = rawNum.padStart(5, '0');
+      const variants = [code, rawNum, unpadded, `C${rawNum}`, `C${unpadded}`, padded5, `C${padded5}`];
+      variants.filter(Boolean).forEach((v) => {
+        cmCustomerByCode.set(v, c);
+        cmCustomerMap.set(v, c);
+      });
+      if (c.cust_rt_id) {
+        const crt = String(c.cust_rt_id).trim().toUpperCase();
+        cmCustomerByCustRt.set(crt, c);
+        cmCustomerMap.set(crt, c);
+        const parts = crt.split('|');
+        if (parts.length === 2) {
+          cmCustomerByCustRt.set(`${parts[1]}|${parts[0]}`, c);
+          cmCustomerMap.set(`${parts[1]}|${parts[0]}`, c);
         }
+      }
+      if (c.routeCode && c.customerCode) {
+        const rc = String(c.routeCode).trim().toUpperCase();
+        variants.filter(Boolean).forEach((v) => {
+          cmCustomerMap.set(`${v}|${rc}`, c);
+          cmCustomerMap.set(`${rc}|${v}`, c);
+        });
       }
       if (c.customerName) {
         cmCustomerMap.set(c.customerName.trim().toUpperCase(), c);
@@ -189,21 +208,25 @@ export async function GET(req: NextRequest) {
 
       const cleanCustCode = custCodeRaw.toUpperCase().trim();
       const unpaddedCustCode = cleanCustCode.replace(/^C/i, '').replace(/^0+/, '');
+      let cleanRoute = (routeCodeRaw || '').toUpperCase().trim();
 
       // 1. Look up in CUSTMASTER first (the true source of truth)
       const cmCust =
-        (custRtId ? cmCustomerMap.get(custRtId.toUpperCase()) : null) ||
-        (cleanCustCode && routeCodeRaw ? cmCustomerMap.get(`${cleanCustCode}|${routeCodeRaw.toUpperCase()}`) : null) ||
-        (cleanCustCode ? cmCustomerMap.get(cleanCustCode) : null) ||
-        (unpaddedCustCode ? cmCustomerMap.get(unpaddedCustCode) : null) ||
-        (unpaddedCustCode ? cmCustomerMap.get(`C${unpaddedCustCode}`) : null);
+        (custRtId ? cmCustomerByCustRt.get(custRtId.toUpperCase()) : null) ||
+        (cleanCustCode && cleanRoute ? cmCustomerMap.get(`${cleanCustCode}|${cleanRoute}`) : null) ||
+        (cleanRoute && cleanCustCode ? cmCustomerMap.get(`${cleanRoute}|${cleanCustCode}`) : null) ||
+        (cleanCustCode ? cmCustomerByCode.get(cleanCustCode) : null) ||
+        (unpaddedCustCode ? cmCustomerByCode.get(unpaddedCustCode) : null) ||
+        (unpaddedCustCode ? cmCustomerByCode.get(`C${unpaddedCustCode}`) : null) ||
+        (custRtId ? cmCustomerMap.get(custRtId.toUpperCase()) : null);
 
       if (cmCust) {
-        if (!routeCodeRaw && cmCust.routeCode) routeCodeRaw = cmCust.routeCode;
+        if (!routeCodeRaw && cmCust.routeCode) {
+          routeCodeRaw = cmCust.routeCode;
+          cleanRoute = (routeCodeRaw || '').toUpperCase().trim();
+        }
         if (!custCodeRaw && cmCust.customerCode) custCodeRaw = cmCust.customerCode;
       }
-
-      const cleanRoute = (routeCodeRaw || '').toUpperCase().trim();
 
       // 2. Supervisor & Manager Resolution
       let supName = cmCust?.superName || (cleanRoute ? cmRouteSupMap[cleanRoute] : '') || '';
@@ -279,11 +302,19 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // 4. Channel Resolution
+      // 4. Channel / RTM Resolution - Strictly identical to Management Dashboard
       const candidateCode = cleanCustCode || cmCust?.customerCode || '';
-      const masterCh = getCustMasterChannel(candidateCode, cleanRoute);
-      let ch = masterCh || cmCust?.channel || '';
-      if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
+      let ch = (cmCust && (cmCust.rtm || cmCust.channel)) || '';
+      if (!ch && candidateCode) {
+        ch = getCustMasterChannel(candidateCode, '');
+      }
+      if (!ch && cleanRoute) {
+        if (cleanRoute.startsWith('MT')) ch = 'MT';
+        else if (cleanRoute.startsWith('TR')) ch = 'TT';
+        else if (cleanRoute.startsWith('IS')) ch = 'INST';
+      }
+      if (!ch) ch = 'TT';
+      if (ch === 'GT' || ch === 'GENERAL TRADE' || ch === 'GENERAL STORE') {
         ch = 'TT';
       }
 
@@ -340,6 +371,8 @@ export async function GET(req: NextRequest) {
         outletCode: candidateCode || '',
         route: cleanRoute || 'N/A',
         channel: ch,
+        rtm: ch,
+        classification: cmCust?.classification || 'C',
         observation,
         observations: combinedObsList,
         assetObservations,
@@ -479,28 +512,46 @@ export async function GET(req: NextRequest) {
 
     allEnrichedPhotos.forEach((p: any) => {
       if (p.channel) dbRtmSet.add(p.channel);
+      if (p.rtm) dbRtmSet.add(p.rtm);
     });
-    if (dbRtmSet.size === 0) {
-      ['TT', 'MT', 'INST'].forEach((c) => dbRtmSet.add(c));
-    }
+    const canonicalRtms = (custMaster.rtms && custMaster.rtms.length > 0) ? custMaster.rtms : ['INST', 'MT', 'TT'];
+    canonicalRtms.forEach((c: string) => dbRtmSet.add(c));
 
     const supervisors = Array.from(dbSupSet).sort();
     const outlets = Array.from(dbOutletSet).sort();
     const routes = Array.from(dbRouteSet).sort();
-    const rtms = Array.from(dbRtmSet).sort();
+    const rtms = Array.from(dbRtmSet).filter(Boolean).sort();
 
     let filtered = dateFilteredPhotos;
 
-    // Filter by Application
-    if (appNameParam && appNameParam !== 'all') {
-      const targetApp = appNameParam.trim().toLowerCase();
-      filtered = filtered.filter((p: any) => p.appName.toLowerCase() === targetApp);
+    // Filter by Manager
+    if (managerParam && managerParam !== 'all') {
+      const targetMgr = managerParam.trim().toLowerCase();
+      filtered = filtered.filter((p: any) => (p.manager || '').toLowerCase() === targetMgr);
     }
 
     // Filter by Supervisor
     if (supervisorParam && supervisorParam !== 'all') {
       const targetSup = supervisorParam.trim().toLowerCase();
       filtered = filtered.filter((p: any) => p.supervisor.toLowerCase() === targetSup);
+    }
+
+    // Filter by RTM / Channel
+    if (rtmParam && rtmParam !== 'all') {
+      const targetRtm = rtmParam.trim().toUpperCase();
+      filtered = filtered.filter((p: any) => (p.rtm || p.channel || '').toUpperCase() === targetRtm);
+    }
+
+    // Filter by Classification
+    if (classParam && classParam !== 'all') {
+      const targetCls = classParam.trim().toUpperCase();
+      filtered = filtered.filter((p: any) => (p.classification || '').toUpperCase() === targetCls);
+    }
+
+    // Filter by Application
+    if (appNameParam && appNameParam !== 'all') {
+      const targetApp = appNameParam.trim().toLowerCase();
+      filtered = filtered.filter((p: any) => p.appName.toLowerCase() === targetApp);
     }
 
     // Filter by Route Code
@@ -513,12 +564,6 @@ export async function GET(req: NextRequest) {
     if (outletParam && outletParam !== 'all') {
       const targetOutlet = outletParam.trim().toLowerCase();
       filtered = filtered.filter((p: any) => p.outlet.toLowerCase() === targetOutlet);
-    }
-
-    // Filter by RTM / Channel
-    if (rtmParam && rtmParam !== 'all') {
-      const targetRtm = rtmParam.trim().toUpperCase();
-      filtered = filtered.filter((p: any) => (p.channel || '').toUpperCase() === targetRtm);
     }
 
     // Search filter
@@ -548,9 +593,11 @@ export async function GET(req: NextRequest) {
       success: true,
       photos: paginatedPhotos,
       applications,
+      managers: custMaster.managers || [],
       supervisors,
       outlets,
       routes,
+      classifications: custMaster.classifications || ['A', 'B', 'C', 'D', 'E'],
       rtms,
       channels: rtms,
       pagination: {

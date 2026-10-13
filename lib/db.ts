@@ -1,16 +1,179 @@
-import mysql from 'mysql2/promise';
 import 'dotenv/config';
 
 declare global {
   // eslint-disable-next-line no-var
-  var __mysqlPool: mysql.Pool | undefined;
+  var __mssqlPool: any | undefined;
+  // eslint-disable-next-line no-var
+  var __mysqlPool: any | undefined;
 }
 
-let pool: mysql.Pool;
+// Determine if we should connect using Microsoft SQL Server (Azure SQL) or MySQL
+const isMssql = Boolean(
+  process.env.DB_SERVER ||
+  process.env.DB_ENCRYPT === 'true' ||
+  (process.env.DB_PORT && Number(process.env.DB_PORT) === 3342) ||
+  (process.env.DB_PORT && Number(process.env.DB_PORT) === 1433)
+);
 
-if (process.env.NODE_ENV === 'production') {
-  pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
+function transformQueryForMssql(query: string, params: any[] = []) {
+  // 1. Replace MySQL backticks with SQL Server brackets
+  let q = query.replace(/`([^`]+)`/g, '[$1]');
+
+  // 2. Replace MySQL NOW() with SQL Server GETDATE()
+  q = q.replace(/\bNOW\(\)/gi, 'GETDATE()');
+
+  // 3. Convert trailing LIMIT N to SELECT TOP N
+  const limitMatch = q.match(/\s+LIMIT\s+(\d+)\s*$/i);
+  if (limitMatch) {
+    const limitCount = limitMatch[1];
+    q = q.replace(/\s+LIMIT\s+\d+\s*$/i, '');
+    if (/^\s*SELECT\s+/i.test(q) && !/^\s*SELECT\s+TOP\s+/i.test(q)) {
+      q = q.replace(/^\s*SELECT\s+/i, `SELECT TOP ${limitCount} `);
+    }
+  }
+
+  // 4. Convert positional ? parameters to named @p0, @p1, ...
+  const requestInputs: { name: string; value: any }[] = [];
+  if (params && params.length > 0) {
+    let paramIndex = 0;
+    q = q.replace(/\?/g, () => {
+      const paramName = `p${paramIndex}`;
+      requestInputs.push({ name: paramName, value: params[paramIndex] });
+      paramIndex++;
+      return `@${paramName}`;
+    });
+  }
+
+  return { q, requestInputs };
+}
+
+let pool: any;
+
+if (isMssql) {
+  // ==========================================
+  // MICROSOFT SQL SERVER / AZURE SQL DATABASE
+  // ==========================================
+  const sql = require('mssql');
+
+  const serverHost = process.env.DB_SERVER || process.env.DB_HOST || 'localhost';
+  const serverPort = Number(process.env.DB_PORT) || 1433;
+
+  const dbConfig = {
+    server: serverHost,
+    port: serverPort,
+    user: process.env.DB_USER || 'sa',
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME || 'FieldVisitDB',
+    options: {
+      encrypt: process.env.DB_ENCRYPT !== 'false',
+      trustServerCertificate: true,
+    },
+    pool: {
+      max: 20,
+      min: 0,
+      idleTimeoutMillis: 30000,
+    },
+    connectionTimeout: 15000,
+  };
+
+  if (process.env.NODE_ENV === 'production') {
+    pool = new sql.ConnectionPool(dbConfig);
+  } else {
+    if (!global.__mssqlPool) {
+      global.__mssqlPool = new sql.ConnectionPool(dbConfig);
+    }
+    pool = global.__mssqlPool;
+  }
+
+  pool.execute = async (query: string, params: any[] = []) => {
+    if (!pool.connected) {
+      await pool.connect();
+    }
+    const request = pool.request();
+    const { q, requestInputs } = transformQueryForMssql(query, params);
+
+    for (const input of requestInputs) {
+      request.input(input.name, input.value);
+    }
+
+    try {
+      const result = await request.query(q);
+      const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
+      if (isSelect) {
+        return [result.recordset || [], null];
+      } else {
+        const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
+        return [{ affectedRows }, null];
+      }
+    } catch (err: any) {
+      console.error('MSSQL execute error:', err.message, 'Query:', q);
+      throw err;
+    }
+  };
+
+  pool.getConnection = async () => {
+    if (!pool.connected) {
+      await pool.connect();
+    }
+    const transaction = new sql.Transaction(pool);
+    let activeRequest: any = null;
+    let isTransactionActive = false;
+
+    return {
+      beginTransaction: async () => {
+        await transaction.begin();
+        activeRequest = new sql.Request(transaction);
+        isTransactionActive = true;
+      },
+      commit: async () => {
+        if (isTransactionActive) {
+          await transaction.commit();
+          isTransactionActive = false;
+          activeRequest = null;
+        }
+      },
+      rollback: async () => {
+        if (isTransactionActive) {
+          await transaction.rollback();
+          isTransactionActive = false;
+          activeRequest = null;
+        }
+      },
+      release: () => {
+        // No-op for mssql wrapper
+      },
+      execute: async (query: string, params: any[] = []) => {
+        const request = activeRequest || pool.request();
+        const { q, requestInputs } = transformQueryForMssql(query, params);
+
+        for (const input of requestInputs) {
+          request.input(input.name, input.value);
+        }
+
+        try {
+          const result = await request.query(q);
+          const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
+          if (isSelect) {
+            return [result.recordset || [], null];
+          } else {
+            const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
+            return [{ affectedRows }, null];
+          }
+        } catch (err: any) {
+          console.error('MSSQL connection execute error:', err.message, 'Query:', q);
+          throw err;
+        }
+      },
+    };
+  };
+} else {
+  // ==========================================
+  // MYSQL (MYSQL2 / RAILWAY / LOCAL)
+  // ==========================================
+  const mysql = require('mysql2/promise');
+
+  const mysqlConfig = {
+    host: process.env.DB_HOST || process.env.DB_SERVER || 'localhost',
     port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
@@ -23,26 +186,16 @@ if (process.env.NODE_ENV === 'production') {
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
     connectTimeout: 8000,
-  });
-} else {
-  if (!global.__mysqlPool) {
-    global.__mysqlPool = mysql.createPool({
-      host: process.env.DB_HOST || 'localhost',
-      port: Number(process.env.DB_PORT) || 3306,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      waitForConnections: true,
-      connectionLimit: 15,
-      maxIdle: 10,
-      idleTimeout: 30000,
-      queueLimit: 0,
-      enableKeepAlive: true,
-      keepAliveInitialDelay: 0,
-      connectTimeout: 8000,
-    });
+  };
+
+  if (process.env.NODE_ENV === 'production') {
+    pool = mysql.createPool(mysqlConfig);
+  } else {
+    if (!global.__mysqlPool) {
+      global.__mysqlPool = mysql.createPool(mysqlConfig);
+    }
+    pool = global.__mysqlPool;
   }
-  pool = global.__mysqlPool;
 }
 
 export default pool;
