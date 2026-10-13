@@ -51,6 +51,7 @@ export interface AuditPhoto {
   outletCode?: string;
   route: string;
   channel: string;
+  rtm?: string;
   observation?: string;
   observations?: string | string[];
   notes?: string;
@@ -69,8 +70,17 @@ export interface AuditPhoto {
 }
 
 export default function AuditPhotoGalleryPage() {
-  // Today's date YYYY-MM-DD by default
-  const getTodayStr = () => {
+  // Date Helpers matching Management Dashboard
+  const getMinusOneDayStr = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getTodayStr = (): string => {
     const d = new Date();
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -78,17 +88,60 @@ export default function AuditPhotoGalleryPage() {
     return `${y}-${m}-${day}`;
   };
 
-  const [fromDate, setFromDate] = useState<string>(getTodayStr());
-  const [toDate, setToDate] = useState<string>(getTodayStr());
-  const [selectedRtm, setSelectedRtm] = useState<string>('all');
-  const [rtms, setRtms] = useState<string[]>(['TT', 'MT', 'INST']);
-  const [selectedApp, setSelectedApp] = useState<string>('all');
+  const getNDaysAgoStr = (n: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getFirstDayOfMonthStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  };
+
+  const defaultMinusOne = getMinusOneDayStr();
+  const [fromDate, setFromDate] = useState<string>(defaultMinusOne);
+  const [toDate, setToDate] = useState<string>(defaultMinusOne);
+  const [selectedManager, setSelectedManager] = useState<string>('all');
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>('all');
-  const [selectedRoute, setSelectedRoute] = useState<string>('all');
+  const [selectedRtm, setSelectedRtm] = useState<string>('all');
+  const [selectedClass, setSelectedClass] = useState<string>('all');
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all');
+  const [selectedRoute, setSelectedRoute] = useState<string>('all');
+  const [selectedApp, setSelectedApp] = useState<string>('all');
+  const [rtms, setRtms] = useState<string[]>(['INST', 'MT', 'TT']);
+  const [managers, setManagers] = useState<string[]>([]);
+  const [classifications, setClassifications] = useState<string[]>(['A', 'B', 'C', 'D', 'E']);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize] = useState<number>(12);
+
+  const setQuickDate = (preset: 'minus1' | 'today' | '7d' | 'mtd' | 'all') => {
+    if (preset === 'minus1') {
+      const d = getMinusOneDayStr();
+      setFromDate(d);
+      setToDate(d);
+    } else if (preset === 'today') {
+      const today = getTodayStr();
+      setFromDate(today);
+      setToDate(today);
+    } else if (preset === '7d') {
+      setFromDate(getNDaysAgoStr(7));
+      setToDate(getTodayStr());
+    } else if (preset === 'mtd') {
+      setFromDate(getFirstDayOfMonthStr());
+      setToDate(getTodayStr());
+    } else if (preset === 'all') {
+      setFromDate('');
+      setToDate('');
+    }
+    setCurrentPage(1);
+  };
 
   // GM Action Tracking State
   const [actionItemsMap, setActionItemsMap] = useState<Record<string, AuditActionItem>>({});
@@ -139,11 +192,13 @@ export default function AuditPhotoGalleryPage() {
         if (toDate) params.set('toDate', toDate);
         if (!fromDate && !toDate) params.set('date', 'all');
 
-        if (selectedRtm && selectedRtm !== 'all') params.set('rtm', selectedRtm);
-        if (selectedApp && selectedApp !== 'all') params.set('appName', selectedApp);
+        if (selectedManager && selectedManager !== 'all') params.set('manager', selectedManager);
         if (selectedSupervisor && selectedSupervisor !== 'all') params.set('supervisor', selectedSupervisor);
+        if (selectedRtm && selectedRtm !== 'all') params.set('rtm', selectedRtm);
+        if (selectedClass && selectedClass !== 'all') params.set('classification', selectedClass);
         if (selectedRoute && selectedRoute !== 'all') params.set('routeCode', selectedRoute);
         if (selectedOutlet && selectedOutlet !== 'all') params.set('outlet', selectedOutlet);
+        if (selectedApp && selectedApp !== 'all') params.set('appName', selectedApp);
         if (searchQuery.trim()) params.set('search', searchQuery.trim());
         params.set('page', currentPage.toString());
         params.set('limit', pageSize.toString());
@@ -157,6 +212,12 @@ export default function AuditPhotoGalleryPage() {
             setRtms(data.rtms);
           } else if (data.channels && Array.isArray(data.channels)) {
             setRtms(data.channels);
+          }
+          if (data.managers && Array.isArray(data.managers)) {
+            setManagers(data.managers);
+          }
+          if (data.classifications && Array.isArray(data.classifications)) {
+            setClassifications(data.classifications);
           }
           if (data.applications && Array.isArray(data.applications)) {
             setApplications(data.applications);
@@ -181,7 +242,7 @@ export default function AuditPhotoGalleryPage() {
         setIsRefreshing(false);
       }
     },
-    [fromDate, toDate, selectedRtm, selectedApp, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
+    [fromDate, toDate, selectedManager, selectedSupervisor, selectedRtm, selectedClass, selectedRoute, selectedOutlet, selectedApp, searchQuery, currentPage, pageSize]
   );
 
   useEffect(() => {
@@ -190,13 +251,16 @@ export default function AuditPhotoGalleryPage() {
   }, [fetchPhotos, fetchActionItems]);
 
   const handleResetFilters = () => {
-    setFromDate(getTodayStr());
-    setToDate(getTodayStr());
-    setSelectedRtm('all');
-    setSelectedApp('all');
+    const d = getMinusOneDayStr();
+    setFromDate(d);
+    setToDate(d);
+    setSelectedManager('all');
     setSelectedSupervisor('all');
+    setSelectedRtm('all');
+    setSelectedClass('all');
     setSelectedRoute('all');
     setSelectedOutlet('all');
+    setSelectedApp('all');
     setSearchQuery('');
     setActionFilter('all');
     setCurrentPage(1);
@@ -207,10 +271,11 @@ export default function AuditPhotoGalleryPage() {
       filename: `photo_audits_${new Date().toISOString().slice(0, 10)}`,
       sheetName: 'Photo Audits',
       title: 'Audit Photo Gallery Metadata Log',
-      filterSummary: `Dates: ${fromDate || 'Start'} to ${toDate || 'End'} | RTM: ${selectedRtm} | App: ${selectedApp} | Supervisor: ${selectedSupervisor} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
+      filterSummary: `Dates: ${fromDate || 'Start'} to ${toDate || 'End'} | Manager: ${selectedManager} | Supervisor: ${selectedSupervisor} | RTM: ${selectedRtm} | Classification: ${selectedClass} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | App: ${selectedApp} | Search: "${searchQuery}"`,
       columns: [
         { header: 'Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
+        { header: 'RTM', key: 'channel', formatter: (val: any, row: any) => row.rtm || val || 'TT' },
+        { header: 'Classification', key: 'classification', formatter: (val: any) => val || 'C' },
         { header: 'Manager', key: 'manager', formatter: (val: any) => val || '—' },
         { header: 'Supervisor', key: 'supervisor', formatter: (val: any) => val || '—' },
         { header: 'Route Code', key: 'route', formatter: (val: any) => val || '—' },
@@ -460,7 +525,7 @@ export default function AuditPhotoGalleryPage() {
         </button>
       </div>
 
-      {/* Filter Control Bar */}
+      {/* Filter Control Bar matching Management Dashboard */}
       <div className="p-4.5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800/90 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
@@ -469,7 +534,7 @@ export default function AuditPhotoGalleryPage() {
             </div>
             Filter Gallery
           </div>
-          {(fromDate !== getTodayStr() || toDate !== getTodayStr() || selectedRtm !== 'all' || selectedApp !== 'all' || selectedSupervisor !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery || actionFilter !== 'all') && (
+          {(fromDate !== defaultMinusOne || toDate !== defaultMinusOne || selectedManager !== 'all' || selectedSupervisor !== 'all' || selectedRtm !== 'all' || selectedClass !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery || actionFilter !== 'all') && (
             <button
               onClick={handleResetFilters}
               className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
@@ -480,12 +545,66 @@ export default function AuditPhotoGalleryPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3">
+        {/* Quick Date Presets Strip matching Management Dashboard */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1 flex-shrink-0">
+            <span>Date Presets:</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setQuickDate('minus1')}
+            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 flex-shrink-0 ${
+              fromDate === defaultMinusOne && toDate === defaultMinusOne
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <span>⚡ -1 Day (Yesterday)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickDate('today')}
+            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex-shrink-0 ${
+              fromDate === getTodayStr() && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickDate('7d')}
+            className="px-3 py-1 rounded-lg text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex-shrink-0"
+          >
+            Last 7 Days
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickDate('mtd')}
+            className="px-3 py-1 rounded-lg text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex-shrink-0"
+          >
+            This Month
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickDate('all')}
+            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex-shrink-0 ${
+              !fromDate && !toDate
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            All Dates
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 gap-2.5">
           {/* From Date Slicer */}
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <Calendar className="h-3 w-3 text-indigo-500" />
-              From Date
+              From
             </label>
             <input
               type="date"
@@ -494,7 +613,7 @@ export default function AuditPhotoGalleryPage() {
                 setFromDate(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
           </div>
 
@@ -502,7 +621,7 @@ export default function AuditPhotoGalleryPage() {
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <Calendar className="h-3 w-3 text-indigo-500" />
-              To Date
+              To
             </label>
             <input
               type="date"
@@ -511,28 +630,28 @@ export default function AuditPhotoGalleryPage() {
                 setToDate(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
           </div>
 
-          {/* RTM Slicer */}
+          {/* Manager Selector */}
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <Layers className="h-3 w-3 text-indigo-500" />
-              RTM Slicer
+              <User className="h-3 w-3 text-indigo-500" />
+              Manager
             </label>
             <select
-              value={selectedRtm}
+              value={selectedManager}
               onChange={(e) => {
-                setSelectedRtm(e.target.value);
+                setSelectedManager(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
-              <option value="all">All RTM Channels</option>
-              {rtms.map((rtm) => (
-                <option key={rtm} value={rtm}>
-                  {rtm}
+              <option value="all">All Managers</option>
+              {managers.map((m) => (
+                <option key={m} value={m}>
+                  {m}
                 </option>
               ))}
             </select>
@@ -550,7 +669,7 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedSupervisor(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
               <option value="all">All Supervisors</option>
               {supervisors.map((sup) => (
@@ -561,24 +680,47 @@ export default function AuditPhotoGalleryPage() {
             </select>
           </div>
 
-          {/* Route Selector */}
+          {/* RTM Slicer - Identical to Management Dashboard */}
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <MapPin className="h-3 w-3 text-indigo-500" />
-              Route
+              <Layers className="h-3 w-3 text-indigo-500" />
+              RTM
             </label>
             <select
-              value={selectedRoute}
+              value={selectedRtm}
               onChange={(e) => {
-                setSelectedRoute(e.target.value);
+                setSelectedRtm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
-              <option value="all">All Routes</option>
-              {routes.map((rt) => (
-                <option key={rt} value={rt}>
-                  {rt}
+              <option value="all">All RTM</option>
+              {rtms.map((rtm) => (
+                <option key={rtm} value={rtm}>
+                  {rtm}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Classification Selector */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Tag className="h-3 w-3 text-indigo-500" />
+              Classification
+            </label>
+            <select
+              value={selectedClass}
+              onChange={(e) => {
+                setSelectedClass(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="all">All Classifications</option>
+              {classifications.map((cls) => (
+                <option key={cls} value={cls}>
+                  {cls}
                 </option>
               ))}
             </select>
@@ -588,7 +730,7 @@ export default function AuditPhotoGalleryPage() {
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <Store className="h-3 w-3 text-indigo-500" />
-              Customer / Outlet
+              Outlet / Customer
             </label>
             <select
               value={selectedOutlet}
@@ -596,7 +738,7 @@ export default function AuditPhotoGalleryPage() {
                 setSelectedOutlet(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full text-xs font-semibold py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
             >
               <option value="all">All Outlets</option>
               {outlets.map((ot) => (
@@ -607,38 +749,54 @@ export default function AuditPhotoGalleryPage() {
             </select>
           </div>
 
-          {/* Search Input */}
+          {/* Route Selector */}
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <Search className="h-3 w-3 text-indigo-500" />
-              Search
+              <MapPin className="h-3 w-3 text-indigo-500" />
+              Route Code
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Outlet, supervisor, route..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full text-xs font-semibold py-2 pl-8 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              />
-              <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
+            <select
+              value={selectedRoute}
+              onChange={(e) => {
+                setSelectedRoute(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs font-semibold py-2 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="all">All Route Codes</option>
+              {routes.map((rt) => (
+                <option key={rt} value={rt}>
+                  {rt}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Quick Date Shortcuts */}
-        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+        {/* Search Input Bar & Active Filter Summary */}
+        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex-1 min-w-[240px] max-w-md relative">
+            <input
+              type="text"
+              placeholder="Search outlet, supervisor, route, notes..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full text-xs font-semibold py-2 pl-8 pr-8 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            />
+            <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
           <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
             Viewing records{' '}
             {fromDate || toDate ? (
@@ -651,40 +809,10 @@ export default function AuditPhotoGalleryPage() {
             )}
             {selectedRtm !== 'all' && (
               <>
-                {' '}• RTM Channel: <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{selectedRtm}</strong>
+                {' '}• RTM: <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{selectedRtm}</strong>
               </>
             )}
           </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => {
-                setFromDate(getTodayStr());
-                setToDate(getTodayStr());
-                setCurrentPage(1);
-              }}
-              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
-                fromDate === getTodayStr() && toDate === getTodayStr()
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              Today
-            </button>
-            <button
-              onClick={() => {
-                setFromDate('');
-                setToDate('');
-                setCurrentPage(1);
-              }}
-              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
-                !fromDate && !toDate
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              All Dates
-            </button>
-          </div>
         </div>
       </div>
 
@@ -726,6 +854,13 @@ export default function AuditPhotoGalleryPage() {
               hour: '2-digit',
               minute: '2-digit',
             });
+            const cardObs = (
+              photo.observation ||
+              photo.notes ||
+              photo.visitObservation ||
+              (photo.assetObservations && photo.assetObservations.find((a: any) => a.observation && a.observation !== '—')?.observation) ||
+              ''
+            ).trim();
 
             return (
               <div
@@ -791,7 +926,7 @@ export default function AuditPhotoGalleryPage() {
 
                 {/* Photo Details Footer */}
                 <div className="p-4 space-y-2.5 flex-1 flex flex-col justify-between">
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <p className="text-xs font-bold text-[var(--text-primary)] truncate flex items-center gap-2">
                       <Store className="h-4 w-4 text-accent flex-shrink-0" />
                       <span className="truncate">
@@ -805,6 +940,21 @@ export default function AuditPhotoGalleryPage() {
                         Supervisor: <strong className="text-[var(--text-primary)]">{photo.supervisor}</strong>
                       </span>
                     </p>
+
+                    {/* Eye-Catchy Highlighted Observation Badge */}
+                    {cardObs && (
+                      <div className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/20 to-yellow-500/15 border border-amber-400/50 text-amber-200 text-[11px] shadow-xs flex items-start gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
+                        <div className="min-w-0">
+                          <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-400 block">
+                            Observation / Notes:
+                          </span>
+                          <p className="line-clamp-2 text-white font-bold text-xs drop-shadow-xs">
+                            &ldquo;{cardObs}&rdquo;
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-2.5 border-t border-[var(--border-soft)] flex items-center justify-between text-[10px] text-[var(--text-muted)]">
@@ -812,9 +962,9 @@ export default function AuditPhotoGalleryPage() {
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" /> {photo.route || 'N/A'}
                       </span>
-                      {photo.channel && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-accent/10 text-accent border border-accent/20">
-                          {photo.channel}
+                      {(photo.rtm || photo.channel) && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-500 dark:text-indigo-300 border border-indigo-500/30">
+                          RTM: {photo.rtm || photo.channel}
                         </span>
                       )}
                     </div>

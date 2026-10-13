@@ -1017,9 +1017,19 @@ export default function ImageLightboxModal({
                 {/* Right: The Observation Quote for THIS Asset */}
                 <div className="flex-1 min-w-0 md:text-right">
                   {hasNote ? (
-                    <p className="text-xs text-slate-100 font-medium italic break-words md:text-right">
-                      &ldquo;{displayNote}&rdquo;
-                    </p>
+                    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/25 via-amber-400/30 to-yellow-500/25 border-2 border-amber-400 text-amber-100 shadow-lg shadow-amber-500/20 max-w-full text-left md:text-right">
+                      <div className="p-1 rounded-md bg-amber-400 text-slate-950 flex-shrink-0 shadow-xs">
+                        <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-300 block">
+                          Observation / Notes:
+                        </span>
+                        <p className="text-xs sm:text-[13px] font-extrabold text-white tracking-wide break-words drop-shadow">
+                          &ldquo;{displayNote}&rdquo;
+                        </p>
+                      </div>
+                    </div>
                   ) : hasAssets ? (
                     <p className="text-[11px] text-slate-400 italic md:text-right">
                       No observation notes recorded for {targetAssetType || 'this asset'}.
@@ -1647,13 +1657,28 @@ export default function ImageLightboxModal({
                 </div>
                 <div>
                   <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                    Channel
+                    RTM
                   </label>
-                  <p className="text-xs font-medium text-slate-300 mt-0.5">
-                    {current.channel || currentAction?.channel || 'GT'}
+                  <p className="text-xs font-black text-indigo-400 mt-0.5">
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold uppercase tracking-wider inline-block">
+                      {current.rtm || current.channel || currentAction?.channel || 'TT'}
+                    </span>
                   </p>
                 </div>
               </div>
+
+              {/* Eye-Catchy Highlighted Observation / Notes in Details Sidebar */}
+              {(current.observation || current.notes || current.visitObservation) && (
+                <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/10 border-2 border-amber-400/80 shadow-md shadow-amber-500/10 space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                    <span>Observation / Notes</span>
+                  </div>
+                  <p className="text-xs font-extrabold text-white leading-relaxed break-words">
+                    &ldquo;{current.observation || current.notes || current.visitObservation}&rdquo;
+                  </p>
+                </div>
+              )}
 
               {current.uploadedAt && (
                 <div>
