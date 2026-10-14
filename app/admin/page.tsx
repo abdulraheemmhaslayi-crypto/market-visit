@@ -855,7 +855,6 @@ export default function AdminDashboardPage() {
   const activeNote = useMemo(() => {
     const parts = [];
     if (fFrom || fTo) parts.push(`Date: <b>${fFrom || 'Start'} → ${fTo || 'Now'}</b>`);
-    if (fMgr.length > 0) parts.push(`Manager: <b>${fMgr.join(', ')}</b>`);
     if (fSuper.length > 0) parts.push(`Supervisor: <b>${fSuper.join(', ')}</b>`);
     if (fChannel) parts.push(`RTM: <b>${fChannel}</b>`);
     if (fClass) parts.push(`Classification: <b>${fClass}</b>`);
@@ -864,7 +863,7 @@ export default function AdminDashboardPage() {
     if (fSku) parts.push(`SKU: <b>${fSku}</b>`);
     if (fVertical) parts.push(`Business Vertical: <b>${fVertical}</b>`);
     return parts.length ? 'Filtered by ' + parts.join(' · ') : 'Showing all visits';
-  }, [fFrom, fTo, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical]);
+  }, [fFrom, fTo, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical]);
 
   // Excel Export Handlers
   const handleExportAllFilteredVisits = () => {
@@ -2766,37 +2765,6 @@ export default function AdminDashboardPage() {
               <label>TO</label>
               <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
             </div>
-
-            <div className="fld min-w-[155px]">
-              <label>MANAGER</label>
-              <MultiSelectDropdown
-                placeholder="All Managers"
-                options={mgrOptions}
-                selectedValues={fMgr}
-                onChange={(selected) => {
-                  setFMgr(selected);
-                  if (selected.length > 0 && masters) {
-                    const validSups = new Set<string>();
-                    selected.forEach((m) => {
-                      const mUpper = m.toUpperCase();
-                      if (masters.managerSupervisorMap && masters.managerSupervisorMap[mUpper]) {
-                        (masters.managerSupervisorMap[mUpper] as string[]).forEach((s) => validSups.add(s));
-                      } else {
-                        (masters.routes || [])
-                          .filter((r: any) => (r.managerName || '').toUpperCase() === mUpper)
-                          .forEach((r: any) => { if (r.superName) validSups.add(r.superName); });
-                      }
-                    });
-                    setFSuper((prev) => prev.filter((s) => validSups.has(s)));
-                  }
-                  setFChannel('');
-                  setFClass('');
-                  setFCust('');
-                  setFRoute('');
-                }}
-              />
-            </div>
-
             <div className="fld min-w-[165px]">
               <label>SUPERVISOR</label>
               <MultiSelectDropdown
@@ -2823,15 +2791,6 @@ export default function AdminDashboardPage() {
                   setFClass('');
                   setFCust('');
                   setFRoute('');
-                  if (selected.length > 0 && masters?.routes && fMgr.length === 0) {
-                    const matchingRoutes = (masters.routes as any[]).filter(
-                      (r) => selected.some((s) => (r.superName || '').toUpperCase() === s.toUpperCase())
-                    );
-                    const mgrs = Array.from(new Set(matchingRoutes.map((r) => r.managerName).filter(Boolean)));
-                    if (mgrs.length === 1) {
-                      setFMgr([mgrs[0]]);
-                    }
-                  }
                 }}
               />
             </div>
@@ -2903,7 +2862,6 @@ export default function AdminDashboardPage() {
                 if (val && masters?.routes) {
                   const rtInfo = (masters.routes as any[]).find((r) => r.routeCode === val);
                   if (rtInfo) {
-                    if (rtInfo.managerName && fMgr.length === 0) setFMgr([rtInfo.managerName]);
                     if (rtInfo.superName && fSuper.length === 0) setFSuper([rtInfo.superName]);
                   }
                 }
@@ -3143,7 +3101,7 @@ export default function AdminDashboardPage() {
 
         {/* Footer */}
         <div className="foot">
-          <b>Real database visits live sync.</b> All five filters above are active — selections recalculate compliance & scorecard data dynamically.
+          <b>Real database visits live sync.</b> Filters above are active — selections recalculate compliance & scorecard data dynamically.
         </div>
       </div>
       <InteractiveChartTableModal
