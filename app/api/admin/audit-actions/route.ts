@@ -4,6 +4,11 @@ import { auditActionRepository } from '@/lib/audit-actions';
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await auth();
+    const userRole = String((session?.user as any)?.role || '').toLowerCase();
+    const isSupervisor = userRole.includes('supervisor');
+    const loggedInSupervisorName = (session?.user?.name || '').trim();
+
     const { searchParams } = req.nextUrl;
     const photoId = searchParams.get('photoId');
     const status = searchParams.get('status');
@@ -11,14 +16,22 @@ export async function GET(req: NextRequest) {
 
     let items = await auditActionRepository.getAll();
 
+    // 1. Strict supervisor scoping: If requester is a Supervisor, NEVER return actions of other supervisors
+    if (isSupervisor && loggedInSupervisorName) {
+      items = items.filter(
+        (i) => (i.supervisor || '').trim().toLowerCase() === loggedInSupervisorName.toLowerCase()
+      );
+    } else if (supervisor && supervisor !== 'all') {
+      items = items.filter(
+        (i) => (i.supervisor || '').trim().toLowerCase() === supervisor.trim().toLowerCase()
+      );
+    }
+
     if (photoId) {
       items = items.filter((i) => i.photoId === photoId);
     }
     if (status && status !== 'all') {
       items = items.filter((i) => i.actionStatus === status);
-    }
-    if (supervisor && supervisor !== 'all') {
-      items = items.filter((i) => (i.supervisor || '').toLowerCase() === supervisor.toLowerCase());
     }
 
     return NextResponse.json({ success: true, items });
@@ -85,7 +98,20 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, photoId, actionStatus, supervisorComment, proofPhotoUrl, gmResolutionNotes } = body;
+    const {
+      id,
+      photoId,
+      actionStatus,
+      supervisorComment,
+      proofPhotoUrl,
+      gmResolutionNotes,
+      supervisor,
+      manager,
+      channel,
+      gmComment,
+      priority,
+      deadline,
+    } = body;
 
     const targetId = id || photoId;
     if (!targetId) {
@@ -96,6 +122,25 @@ export async function PATCH(req: NextRequest) {
 
     if (actionStatus) {
       updates.actionStatus = actionStatus;
+    }
+
+    // Support reassigning supervisor / manager / channel
+    if (supervisor !== undefined && String(supervisor).trim()) {
+      updates.supervisor = String(supervisor).trim();
+      if (manager !== undefined) updates.manager = manager;
+      if (channel !== undefined) updates.channel = channel;
+    }
+
+    if (gmComment !== undefined && String(gmComment).trim()) {
+      updates.gmComment = String(gmComment).trim();
+    }
+
+    if (priority !== undefined) {
+      updates.priority = priority;
+    }
+
+    if (deadline !== undefined) {
+      updates.deadline = deadline;
     }
 
     // When supervisor submits proof:

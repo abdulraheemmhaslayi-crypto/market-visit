@@ -28,11 +28,13 @@ import {
   X,
   Layers,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 import { AuditActionItem } from '@/lib/audit-actions';
+import { useSession } from 'next-auth/react';
 
 export interface AuditPhoto {
   photoId: string;
@@ -48,6 +50,7 @@ export interface AuditPhoto {
   outletCode?: string;
   route: string;
   channel: string;
+  rtm?: string;
   observation?: string;
   observations?: string | string[];
   notes?: string;
@@ -66,7 +69,21 @@ export interface AuditPhoto {
 }
 
 export default function SupervisorAuditPhotoGalleryPage() {
-  const getTodayStr = () => {
+  const { data: session } = useSession();
+  const currentSupervisorName = useMemo(() => {
+    return (session?.user?.name || '').trim();
+  }, [session?.user?.name]);
+
+  const getMinusOneDayStr = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getTodayStr = (): string => {
     const d = new Date();
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -74,10 +91,26 @@ export default function SupervisorAuditPhotoGalleryPage() {
     return `${y}-${m}-${day}`;
   };
 
-  const [fromDate, setFromDate] = useState<string>(getTodayStr());
-  const [toDate, setToDate] = useState<string>(getTodayStr());
+  const getLast7DaysStr = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getFirstDayOfMonthStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  };
+
+  const [fromDate, setFromDate] = useState<string>(getMinusOneDayStr());
+  const [toDate, setToDate] = useState<string>(getMinusOneDayStr());
   const [selectedRtm, setSelectedRtm] = useState<string>('all');
-  const [rtms, setRtms] = useState<string[]>(['TT', 'MT', 'INST']);
+  const [rtms, setRtms] = useState<string[]>(['INST', 'MT', 'TT']);
   const [selectedApp, setSelectedApp] = useState<string>('all');
   const [selectedRoute, setSelectedRoute] = useState<string>('all');
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all');
@@ -157,22 +190,29 @@ export default function SupervisorAuditPhotoGalleryPage() {
     [fromDate, toDate, selectedRtm, selectedApp, selectedRoute, selectedOutlet, searchQuery, currentPage, pageSize]
   );
 
-  // Fetch GM / Admin Action Directives
+  // Fetch GM / Admin Action Directives scoped to this supervisor
   const fetchActionItems = useCallback(async () => {
+    if (!currentSupervisorName) return;
     try {
-      const res = await fetch('/api/admin/audit-actions');
+      const url = `/api/admin/audit-actions?supervisor=${encodeURIComponent(currentSupervisorName)}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success && Array.isArray(data.items)) {
         const map: Record<string, AuditActionItem> = {};
         data.items.forEach((item: AuditActionItem) => {
-          map[item.photoId] = item;
+          // Strict isolation: only map directives assigned to this supervisor
+          const itemSup = (item.supervisor || '').trim().toLowerCase();
+          const currSup = currentSupervisorName.toLowerCase();
+          if (itemSup === currSup) {
+            map[item.photoId] = item;
+          }
         });
         setActionItemsMap(map);
       }
     } catch (err) {
       console.error('Failed to load supervisor audit action items:', err);
     }
-  }, []);
+  }, [currentSupervisorName]);
 
   useEffect(() => {
     fetchPhotos(false);
@@ -180,8 +220,8 @@ export default function SupervisorAuditPhotoGalleryPage() {
   }, [fetchPhotos, fetchActionItems]);
 
   const handleResetFilters = () => {
-    setFromDate(getTodayStr());
-    setToDate(getTodayStr());
+    setFromDate(getMinusOneDayStr());
+    setToDate(getMinusOneDayStr());
     setSelectedRtm('all');
     setSelectedApp('all');
     setSelectedRoute('all');
@@ -198,7 +238,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
       filterSummary: `Dates: ${fromDate || 'Start'} to ${toDate || 'End'} | RTM: ${selectedRtm} | App: ${selectedApp} | Route: ${selectedRoute} | Outlet: ${selectedOutlet} | Search: "${searchQuery}"`,
       columns: [
         { header: 'Date', key: 'uploadedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
+        { header: 'RTM', key: 'channel', formatter: (val: any, row: any) => row.rtm || val || 'TT' },
         { header: 'Route Code', key: 'route', formatter: (val: any) => val || '—' },
         { header: 'Outlet Name', key: 'outlet', formatter: (val: any) => val || '—' },
         { header: 'Category / Asset', key: 'category' },
@@ -221,10 +261,17 @@ export default function SupervisorAuditPhotoGalleryPage() {
     return { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', border: 'rgba(245, 158, 11, 0.3)' };
   };
 
-  const pendingActionItems = useMemo(
-    () => Object.values(actionItemsMap).filter((a) => a.actionStatus === 'PENDING'),
-    [actionItemsMap]
-  );
+  const pendingActionItems = useMemo(() => {
+    return Object.values(actionItemsMap).filter((a) => {
+      if (a.actionStatus !== 'PENDING') return false;
+      if (currentSupervisorName) {
+        const itemSup = (a.supervisor || '').trim().toLowerCase();
+        const currSup = currentSupervisorName.toLowerCase();
+        if (itemSup && itemSup !== currSup) return false;
+      }
+      return true;
+    });
+  }, [actionItemsMap, currentSupervisorName]);
   const pendingActionCount = pendingActionItems.length;
 
   const displayedPhotos = useMemo(() => {
@@ -318,16 +365,16 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
       {/* Management Action Directives Alert Banner for Supervisor */}
       {pendingActionCount > 0 && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-200 shadow-sm animate-in fade-in duration-200">
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-in fade-in duration-200">
           <div className="flex items-start sm:items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 flex-shrink-0">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400 flex-shrink-0">
               <AlertTriangle className="h-5 w-5 animate-pulse" />
             </div>
             <div>
-              <h4 className="text-xs sm:text-sm font-bold text-amber-200 flex items-center gap-2">
+              <h4 className="text-xs sm:text-sm font-extrabold text-amber-950 dark:text-amber-200 flex items-center gap-2">
                 Management Directives Awaiting Corrective Action ({pendingActionCount})
               </h4>
-              <p className="text-[11px] text-amber-300/80 mt-0.5">
+              <p className="text-[11px] text-amber-900/90 dark:text-amber-300/80 mt-0.5 font-medium">
                 Admin or Sub-Admin has flagged {pendingActionCount} audit {pendingActionCount === 1 ? 'photo' : 'photos'} for action. Click flagged photos to review directives and submit resolution proof.
               </p>
             </div>
@@ -336,17 +383,17 @@ export default function SupervisorAuditPhotoGalleryPage() {
             <button
               type="button"
               onClick={() => setIsActionDrawerOpen(true)}
-              className="text-xs font-extrabold px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black border border-amber-400 shadow-md transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+              className="text-xs font-black px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-400 shadow-md transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
             >
               <Eye className="h-3.5 w-3.5" /> Review Directives ({pendingActionCount})
             </button>
             <button
               type="button"
               onClick={() => setActionFilter(actionFilter === 'PENDING' ? 'all' : 'PENDING')}
-              className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
+              className={`text-xs font-extrabold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
                 actionFilter === 'PENDING'
-                  ? 'bg-amber-500 text-black border-amber-400 shadow-md font-extrabold'
-                  : 'bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black'
+                  : 'bg-white hover:bg-amber-100/70 text-amber-950 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40 dark:hover:bg-amber-500/30'
               }`}
             >
               {actionFilter === 'PENDING' ? 'Show All Photos' : 'Filter Directives'}
@@ -362,7 +409,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
             <SlidersHorizontal className="h-4 w-4 text-accent" />
             Filter Gallery
           </div>
-          {(fromDate !== getTodayStr() || toDate !== getTodayStr() || selectedRtm !== 'all' || selectedApp !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery) && (
+          {(fromDate !== getMinusOneDayStr() || toDate !== getMinusOneDayStr() || selectedRtm !== 'all' || selectedApp !== 'all' || selectedRoute !== 'all' || selectedOutlet !== 'all' || searchQuery) && (
             <button
               onClick={handleResetFilters}
               className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:underline cursor-pointer"
@@ -371,6 +418,90 @@ export default function SupervisorAuditPhotoGalleryPage() {
               Reset Filters
             </button>
           )}
+        </div>
+
+        {/* DATE PRESETS matching Management Dashboard */}
+        <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-[var(--border-soft)]">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">
+            DATE PRESETS:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const y = getMinusOneDayStr();
+              setFromDate(y);
+              setToDate(y);
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              fromDate === getMinusOneDayStr() && toDate === getMinusOneDayStr()
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            ⚡ -1 Day (Yesterday)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const t = getTodayStr();
+              setFromDate(t);
+              setToDate(t);
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              fromDate === getTodayStr() && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFromDate(getLast7DaysStr());
+              setToDate(getTodayStr());
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              fromDate === getLast7DaysStr() && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            Last 7 Days
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFromDate(getFirstDayOfMonthStr());
+              setToDate(getTodayStr());
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              fromDate === getFirstDayOfMonthStr() && toDate === getTodayStr()
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            This Month
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFromDate('');
+              setToDate('');
+              setCurrentPage(1);
+            }}
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+              !fromDate && !toDate
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
+            }`}
+          >
+            All Dates
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -409,7 +540,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
           {/* RTM Slicer */}
           <div className="space-y-1">
             <label className="text-[11px] font-semibold text-[var(--text-muted)] flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 text-accent" /> RTM Slicer
+              <Layers className="h-3.5 w-3.5 text-accent" /> RTM
             </label>
             <select
               value={selectedRtm}
@@ -419,7 +550,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
               }}
               className="w-full text-xs px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none focus:border-accent transition-colors cursor-pointer"
             >
-              <option value="all">All RTM Channels</option>
+              <option value="all">All RTM</option>
               {rtms.map((rtm) => (
                 <option key={rtm} value={rtm}>
                   {rtm}
@@ -575,6 +706,13 @@ export default function SupervisorAuditPhotoGalleryPage() {
               hour: '2-digit',
               minute: '2-digit',
             });
+            const cardObs = (
+              photo.observation ||
+              photo.notes ||
+              photo.visitObservation ||
+              (photo.assetObservations && photo.assetObservations.find((a: any) => a.observation && a.observation !== '—')?.observation) ||
+              ''
+            ).trim();
 
             return (
               <div
@@ -631,8 +769,8 @@ export default function SupervisorAuditPhotoGalleryPage() {
                 </div>
 
                 {/* Details Footer */}
-                <div className="p-3 space-y-1.5 flex-1 flex flex-col justify-between">
-                  <div className="space-y-1">
+                <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
+                  <div className="space-y-1.5">
                     <p className="text-xs font-bold text-[var(--text-primary)] truncate flex items-center gap-1.5">
                       <Store className="h-3.5 w-3.5 text-accent flex-shrink-0" />
                       <span className="truncate">
@@ -642,17 +780,32 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     </p>
                     <p className="text-[11px] text-[var(--text-secondary)] truncate flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 text-[var(--text-muted)] flex-shrink-0" />
-                      <span>Route: {photo.route || 'N/A'} ({photo.channel})</span>
+                      <span>Route: {photo.route || 'N/A'}</span>
                     </p>
+
+                    {/* Eye-Catchy Highlighted Observation Badge */}
+                    {cardObs && (
+                      <div className="px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-400/50 text-[11px] shadow-xs flex items-start gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
+                        <div className="min-w-0">
+                          <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-800 dark:text-amber-300 block">
+                            Observation / Notes:
+                          </span>
+                          <p className="line-clamp-2 text-slate-900 dark:text-white font-bold text-xs">
+                            &ldquo;{cardObs}&rdquo;
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* GM Directive Remark Banner */}
                   {actionItem && actionItem.gmComment && (
-                    <div className="mt-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] space-y-0.5">
-                      <p className="font-bold text-amber-400 flex items-center gap-1 text-[10px] uppercase tracking-wider">
+                    <div className="mt-1 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-500/30 text-[11px] space-y-0.5">
+                      <p className="font-extrabold text-amber-800 dark:text-amber-400 flex items-center gap-1 text-[10px] uppercase tracking-wider">
                         <AlertTriangle className="h-3 w-3" /> Management Directive:
                       </p>
-                      <p className="text-[11px] text-amber-200 italic line-clamp-2">
+                      <p className="text-[11px] text-amber-950 dark:text-amber-200 font-medium italic line-clamp-2">
                         "{actionItem.gmComment}"
                       </p>
                     </div>
@@ -662,6 +815,11 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     <span className="flex items-center gap-1 font-mono">
                       <Calendar className="h-3 w-3 text-accent" /> {formattedDate} {formattedTime}
                     </span>
+                    {(photo.rtm || photo.channel) && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                        RTM: {photo.rtm || photo.channel}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -846,7 +1004,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
                         </div>
 
                         <div className="p-2.5 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-xs space-y-1">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                             Directive from {item.gmName}:
                           </p>
                           <p className="text-[var(--text-primary)] italic">"{item.gmComment}"</p>
@@ -860,8 +1018,8 @@ export default function SupervisorAuditPhotoGalleryPage() {
                               className="h-10 w-14 object-cover rounded"
                             />
                             <div className="text-[10px] truncate">
-                              <p className="font-bold text-emerald-400">Resolution Proof Attached</p>
-                              <p className="text-slate-300 truncate">"{item.supervisorComment}"</p>
+                              <p className="font-bold text-emerald-500 dark:text-emerald-400">Resolution Proof Attached</p>
+                              <p className="text-[var(--text-secondary)] truncate">"{item.supervisorComment}"</p>
                             </div>
                           </div>
                         )}

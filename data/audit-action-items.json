@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "id": "act_1791956830710_opk79",
+    "photoId": "mock_beverages_l4zdh7",
+    "visitId": "MV-20261013104330-IK0S0TWE",
+    "outlet": "Al Aabdar Trading food stuff",
+    "outletCode": "C41622",
+    "route": "TRD128",
+    "supervisor": "WALI",
+    "manager": "ASHFAQ",
+    "channel": "TT",
+    "category": "Beverages",
+    "originalPhotoUrl": "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80",
+    "gmComment": "khjgjgvh",
+    "gmName": "Admin",
+    "priority": "Normal",
+    "deadline": "24h",
+    "actionStatus": "PENDING",
+    "createdAt": "2026-10-14T05:47:10.710Z",
+    "updatedAt": "2026-10-14T05:47:10.710Z"
+  }
+]

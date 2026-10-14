@@ -36,9 +36,26 @@ export async function GET(req: NextRequest) {
     `;
     const params: any[] = [];
 
+    const { searchParams } = new URL(req.url);
+    const fromDateParam = searchParams.get('fromDate') || searchParams.get('from');
+    const toDateParam = searchParams.get('toDate') || searchParams.get('to');
+    const dateParam = searchParams.get('date');
+
     if (scope === 'supervisor') {
       query += ' AND v.supervisorId = ?';
       params.push(userSession.id);
+    }
+
+    if (fromDateParam && fromDateParam !== 'all') {
+      query += ' AND DATE(v.createdAt) >= ?';
+      params.push(fromDateParam.trim());
+    }
+    if (toDateParam && toDateParam !== 'all') {
+      query += ' AND DATE(v.createdAt) <= ?';
+      params.push(toDateParam.trim());
+    } else if (dateParam && dateParam !== 'all') {
+      query += ' AND DATE(v.createdAt) = ?';
+      params.push(dateParam.trim());
     }
 
     query += ' ORDER BY v.createdAt DESC';

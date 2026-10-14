@@ -74,7 +74,10 @@ if (isMssql) {
   // ==========================================
   // MICROSOFT SQL SERVER / AZURE SQL DATABASE
   // ==========================================
-  const sql = require('mssql');
+  let sql: any = null;
+  try {
+    sql = eval('require')('mssql');
+  } catch {}
 
   const serverHost = process.env.DB_SERVER || process.env.DB_HOST || 'localhost';
   const serverPort = Number(process.env.DB_PORT) || 1433;

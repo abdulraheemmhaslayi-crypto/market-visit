@@ -1,24 +1,24 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, ChevronDown, Check, X } from 'lucide-react';
+import { ChevronDown, X, Search } from 'lucide-react';
 
-export interface MultiSelectDropdownProps {
-  label?: string;
+interface MultiSelectDropdownProps {
   placeholder?: string;
   options: string[];
   selectedValues: string[];
   onChange: (selected: string[]) => void;
   disabled?: boolean;
+  label?: string;
 }
 
 export function MultiSelectDropdown({
-  label,
-  placeholder = 'Select options...',
+  placeholder = 'Select...',
   options = [],
   selectedValues = [],
   onChange,
   disabled = false,
+  label,
 }: MultiSelectDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,7 +96,7 @@ export function MultiSelectDropdown({
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen((prev) => !prev)}
-        className={`w-full min-h-[36px] h-9 px-3 text-left rounded-[11px] border-[1.5px] border-solid transition-all flex items-center justify-between text-[12px] font-semibold cursor-pointer ${
+        className={`w-full min-h-[38px] h-[38px] px-3 text-left rounded-[11px] border-[1.5px] border-solid transition-all flex items-center justify-between text-[12px] font-semibold cursor-pointer ${
           disabled ? 'opacity-50 cursor-not-allowed bg-[var(--surface-2)]' : 'bg-[var(--card,var(--surface))] hover:border-[var(--accent,#4F46E5)]'
         }`}
         style={{
@@ -167,7 +167,8 @@ export function MultiSelectDropdown({
                 }}
                 readOnly
                 tabIndex={-1}
-                className="h-3.5 w-3.5 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer pointer-events-none"
+                className="h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer pointer-events-none"
+                style={{ width: '15px', minWidth: '15px', maxWidth: '15px', height: '15px', margin: 0, padding: 0 }}
               />
               <span className="text-[11.5px] font-extrabold text-[var(--text-primary)]">Select all</span>
             </div>
@@ -193,7 +194,8 @@ export function MultiSelectDropdown({
                       checked={isChecked}
                       readOnly
                       tabIndex={-1}
-                      className="h-3.5 w-3.5 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer pointer-events-none"
+                      className="h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)] cursor-pointer pointer-events-none"
+                      style={{ width: '15px', minWidth: '15px', maxWidth: '15px', height: '15px', margin: 0, padding: 0 }}
                     />
                     <span className={`text-[12px] truncate ${isChecked ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-secondary)]'}`}>
                       {opt}

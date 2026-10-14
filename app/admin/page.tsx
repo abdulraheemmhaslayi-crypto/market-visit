@@ -14,7 +14,8 @@ import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
 import { getSizeModelsForCategory, ASSET_CATEGORIES } from '@/utils/asset-config';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
 import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
-import { RefreshCw } from 'lucide-react';
+import AuditActionsTrackerSummary from '@/components/dashboard/AuditActionsTrackerSummary';
+import { RefreshCw, Sparkles, Info } from 'lucide-react';
 
 const GCOL: Record<string, string> = {
   A: '#0b7a4c',
@@ -90,6 +91,12 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (userRole === 'Supervisor' && session?.user?.name && fSuper.length === 0) {
+      setFSuper([session.user.name.trim().toUpperCase()]);
+    }
+  }, [userRole, session?.user?.name]);
 
   // Date Helpers for Quick Presets and -1 Day Benchmark Default
   const getMinusOneDayStr = (): string => {
@@ -323,9 +330,10 @@ export default function AdminDashboardPage() {
     );
   }, [masters]);
 
-  // 2. Supervisor Options: Filtered strictly by Manager if selected, otherwise all supervisors from CUSTMASTER
+  // 2. Supervisor Options: Filtered strictly by Manager and/or RTM Channel if selected, otherwise all supervisors from CUSTMASTER
   const supOptions = useMemo<string[]>(() => {
     if (!masters) return [];
+    let list: string[] = [];
     if (fMgr.length > 0) {
       const mgrUppers = fMgr.map((m) => m.toUpperCase());
       const supsSet = new Set<string>();
@@ -344,10 +352,37 @@ export default function AdminDashboardPage() {
             });
         }
       });
-      return Array.from(supsSet).sort();
+      list = Array.from(supsSet);
+    } else {
+      list = ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
     }
-    return ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
-  }, [masters, fMgr]);
+
+    if (fChannel) {
+      const targetChan = fChannel.trim().toUpperCase();
+      const channelSups = new Set<string>();
+
+      (masters.routes || []).forEach((r: any) => {
+        const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+        if (rChan === targetChan && r.superName) {
+          channelSups.add(r.superName.trim().toUpperCase());
+        }
+      });
+
+      (masters.customers || []).forEach((c: any) => {
+        let cChan = (c.rtm || c.channel || '').toUpperCase();
+        if (!cChan && c.routeCode) {
+          cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+        }
+        if (cChan === targetChan && c.superName) {
+          channelSups.add(c.superName.trim().toUpperCase());
+        }
+      });
+
+      list = list.filter((s) => channelSups.has(s.trim().toUpperCase()));
+    }
+
+    return list.sort();
+  }, [masters, fMgr, fChannel]);
 
   // 3. RTM Options: Strictly from CUSTMASTER Segment_Fin(120MT), filtered by selected Manager/Supervisor if applicable
   const rtmOptions = useMemo<string[]>(() => {
@@ -772,6 +807,23 @@ export default function AdminDashboardPage() {
   const breachesCount = useMemo(() => filtered.filter((r) => !r.ok).length, [filtered]);
   const fefoCount = useMemo(() => filtered.filter((r) => r.fefo).length, [filtered]);
   const noVisitCount = useMemo(() => filtered.filter((r) => r.visitType === 'No Visit' || r.visitType === 'NO_VISIT' || r.notes === 'No visit').length, [filtered]);
+  const activeDaysCount = useMemo(() => {
+    const dates = new Set<string>();
+    filtered.forEach((r) => {
+      const raw = r.createdAt || r.date;
+      if (raw) {
+        const d = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw.trim())
+          ? raw.trim().slice(0, 10)
+          : new Date(raw).toISOString().slice(0, 10);
+        if (d && d !== '1970-01-01') dates.add(d);
+      }
+    });
+    return dates.size;
+  }, [filtered]);
+  const avgVisitsPerDay = useMemo(() => {
+    if (!filtered.length || activeDaysCount === 0) return '0.0';
+    return (filtered.length / activeDaysCount).toFixed(1);
+  }, [filtered, activeDaysCount]);
   const breachPct = useMemo(
     () => (filtered.length ? ((breachesCount / filtered.length) * 100).toFixed(1) + '% of assets' : '–'),
     [filtered, breachesCount]
@@ -857,6 +909,7 @@ export default function AdminDashboardPage() {
       data: [
         { metric: 'Total Visits Logged', value: filtered.length, details: 'Visits logged under current filters' },
         { metric: 'Outlets Covered', value: outletsCount, details: 'Unique retail outlets visited' },
+        { metric: 'Avg Visits Per Day', value: avgVisitsPerDay, details: `${activeDaysCount} active visit days in selected period` },
         { metric: 'Skipped Visits (No Visit)', value: noVisitCount, details: 'Visits logged as skipped outlet' },
         { metric: 'Assets Checked', value: filtered.length, details: 'Chiller and freezer units inspected' },
         { metric: 'Temperature Breaches', value: breachesCount, details: `${breachPct} temperature breach rate` },
@@ -1039,71 +1092,45 @@ export default function AdminDashboardPage() {
   };
 
   const handleExportClassificationDairyChart = () => {
-    const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
-    const dairyVisitRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
-
-    const visitedMap = new Map<string, any>();
-    dairyVisitRows.forEach((r: any) => {
-      const key = r.outletCode || r.outletName;
-      if (key) visitedMap.set(key, r);
+    const dairyVisitRows = filteredForClassCharts.map((r: any) => {
+      const rawGr = r.dairyGr || r.dairyClassification || r.gr || r.classification || r.class || 'E';
+      const gr = ['A', 'B', 'C', 'D'].includes(String(rawGr).trim().toUpperCase())
+        ? String(rawGr).trim().toUpperCase()
+        : 'E';
+      const [cCode, rCode] = (r.cust_rt_id || '').split('|');
+      return {
+        date: r.createdAt || r.date,
+        channel: r.ch || r.channel || 'TT',
+        manager: r.mgr || r.manager || '—',
+        supervisor: r.sup || r.supervisor || '—',
+        routeCode: r.rt || r.route || rCode || '—',
+        outletCode: r.outletCode || r.custCode || cCode || '—',
+        outletName: r.cust || r.outletName || '—',
+        classification: gr,
+        businessVertical: 'Dairy',
+        visitType: r.visitType || 'Visit',
+      };
     });
-
-    const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
-      const mgrOk = isManagerMatch(o.manager, fMgr);
-      const supOk = isSupervisorMatch(o.supervisor, fSuper, fMgr);
-      const chOk = !fChannel || (o.channel || '').toLowerCase() === fChannel.toLowerCase();
-      const rtOk = !fRoute || o.route === fRoute;
-      const custOk = !fCust || o.name === fCust || o.code === fCust;
-      return mgrOk && supOk && chOk && rtOk && custOk;
-    });
-
-    const dataToExport = masterOutlets.length > 0
-      ? masterOutlets.map((o: any) => {
-          const visited = visitedMap.get(o.code) || visitedMap.get(o.name) || visitedMap.get(o.id);
-          return {
-            outletCode: o.code,
-            outletName: o.name,
-            routeCode: o.route,
-            manager: o.manager,
-            supervisor: o.supervisor,
-            channel: o.channel,
-            class: ['A', 'B', 'C', 'D'].includes(o.dairyGr) ? o.dairyGr : 'E',
-            status: visited ? 'Visited' : 'Unvisited',
-            lastVisitDate: visited?.date ? new Date(visited.date).toLocaleDateString() : '—',
-          };
-        })
-      : dairyVisitRows;
 
     exportToExcel({
-      filename: `classification_dairy_${new Date().toISOString().slice(0, 10)}`,
-      sheetName: 'Dairy Classification',
-      title: 'Outlet Classification Coverage - Dairy Vertical',
+      filename: `classification_dairy_visits_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Dairy Classification Visits',
+      title: 'Outlet Classification Visit Logs - Dairy Vertical',
       filterSummary: activeNote,
       userRole,
-      columns: masterOutlets.length > 0 ? [
+      columns: [
+        { header: 'Visit Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Channel', key: 'channel' },
+        { header: 'Manager', key: 'manager' },
+        { header: 'Supervisor', key: 'supervisor' },
+        { header: 'Route Code', key: 'routeCode' },
         { header: 'Outlet Code', key: 'outletCode' },
         { header: 'Outlet Name', key: 'outletName' },
-        { header: 'Classification Grade', key: 'class' },
-        { header: 'Visit Status', key: 'status' },
-        { header: 'Last Visit Date', key: 'lastVisitDate' },
-        { header: 'Route Code', key: 'routeCode' },
-        { header: 'Channel', key: 'channel' },
-        { header: 'Supervisor', key: 'supervisor' },
-        { header: 'Manager', key: 'manager' },
-      ] : [
-        { header: 'Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Channel', key: 'channel', formatter: (val: any, row: any) => val || row.ch || '—' },
-        { header: 'Manager', key: 'manager', formatter: (val: any, row: any) => val || row.mgr || '—' },
-        { header: 'Supervisor', key: 'supervisor', formatter: (val: any, row: any) => val || row.sup || '—' },
-        { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
-        { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
-        { header: 'Outlet Name', key: 'outletName', formatter: (val: any, row: any) => val || row.cust || '—' },
-        { header: 'Classification Grade', key: 'class', formatter: (val: any, row: any) => {
-          const g = val || row.gr || row.class || 'E';
-          return ['A', 'B', 'C', 'D'].includes(g) ? g : 'E';
-        } },
+        { header: 'Classification Grade', key: 'classification' },
+        { header: 'Business Vertical', key: 'businessVertical' },
+        { header: 'Visit Type', key: 'visitType' },
       ],
-      data: dataToExport,
+      data: dairyVisitRows,
     });
   };
 
@@ -1986,7 +2013,7 @@ export default function AdminDashboardPage() {
       });
     }
 
-    // 7. Classification Bar Charts (Dairy & Ice Cream) - Stacked Visited vs Unvisited Outlets
+    // 7. Classification Bar Charts (Dairy) - Total Visits Logged & Frequency Coverage
     if (canvasClassDairyRef.current) {
       if (chartsRef.current.cClassDairy) chartsRef.current.cClassDairy.destroy();
 
@@ -2001,27 +2028,38 @@ export default function AdminDashboardPage() {
       });
 
       // Filtered visits during the selected period
-      const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
-      const dairyVisitRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
+      const dairyVisitRows = filteredForClassCharts.map((r: any) => {
+        const rawGr = r.dairyGr || r.dairyClassification || r.gr || r.classification || r.class || 'E';
+        const gr = ['A', 'B', 'C', 'D'].includes(String(rawGr).trim().toUpperCase())
+          ? String(rawGr).trim().toUpperCase()
+          : 'E';
+        return {
+          ...r,
+          class: gr,
+          classification: gr,
+          businessVertical: 'Dairy',
+        };
+      });
 
       const visitedOutletKeys = new Set<string>();
-      const visitedByGrade: Record<string, Set<string>> = { A: new Set(), B: new Set(), C: new Set(), D: new Set(), E: new Set() };
+      const visitedOutletsByGrade: Record<string, Set<string>> = { A: new Set(), B: new Set(), C: new Set(), D: new Set(), E: new Set() };
+      const visitCountByGrade: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 };
 
       dairyVisitRows.forEach((r: any) => {
-        const key = r.outletCode || r.outletName;
+        const key = r.outletCode || r.outletName || r.custCode || r.cust;
+        const normalizedGr = r.class;
+        visitCountByGrade[normalizedGr] = (visitCountByGrade[normalizedGr] || 0) + 1;
         if (key) {
           visitedOutletKeys.add(key);
-          const gr = r.class || r.classification;
-          const normalizedGr = ['A', 'B', 'C', 'D'].includes(gr) ? gr : 'E';
-          if (!visitedByGrade[normalizedGr]) visitedByGrade[normalizedGr] = new Set();
-          visitedByGrade[normalizedGr].add(key);
+          if (!visitedOutletsByGrade[normalizedGr]) visitedOutletsByGrade[normalizedGr] = new Set();
+          visitedOutletsByGrade[normalizedGr].add(key);
         }
       });
 
       const allGrades = ['A', 'B', 'C', 'D', 'E'];
       const gradeLabels = ['A', 'B', 'C', 'D', 'E'];
 
-      const stats: Record<string, { total: number; visited: number; unvisited: number; coveragePct: number }> = {};
+      const stats: Record<string, { totalVisits: number; uniqueOutlets: number; masterTotal: number; coveragePct: number }> = {};
       allGrades.forEach((g) => {
         const outletsInGrade = masterOutlets.filter((o: any) => {
           const ogr = ['A', 'B', 'C', 'D'].includes(o.dairyGr) ? o.dairyGr : 'E';
@@ -2030,18 +2068,17 @@ export default function AdminDashboardPage() {
 
         const masterTotal = outletsInGrade.length;
         const visitedMasterCount = outletsInGrade.filter((o: any) => visitedOutletKeys.has(o.code) || visitedOutletKeys.has(o.name) || visitedOutletKeys.has(o.id)).length;
-        const visitedRowsCount = (visitedByGrade[g] || new Set()).size;
+        const visitedUniqueFromVisits = (visitedOutletsByGrade[g] || new Set()).size;
+        const uniqueOutlets = Math.max(visitedMasterCount, visitedUniqueFromVisits);
+        const totalVisits = visitCountByGrade[g] || 0;
+        const coverageBase = Math.max(masterTotal, uniqueOutlets);
+        const coveragePct = coverageBase > 0 ? Math.round((uniqueOutlets / coverageBase) * 100) : 0;
 
-        const visited = Math.max(visitedMasterCount, visitedRowsCount);
-        const total = Math.max(masterTotal, visited);
-        const unvisited = Math.max(0, total - visited);
-        const coveragePct = total > 0 ? Math.round((visited / total) * 100) : 0;
-
-        stats[g] = { total, visited, unvisited, coveragePct };
+        stats[g] = { totalVisits, uniqueOutlets, masterTotal: coverageBase, coveragePct };
       });
 
-      const maxTotal = Math.max(...allGrades.map((g) => stats[g]?.total || 0), 10);
-      const yMax = Math.ceil((maxTotal * 1.25) / 50) * 50;
+      const maxTotal = Math.max(...allGrades.map((g) => stats[g]?.totalVisits || 0), 10);
+      const yMax = Math.ceil((maxTotal * 1.35) / 10) * 10;
 
       chartsRef.current.cClassDairy = new Chart(canvasClassDairyRef.current, {
         type: 'bar',
@@ -2049,28 +2086,14 @@ export default function AdminDashboardPage() {
           labels: gradeLabels,
           datasets: [
             {
-              label: 'Visited Outlets',
-              data: allGrades.map((g) => stats[g].visited),
-              backgroundColor: '#10b981',
-              hoverBackgroundColor: '#059669',
-              borderColor: '#34d399',
-              borderWidth: 1,
-              borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 6, bottomRight: 6 },
+              label: 'Visits Logged',
+              data: allGrades.map((g) => stats[g].totalVisits),
+              backgroundColor: ['#10b981', '#0ea5e9', '#f59e0b', '#8b5cf6', '#64748b'],
+              hoverBackgroundColor: ['#059669', '#0284c7', '#d97706', '#7c3aed', '#475569'],
+              borderColor: ['#34d399', '#38bdf8', '#fbbf24', '#a78bfa', '#94a3b8'],
+              borderWidth: 1.5,
+              borderRadius: 8,
               borderSkipped: false,
-              stack: 'dairyStack',
-              barPercentage: 0.62,
-              categoryPercentage: 0.8,
-            },
-            {
-              label: 'Unvisited Outlets',
-              data: allGrades.map((g) => stats[g].unvisited),
-              backgroundColor: isDark ? '#334155' : '#cbd5e1',
-              hoverBackgroundColor: isDark ? '#475569' : '#94a3b8',
-              borderColor: isDark ? '#475569' : '#94a3b8',
-              borderWidth: 1,
-              borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
-              borderSkipped: false,
-              stack: 'dairyStack',
               barPercentage: 0.62,
               categoryPercentage: 0.8,
             },
@@ -2082,33 +2105,30 @@ export default function AdminDashboardPage() {
             afterDatasetsDraw(chart: any) {
               const { ctx } = chart;
               const meta0 = chart.getDatasetMeta(0);
-              const meta1 = chart.getDatasetMeta(1);
-              if (!meta0 || !meta1) return;
+              if (!meta0) return;
 
               allGrades.forEach((g, i) => {
                 const s = stats[g];
-                if (!s || s.total === 0) return;
+                if (!s) return;
 
                 const bar0 = meta0.data[i];
-                const bar1 = meta1.data[i];
-                const topBar = s.unvisited > 0 && bar1 ? bar1 : bar0;
-                if (!topBar) return;
+                if (!bar0) return;
 
                 ctx.save();
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
 
-                // Line 1: Coverage % (bold 12.5px emerald or amber)
-                ctx.font = '800 12.5px Inter, sans-serif';
+                // Line 1: Total Visits (bold 13.5px)
+                ctx.font = '800 13px Inter, sans-serif';
+                ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+                ctx.fillText(`${s.totalVisits} visits`, bar0.x, bar0.y - 15);
+
+                // Line 2: Reach / Coverage (Ratio + %)
+                ctx.font = '700 11px Inter, sans-serif';
                 ctx.fillStyle = s.coveragePct >= 50
                   ? (isDark ? '#34d399' : '#059669')
                   : (isDark ? '#fbbf24' : '#d97706');
-                ctx.fillText(`${s.coveragePct}%`, topBar.x, topBar.y - 15);
-
-                // Line 2: Ratio (visited/total) in crisp slate
-                ctx.font = '700 11px Inter, sans-serif';
-                ctx.fillStyle = isDark ? '#cbd5e1' : '#334155';
-                ctx.fillText(`${s.visited}/${s.total}`, topBar.x, topBar.y - 2);
+                ctx.fillText(`${s.uniqueOutlets}/${s.masterTotal} (${s.coveragePct}%)`, bar0.x, bar0.y - 2);
 
                 ctx.restore();
               });
@@ -2118,22 +2138,11 @@ export default function AdminDashboardPage() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 24, bottom: 4, left: 4, right: 6 },
+            padding: { top: 28, bottom: 4, left: 4, right: 6 },
           },
           plugins: {
             legend: {
-              display: true,
-              position: 'top',
-              align: 'end',
-              labels: {
-                color: textColor,
-                font: { family: 'Inter, sans-serif', size: 12, weight: 'bold' },
-                boxWidth: 9,
-                boxHeight: 9,
-                usePointStyle: true,
-                pointStyle: 'circle',
-                padding: 12,
-              },
+              display: false,
             },
             tooltip: {
               backgroundColor: theme === 'dark' ? '#1e293b' : '#0f172a',
@@ -2152,19 +2161,23 @@ export default function AdminDashboardPage() {
                   const g = allGrades[ctx.dataIndex];
                   const s = stats[g];
                   if (!s) return '';
-                  if (ctx.datasetIndex === 0) {
-                    return ` Visited Outlets: ${s.visited.toLocaleString()} (${s.coveragePct}% coverage)`;
-                  }
-                  return ` Unvisited Outlets: ${s.unvisited.toLocaleString()}`;
+                  const totalV = filteredForClassCharts.length;
+                  const pct = totalV > 0 ? Math.round((s.totalVisits / totalV) * 100) : 0;
+                  return ` Total Visits: ${s.totalVisits.toLocaleString()} visits (${pct}% of visits)`;
                 },
                 afterBody: (items: any[]) => {
                   const g = allGrades[items[0]?.dataIndex];
                   const s = stats[g];
                   if (!s) return [];
+                  const guideline = g === 'A'
+                    ? 'Twice per month (Bi-weekly)'
+                    : (g === 'B' || g === 'C')
+                    ? 'Once every month (Monthly)'
+                    : 'As per assigned PJP';
                   return [
                     '───────────────────────',
-                    ` Total Outlets: ${s.total.toLocaleString()}`,
-                    ` Outlet Visit Coverage: ${s.coveragePct}% (${s.visited}/${s.total})`,
+                    ` Unique Outlets Covered: ${s.uniqueOutlets.toLocaleString()} of ${s.masterTotal.toLocaleString()} (${s.coveragePct}% reach)`,
+                    ` Visit Frequency Policy: ${guideline}`,
                   ];
                 },
               },
@@ -2174,14 +2187,14 @@ export default function AdminDashboardPage() {
             if (el.length > 0 && allowedReports.includes('classification')) {
               const rawLabel = chart.data.labels?.[el[0].index];
               const label = Array.isArray(rawLabel) ? rawLabel.join(' ') : String(rawLabel ?? '');
-              const matched = (reportRows.classificationDairy || []).filter((row: any) => {
+              const matched = dairyVisitRows.filter((row: any) => {
                 const rClass = row.class || row.classification;
                 const norm = ['A', 'B', 'C', 'D'].includes(rClass) ? rClass : 'E';
-                return norm === label && visitLookup.has(row.visitId);
+                return norm === label;
               });
               setReportModalType('classification');
               setReportModalSource('classificationDairy');
-              setReportModalTitle(`Outlets by Classification · Dairy · Class ${label}`);
+              setReportModalTitle(`Outlets by Classification · Dairy · Class ${label} (${matched.length} Visits)`);
               setReportModalRows(matched);
               setReportFilterChip({ key: 'segment', value: `Class: ${label}`, label: `Class: ${label}` });
               setReportModalOpen(true);
@@ -2192,7 +2205,6 @@ export default function AdminDashboardPage() {
           },
           scales: {
             x: {
-              stacked: true,
               grid: { display: false },
               ticks: {
                 color: textColor,
@@ -2203,7 +2215,6 @@ export default function AdminDashboardPage() {
               },
             },
             y: {
-              stacked: true,
               beginAtZero: true,
               suggestedMax: yMax,
               grid: { display: false },
@@ -2356,77 +2367,90 @@ export default function AdminDashboardPage() {
           padding:14px 14px;
         }
         .filters {
-          display:flex;
-          gap:8px;
-          flex-wrap:wrap;
-          margin-bottom:8px;
-          align-items:flex-end;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          margin-bottom: 8px;
         }
         .fld {
-          display:flex;
-          flex-direction:column;
-          gap:4px;
-          position:relative;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          position: relative;
         }
         .fld label {
-          font-size:10.5px;
-          font-weight:800;
-          text-transform:uppercase;
-          letter-spacing:.05em;
-          color:var(--soft);
-          padding-left:4px;
+          font-size: 10.5px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+          color: var(--soft);
+          padding-left: 2px;
         }
         .filters select,
-        .filters input {
-          padding:8px 11px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:600;
-          color:var(--ink);
-          cursor:pointer;
-          min-width:120px;
+        .filters input:not([type="checkbox"]) {
+          padding: 8px 11px;
+          height: 38px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--ink);
+          cursor: pointer;
+          min-width: 120px;
         }
-        .filters input {
-          cursor:text;
+        .filters input:not([type="checkbox"]) {
+          cursor: text;
+        }
+        .filters input[type="date"] {
+          cursor: pointer;
         }
         .filters select:focus,
-        .filters input:focus {
-          outline:none;
-          border-color:var(--blue);
+        .filters input:not([type="checkbox"]):focus {
+          outline: none;
+          border-color: var(--blue);
+        }
+        .filters input[type="checkbox"] {
+          width: 16px !important;
+          min-width: 16px !important;
+          max-width: 16px !important;
+          height: 16px !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
         .reset {
-          padding:8px 12px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:700;
-          color:var(--blue-deep);
-          cursor:pointer;
+          padding: 8px 12px;
+          height: 38px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--blue-deep, #4F46E5);
+          cursor: pointer;
         }
         .live-badge {
-          display:flex;
-          align-items:center;
-          gap:8px;
-          padding:8px 12px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:monospace;
-          font-size:10.5px;
-          font-weight:700;
-          color:var(--soft);
-          user-select:none;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          height: 38px;
+          padding: 0 12px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: monospace;
+          font-size: 10.5px;
+          font-weight: 700;
+          color: var(--soft);
+          user-select: none;
         }
         .live-dot {
-          height:8px;
-          width:8px;
-          border-radius:50%;
-          display:inline-block;
+          height: 8px;
+          width: 8px;
+          border-radius: 50%;
+          display: inline-block;
         }
         .live-dot.active {
           background:var(--green);
@@ -2455,12 +2479,15 @@ export default function AdminDashboardPage() {
         }
         .kpis {
           display:grid;
-          grid-template-columns:repeat(5, minmax(0, 1fr));
+          grid-template-columns:repeat(6, minmax(0, 1fr));
           gap:12px;
           margin-bottom:14px;
         }
-        @media(max-width:1024px){
-          .kpis { grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); }
+        @media(max-width:1200px){
+          .kpis { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+        }
+        @media(max-width:640px){
+          .kpis { grid-template-columns:repeat(2, minmax(0, 1fr)); }
         }
         .kpi {
           position:relative;
@@ -2681,7 +2708,7 @@ export default function AdminDashboardPage() {
           {/* Quick Date Presets Strip */}
           <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-1 text-xs">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--soft)] mr-1 flex items-center gap-1">
-              <span>Date Presets:</span>
+              <span>DATE PRESETS:</span>
             </span>
             <button
               type="button"
@@ -2728,19 +2755,20 @@ export default function AdminDashboardPage() {
             </button>
           </div>
 
+          {/* Row 1 Slicers */}
           <div className="flex gap-2 flex-wrap items-end">
             <div className="fld">
-              <label>From</label>
+              <label>FROM</label>
               <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
             </div>
 
             <div className="fld">
-              <label>To</label>
+              <label>TO</label>
               <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
             </div>
 
             <div className="fld min-w-[155px]">
-              <label>Manager</label>
+              <label>MANAGER</label>
               <MultiSelectDropdown
                 placeholder="All Managers"
                 options={mgrOptions}
@@ -2770,14 +2798,28 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="fld min-w-[165px]">
-              <label>Supervisor</label>
+              <label>SUPERVISOR</label>
               <MultiSelectDropdown
                 placeholder="All Supervisors"
                 options={supOptions}
                 selectedValues={fSuper}
                 onChange={(selected) => {
                   setFSuper(selected);
-                  setFChannel('');
+                  if (fChannel && masters && selected.length > 0) {
+                    const targetChan = fChannel.trim().toUpperCase();
+                    const channelSups = new Set<string>();
+                    (masters.routes || []).forEach((r: any) => {
+                      const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+                      if (rChan === targetChan && r.superName) channelSups.add(r.superName.trim().toUpperCase());
+                    });
+                    (masters.customers || []).forEach((c: any) => {
+                      let cChan = (c.rtm || c.channel || '').toUpperCase();
+                      if (!cChan && c.routeCode) cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+                      if (cChan === targetChan && c.superName) channelSups.add(c.superName.trim().toUpperCase());
+                    });
+                    const hasInvalid = selected.some((s) => !channelSups.has(s.trim().toUpperCase()));
+                    if (hasInvalid) setFChannel('');
+                  }
                   setFClass('');
                   setFCust('');
                   setFRoute('');
@@ -2799,9 +2841,24 @@ export default function AdminDashboardPage() {
               <select
                 value={fChannel}
                 onChange={(e) => {
-                  setFChannel(e.target.value);
+                  const newChan = e.target.value;
+                  setFChannel(newChan);
                   setFClass('');
                   setFCust('');
+                  if (newChan && masters) {
+                    const targetChan = newChan.trim().toUpperCase();
+                    const channelSups = new Set<string>();
+                    (masters.routes || []).forEach((r: any) => {
+                      const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+                      if (rChan === targetChan && r.superName) channelSups.add(r.superName.trim().toUpperCase());
+                    });
+                    (masters.customers || []).forEach((c: any) => {
+                      let cChan = (c.rtm || c.channel || '').toUpperCase();
+                      if (!cChan && c.routeCode) cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+                      if (cChan === targetChan && c.superName) channelSups.add(c.superName.trim().toUpperCase());
+                    });
+                    setFSuper((prev) => prev.filter((s) => channelSups.has(s.trim().toUpperCase())));
+                  }
                 }}
               >
                 <option value="">All RTM</option>
@@ -2811,8 +2868,8 @@ export default function AdminDashboardPage() {
               </select>
             </div>
 
-            <div className="fld">
-              <label>Classification</label>
+            <div className="fld min-w-[150px]">
+              <label>CLASSIFICATION</label>
               <select value={fClass} onChange={(e) => {
                 setFClass(e.target.value);
                 setFCust('');
@@ -2823,9 +2880,12 @@ export default function AdminDashboardPage() {
                 ))}
               </select>
             </div>
+          </div>
 
-            <div className="fld">
-              <label>Outlet / Customer</label>
+          {/* Row 2: OUTLET / CUSTOMER, ROUTE CODE, Reset, Live Badge */}
+          <div className="flex gap-2 flex-wrap items-end mt-2">
+            <div className="fld flex-1 min-w-[280px] max-w-[420px]">
+              <label>OUTLET / CUSTOMER</label>
               <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
                 <option value="">All Outlets</option>
                 {custOptions.map((c) => (
@@ -2834,8 +2894,8 @@ export default function AdminDashboardPage() {
               </select>
             </div>
 
-            <div className="fld">
-              <label>Route Code</label>
+            <div className="fld min-w-[150px]">
+              <label>ROUTE CODE</label>
               <select value={fRoute} onChange={(e) => {
                 const val = e.target.value;
                 setFRoute(val);
@@ -2921,6 +2981,14 @@ export default function AdminDashboardPage() {
             <div className="val">{isLoading && rows.length === 0 ? '...' : outletsCount}</div>
             <div className="delta">unique outlets</div>
           </div>
+          <div className="kpi b">
+            <div className="kpi-head">
+              <span className="lbl">Avg Visits / Day</span>
+              <span className="kpi-tag">Velocity</span>
+            </div>
+            <div className="val">{isLoading && rows.length === 0 ? '...' : avgVisitsPerDay}</div>
+            <div className="delta">{activeDaysCount} active day{activeDaysCount === 1 ? '' : 's'}</div>
+          </div>
           <div className="kpi a">
             <div className="kpi-head">
               <span className="lbl">No Visits</span>
@@ -2991,6 +3059,30 @@ export default function AdminDashboardPage() {
           </div>
         </div>
  
+        {/* Outlet Visit Frequency Policy Guidelines Banner */}
+        <div className="mb-4 rounded-xl border border-indigo-200/90 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/90 via-sky-50/70 to-blue-50/90 dark:from-slate-900/90 dark:via-indigo-950/40 dark:to-slate-900/90 p-3.5 shadow-xs">
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-indigo-500/20">
+              <Sparkles className="h-4.5 w-4.5" />
+            </div>
+            <div className="flex-1 min-w-[240px]">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
+                  Outlet Visit Frequency Policy Guidelines
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300">
+                  Standard Operating Procedure
+                </span>
+              </div>
+              <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
+                <strong className="text-slate-950 dark:text-white font-bold">Class A Outlets:</strong> Must visit <span className="underline decoration-indigo-500 decoration-2 font-bold text-indigo-900 dark:text-indigo-200">Twice per month</span> (Bi-weekly) &nbsp;•&nbsp;
+                <strong className="text-slate-950 dark:text-white font-bold">Class B &amp; C Outlets:</strong> Must visit <span className="underline decoration-sky-500 decoration-2 font-bold text-sky-900 dark:text-sky-200">Once every month</span> (Monthly) &nbsp;•&nbsp;
+                <strong className="text-slate-950 dark:text-white font-bold">Class D &amp; E Outlets:</strong> As per assigned <span className="font-bold text-violet-700 dark:text-violet-300">Permanent Journey Plan (PJP)</span>.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Chart Row 3 */}
         <div className="grid" style={{ gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 1.5fr)' }}>
           <div className="panel">
@@ -3009,7 +3101,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Outlets by Classification · Dairy</h3>
-                <div className="psub">Outlet visit coverage (Visited vs Unvisited by Class)</div>
+                <div className="psub">Total visits logged by outlet classification grade</div>
               </div>
               <ExportButton onClick={handleExportClassificationDairyChart} label="Export" variant="compact" />
             </div>
@@ -3039,17 +3131,15 @@ export default function AdminDashboardPage() {
           subtitle="Outlet-level audit details, SKU availability counts, and cold chain asset models"
         />
 
-        {/* Audit Photo Gallery Section with Pagination */}
-        {/* <PhotoGallerySection
-          photos={photos}
-          fFrom={fFrom}
-          fTo={fTo}
-          fMgr={fMgr}
-          fSuper={fSuper}
-          fChannel={fChannel}
-          fCust={fCust}
-          fRoute={fRoute}
-        /> */}
+        {/* Corrective Actions & Audit Directives Tracker Summary Sheet */}
+        <AuditActionsTrackerSummary
+          selectedManager={fMgr.length === 1 ? fMgr[0] : 'all'}
+          selectedSupervisor={fSuper.length === 1 ? fSuper[0] : 'all'}
+          selectedRtm={fChannel || 'all'}
+          userRole={userRole || 'Admin'}
+          title="Directives & Corrective Actions Tracker"
+          subtitle="Manager & Supervisor accountability sheet: Track audit issues flagged, proof submissions, open directives, and resolution compliance."
+        />
 
         {/* Footer */}
         <div className="foot">
