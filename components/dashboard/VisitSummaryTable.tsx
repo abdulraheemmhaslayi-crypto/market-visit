@@ -419,10 +419,11 @@ export default function VisitSummaryTable({
   }, [filteredData, sortField, sortDirection]);
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize));
-  const currentPageClamped = Math.min(currentPage, totalPages);
-  const startIndex = (currentPageClamped - 1) * pageSize;
-  const paginatedData = sortedData.slice(startIndex, startIndex + pageSize);
+  const isAll = pageSize === -1;
+  const totalPages = isAll ? 1 : Math.max(1, Math.ceil(sortedData.length / pageSize));
+  const currentPageClamped = isAll ? 1 : Math.min(currentPage, totalPages);
+  const startIndex = isAll ? 0 : (currentPageClamped - 1) * pageSize;
+  const paginatedData = isAll ? sortedData : sortedData.slice(startIndex, startIndex + pageSize);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -552,6 +553,7 @@ export default function VisitSummaryTable({
             <option value={20}>20 / page</option>
             <option value={50}>50 / page</option>
             <option value={100}>100 / page</option>
+            <option value={-1}>All / page</option>
           </select>
 
           {/* Export to Excel */}
@@ -577,7 +579,7 @@ export default function VisitSummaryTable({
           <button
             type="button"
             onClick={() => {
-              setPageSize(100);
+              setPageSize(-1);
               setCurrentPage(1);
             }}
             className="h-8.5 px-3 inline-flex items-center gap-1 text-[11.5px] rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all cursor-pointer shadow-2xs"
@@ -1196,9 +1198,9 @@ export default function VisitSummaryTable({
       {sortedData.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[var(--border-soft)] text-[12px] text-[var(--text-secondary)]">
           <div>
-            Showing <span className="font-semibold text-[var(--text-primary)]">{startIndex + 1}</span> to{' '}
+            Showing <span className="font-semibold text-[var(--text-primary)]">{sortedData.length > 0 ? (isAll ? 1 : startIndex + 1) : 0}</span> to{' '}
             <span className="font-semibold text-[var(--text-primary)]">
-              {Math.min(startIndex + pageSize, sortedData.length)}
+              {isAll ? sortedData.length : Math.min(startIndex + pageSize, sortedData.length)}
             </span>{' '}
             of <span className="font-semibold text-[var(--text-primary)]">{sortedData.length}</span> entries
           </div>
@@ -1207,7 +1209,7 @@ export default function VisitSummaryTable({
             <button
               type="button"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPageClamped <= 1}
+              disabled={currentPageClamped <= 1 || isAll}
               className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
@@ -1221,7 +1223,7 @@ export default function VisitSummaryTable({
             <button
               type="button"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPageClamped >= totalPages}
+              disabled={currentPageClamped >= totalPages || isAll}
               className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               <span>Next</span>
