@@ -322,8 +322,26 @@ export default function GmExecutiveReportsPage() {
     const pendingDirectives = auditActions.filter((a) => a.actionStatus === 'PENDING').length;
     const resolutionRate = totalDirectives > 0 ? Math.round((resolvedDirectives / totalDirectives) * 100) : 100;
 
+    // Velocity: Avg Visits Per Day
+    const activeDaysSet = new Set<string>();
+    filteredRows.forEach((r) => {
+      const raw = r.createdAt || r.date;
+      if (raw) {
+        const d = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw.trim())
+          ? raw.trim().slice(0, 10)
+          : new Date(raw).toISOString().slice(0, 10);
+        if (d && d !== '1970-01-01') activeDaysSet.add(d);
+      }
+    });
+    const activeDaysCount = activeDaysSet.size;
+    const avgVisitsPerDay = (totalAudits > 0 && activeDaysCount > 0)
+      ? (totalAudits / activeDaysCount).toFixed(1)
+      : '0.0';
+
     return {
       totalAudits,
+      activeDaysCount,
+      avgVisitsPerDay,
       coveragePercent,
       compliancePercent,
       breachPercent,
@@ -801,8 +819,8 @@ export default function GmExecutiveReportsPage() {
         </div>
       )}
 
-      {/* 6 Executive Headline Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* 7 Executive Headline Metric Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {/* Card 1: Total Audits */}
         <div
           onClick={() => {
@@ -822,6 +840,29 @@ export default function GmExecutiveReportsPage() {
             <span className="text-2xl font-black text-white tracking-tight">{kpiData.totalAudits}</span>
             <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
               <span>{datePreset.toUpperCase()} scope</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card: Avg Visits / Day */}
+        <div
+          onClick={() => {
+            setModalTitle('Daily Visit Velocity Breakdown');
+            setModalData(filteredRows);
+            setModalOpen(true);
+          }}
+          className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-violet-500/50 transition-all cursor-pointer group shadow-sm flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400">Avg Visits / Day</span>
+            <div className="p-2 rounded-xl bg-violet-500/10 text-violet-400 group-hover:scale-105 transition-all">
+              <Activity className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <span className="text-2xl font-black text-violet-400 tracking-tight">{kpiData.avgVisitsPerDay}</span>
+            <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
+              <span>{kpiData.activeDaysCount} active days</span>
             </div>
           </div>
         </div>

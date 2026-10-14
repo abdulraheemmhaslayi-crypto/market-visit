@@ -54,20 +54,29 @@ async function getMasterData(): Promise<MasterCache> {
     `).then(([rows]: any) => rows).catch(() => []),
   ]);
 
-  const custMaster = getCustMasterData();
+  const custMaster = getCustMasterData(true);
 
-  const customers = customersRaw && customersRaw.length > 0
-    ? customersRaw
-    : custMaster.customers.map((c: any) => ({
-        cust_rt_id: c.cust_rt_id,
-        customerCode: c.customerCode,
-        customerName: c.customerName,
-        classification: c.classification,
-        dairyClassification: c.dairyClassification || c.classification,
-        iceCreamClassification: c.iceCreamClassification || c.classification,
-        channel: c.channel || 'TT',
-        routeCode: c.routeCode,
-      }));
+  const rawCustList = customersRaw && customersRaw.length > 0 ? customersRaw : custMaster.customers;
+  const customers = rawCustList.map((c: any) => {
+    const rawCode = (c.customerCode || '').trim().toUpperCase();
+    const unpadded = rawCode.replace(/^C/i, '').replace(/^0+/, '');
+    const masterCls =
+      (rawCode ? custMaster?.customerClassificationMap?.[rawCode] : '') ||
+      (unpadded ? custMaster?.customerClassificationMap?.[unpadded] : '') ||
+      (rawCode.startsWith('C') ? custMaster?.customerClassificationMap?.[rawCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${rawCode}`]) ||
+      '';
+    const dairyCls = (masterCls && masterCls !== '-') ? masterCls : (c.dairyClassification || c.classification);
+    return {
+      cust_rt_id: c.cust_rt_id || `${c.customerCode}|${c.routeCode || ''}`,
+      customerCode: c.customerCode,
+      customerName: c.customerName,
+      classification: dairyCls || c.classification || 'C',
+      dairyClassification: dairyCls || 'C',
+      iceCreamClassification: c.iceCreamClassification || c.classification,
+      channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE' && c.channel !== 'GT') ? c.channel : 'TT',
+      routeCode: c.routeCode || '',
+    };
+  });
 
   const routeRows = custMaster.routes.length > 0
     ? custMaster.routes.map((r: any) => ({
@@ -639,12 +648,32 @@ export async function GET(req: NextRequest) {
       }
       ch = ch.toUpperCase().trim();
 
-      // 6. Resolve Classifications (proper relationship with Customer_Classification)
-      const dairyGr = dbCust?.dairyClassification || cmCust?.dairyClassification || null;
-      const iceGr = dbCust?.iceCreamClassification || cmCust?.iceCreamClassification || null;
+      // 6. Resolve Classifications (proper relationship with Master Customer_Classification)
+      const masterDirectCls =
+        (cleanCustCode ? custMaster?.customerClassificationMap?.[cleanCustCode] : '') ||
+        (unpaddedCustCode ? custMaster?.customerClassificationMap?.[unpaddedCustCode] : '') ||
+        (cleanCustCode.startsWith('C') ? custMaster?.customerClassificationMap?.[cleanCustCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${cleanCustCode}`]) ||
+        '';
+
+      const dairyGr =
+        (masterDirectCls && masterDirectCls !== '-') ? masterDirectCls :
+        (cmCust?.dairyClassification && cmCust.dairyClassification !== '-') ? cmCust.dairyClassification :
+        (dbCust?.dairyClassification && dbCust.dairyClassification !== '-') ? dbCust.dairyClassification :
+        (v.dairyClassification && v.dairyClassification !== '-') ? v.dairyClassification :
+        (cmCust?.classification && cmCust.classification !== '-') ? cmCust.classification :
+        (dbCust?.classification && dbCust.classification !== '-') ? dbCust.classification :
+        null;
+
+      const iceGr =
+        (cmCust?.iceCreamClassification && cmCust.iceCreamClassification !== '-') ? cmCust.iceCreamClassification :
+        (dbCust?.iceCreamClassification && dbCust.iceCreamClassification !== '-') ? dbCust.iceCreamClassification :
+        (v.iceCreamClassification && v.iceCreamClassification !== '-') ? v.iceCreamClassification :
+        null;
+
       let gr =
         (dairyGr && dairyGr !== '-') ? dairyGr :
         (iceGr && iceGr !== '-') ? iceGr :
+        (masterDirectCls && masterDirectCls !== '-') ? masterDirectCls :
         (cmCust?.classification && cmCust.classification !== '-') ? cmCust.classification :
         (dbCust?.classification && dbCust.classification !== '-') ? dbCust.classification :
         'C';
@@ -1139,6 +1168,8 @@ export async function GET(req: NextRequest) {
       visitsPerDayMap[d] = (visitsPerDayMap[d] || 0) + 1;
     });
     const visitsPerDay = Object.keys(visitsPerDayMap).sort().map(d => ({ date: d, count: visitsPerDayMap[d] }));
+    const activeDaysCount = Object.keys(visitsPerDayMap).length;
+    const avgVisitsPerDay = activeDaysCount > 0 ? Number((totalVisits / activeDaysCount).toFixed(1)) : 0;
 
     // High performance O(1) indexed maps for routes and supervisors
     const routeCustomerCountMap = new Map<string, number>();
@@ -1290,7 +1321,16 @@ export async function GET(req: NextRequest) {
           const rInfo = routeMap.get(c.routeCode);
           const mgrName = rInfo ? (rInfo.managerName || '').trim() : '';
           const supName = rInfo ? (rInfo.superName || '').trim() : '';
-          const dairyGr = (c.dairyClassification || c.classification || '-').trim();
+          const rawCode = (c.customerCode || '').trim().toUpperCase();
+          const unpadded = rawCode.replace(/^C/i, '').replace(/^0+/, '');
+          const masterCls =
+            (rawCode ? custMaster?.customerClassificationMap?.[rawCode] : '') ||
+            (unpadded ? custMaster?.customerClassificationMap?.[unpadded] : '') ||
+            (rawCode.startsWith('C') ? custMaster?.customerClassificationMap?.[rawCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${rawCode}`]) ||
+            '';
+          const dairyGr = (masterCls && masterCls !== '-')
+            ? masterCls
+            : ((c.dairyClassification && c.dairyClassification !== '-') ? c.dairyClassification : (c.classification || '-')).trim();
           return {
             id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
             code: c.customerCode,
@@ -1310,6 +1350,8 @@ export async function GET(req: NextRequest) {
       coveragePercent,
       tempBreachPercent,
       visitsPerDay,
+      activeDaysCount,
+      avgVisitsPerDay,
       coveragePerRoute,
       supervisorPerformance,
       temperatureBreaches,
