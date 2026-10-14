@@ -192,24 +192,20 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
   // Fetch GM / Admin Action Directives scoped to this supervisor
   const fetchActionItems = useCallback(async () => {
+    if (!currentSupervisorName) return;
     try {
-      const url = currentSupervisorName
-        ? `/api/admin/audit-actions?supervisor=${encodeURIComponent(currentSupervisorName)}`
-        : '/api/admin/audit-actions';
+      const url = `/api/admin/audit-actions?supervisor=${encodeURIComponent(currentSupervisorName)}`;
       const res = await fetch(url);
       const data = await res.json();
       if (data.success && Array.isArray(data.items)) {
         const map: Record<string, AuditActionItem> = {};
         data.items.forEach((item: AuditActionItem) => {
           // Strict isolation: only map directives assigned to this supervisor
-          if (currentSupervisorName) {
-            const itemSup = (item.supervisor || '').trim().toLowerCase();
-            const currSup = currentSupervisorName.toLowerCase();
-            if (itemSup && itemSup !== currSup) {
-              return;
-            }
+          const itemSup = (item.supervisor || '').trim().toLowerCase();
+          const currSup = currentSupervisorName.toLowerCase();
+          if (itemSup === currSup) {
+            map[item.photoId] = item;
           }
-          map[item.photoId] = item;
         });
         setActionItemsMap(map);
       }

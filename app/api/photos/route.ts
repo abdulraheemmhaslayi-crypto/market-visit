@@ -364,9 +364,20 @@ export async function GET(req: NextRequest) {
       }
       const observation = combinedObsList.length > 0 ? combinedObsList.join('; ') : (visitObs || visitReason || '');
 
-      const activeAction = auditActionMap.get(p.photoId);
-      const actionSupervisor = activeAction?.supervisor ? activeAction.supervisor.trim() : null;
-      const actionStatus = activeAction?.actionStatus || null;
+      let activeAction = auditActionMap.get(p.photoId) || null;
+      let actionSupervisor = activeAction?.supervisor ? activeAction.supervisor.trim() : null;
+      let actionStatus = activeAction?.actionStatus || null;
+
+      // When accessed by a supervisor, strictly isolate action directives:
+      // A supervisor must ONLY see directives assigned to THEM, never directives assigned to other supervisors.
+      if (scope === 'supervisor') {
+        const supNameLower = (userSession.name || '').trim().toLowerCase();
+        if (actionSupervisor && actionSupervisor.toLowerCase() !== supNameLower) {
+          activeAction = null;
+          actionSupervisor = null;
+          actionStatus = null;
+        }
+      }
 
       return {
         photoId: p.photoId,
