@@ -410,6 +410,17 @@ export default function DrilldownReportModal({
           </div>
         </div>
 
+        {reportType === 'classification' && (
+          <div className="px-5 py-2.5 bg-gradient-to-r from-indigo-50/90 via-sky-50/70 to-blue-50/90 dark:from-slate-900/90 dark:via-indigo-950/40 dark:to-slate-900/90 border-b border-indigo-200/60 dark:border-indigo-900/40 text-[11.5px] text-slate-700 dark:text-slate-300 flex items-center gap-2">
+            <span className="font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide text-[10px] bg-indigo-100 dark:bg-indigo-900/60 px-2 py-0.5 rounded-md">
+              Visit Policy
+            </span>
+            <span>
+              <strong>Class A</strong> = Twice per month (Bi-weekly) &nbsp;•&nbsp; <strong>Class B &amp; C</strong> = Once per month &nbsp;•&nbsp; <strong>Class D &amp; E</strong> = As per assigned PJP.
+            </span>
+          </div>
+        )}
+
         {showFilters && (
           <div className="px-5 py-4 border-b border-[var(--border-soft)] bg-[var(--surface-2)] flex flex-col gap-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

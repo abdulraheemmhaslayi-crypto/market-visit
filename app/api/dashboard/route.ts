@@ -1168,6 +1168,8 @@ export async function GET(req: NextRequest) {
       visitsPerDayMap[d] = (visitsPerDayMap[d] || 0) + 1;
     });
     const visitsPerDay = Object.keys(visitsPerDayMap).sort().map(d => ({ date: d, count: visitsPerDayMap[d] }));
+    const activeDaysCount = Object.keys(visitsPerDayMap).length;
+    const avgVisitsPerDay = activeDaysCount > 0 ? Number((totalVisits / activeDaysCount).toFixed(1)) : 0;
 
     // High performance O(1) indexed maps for routes and supervisors
     const routeCustomerCountMap = new Map<string, number>();
@@ -1348,6 +1350,8 @@ export async function GET(req: NextRequest) {
       coveragePercent,
       tempBreachPercent,
       visitsPerDay,
+      activeDaysCount,
+      avgVisitsPerDay,
       coveragePerRoute,
       supervisorPerformance,
       temperatureBreaches,
