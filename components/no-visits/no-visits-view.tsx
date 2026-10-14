@@ -238,9 +238,11 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
   }, [filteredVisits]);
 
   // Pagination slice
-  const totalPages = Math.max(1, Math.ceil(filteredVisits.length / pageSize));
-  const startIndex = (currentPage - 1) * pageSize;
-  const paginatedVisits = filteredVisits.slice(startIndex, startIndex + pageSize);
+  const isAll = pageSize === -1;
+  const totalPages = isAll ? 1 : Math.max(1, Math.ceil(filteredVisits.length / pageSize));
+  const currentPageClamped = isAll ? 1 : Math.min(currentPage, totalPages);
+  const startIndex = isAll ? 0 : (currentPageClamped - 1) * pageSize;
+  const paginatedVisits = isAll ? filteredVisits : filteredVisits.slice(startIndex, startIndex + pageSize);
 
   // Clear filters
   const isFiltered = search !== '' || categoryFilter !== 'All' || supervisorFilter !== 'All' || fromDate !== defaultMinusOne || toDate !== defaultMinusOne;
@@ -839,11 +841,11 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
             <span>
               Showing{' '}
               <strong className="text-[var(--text-primary)]">
-                {filteredVisits.length === 0 ? 0 : startIndex + 1}
+                {filteredVisits.length === 0 ? 0 : isAll ? 1 : startIndex + 1}
               </strong>{' '}
               to{' '}
               <strong className="text-[var(--text-primary)]">
-                {Math.min(startIndex + pageSize, filteredVisits.length)}
+                {isAll ? filteredVisits.length : Math.min(startIndex + pageSize, filteredVisits.length)}
               </strong>{' '}
               of <strong className="text-[var(--text-primary)]">{filteredVisits.length}</strong> records
             </span>
@@ -852,19 +854,23 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
               <span>Rows per page:</span>
               <select
                 value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
                 className="form-input text-[11px] h-7 py-0 px-2"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
+                <option value={-1}>All</option>
               </select>
             </div>
           </div>
 
           {/* Navigation Controls */}
-          {totalPages > 1 && (
+          {totalPages > 1 && !isAll && (
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentPage(1)}
