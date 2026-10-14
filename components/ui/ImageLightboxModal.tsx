@@ -194,35 +194,93 @@ export default function ImageLightboxModal({
     setIsReassigning(false);
   }, [currentIndex, current?.photoId, current?.supervisor, availableSupervisors]);
 
-  // Internal Action Item fallback state
-  const [internalActionItem, setInternalActionItem] = useState<AuditActionItem | null>(null);
+  // Role Detection
+  const { data: session } = useSession();
+  const effectiveRole = userRole || (session?.user as any)?.role || 'Admin';
+  const isSupervisor = effectiveRole.toLowerCase().includes('supervisor');
+  const loggedInSupName = (session?.user?.name || '').trim().toLowerCase();
 
-  // Derive currentAction from passed actionItems dictionary or internal dynamic fetch
-  const currentAction = (current?.photoId ? actionItems[current.photoId] : null) || internalActionItem;
+  // Internal Action Items cache mapped strictly by photoId
+  const [internalActionsMap, setInternalActionsMap] = useState<Record<string, AuditActionItem | null>>({});
 
-  // Auto-fetch action directive if not already provided in actionItems
+  const currentPhotoId = current?.photoId || '';
+
+  // Derive raw action strictly for THIS photoId (never leak another photo's action)
+  const rawAction = useMemo(() => {
+    if (!currentPhotoId) return null;
+    const item = (actionItems && actionItems[currentPhotoId]) || internalActionsMap[currentPhotoId] || null;
+    if (!item) return null;
+    // Strict isolation: ensure the action item belongs strictly to this photoId
+    if (item.photoId !== currentPhotoId) return null;
+    return item;
+  }, [currentPhotoId, actionItems, internalActionsMap]);
+
+  // Derive currentAction for the current viewer (strictly enforcing supervisor role scoping)
+  const currentAction = useMemo(() => {
+    if (!rawAction) return null;
+    // A supervisor must ONLY see directives assigned to THEM
+    if (isSupervisor) {
+      if (!loggedInSupName) return null;
+      const actionSup = (rawAction.supervisor || '').trim().toLowerCase();
+      if (actionSup !== loggedInSupName) {
+        return null;
+      }
+    }
+    return rawAction;
+  }, [rawAction, isSupervisor, loggedInSupName]);
+
+  const isActionAssignee = Boolean(
+    currentAction &&
+    (!currentAction.supervisor || !loggedInSupName || currentAction.supervisor.trim().toLowerCase() === loggedInSupName)
+  );
+
+  // Auto-fetch action directive if not already provided in actionItems or internal cache
   useEffect(() => {
-    if (!current?.photoId) {
-      setInternalActionItem(null);
+    if (!currentPhotoId) return;
+
+    if (actionItems && currentPhotoId in actionItems) {
       return;
     }
-    if (actionItems && actionItems[current.photoId]) {
-      setInternalActionItem(actionItems[current.photoId]);
+
+    if (currentPhotoId in internalActionsMap) {
       return;
     }
+
     let isMounted = true;
-    fetch(`/api/admin/audit-actions?photoId=${encodeURIComponent(current.photoId)}`)
+    const url = isSupervisor && loggedInSupName
+      ? `/api/admin/audit-actions?photoId=${encodeURIComponent(currentPhotoId)}&supervisor=${encodeURIComponent(loggedInSupName)}`
+      : `/api/admin/audit-actions?photoId=${encodeURIComponent(currentPhotoId)}`;
+
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
-        if (isMounted && data.success && Array.isArray(data.items) && data.items.length > 0) {
-          setInternalActionItem(data.items[0]);
+        if (!isMounted) return;
+        if (data.success && Array.isArray(data.items)) {
+          const matched = data.items.find((i: AuditActionItem) => i.photoId === currentPhotoId);
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [currentPhotoId]: matched || null,
+          }));
+        } else {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [currentPhotoId]: null,
+          }));
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (isMounted) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [currentPhotoId]: null,
+          }));
+        }
+      });
+
     return () => {
       isMounted = false;
     };
-  }, [current?.photoId, actionItems]);
+  }, [currentPhotoId, actionItems, internalActionsMap, isSupervisor, loggedInSupName]);
 
   // Cache of visit observations fetched on-demand
   const [asyncObservations, setAsyncObservations] = useState<Record<string, any>>({});
@@ -263,13 +321,6 @@ export default function ImageLightboxModal({
       isMounted = false;
     };
   }, [current?.visitId, current?.assetObservations, asyncObservations]);
-
-  // Role Detection
-  const { data: session } = useSession();
-  const effectiveRole = userRole || (session?.user as any)?.role || 'Admin';
-  const isSupervisor = effectiveRole.toLowerCase().includes('supervisor');
-  const loggedInSupName = (session?.user?.name || '').trim().toLowerCase();
-  const isActionAssignee = !currentAction?.supervisor || !loggedInSupName || (currentAction.supervisor.trim().toLowerCase() === loggedInSupName);
 
   // Outlet Code Detection
   const outletCode =
@@ -432,6 +483,7 @@ export default function ImageLightboxModal({
   // Reset local form states and image transforms when current image changes
   useEffect(() => {
     setIsFlagging(false);
+    setIsReassigning(false);
     setIsSubmittingProof(false);
     setGmComment('');
     setSupervisorComment('');
@@ -538,8 +590,11 @@ export default function ImageLightboxModal({
 
       if (res.ok) {
         const data = await res.json();
-        if (data.item) {
-          setInternalActionItem(data.item);
+        if (data.item && current?.photoId) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [current.photoId as string]: data.item,
+          }));
         }
         setIsFlagging(false);
         setGmComment('');
@@ -555,7 +610,7 @@ export default function ImageLightboxModal({
   // Handle Supervisor Reassignment
   const handleReassignSupervisor = async (e: React.FormEvent) => {
     e.preventDefault();
-    const actionId = currentAction?.id || internalActionItem?.id || current?.photoId;
+    const actionId = currentAction?.id || current?.photoId;
     if (!actionId || !reassignSupervisor.trim()) return;
 
     const chosenSup = reassignSupervisor.trim().toUpperCase();
@@ -578,8 +633,11 @@ export default function ImageLightboxModal({
 
       if (res.ok) {
         const data = await res.json();
-        if (data.item) {
-          setInternalActionItem(data.item);
+        if (data.item && current?.photoId) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [current.photoId as string]: data.item,
+          }));
         }
         setIsReassigning(false);
         if (onActionUpdated) onActionUpdated();
@@ -607,7 +665,7 @@ export default function ImageLightboxModal({
       return;
     }
 
-    const actionId = currentAction?.id || internalActionItem?.id || current?.photoId;
+    const actionId = currentAction?.id || current?.photoId;
     if (!actionId) {
       alert('Unable to identify action directive to update.');
       return;
@@ -648,8 +706,11 @@ export default function ImageLightboxModal({
 
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (data.item) {
-          setInternalActionItem(data.item);
+        if (data.item && current?.photoId) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [current.photoId as string]: data.item,
+          }));
           if (actionItems && current?.photoId) {
             actionItems[current.photoId] = data.item;
           }
@@ -686,8 +747,15 @@ export default function ImageLightboxModal({
             'Approved by General Manager. Corrective action verified with photo proof.',
         }),
       });
-      if (res.ok && onActionUpdated) {
-        onActionUpdated();
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.item && current?.photoId) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [current.photoId as string]: data.item,
+          }));
+        }
+        if (onActionUpdated) onActionUpdated();
       }
     } catch (err) {
       console.error('Failed to verify action:', err);
