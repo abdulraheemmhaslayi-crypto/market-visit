@@ -351,6 +351,9 @@ export default function AuditPhotoGalleryPage() {
   // Action Items KPI Calculations filtered by active dropdown selections
   const filteredActionItems = useMemo(() => {
     return Object.values(actionItemsMap).filter((item) => {
+      if (selectedManager !== 'all' && (item.manager || '').toUpperCase() !== selectedManager.toUpperCase()) {
+        return false;
+      }
       if (selectedRtm !== 'all' && (item.channel || '').toUpperCase() !== selectedRtm.toUpperCase()) {
         return false;
       }
@@ -376,7 +379,7 @@ export default function AuditPhotoGalleryPage() {
       }
       return true;
     });
-  }, [actionItemsMap, selectedRtm, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery]);
+  }, [actionItemsMap, selectedManager, selectedRtm, selectedSupervisor, selectedRoute, selectedOutlet, searchQuery]);
 
   const pendingActionItems = useMemo(
     () => filteredActionItems.filter((a) => a.actionStatus === 'PENDING'),
