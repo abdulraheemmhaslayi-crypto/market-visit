@@ -1,4 +1,4 @@
-import pool from '@/lib/db';
+import pool, { isMssql } from '@/lib/db';
 
 export interface UserDailyUsageRecord {
   id?: number;
@@ -45,7 +45,7 @@ export interface UsageMetricSummary {
 let schemaInitialized = false;
 
 export async function ensureDataUsageSchema() {
-  if (schemaInitialized) return;
+  if (schemaInitialized || isMssql) return;
   try {
     const connection = await pool.getConnection();
     try {
@@ -115,6 +115,7 @@ export const dataUsageRepository = {
     breakdown?: Record<string, { requests: number; bytes: number }>;
     deviceInfo?: string;
   }): Promise<void> {
+    if (isMssql) return;
     await ensureDataUsageSchema();
 
     const {
@@ -168,6 +169,14 @@ export const dataUsageRepository = {
    * Retrieves current configurable settings.
    */
   async getSettings(): Promise<DataUsageSettings> {
+    if (isMssql) {
+      return {
+        id: 'global_settings',
+        dailyPerUserLimitMb: 50,
+        warningThresholdPercent: 80,
+        highUsageAlertThresholdMb: 100,
+      };
+    }
     await ensureDataUsageSchema();
     const [rows]: any = await pool.execute(
       'SELECT * FROM `DataUsageSettings` WHERE `id` = ? LIMIT 1',
@@ -197,6 +206,9 @@ export const dataUsageRepository = {
    * Updates configurable settings.
    */
   async updateSettings(settings: Partial<DataUsageSettings>, updatedBy?: string): Promise<DataUsageSettings> {
+    if (isMssql) {
+      return this.getSettings();
+    }
     await ensureDataUsageSchema();
     const limitMb = settings.dailyPerUserLimitMb ?? 50;
     const warningPercent = settings.warningThresholdPercent ?? 80;
@@ -228,6 +240,23 @@ export const dataUsageRepository = {
     scope?: 'full' | 'supervisor' | 'fleet';
     scopeUserId?: string;
   }) {
+    if (isMssql) {
+      return {
+        todayMetrics: {
+          activeUsers: 0,
+          totalBytes: 0,
+          bytesDownloaded: 0,
+          bytesUploaded: 0,
+          totalRequests: 0,
+          avgBytesPerUser: 0,
+          alertCount: 0,
+        },
+        users: [],
+        dailyTrends: [],
+        apiBreakdown: [],
+        settings: await this.getSettings(),
+      };
+    }
     await ensureDataUsageSchema();
     const settings = await this.getSettings();
 

@@ -1,5 +1,5 @@
 import { Visit, VisitPhoto, NPDResponse, VisitAsset, VisitPowerSkuResult } from '@/types';
-import pool from '@/lib/db';
+import pool, { isMssql } from '@/lib/db';
 import mysql from 'mysql2/promise';
 
 function mapRowToVisit(row: any): Visit {
@@ -72,7 +72,7 @@ let visitSchemaChecked = false;
 let visitSchemaPromise: Promise<void> | null = null;
 
 async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolConnection): Promise<void> {
-  if (visitSchemaChecked) return;
+  if (visitSchemaChecked || isMssql) return;
   if (visitSchemaPromise) return visitSchemaPromise;
 
   visitSchemaChecked = true;
@@ -511,56 +511,111 @@ export const visitRepository = {
     }
 
     try {
-      await executor.execute(
-        `
-        INSERT INTO \`Visit\` (
-          \`visitId\`, \`supervisorId\`, \`cust_rt_id\`, \`routeCode\`, \`customerCode\`, \`dairyClassification\`, \`iceCreamClassification\`, \`visit_type\`, \`reason_category\`, \`reason\`, \`observation\`,
-          \`latitude\`, \`longitude\`, \`accuracy\`, \`status\`, 
-          \`createdBy\`, \`visit_datetime\`, \`createdAt\`, \`updatedAt\`, \`sosAsPerBda\`
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          \`supervisorId\` = VALUES(\`supervisorId\`),
-          \`cust_rt_id\` = VALUES(\`cust_rt_id\`),
-          \`routeCode\` = VALUES(\`routeCode\`),
-          \`customerCode\` = VALUES(\`customerCode\`),
-          \`dairyClassification\` = VALUES(\`dairyClassification\`),
-          \`iceCreamClassification\` = VALUES(\`iceCreamClassification\`),
-          \`visit_type\` = VALUES(\`visit_type\`),
-          \`reason_category\` = VALUES(\`reason_category\`),
-          \`reason\` = VALUES(\`reason\`),
-          \`observation\` = VALUES(\`observation\`),
-          \`latitude\` = VALUES(\`latitude\`),
-          \`longitude\` = VALUES(\`longitude\`),
-          \`accuracy\` = VALUES(\`accuracy\`),
-          \`status\` = VALUES(\`status\`),
-          \`createdBy\` = VALUES(\`createdBy\`),
-          \`visit_datetime\` = VALUES(\`visit_datetime\`),
-          \`updatedAt\` = VALUES(\`updatedAt\`),
-          \`sosAsPerBda\` = VALUES(\`sosAsPerBda\`)
-      `,
-        [
-          visit.visitId,
-          visit.supervisorId,
-          visit.cust_rt_id || null,
-          rtCode || null,
-          custCode || null,
-          visit.dairyClassification || null,
-          visit.iceCreamClassification || null,
-          visit.visit_type || 'Visit',
-          isNoVisit ? (visit.reason_category || null) : null,
-          isNoVisit ? (visit.reason || null) : (visit.observation || null),
-          visit.observation || null,
-          visit.latitude,
-          visit.longitude,
-          visit.accuracy,
-          visit.status,
-          visit.createdBy,
-          visitDatetimeVal,
-          createdAtVal,
-          updatedAtVal,
-          visit.sosAsPerBda === null ? null : (visit.sosAsPerBda ? 1 : 0),
-        ]
-      );
+      if (isMssql) {
+        await executor.execute(
+          `
+          MERGE INTO \`Visit\` AS target
+           USING (SELECT ? AS visitId, ? AS supervisorId, ? AS cust_rt_id, ? AS routeCode, ? AS customerCode, ? AS dairyClassification, ? AS iceCreamClassification, ? AS visit_type, ? AS reason_category, ? AS reason, ? AS observation, ? AS latitude, ? AS longitude, ? AS accuracy, ? AS status, ? AS createdBy, ? AS visit_datetime, ? AS createdAt, ? AS updatedAt, ? AS sosAsPerBda) AS source
+           ON target.visitId = source.visitId
+           WHEN MATCHED THEN
+             UPDATE SET
+               \`supervisorId\` = source.supervisorId,
+               \`cust_rt_id\` = source.cust_rt_id,
+               \`routeCode\` = source.routeCode,
+               \`customerCode\` = source.customerCode,
+               \`dairyClassification\` = source.dairyClassification,
+               \`iceCreamClassification\` = source.iceCreamClassification,
+               \`visit_type\` = source.visit_type,
+               \`reason_category\` = source.reason_category,
+               \`reason\` = source.reason,
+               \`observation\` = source.observation,
+               \`latitude\` = source.latitude,
+               \`longitude\` = source.longitude,
+               \`accuracy\` = source.accuracy,
+               \`status\` = source.status,
+               \`createdBy\` = source.createdBy,
+               \`visit_datetime\` = source.visit_datetime,
+               \`updatedAt\` = source.updatedAt,
+               \`sosAsPerBda\` = source.sosAsPerBda
+           WHEN NOT MATCHED THEN
+             INSERT (\`visitId\`, \`supervisorId\`, \`cust_rt_id\`, \`routeCode\`, \`customerCode\`, \`dairyClassification\`, \`iceCreamClassification\`, \`visit_type\`, \`reason_category\`, \`reason\`, \`observation\`, \`latitude\`, \`longitude\`, \`accuracy\`, \`status\`, \`createdBy\`, \`visit_datetime\`, \`createdAt\`, \`updatedAt\`, \`sosAsPerBda\`)
+             VALUES (source.visitId, source.supervisorId, source.cust_rt_id, source.routeCode, source.customerCode, source.dairyClassification, source.iceCreamClassification, source.visit_type, source.reason_category, source.reason, source.observation, source.latitude, source.longitude, source.accuracy, source.status, source.createdBy, source.visit_datetime, source.createdAt, source.updatedAt, source.sosAsPerBda);
+        `,
+          [
+            visit.visitId,
+            visit.supervisorId,
+            visit.cust_rt_id || null,
+            rtCode || null,
+            custCode || null,
+            visit.dairyClassification || null,
+            visit.iceCreamClassification || null,
+            visit.visit_type || 'Visit',
+            isNoVisit ? (visit.reason_category || null) : null,
+            isNoVisit ? (visit.reason || null) : (visit.observation || null),
+            visit.observation || null,
+            visit.latitude,
+            visit.longitude,
+            visit.accuracy,
+            visit.status,
+            visit.createdBy,
+            visitDatetimeVal,
+            createdAtVal,
+            updatedAtVal,
+            visit.sosAsPerBda === null ? null : (visit.sosAsPerBda ? 1 : 0),
+          ]
+        );
+      } else {
+        await executor.execute(
+          `
+          INSERT INTO \`Visit\` (
+            \`visitId\`, \`supervisorId\`, \`cust_rt_id\`, \`routeCode\`, \`customerCode\`, \`dairyClassification\`, \`iceCreamClassification\`, \`visit_type\`, \`reason_category\`, \`reason\`, \`observation\`,
+            \`latitude\`, \`longitude\`, \`accuracy\`, \`status\`, 
+            \`createdBy\`, \`visit_datetime\`, \`createdAt\`, \`updatedAt\`, \`sosAsPerBda\`
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            \`supervisorId\` = VALUES(\`supervisorId\`),
+            \`cust_rt_id\` = VALUES(\`cust_rt_id\`),
+            \`routeCode\` = VALUES(\`routeCode\`),
+            \`customerCode\` = VALUES(\`customerCode\`),
+            \`dairyClassification\` = VALUES(\`dairyClassification\`),
+            \`iceCreamClassification\` = VALUES(\`iceCreamClassification\`),
+            \`visit_type\` = VALUES(\`visit_type\`),
+            \`reason_category\` = VALUES(\`reason_category\`),
+            \`reason\` = VALUES(\`reason\`),
+            \`observation\` = VALUES(\`observation\`),
+            \`latitude\` = VALUES(\`latitude\`),
+            \`longitude\` = VALUES(\`longitude\`),
+            \`accuracy\` = VALUES(\`accuracy\`),
+            \`status\` = VALUES(\`status\`),
+            \`createdBy\` = VALUES(\`createdBy\`),
+            \`visit_datetime\` = VALUES(\`visit_datetime\`),
+            \`updatedAt\` = VALUES(\`updatedAt\`),
+            \`sosAsPerBda\` = VALUES(\`sosAsPerBda\`)
+        `,
+          [
+            visit.visitId,
+            visit.supervisorId,
+            visit.cust_rt_id || null,
+            rtCode || null,
+            custCode || null,
+            visit.dairyClassification || null,
+            visit.iceCreamClassification || null,
+            visit.visit_type || 'Visit',
+            isNoVisit ? (visit.reason_category || null) : null,
+            isNoVisit ? (visit.reason || null) : (visit.observation || null),
+            visit.observation || null,
+            visit.latitude,
+            visit.longitude,
+            visit.accuracy,
+            visit.status,
+            visit.createdBy,
+            visitDatetimeVal,
+            createdAtVal,
+            updatedAtVal,
+            visit.sosAsPerBda === null ? null : (visit.sosAsPerBda ? 1 : 0),
+          ]
+        );
+      }
     } catch (err: any) {
       if (err.message && (err.message.includes('Unknown column') || err.message.includes('routeCode') || err.message.includes('customerCode'))) {
         await ensureVisitTableSchema(executor);
@@ -673,35 +728,57 @@ export const visitRepository = {
     const executor = connection || pool;
     for (const ast of assets) {
       const assetIdVal = ast.assetId || `ast_${ast.visitId}_${ast.assetType}_${Math.random().toString(36).substring(2, 9)}`;
-      try {
+      if (isMssql) {
         await executor.execute(
-          `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
-             \`assetType\` = VALUES(\`assetType\`),
-             \`temperature\` = VALUES(\`temperature\`),
-             \`tempInRange\` = VALUES(\`tempInRange\`),
-             \`actionRequired\` = VALUES(\`actionRequired\`),
-             \`observation\` = VALUES(\`observation\`),
-             \`isFirstInFlow\` = VALUES(\`isFirstInFlow\`),
-             \`fefoFollowed\` = VALUES(\`fefoFollowed\`),
-             \`sizeModel\` = VALUES(\`sizeModel\`)`,
+          `MERGE INTO \`VisitAsset\` AS target
+           USING (SELECT ? AS assetId, ? AS visitId, ? AS assetType, ? AS temperature, ? AS tempInRange, ? AS actionRequired, ? AS observation, ? AS isFirstInFlow, ? AS fefoFollowed, ? AS sizeModel) AS source
+           ON target.assetId = source.assetId
+           WHEN MATCHED THEN
+             UPDATE SET
+               \`assetType\` = source.assetType,
+               \`temperature\` = source.temperature,
+               \`tempInRange\` = source.tempInRange,
+               \`actionRequired\` = source.actionRequired,
+               \`observation\` = source.observation,
+               \`isFirstInFlow\` = source.isFirstInFlow,
+               \`fefoFollowed\` = source.fefoFollowed,
+               \`sizeModel\` = source.sizeModel
+           WHEN NOT MATCHED THEN
+             INSERT (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`)
+             VALUES (source.assetId, source.visitId, source.assetType, source.temperature, source.tempInRange, source.actionRequired, source.observation, source.isFirstInFlow, source.fefoFollowed, source.sizeModel);`,
           [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0, ast.sizeModel || null]
         );
-      } catch (err: any) {
-        if (err.message && err.message.includes('Unknown column')) {
+      } else {
+        try {
           await executor.execute(
-            `INSERT INTO \`VisitAsset\` (\`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`) 
-             VALUES (?, ?, ?, ?, ?, ?)
+            `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
+               \`assetType\` = VALUES(\`assetType\`),
                \`temperature\` = VALUES(\`temperature\`),
                \`tempInRange\` = VALUES(\`tempInRange\`),
                \`actionRequired\` = VALUES(\`actionRequired\`),
-               \`observation\` = VALUES(\`observation\`)`,
-            [ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '']
+               \`observation\` = VALUES(\`observation\`),
+               \`isFirstInFlow\` = VALUES(\`isFirstInFlow\`),
+               \`fefoFollowed\` = VALUES(\`fefoFollowed\`),
+               \`sizeModel\` = VALUES(\`sizeModel\`)`,
+            [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0, ast.sizeModel || null]
           );
-        } else {
-          throw err;
+        } catch (err: any) {
+          if (err.message && err.message.includes('Unknown column')) {
+            await executor.execute(
+              `INSERT INTO \`VisitAsset\` (\`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`) 
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE
+                 \`temperature\` = VALUES(\`temperature\`),
+                 \`tempInRange\` = VALUES(\`tempInRange\`),
+                 \`actionRequired\` = VALUES(\`actionRequired\`),
+                 \`observation\` = VALUES(\`observation\`)`,
+              [ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '']
+            );
+          } else {
+            throw err;
+          }
         }
       }
     }

@@ -1,5 +1,5 @@
 import { Route } from '@/types';
-import pool from '@/lib/db';
+import pool, { isMssql } from '@/lib/db';
 
 function mapRowToRoute(row: any): Route {
   return {
@@ -16,7 +16,7 @@ let routeSchemaChecked = false;
 let routeSchemaPromise: Promise<void> | null = null;
 
 async function ensureRouteTableSchema(): Promise<void> {
-  if (routeSchemaChecked) return;
+  if (routeSchemaChecked || isMssql) return;
   if (routeSchemaPromise) return routeSchemaPromise;
 
   routeSchemaChecked = true;
@@ -252,21 +252,45 @@ export const routeRepository = {
       const channel = route.channel || 'GT';
       const superName = route.superName || null;
 
-      const [res]: any = await pool.execute(
-        `INSERT INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`, \`supervisorId\`, \`managerId\`, \`superName\`)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           \`routeName\` = VALUES(\`routeName\`),
-           \`channel\` = VALUES(\`channel\`),
-           \`supervisorId\` = VALUES(\`supervisorId\`),
-           \`managerId\` = VALUES(\`managerId\`),
-           \`superName\` = VALUES(\`superName\`)`,
-        [route.routeCode, route.routeName, channel, supervisorId, managerId, superName]
-      );
-      if (res.affectedRows === 1) {
-        inserted++;
+      if (isMssql) {
+        const [res]: any = await pool.execute(
+          `MERGE INTO \`Route\` AS target
+           USING (SELECT ? AS routeCode, ? AS routeName, ? AS channel, ? AS supervisorId, ? AS managerId, ? AS superName) AS source
+           ON target.routeCode = source.routeCode
+           WHEN MATCHED THEN
+             UPDATE SET
+               \`routeName\` = source.routeName,
+               \`channel\` = source.channel,
+               \`supervisorId\` = source.supervisorId,
+               \`managerId\` = source.managerId,
+               \`superName\` = source.superName
+           WHEN NOT MATCHED THEN
+             INSERT (\`routeCode\`, \`routeName\`, \`channel\`, \`supervisorId\`, \`managerId\`, \`superName\`)
+             VALUES (source.routeCode, source.routeName, source.channel, source.supervisorId, source.managerId, source.superName);`,
+          [route.routeCode, route.routeName, channel, supervisorId, managerId, superName]
+        );
+        if (res.affectedRows === 1) {
+          inserted++;
+        } else {
+          updated++;
+        }
       } else {
-        updated++;
+        const [res]: any = await pool.execute(
+          `INSERT INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`, \`supervisorId\`, \`managerId\`, \`superName\`)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             \`routeName\` = VALUES(\`routeName\`),
+             \`channel\` = VALUES(\`channel\`),
+             \`supervisorId\` = VALUES(\`supervisorId\`),
+             \`managerId\` = VALUES(\`managerId\`),
+             \`superName\` = VALUES(\`superName\`)`,
+          [route.routeCode, route.routeName, channel, supervisorId, managerId, superName]
+        );
+        if (res.affectedRows === 1) {
+          inserted++;
+        } else {
+          updated++;
+        }
       }
     }
 

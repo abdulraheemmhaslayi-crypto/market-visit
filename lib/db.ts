@@ -22,7 +22,28 @@ function transformQueryForMssql(query: string, params: any[] = []) {
   // 2. Replace MySQL NOW() with SQL Server GETDATE()
   q = q.replace(/\bNOW\(\)/gi, 'GETDATE()');
 
-  // 3. Convert trailing LIMIT N to SELECT TOP N
+  // 3. Replace MySQL IFNULL with SQL Server ISNULL
+  q = q.replace(/\bIFNULL\(/gi, 'ISNULL(');
+
+  // 4. Replace MySQL DATABASE() with SQL Server DB_NAME()
+  q = q.replace(/\bDATABASE\(\)/gi, 'DB_NAME()');
+
+  // 5. Replace TABLE_SCHEMA = DB_NAME() with TABLE_CATALOG = DB_NAME()
+  q = q.replace(/TABLE_SCHEMA\s*=\s*DB_NAME\(\)/gi, 'TABLE_CATALOG = DB_NAME()');
+
+  // 6. Convert ALTER TABLE [tbl] ADD COLUMN [col] to ALTER TABLE [tbl] ADD [col]
+  q = q.replace(/ALTER\s+TABLE\s+\[(\w+)\]\s+ADD\s+COLUMN\s+/gi, 'ALTER TABLE [$1] ADD ');
+
+  // 7. Convert CREATE TABLE IF NOT EXISTS [tbl] (...) ENGINE=... to IF NOT EXISTS ... CREATE TABLE [tbl] (...)
+  const createTableMatch = q.match(/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+\[(\w+)\]\s*\(([\s\S]+)\)\s*(?:ENGINE[\s\S]*);?$/i);
+  if (createTableMatch) {
+    const tblName = createTableMatch[1];
+    let body = createTableMatch[2];
+    body = body.replace(/AUTO_INCREMENT/gi, 'IDENTITY(1,1)');
+    q = `IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '${tblName}') CREATE TABLE [${tblName}] (${body});`;
+  }
+
+  // 8. Convert trailing LIMIT N to SELECT TOP N
   const limitMatch = q.match(/\s+LIMIT\s+(\d+)\s*$/i);
   if (limitMatch) {
     const limitCount = limitMatch[1];
@@ -32,7 +53,7 @@ function transformQueryForMssql(query: string, params: any[] = []) {
     }
   }
 
-  // 4. Convert positional ? parameters to named @p0, @p1, ...
+  // 9. Convert positional ? parameters to named @p0, @p1, ...
   const requestInputs: { name: string; value: any }[] = [];
   if (params && params.length > 0) {
     let paramIndex = 0;
@@ -198,4 +219,5 @@ if (isMssql) {
   }
 }
 
+export { isMssql };
 export default pool;
