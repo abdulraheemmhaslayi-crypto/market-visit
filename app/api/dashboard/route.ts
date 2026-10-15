@@ -27,7 +27,7 @@ async function ensureDashboardSchema() {
   } catch (e) {}
 }
 
-import { MasterCache, getCachedMasterData, setCachedMasterData } from '@/lib/dashboard-cache';
+import { MasterCache, getCachedMasterData, setCachedMasterData, dashboardApiCacheStore } from '@/lib/dashboard-cache';
 
 const MASTER_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -144,7 +144,7 @@ async function getMasterData(): Promise<MasterCache> {
   return newCache;
 }
 
-const cacheStore = new Map<string, { timestamp: number; data: any }>();
+const cacheStore = dashboardApiCacheStore;
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds cache for instant tab switches & returns
 
 export async function GET(req: NextRequest) {
@@ -642,9 +642,21 @@ export async function GET(req: NextRequest) {
       }
 
       // 5. Resolve Channel (CUSTMASTER Segment_Fin(120MT) is primary source of truth!)
-      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, 'TT') || dbCust?.channel || '';
+      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, '') || dbCust?.channel || '';
       if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
-        ch = 'TT';
+        if (cleanRoute.startsWith('MT')) {
+          ch = 'MT';
+        } else if (cleanRoute.startsWith('IS')) {
+          ch = 'INST';
+        } else if (cleanRoute.startsWith('TR')) {
+          ch = 'TT';
+        } else if (mgrName === 'ADNAN' || ['ASAD', 'SAIFULLAH', 'KISHAN', 'JAVED', 'MOHSIN', 'RASHWIN'].includes(supName)) {
+          ch = 'MT';
+        } else if (mgrName === 'WASIM' || supName === 'WASIM') {
+          ch = 'INST';
+        } else {
+          ch = 'TT';
+        }
       }
       ch = ch.toUpperCase().trim();
 
@@ -1122,7 +1134,10 @@ export async function GET(req: NextRequest) {
       const masterCh = getCustMasterChannel(candidateCode, '');
       let ch = masterCh || customer?.channel || '';
       if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
-        ch = 'TT';
+        const rc = (routeCode || (visit ? visit.routeCode : '') || '').toUpperCase();
+        if (rc.startsWith('MT')) ch = 'MT';
+        else if (rc.startsWith('IS')) ch = 'INST';
+        else ch = 'TT';
       }
 
       return {
