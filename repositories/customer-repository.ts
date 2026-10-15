@@ -154,7 +154,10 @@ function mapRowToCustomer(row: any): Customer {
   const masterCh = getCustMasterChannel(row.customerCode, '');
   let ch = masterCh || row.channel || '';
   if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch === 'GT' || ch.toUpperCase() === 'GENERAL STORE') {
-    ch = 'TT';
+    const rt = (row.routeCode || '').toUpperCase();
+    if (rt.startsWith('MT')) ch = 'MT';
+    else if (rt.startsWith('IS')) ch = 'INST';
+    else ch = 'TT';
   }
 
   return {

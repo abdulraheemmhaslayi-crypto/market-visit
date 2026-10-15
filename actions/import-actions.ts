@@ -10,6 +10,8 @@ import { auditService } from '@/services/audit-service';
 import { Route, Customer, CustomerRouteMapping, SKU, ImportSummary, PowerSKU } from '@/types';
 import { revalidatePath } from 'next/cache';
 import pool from '@/lib/db';
+import fs from 'fs';
+import path from 'path';
 
 const verifyAdminSession = async () => {
   const session = await auth();
@@ -55,7 +57,7 @@ export async function validateExcelAction(formData: FormData) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const res = parseSingleFile(buffer, file.name, fk.type);
-      parsedResults.push(res);
+      parsedResults.push({ ...res, buffer, targetFileName: fk.name });
     } catch (error: any) {
       errors.push({ row: 0, error: `${file.name}: Parsing failed - ${error.message}` });
     }
@@ -80,6 +82,26 @@ export async function validateExcelAction(formData: FormData) {
   }
 
   const merged = mergeParsedData(parsedResults);
+
+  // Synchronize validated files to data directory so disk-based master readers (CUSTMASTER, Customer_Classification) are updated immediately
+  if (merged.errors.length === 0) {
+    try {
+      const dataDir = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      for (const pr of parsedResults) {
+        if (pr.buffer && pr.targetFileName) {
+          fs.writeFileSync(path.join(dataDir, pr.targetFileName), pr.buffer);
+          if (pr.targetFileName.toLowerCase().includes('classification')) {
+            fs.writeFileSync(path.join(dataDir, 'Customer_Classification.xlsx'), pr.buffer);
+          }
+        }
+      }
+    } catch (diskErr) {
+      console.warn('Could not save uploaded excel files to data directory:', diskErr);
+    }
+  }
 
   return {
     success: true,
@@ -261,6 +283,8 @@ export async function importExcelAction(payload: {
     try {
       const { invalidateDashboardMasterCache } = await import('@/lib/dashboard-cache');
       invalidateDashboardMasterCache();
+      const { getCustMasterData } = await import('@/lib/custmaster-data');
+      getCustMasterData(true);
     } catch {}
 
     revalidatePath('/', 'layout');
