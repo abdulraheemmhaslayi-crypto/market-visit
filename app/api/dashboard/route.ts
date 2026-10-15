@@ -27,7 +27,7 @@ async function ensureDashboardSchema() {
   } catch (e) {}
 }
 
-import { MasterCache, getCachedMasterData, setCachedMasterData } from '@/lib/dashboard-cache';
+import { MasterCache, getCachedMasterData, setCachedMasterData, dashboardApiCacheStore } from '@/lib/dashboard-cache';
 
 const MASTER_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -144,7 +144,7 @@ async function getMasterData(): Promise<MasterCache> {
   return newCache;
 }
 
-const cacheStore = new Map<string, { timestamp: number; data: any }>();
+const cacheStore = dashboardApiCacheStore;
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds cache for instant tab switches & returns
 
 export async function GET(req: NextRequest) {

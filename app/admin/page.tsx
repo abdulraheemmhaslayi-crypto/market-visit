@@ -2066,14 +2066,13 @@ export default function AdminDashboardPage() {
         });
 
         const masterTotal = outletsInGrade.length;
-        const visitedMasterCount = outletsInGrade.filter((o: any) => visitedOutletKeys.has(o.code) || visitedOutletKeys.has(o.name) || visitedOutletKeys.has(o.id)).length;
         const visitedUniqueFromVisits = (visitedOutletsByGrade[g] || new Set()).size;
-        const uniqueOutlets = Math.max(visitedMasterCount, visitedUniqueFromVisits);
         const totalVisits = visitCountByGrade[g] || 0;
-        const coverageBase = Math.max(masterTotal, uniqueOutlets);
-        const coveragePct = coverageBase > 0 ? Math.round((uniqueOutlets / coverageBase) * 100) : 0;
+        const masterBase = masterTotal > 0 ? masterTotal : (visitedUniqueFromVisits || (totalVisits > 0 ? 1 : 0));
+        // Frequency Achievement %: total visits against assigned master outlets (e.g. 2 visits to an A-class store = 200%)
+        const coveragePct = masterBase > 0 ? Math.round((totalVisits / masterBase) * 100) : 0;
 
-        stats[g] = { totalVisits, uniqueOutlets, masterTotal: coverageBase, coveragePct };
+        stats[g] = { totalVisits, uniqueOutlets: visitedUniqueFromVisits, masterTotal: masterBase, coveragePct };
       });
 
       const maxTotal = Math.max(...allGrades.map((g) => stats[g]?.totalVisits || 0), 10);
@@ -2117,17 +2116,19 @@ export default function AdminDashboardPage() {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
 
-                // Line 1: Total Visits (bold 13.5px)
+                // Line 1: Total Visits (bold 13px)
                 ctx.font = '800 13px Inter, sans-serif';
                 ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
                 ctx.fillText(`${s.totalVisits} visits`, bar0.x, bar0.y - 15);
 
-                // Line 2: Reach / Coverage (Ratio + %)
+                // Line 2: Frequency Ratio & % (Visits / Master Outlets - e.g. 2 visits to 1 Class A outlet = 2/1 200%)
                 ctx.font = '700 11px Inter, sans-serif';
-                ctx.fillStyle = s.coveragePct >= 50
+                ctx.fillStyle = s.coveragePct >= 100
                   ? (isDark ? '#34d399' : '#059669')
+                  : s.coveragePct >= 50
+                  ? (isDark ? '#38bdf8' : '#0284c7')
                   : (isDark ? '#fbbf24' : '#d97706');
-                ctx.fillText(`${s.uniqueOutlets}/${s.masterTotal} (${s.coveragePct}%)`, bar0.x, bar0.y - 2);
+                ctx.fillText(`${s.totalVisits}/${s.masterTotal} (${s.coveragePct}%)`, bar0.x, bar0.y - 2);
 
                 ctx.restore();
               });
@@ -2169,13 +2170,14 @@ export default function AdminDashboardPage() {
                   const s = stats[g];
                   if (!s) return [];
                   const guideline = g === 'A'
-                    ? 'Twice per month (Bi-weekly)'
+                    ? 'Twice per month (Bi-weekly) • 2 visits/store = 200%'
                     : (g === 'B' || g === 'C')
-                    ? 'Once every month (Monthly)'
+                    ? 'Once every month (Monthly) • 1 visit/store = 100%'
                     : 'As per assigned PJP';
                   return [
                     '───────────────────────',
-                    ` Unique Outlets Covered: ${s.uniqueOutlets.toLocaleString()} of ${s.masterTotal.toLocaleString()} (${s.coveragePct}% reach)`,
+                    ` Frequency Target Achievement: ${s.totalVisits.toLocaleString()} visits on ${s.masterTotal.toLocaleString()} stores (${s.coveragePct}%)`,
+                    ` Unique Outlets Reached: ${s.uniqueOutlets.toLocaleString()} stores`,
                     ` Visit Frequency Policy: ${guideline}`,
                   ];
                 },
