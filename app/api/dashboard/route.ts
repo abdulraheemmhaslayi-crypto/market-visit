@@ -642,9 +642,21 @@ export async function GET(req: NextRequest) {
       }
 
       // 5. Resolve Channel (CUSTMASTER Segment_Fin(120MT) is primary source of truth!)
-      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, 'TT') || dbCust?.channel || '';
+      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, '') || dbCust?.channel || '';
       if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
-        ch = 'TT';
+        if (cleanRoute.startsWith('MT')) {
+          ch = 'MT';
+        } else if (cleanRoute.startsWith('IS')) {
+          ch = 'INST';
+        } else if (cleanRoute.startsWith('TR')) {
+          ch = 'TT';
+        } else if (mgrName === 'ADNAN' || ['ASAD', 'SAIFULLAH', 'KISHAN', 'JAVED', 'MOHSIN', 'RASHWIN'].includes(supName)) {
+          ch = 'MT';
+        } else if (mgrName === 'WASIM' || supName === 'WASIM') {
+          ch = 'INST';
+        } else {
+          ch = 'TT';
+        }
       }
       ch = ch.toUpperCase().trim();
 
@@ -1122,7 +1134,10 @@ export async function GET(req: NextRequest) {
       const masterCh = getCustMasterChannel(candidateCode, '');
       let ch = masterCh || customer?.channel || '';
       if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
-        ch = 'TT';
+        const rc = (routeCode || (visit ? visit.routeCode : '') || '').toUpperCase();
+        if (rc.startsWith('MT')) ch = 'MT';
+        else if (rc.startsWith('IS')) ch = 'INST';
+        else ch = 'TT';
       }
 
       return {
