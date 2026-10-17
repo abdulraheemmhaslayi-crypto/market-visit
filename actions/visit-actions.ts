@@ -10,6 +10,7 @@ import { visitSchema, visitDraftSchema, VisitInput, VisitDraftInput } from '@/sc
 import { auditService } from '@/services/audit-service';
 import { User, Customer, Visit, VisitPhoto, NPDResponse, VisitAsset, VisitPowerSkuResult } from '@/types';
 import { isFullAccessRole, isSupervisorRole, isFleetRole } from '@/lib/roles';
+import { getCanonicalPowerSkusForChannel, MT_POWER_SKU_CODES, TT_POWER_SKU_CODES } from '@/lib/power-skus-data';
 
 function generateVisitId(): string {
   const now = new Date();
@@ -229,8 +230,13 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
   const [custPartDraft, rtPartDraft] = (input.cust_rt_id || '').includes('|')
     ? (input.cust_rt_id || '').split('|')
     : ['', payload.routeCode || ''];
-  const customerCode = custPartDraft || '';
-  const routeCode = rtPartDraft || payload.routeCode || '';
+  let customerCode = (custPartDraft || '').trim();
+  let routeCode = (rtPartDraft || payload.routeCode || '').trim();
+  if (/^(MT|TR|IS|EX|DIS|R\d)/i.test(customerCode) && (/^C\d+/i.test(routeCode) || /^\d+$/.test(routeCode))) {
+    const tmp = customerCode;
+    customerCode = routeCode;
+    routeCode = tmp;
+  }
 
   const visitRecord: Visit = {
     visitId,
@@ -311,8 +317,13 @@ export async function submitVisitAction(data: VisitInput) {
   const [custPart, rtPart] = (input.cust_rt_id || '').includes('|')
     ? (input.cust_rt_id || '').split('|')
     : ['', payload.routeCode || ''];
-  const customerCode = custPart || '';
-  const routeCode = rtPart || payload.routeCode || '';
+  let customerCode = (custPart || '').trim();
+  let routeCode = (rtPart || payload.routeCode || '').trim();
+  if (/^(MT|TR|IS|EX|DIS|R\d)/i.test(customerCode) && (/^C\d+/i.test(routeCode) || /^\d+$/.test(routeCode))) {
+    const tmp = customerCode;
+    customerCode = routeCode;
+    routeCode = tmp;
+  }
 
   // Enforce route ownership for supervisor only when a route is present
   if (user.role === 'Supervisor' && routeCode) {
@@ -337,23 +348,25 @@ export async function submitVisitAction(data: VisitInput) {
       }
     }
 
-    let channel = matchedCust?.channel || '';
-    if (routeCode) {
-      try {
-        const routes = await routeRepository.getAllRoutes();
-        const matchedRoute = routes.find(r => r.routeCode === routeCode);
-        if (matchedRoute?.channel) {
-          channel = matchedRoute.channel;
-        }
-      } catch (e) {}
-    }
+    const cleanCust = customerCode.toUpperCase().trim();
+    const cleanRt = routeCode.toUpperCase().trim();
+    const rawCh = (matchedCust?.channel || '').toUpperCase().trim();
+    const isMT =
+      rawCh === 'KEY ACCOUNT' ||
+      rawCh === 'MT' ||
+      cleanRt.startsWith('MT') ||
+      cleanRt.startsWith('C') ||
+      cleanCust.startsWith('MTD') ||
+      (matchedCust?.customerName || '').toUpperCase().includes('AL MEERA') ||
+      (matchedCust?.customerName || '').toUpperCase().includes('LULU') ||
+      (matchedCust?.customerName || '').toUpperCase().includes('CARREFOUR') ||
+      (matchedCust?.customerName || '').toUpperCase().includes('MEGAMART');
+    const channel = isMT ? 'MT' : 'TT';
 
-    if (channel) {
-      const powerSkus = await skuRepository.getPowerSkusByChannel(channel);
-      for (const psku of powerSkus) {
-        if (!input.powerSkuResults[psku.skuCode]) {
-          input.powerSkuResults[psku.skuCode] = 'Not Available';
-        }
+    const canonicalPowerSkus = getCanonicalPowerSkusForChannel(channel);
+    for (const psku of canonicalPowerSkus) {
+      if (!input.powerSkuResults[psku.skuCode]) {
+        input.powerSkuResults[psku.skuCode] = 'Not Available';
       }
     }
   }
@@ -403,11 +416,28 @@ export async function submitVisitAction(data: VisitInput) {
     uploadedAt: p.uploadedAt,
   }));
 
-  const powerSkuRecords: VisitPowerSkuResult[] = Object.entries(input.powerSkuResults).map(([skuCode, status]) => ({
-    visitId,
-    skuCode,
-    status: status as any,
-  }));
+  const cleanCust = customerCode.toUpperCase().trim();
+  const cleanRt = routeCode.toUpperCase().trim();
+  const rawCh = (matchedCust?.channel || '').toUpperCase().trim();
+  const isMT =
+    rawCh === 'KEY ACCOUNT' ||
+    rawCh === 'MT' ||
+    cleanRt.startsWith('MT') ||
+    cleanRt.startsWith('C') ||
+    cleanCust.startsWith('MTD') ||
+    (matchedCust?.customerName || '').toUpperCase().includes('AL MEERA') ||
+    (matchedCust?.customerName || '').toUpperCase().includes('LULU') ||
+    (matchedCust?.customerName || '').toUpperCase().includes('CARREFOUR') ||
+    (matchedCust?.customerName || '').toUpperCase().includes('MEGAMART');
+  const validSkuCodes = isMT ? MT_POWER_SKU_CODES : TT_POWER_SKU_CODES;
+
+  const powerSkuRecords: VisitPowerSkuResult[] = Object.entries(input.powerSkuResults)
+    .filter(([skuCode]) => validSkuCodes.has(skuCode.toUpperCase().trim()))
+    .map(([skuCode, status]) => ({
+      visitId,
+      skuCode: skuCode.toUpperCase().trim(),
+      status: status as any,
+    }));
 
   const npdResponses: NPDResponse[] = Object.entries(input.npdResponses).map(([skuCode, status]) => ({
     responseId: `${visitId}_${skuCode}`,
