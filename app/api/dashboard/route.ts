@@ -6,6 +6,7 @@ import pool from '@/lib/db';
 import { getDashboardScope, isFleetRole, isFullAccessRole, isSupervisorRole, isReportAllowed } from '@/lib/roles';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
 import { getCustMasterData } from '@/lib/custmaster-data';
+import { MT_POWER_SKUS, TT_POWER_SKUS, MT_POWER_SKU_CODES, TT_POWER_SKU_CODES } from '@/lib/power-skus-data';
 
 let dashboardSchemaChecked = false;
 async function ensureDashboardSchema() {
@@ -21,6 +22,15 @@ async function ensureDashboardSchema() {
       await pool.execute(`ALTER TABLE \`VisitPowerSkuResult\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
       await pool.execute(`ALTER TABLE \`VisitAsset\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
       await pool.execute(`ALTER TABLE \`PowerSKU\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+
+      // Ensure all canonical Power SKUs exist in database
+      const allPskus = [...MT_POWER_SKUS, ...TT_POWER_SKUS];
+      for (const s of allPskus) {
+        await pool.execute(
+          'INSERT INTO `PowerSKU` (`skuCode`, `skuName`, `channel`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `skuName` = VALUES(`skuName`)',
+          [s.skuCode, s.skuName, s.channel]
+        );
+      }
     } catch (_) {}
 
     dashboardSchemaChecked = true;
@@ -550,6 +560,12 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      if (/^(MT|TR|IS|EX|DIS|R\d)/i.test(custCodeRaw) && (/^C\d+/i.test(routeCodeRaw) || /^\d+$/.test(routeCodeRaw))) {
+        const tmp = custCodeRaw;
+        custCodeRaw = routeCodeRaw;
+        routeCodeRaw = tmp;
+      }
+
       const cleanCustCode = custCodeRaw.toUpperCase().trim();
       const unpaddedCustCode = cleanCustCode.replace(/^C/i, '').replace(/^0+/, '');
 
@@ -710,8 +726,6 @@ export async function GET(req: NextRequest) {
       else if (visitNpd.some((r: any) => r.status === 'Not Available')) npd = 'N';
 
       const visitPsku = pskuMap.get(v.visitId) || [];
-      const hasAvail = visitPsku.some((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A');
-      const psku = hasAvail ? 'A' : 'N';
 
       const isTT = ch === 'TT' || cleanRoute.startsWith('TR') || cleanRoute.startsWith('TRI');
       const isMT =
@@ -719,16 +733,23 @@ export async function GET(req: NextRequest) {
         (ch === 'MT' ||
           cleanCustCode.startsWith('MTD') ||
           cleanRoute.startsWith('C') ||
+          cleanRoute.startsWith('MT') ||
           custName.toUpperCase().includes('LULU') ||
           custName.toUpperCase().includes('CARREFOUR') ||
           custName.toUpperCase().includes('MEGAMART') ||
           custName.toUpperCase().includes('AL MEERA') ||
           custName.toUpperCase().includes('HYPER'));
 
-      // User instruction: "power sku should not 41. for MT its 24 and for TT its 27, correct these 2."
+      // Strictly 24 for MT and 27 for TT matching official master lists
       const totalPskuCount = isMT ? 24 : 27;
-      const rawAvailPsku = visitPsku.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
+      const validTargetSkuCodes = isMT ? MT_POWER_SKU_CODES : TT_POWER_SKU_CODES;
+      const rawAvailPsku = visitPsku.filter((r: any) => 
+        validTargetSkuCodes.has(String(r.skuCode || '').toUpperCase().trim()) &&
+        (r.status === 'Available' || r.status === 'YES' || r.status === 'A')
+      ).length;
       const pskuAvailableCount = Math.min(rawAvailPsku, totalPskuCount);
+      const hasAvail = rawAvailPsku > 0;
+      const psku = hasAvail ? 'A' : 'N';
       const npdAvailableCount = visitNpd.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
 
       const chillerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
@@ -924,29 +945,23 @@ export async function GET(req: NextRequest) {
           });
         }
 
-        // Populate PowerSKU Report Rows (Per SKU level granularity, excluding No Visit)
+        // Populate PowerSKU Report Rows (Strictly 24 MT or 27 TT canonical SKUs matching Master List)
         if (v.visit_type !== 'No Visit') {
+          const targetSkus = isMT ? MT_POWER_SKUS : TT_POWER_SKUS;
+          const visitPskuMap = new Map<string, any>();
           visitPsku.forEach((item: any) => {
-            const masterSku = skuMap.get(item.skuCode);
-            const pskuInfo = powerSkuMap.get(item.skuCode) || masterSku;
-            const isAvail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A');
+            if (item?.skuCode) {
+              visitPskuMap.set(String(item.skuCode).toUpperCase().trim(), item);
+            }
+          });
+
+          targetSkus.forEach((canonicalSku) => {
+            const code = canonicalSku.skuCode.toUpperCase().trim();
+            const item = visitPskuMap.get(code);
+            const isAvail = item ? (item.status === 'Available' || item.status === 'YES' || item.status === 'A') : false;
             const avail = isAvail ? 'YES' : 'NO';
             const pskuCode = isAvail ? 'A' : 'N';
             const statusText = isAvail ? 'Available' : 'Not Available';
-
-            // Extract accurate business vertical from SKUMASTER
-            let bVertical = (masterSku?.businessVertical || pskuInfo?.businessVertical || masterSku?.type || pskuInfo?.type || '').toString().trim();
-            if (!bVertical || bVertical.toLowerCase() === 'general' || bVertical.toLowerCase() === 'standard' || bVertical.toLowerCase() === 'sku') {
-              const code = (item.skuCode || '').toUpperCase();
-              const name = (masterSku?.skuName || pskuInfo?.skuName || item.skuName || '').toUpperCase();
-              if (code.startsWith('FGIC') || name.includes('ICE CREAM') || name.includes('CONE') || name.includes('STICK') || name.includes('TUB') || name.includes('CANDY')) {
-                bVertical = 'Ice Cream';
-              } else if (code.startsWith('FGJU') || code.startsWith('FGBV') || name.includes('JUICE') || name.includes('DRINK') || name.includes('NECTAR')) {
-                bVertical = 'Beverage';
-              } else {
-                bVertical = 'Dairy';
-              }
-            }
 
             reportRows.psku.push({
               date: visitDate,
@@ -960,9 +975,9 @@ export async function GET(req: NextRequest) {
               outletName: custName,
               classification: gr,
               class: gr,
-              businessVertical: bVertical,
-              skuCode: item.skuCode,
-              skuName: pskuInfo?.skuName || masterSku?.skuName || item.skuCode,
+              businessVertical: canonicalSku.businessVertical,
+              skuCode: canonicalSku.skuCode,
+              skuName: canonicalSku.skuName,
               status: statusText,
               availability: avail,
               psku: pskuCode,

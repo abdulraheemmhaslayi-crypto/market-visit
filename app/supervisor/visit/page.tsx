@@ -112,11 +112,15 @@ function VisitWizardContent() {
     enabled: !!selectedRoute,
   });
 
+  const activeCustomer = selectedCustomer ? customers.find((c) => c.cust_rt_id === selectedCustomer) : null;
+
   const { data: powerSkus = [] } = useQuery<PowerSKU[]>({
-    queryKey: ['powerSkus', selectedRoute],
+    queryKey: ['powerSkus', selectedRoute, activeCustomer?.channel, activeCustomer?.customerCode],
     queryFn: () => {
       if (!selectedRoute) return [];
-      return fetch(`/api/powerskus?routeCode=${selectedRoute}`).then((res) => {
+      const cCode = activeCustomer?.customerCode ? `&customerCode=${encodeURIComponent(activeCustomer.customerCode)}` : '';
+      const ch = activeCustomer?.channel ? `&channel=${encodeURIComponent(activeCustomer.channel)}` : '';
+      return fetch(`/api/powerskus?routeCode=${encodeURIComponent(selectedRoute)}${cCode}${ch}`).then((res) => {
         if (!res.ok) throw new Error('Failed to load Power SKUs');
         return res.json();
       });
@@ -131,8 +135,6 @@ function VisitWizardContent() {
       return res.json();
     }),
   });
-
-  const activeCustomer = selectedCustomer ? customers.find((c) => c.cust_rt_id === selectedCustomer) : null;
 
   const getEffectiveCustomerId = () => {
     const chosenCustomer = selectedCustomer || activeCustomer?.cust_rt_id || '';
