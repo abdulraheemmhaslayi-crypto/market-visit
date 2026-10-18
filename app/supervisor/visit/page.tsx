@@ -114,12 +114,23 @@ function VisitWizardContent() {
 
   const activeCustomer = selectedCustomer ? customers.find((c) => c.cust_rt_id === selectedCustomer) : null;
 
+  const isCustomerMT = Boolean(
+    activeCustomer && (
+      (activeCustomer.channel || '').toUpperCase().includes('MT') ||
+      (activeCustomer.channel || '').toUpperCase().includes('MODERN') ||
+      (activeCustomer.customerCode || '').toUpperCase().startsWith('MTD') ||
+      (selectedRoute || '').toUpperCase().startsWith('MT')
+    )
+  );
+
+  const customerChannel = isCustomerMT ? 'MT' : 'TT';
+
   const { data: powerSkus = [] } = useQuery<PowerSKU[]>({
-    queryKey: ['powerSkus', selectedRoute, activeCustomer?.channel, activeCustomer?.customerCode],
+    queryKey: ['powerSkus', selectedRoute, customerChannel, activeCustomer?.customerCode],
     queryFn: () => {
       if (!selectedRoute) return [];
       const cCode = activeCustomer?.customerCode ? `&customerCode=${encodeURIComponent(activeCustomer.customerCode)}` : '';
-      const ch = activeCustomer?.channel ? `&channel=${encodeURIComponent(activeCustomer.channel)}` : '';
+      const ch = `&channel=${customerChannel}`;
       return fetch(`/api/powerskus?routeCode=${encodeURIComponent(selectedRoute)}${cCode}${ch}`).then((res) => {
         if (!res.ok) throw new Error('Failed to load Power SKUs');
         return res.json();
@@ -217,6 +228,25 @@ function VisitWizardContent() {
   useEffect(() => {
     setIsMobileDevice(typeof window !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
   }, []);
+
+  // Prune any stale power SKU responses if the customer channel switches
+  useEffect(() => {
+    if (powerSkus.length > 0) {
+      const validCodes = new Set(powerSkus.map((s) => s.skuCode));
+      setPowerSkuResults((prev) => {
+        const next: Record<string, string> = {};
+        let changed = false;
+        for (const [code, status] of Object.entries(prev)) {
+          if (validCodes.has(code)) {
+            next[code] = status;
+          } else {
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }
+  }, [powerSkus]);
 
   const getTempInRange = (type: 'Chiller' | 'Freezer', temp: number) => {
     return type === 'Chiller' ? (temp >= 0 && temp <= 8) : (temp <= -15);
@@ -936,20 +966,35 @@ function VisitWizardContent() {
       {/* STEP 2: POWER SKU CHECKLIST */}
       {currentStep === 1 && (
         <div className="card p-5 space-y-4 animate-slide-up">
-          <span className="badge badge-accent">Power SKU Checklist</span>
-          <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-solid border-[var(--border-soft)]">
+            <div className="flex items-center gap-2">
+              <span className="badge badge-accent">Power SKU Checklist</span>
+              <span className={`badge ${isCustomerMT ? 'badge-info' : 'badge-neutral'} font-extrabold uppercase text-[10px]`}>
+                {isCustomerMT ? 'Modern Trade (MT)' : 'Traditional Trade (TT)'}
+              </span>
+            </div>
+            <span className="text-[11px] font-bold" style={{ color: 'var(--text-muted)' }}>
+              {Object.keys(powerSkuResults).filter((k) => powerSkus.some((s) => s.skuCode === k && powerSkuResults[k])).length} / {powerSkus.length} Audited
+            </span>
+          </div>
+          <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
             {powerSkus.length === 0 ? (
               <p className="text-[12px] italic text-center py-4" style={{ color: 'var(--text-muted)' }}>
-                No Power SKUs configured for channel &quot;{activeCustomer?.channel}&quot;.
+                No Power SKUs configured for channel &quot;{customerChannel}&quot;.
               </p>
             ) : (
               powerSkus.map((sku) => {
                 const currentStatus = powerSkuResults[sku.skuCode] || '';
                 return (
                   <div key={sku.skuCode} className="p-3.5 rounded-xl space-y-2.5" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)' }}>
-                    <div>
-                      <p className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>{sku.skuName}</p>
-                      <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{sku.skuCode}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <p className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>{sku.skuName}</p>
+                        <p className="font-mono text-[10.5px] font-semibold" style={{ color: 'var(--accent)' }}>{sku.skuCode}</p>
+                      </div>
+                      <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-[var(--surface)] text-[var(--text-muted)] border border-solid border-[var(--border)] flex-shrink-0">
+                        {customerChannel}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       {['Available', 'Not Available'].map((opt) => {
