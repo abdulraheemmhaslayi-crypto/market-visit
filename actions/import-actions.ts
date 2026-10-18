@@ -241,6 +241,13 @@ export async function importExcelAction(payload: {
       const res = await skuRepository.upsertPowerSkus(powerSkus);
       inserted += res.inserted;
       updated += res.updated;
+
+      // Always purge obsolete entries for the imported channels so stale lines (like unmerged items) are removed
+      const activeChannels = Array.from(new Set(powerSkus.map((p) => p.channel.trim().toUpperCase())));
+      const activePowerSkuKeys = powerSkus.map(
+        (ps) => `${ps.skuCode.trim().toUpperCase()}_${ps.channel.trim().toUpperCase()}`
+      );
+      removed += await skuRepository.clearObsoletePowerSkus(activePowerSkuKeys, activeChannels);
     }
 
     // 7. Clear Obsolete entries if clearObsolete flag is true

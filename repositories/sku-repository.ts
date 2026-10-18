@@ -211,9 +211,9 @@ export const skuRepository = {
     return deleted;
   },
 
-  async clearObsoletePowerSkus(activeKeys: string[]): Promise<number> {
+  async clearObsoletePowerSkus(activeKeys: string[], targetChannels?: string[]): Promise<number> {
     await ensureSkuTableSchema();
-    if (activeKeys.length === 0) {
+    if (activeKeys.length === 0 && (!targetChannels || targetChannels.length === 0)) {
       const [result]: any = await pool.execute('DELETE FROM `PowerSKU`');
       return result.affectedRows || 0;
     }
@@ -222,8 +222,17 @@ export const skuRepository = {
     const [dbRows]: any = await pool.execute(
       "SELECT `skuCode`, `channel`, UPPER(CONCAT(`skuCode`, '_', `channel`)) as pkey FROM `PowerSKU`"
     );
+    const channelsFilter = targetChannels && targetChannels.length > 0
+      ? new Set(targetChannels.map((c) => c.toUpperCase()))
+      : null;
+
     const toDeletePairs: { skuCode: string; channel: string }[] = (dbRows as any[])
-      .filter((r) => r.pkey && !activeSet.has(r.pkey))
+      .filter((r) => {
+        if (channelsFilter && !channelsFilter.has(String(r.channel).toUpperCase())) {
+          return false;
+        }
+        return r.pkey && !activeSet.has(r.pkey);
+      })
       .map((r) => ({ skuCode: r.skuCode, channel: r.channel }));
 
     if (toDeletePairs.length === 0) return 0;

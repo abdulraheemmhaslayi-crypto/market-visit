@@ -209,8 +209,8 @@ export default function VisitSummaryTable({
           cleanCustName.includes('AL MEERA') ||
           cleanCustName.includes('HYPER'));
 
-      // Official Power SKU Master: 24 for MT, 22 for TT
-      const totalPskuCount = isMT ? 24 : 22;
+      // Official Power SKU Master: 24 for MT, 21 for TT
+      const totalPskuCount = isMT ? 24 : 21;
 
       const rawAvail =
         typeof r.pskuAvailableCount === 'number'

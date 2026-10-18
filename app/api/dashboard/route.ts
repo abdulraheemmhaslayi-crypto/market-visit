@@ -6,6 +6,7 @@ import pool from '@/lib/db';
 import { getDashboardScope, isFleetRole, isFullAccessRole, isSupervisorRole, isReportAllowed } from '@/lib/roles';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
 import { getCustMasterData } from '@/lib/custmaster-data';
+import { skuRepository } from '@/repositories/sku-repository';
 import { MT_POWER_SKUS, TT_POWER_SKUS, MT_POWER_SKU_CODES, TT_POWER_SKU_CODES } from '@/lib/power-skus-data';
 
 let dashboardSchemaChecked = false;
@@ -31,6 +32,10 @@ async function ensureDashboardSchema() {
           [s.skuCode, s.skuName, s.channel]
         );
       }
+      const activeKeys = allPskus.map(
+        (ps) => `${ps.skuCode.trim().toUpperCase()}_${ps.channel.trim().toUpperCase()}`
+      );
+      await skuRepository.clearObsoletePowerSkus(activeKeys);
     } catch (_) {}
 
     dashboardSchemaChecked = true;
