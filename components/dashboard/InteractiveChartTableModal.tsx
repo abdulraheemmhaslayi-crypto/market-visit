@@ -100,12 +100,14 @@ export default function InteractiveChartTableModal({
   }, [filteredData, sortField, sortOrder]);
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
+  const isAll = pageSize === -1;
+  const totalPages = isAll ? 1 : Math.max(1, Math.ceil(sortedData.length / pageSize));
+  const currentPage = isAll ? 1 : Math.min(page, totalPages);
   const paginatedData = useMemo(() => {
+    if (isAll) return sortedData;
     const start = (currentPage - 1) * pageSize;
     return sortedData.slice(start, start + pageSize);
-  }, [sortedData, currentPage, pageSize]);
+  }, [sortedData, currentPage, pageSize, isAll]);
 
   if (!isOpen) return null;
 
@@ -228,11 +230,12 @@ export default function InteractiveChartTableModal({
               }}
               className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] cursor-pointer"
             >
-              {[5, 10, 20, 50].map((size) => (
+              {[5, 10, 20, 50, 100].map((size) => (
                 <option key={size} value={size}>
                   {size} items
                 </option>
               ))}
+              <option value={-1}>All</option>
             </select>
           </div>
         </div>
@@ -401,14 +404,14 @@ export default function InteractiveChartTableModal({
         {/* Footer with Pagination */}
         <div className="px-5 py-4 border-t border-[var(--border-soft)] bg-[var(--surface)] flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
           <div className="text-[11.5px] text-[var(--text-muted)] font-semibold">
-            Showing {sortedData.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to{' '}
-            {Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length} records
+            Showing {sortedData.length > 0 ? (isAll ? 1 : (currentPage - 1) * pageSize + 1) : 0} to{' '}
+            {isAll ? sortedData.length : Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length} records
           </div>
 
           <div className="flex items-center gap-1.5 font-semibold">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || isAll}
               className="h-8 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -421,7 +424,7 @@ export default function InteractiveChartTableModal({
 
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || isAll}
               className="h-8 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1"
             >
               <span className="hidden sm:inline text-xs">Next</span>

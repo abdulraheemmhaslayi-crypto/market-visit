@@ -9,6 +9,9 @@ import { parseSingleFile, mergeParsedData } from '@/utils/xlsx';
 import { auditService } from '@/services/audit-service';
 import { Route, Customer, CustomerRouteMapping, SKU, ImportSummary, PowerSKU } from '@/types';
 import { revalidatePath } from 'next/cache';
+import pool from '@/lib/db';
+import fs from 'fs';
+import path from 'path';
 
 const verifyAdminSession = async () => {
   const session = await auth();
@@ -54,7 +57,7 @@ export async function validateExcelAction(formData: FormData) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const res = parseSingleFile(buffer, file.name, fk.type);
-      parsedResults.push(res);
+      parsedResults.push({ ...res, buffer, targetFileName: fk.name });
     } catch (error: any) {
       errors.push({ row: 0, error: `${file.name}: Parsing failed - ${error.message}` });
     }
@@ -79,6 +82,26 @@ export async function validateExcelAction(formData: FormData) {
   }
 
   const merged = mergeParsedData(parsedResults);
+
+  // Synchronize validated files to data directory so disk-based master readers (CUSTMASTER, Customer_Classification) are updated immediately
+  if (merged.errors.length === 0) {
+    try {
+      const dataDir = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      for (const pr of parsedResults) {
+        if (pr.buffer && pr.targetFileName) {
+          fs.writeFileSync(path.join(dataDir, pr.targetFileName), pr.buffer);
+          if (pr.targetFileName.toLowerCase().includes('classification')) {
+            fs.writeFileSync(path.join(dataDir, 'Customer_Classification.xlsx'), pr.buffer);
+          }
+        }
+      }
+    } catch (diskErr) {
+      console.warn('Could not save uploaded excel files to data directory:', diskErr);
+    }
+  }
 
   return {
     success: true,
@@ -127,8 +150,6 @@ export async function importExcelAction(payload: {
       throw new Error(`Import failed: Duplicate supervisor name(s) found in system database: ${Array.from(new Set(duplicates)).join(', ')}`);
     }
 
-    const poolConnection = require('@/lib/db').default;
-
     // 2. Import Routes with Supervisor & Manager Mapping
     if (routes.length > 0) {
       const routesToImport: Route[] = [];
@@ -138,15 +159,15 @@ export async function importExcelAction(payload: {
         const managerName = (r.managerName || '').trim();
         let managerId = null;
         if (managerName) {
-          const [mRows]: any = await poolConnection.execute(
-            'SELECT `id` FROM `Manager` WHERE LOWER(\`name\`) = LOWER(?) LIMIT 1',
+          const [mRows]: any = await pool.execute(
+            'SELECT `id` FROM `Manager` WHERE LOWER(`name`) = LOWER(?) LIMIT 1',
             [managerName]
           );
           if (mRows.length > 0) {
             managerId = mRows[0].id;
           } else {
             managerId = 'mng_' + Math.random().toString(36).substring(2, 9);
-            await poolConnection.execute(
+            await pool.execute(
               'INSERT INTO `Manager` (`id`, `name`) VALUES (?, ?)',
               [managerId, managerName]
             );
@@ -172,7 +193,7 @@ export async function importExcelAction(payload: {
             supervisorId = matchedSuper.id;
             // Establish One Manager -> Many Supervisors relationship
             if (managerId) {
-              await poolConnection.execute(
+              await pool.execute(
                 'UPDATE `User` SET `managerId` = ? WHERE `id` = ?',
                 [managerId, supervisorId]
               );
@@ -224,27 +245,31 @@ export async function importExcelAction(payload: {
 
     // 7. Clear Obsolete entries if clearObsolete flag is true
     if (clearObsolete) {
-      if (routes.length > 0) {
-        const activeRouteCodes = routes.map((r) => r.routeCode);
-        removed += await routeRepository.clearObsoleteRoutes(activeRouteCodes);
-      }
-      if (customers.length > 0) {
-        const activeCustRtIds = customers.map((c) => c.cust_rt_id);
-        removed += await customerRepository.clearObsoleteCustomers(activeCustRtIds);
-      }
-      if (mappings.length > 0) {
-        const activeMappingIds = mappings.map((m) => m.cust_rt_id);
-        removed += await customerRepository.clearObsoleteMappings(activeMappingIds);
-      }
-      if (skus.length > 0) {
-        const activeSkuCodes = skus.map((s) => s.skuCode);
-        removed += await skuRepository.clearObsoleteSkus(activeSkuCodes);
-      }
-      if (powerSkus && powerSkus.length > 0) {
-        const activePowerSkuKeys = powerSkus.map(
-          (ps) => `${ps.skuCode.trim().toUpperCase()}_${ps.channel.trim().toUpperCase()}`
-        );
-        removed += await skuRepository.clearObsoletePowerSkus(activePowerSkuKeys);
+      try {
+        if (routes.length > 0) {
+          const activeRouteCodes = routes.map((r) => r.routeCode);
+          removed += await routeRepository.clearObsoleteRoutes(activeRouteCodes);
+        }
+        if (customers.length > 0) {
+          const activeCustRtIds = customers.map((c) => c.cust_rt_id);
+          removed += await customerRepository.clearObsoleteCustomers(activeCustRtIds);
+        }
+        if (mappings.length > 0) {
+          const activeMappingIds = mappings.map((m) => m.cust_rt_id);
+          removed += await customerRepository.clearObsoleteMappings(activeMappingIds);
+        }
+        if (skus.length > 0) {
+          const activeSkuCodes = skus.map((s) => s.skuCode);
+          removed += await skuRepository.clearObsoleteSkus(activeSkuCodes);
+        }
+        if (powerSkus && powerSkus.length > 0) {
+          const activePowerSkuKeys = powerSkus.map(
+            (ps) => `${ps.skuCode.trim().toUpperCase()}_${ps.channel.trim().toUpperCase()}`
+          );
+          removed += await skuRepository.clearObsoletePowerSkus(activePowerSkuKeys);
+        }
+      } catch (obsoleteErr: any) {
+        console.warn('Non-fatal: could not clear some obsolete records due to foreign key references:', obsoleteErr.message);
       }
     }
 
@@ -258,6 +283,8 @@ export async function importExcelAction(payload: {
     try {
       const { invalidateDashboardMasterCache } = await import('@/lib/dashboard-cache');
       invalidateDashboardMasterCache();
+      const { getCustMasterData } = await import('@/lib/custmaster-data');
+      getCustMasterData(true);
     } catch {}
 
     revalidatePath('/', 'layout');

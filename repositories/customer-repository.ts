@@ -1,12 +1,12 @@
 import { Customer, CustomerRouteMapping } from '@/types';
-import pool from '@/lib/db';
+import pool, { isMssql } from '@/lib/db';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
 
 let customerSchemaChecked = false;
 let customerSchemaPromise: Promise<void> | null = null;
 
 async function ensureCustomerTableSchema(): Promise<void> {
-  if (customerSchemaChecked) return;
+  if (customerSchemaChecked || isMssql) return;
   if (customerSchemaPromise) return customerSchemaPromise;
 
   customerSchemaChecked = true;
@@ -154,7 +154,10 @@ function mapRowToCustomer(row: any): Customer {
   const masterCh = getCustMasterChannel(row.customerCode, '');
   let ch = masterCh || row.channel || '';
   if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch === 'GT' || ch.toUpperCase() === 'GENERAL STORE') {
-    ch = 'TT';
+    const rt = (row.routeCode || '').toUpperCase();
+    if (rt.startsWith('MT')) ch = 'MT';
+    else if (rt.startsWith('IS')) ch = 'INST';
+    else ch = 'TT';
   }
 
   return {
@@ -403,47 +406,111 @@ export const customerRepository = {
     for (const cust of customers) {
       if (cust.routeCode) {
         try {
-          await pool.execute(
-            `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, ?)`,
-            [cust.routeCode, `Route ${cust.routeCode}`, cust.channel || 'TT']
-          );
+          if (isMssql) {
+            await pool.execute(
+              `MERGE INTO \`Route\` AS target
+               USING (SELECT ? AS routeCode, ? AS routeName, ? AS channel) AS source
+               ON target.routeCode = source.routeCode
+               WHEN NOT MATCHED THEN 
+                 INSERT (routeCode, routeName, channel) VALUES (source.routeCode, source.routeName, source.channel);`,
+              [cust.routeCode, `Route ${cust.routeCode}`, cust.channel || 'GT']
+            );
+          } else {
+            await pool.execute(
+              `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, ?)`,
+              [cust.routeCode, `Route ${cust.routeCode}`, cust.channel || 'TT']
+            );
+          }
         } catch (e) {}
       }
 
-      const [res]: any = await pool.execute(
-        `INSERT INTO \`Customer\` (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE 
-           \`customerName\` = VALUES(\`customerName\`),
-           \`classification\` = VALUES(\`classification\`),
-           \`dairyClassification\` = COALESCE(VALUES(\`dairyClassification\`), \`Customer\`.\`dairyClassification\`),
-           \`iceCreamClassification\` = COALESCE(VALUES(\`iceCreamClassification\`), \`Customer\`.\`iceCreamClassification\`),
-           \`channel\` = VALUES(\`channel\`),
-           \`customerCode\` = VALUES(\`customerCode\`),
-           \`routeCode\` = VALUES(\`routeCode\`)`,
-        [cust.cust_rt_id, cust.customerCode, cust.customerName, cust.classification, cust.dairyClassification || null, cust.iceCreamClassification || null, cust.channel, cust.routeCode]
-      );
-      if (res.affectedRows === 1) {
-        inserted++;
-      } else {
-        updated++;
-      }
+      if (isMssql) {
+        const [res]: any = await pool.execute(
+          `MERGE INTO \`Customer\` AS target
+           USING (SELECT ? AS cust_rt_id, ? AS customerCode, ? AS customerName, ? AS classification, ? AS dairyClassification, ? AS iceCreamClassification, ? AS channel, ? AS routeCode) AS source
+           ON target.cust_rt_id = source.cust_rt_id
+           WHEN MATCHED THEN
+             UPDATE SET 
+               \`customerName\` = source.customerName,
+               \`classification\` = source.classification,
+               \`dairyClassification\` = COALESCE(source.dairyClassification, target.dairyClassification),
+               \`iceCreamClassification\` = COALESCE(source.iceCreamClassification, target.iceCreamClassification),
+               \`channel\` = source.channel,
+               \`customerCode\` = source.customerCode,
+               \`routeCode\` = source.routeCode
+           WHEN NOT MATCHED THEN
+             INSERT (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`) 
+             VALUES (source.cust_rt_id, source.customerCode, source.customerName, source.classification, source.dairyClassification, source.iceCreamClassification, source.channel, source.routeCode);`,
+          [cust.cust_rt_id, cust.customerCode, cust.customerName, cust.classification, cust.dairyClassification || null, cust.iceCreamClassification || null, cust.channel, cust.routeCode]
+        );
+        if (res.affectedRows === 1) {
+          inserted++;
+        } else {
+          updated++;
+        }
 
-      if (cust.dairyClassification) {
-        await pool.execute(
-          `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
-           VALUES (?, 'Dairy', ?, ?)
-           ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`,
-          [cust.customerCode, cust.dairyClassification, cust.channel]
+        if (cust.dairyClassification) {
+          await pool.execute(
+            `MERGE INTO \`Customer_Classification\` AS target
+             USING (SELECT ? AS customerCode, 'Dairy' AS businessVertical, ? AS classification, ? AS channel) AS source
+             ON target.customerCode = source.customerCode AND target.businessVertical = source.businessVertical
+             WHEN MATCHED THEN
+               UPDATE SET \`classification\` = source.classification, \`channel\` = source.channel
+             WHEN NOT MATCHED THEN
+               INSERT (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+               VALUES (source.customerCode, source.businessVertical, source.classification, source.channel);`,
+            [cust.customerCode, cust.dairyClassification, cust.channel]
+          );
+        }
+        if (cust.iceCreamClassification) {
+          await pool.execute(
+            `MERGE INTO \`Customer_Classification\` AS target
+             USING (SELECT ? AS customerCode, 'Ice Cream' AS businessVertical, ? AS classification, ? AS channel) AS source
+             ON target.customerCode = source.customerCode AND target.businessVertical = source.businessVertical
+             WHEN MATCHED THEN
+               UPDATE SET \`classification\` = source.classification, \`channel\` = source.channel
+             WHEN NOT MATCHED THEN
+               INSERT (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+               VALUES (source.customerCode, source.businessVertical, source.classification, source.channel);`,
+            [cust.customerCode, cust.iceCreamClassification, cust.channel]
+          );
+        }
+      } else {
+        const [res]: any = await pool.execute(
+          `INSERT INTO \`Customer\` (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE 
+             \`customerName\` = VALUES(\`customerName\`),
+             \`classification\` = VALUES(\`classification\`),
+             \`dairyClassification\` = COALESCE(VALUES(\`dairyClassification\`), \`Customer\`.\`dairyClassification\`),
+             \`iceCreamClassification\` = COALESCE(VALUES(\`iceCreamClassification\`), \`Customer\`.\`iceCreamClassification\`),
+             \`channel\` = VALUES(\`channel\`),
+             \`customerCode\` = VALUES(\`customerCode\`),
+             \`routeCode\` = VALUES(\`routeCode\`)`,
+          [cust.cust_rt_id, cust.customerCode, cust.customerName, cust.classification, cust.dairyClassification || null, cust.iceCreamClassification || null, cust.channel, cust.routeCode]
         );
-      }
-      if (cust.iceCreamClassification) {
-        await pool.execute(
-          `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
-           VALUES (?, 'Ice Cream', ?, ?)
-           ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`,
-          [cust.customerCode, cust.iceCreamClassification, cust.channel]
-        );
+        if (res.affectedRows === 1) {
+          inserted++;
+        } else {
+          updated++;
+        }
+
+        if (cust.dairyClassification) {
+          await pool.execute(
+            `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+             VALUES (?, 'Dairy', ?, ?)
+             ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`,
+            [cust.customerCode, cust.dairyClassification, cust.channel]
+          );
+        }
+        if (cust.iceCreamClassification) {
+          await pool.execute(
+            `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+             VALUES (?, 'Ice Cream', ?, ?)
+             ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`,
+            [cust.customerCode, cust.iceCreamClassification, cust.channel]
+          );
+        }
       }
     }
 
@@ -461,25 +528,49 @@ export const customerRepository = {
 
       if (m.routeCode) {
         try {
-          await pool.execute(
-            `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, 'TT')`,
-            [m.routeCode, `Route ${m.routeCode}`]
-          );
+          if (isMssql) {
+            await pool.execute(
+              `MERGE INTO \`Route\` AS target
+               USING (SELECT ? AS routeCode, ? AS routeName, 'GT' AS channel) AS source
+               ON target.routeCode = source.routeCode
+               WHEN NOT MATCHED THEN 
+                 INSERT (routeCode, routeName, channel) VALUES (source.routeCode, source.routeName, source.channel);`,
+              [m.routeCode, `Route ${m.routeCode}`]
+            );
+          } else {
+            await pool.execute(
+              `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, 'TT')`,
+              [m.routeCode, `Route ${m.routeCode}`]
+            );
+          }
         } catch (e) {}
       }
 
-      const [res]: any = await pool.execute(
-        `INSERT INTO \`CustomerRouteMapping\` (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) 
-         VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE 
-           \`customerCode\` = VALUES(\`customerCode\`),
-           \`routeCode\` = VALUES(\`routeCode\`)`,
-        [cust_rt_id, m.customerCode, m.routeCode]
-      );
-      if (res.affectedRows === 1) {
-        inserted++;
+      if (isMssql) {
+        // In Azure SQL / MSSQL, mappings are stored natively in Customer table
+        try {
+          const [res]: any = await pool.execute(
+            `UPDATE \`Customer\` SET \`routeCode\` = ? WHERE \`cust_rt_id\` = ? OR \`customerCode\` = ?`,
+            [m.routeCode, cust_rt_id, m.customerCode]
+          );
+          if (res.affectedRows > 0) updated++; else inserted++;
+        } catch (e) {
+          inserted++;
+        }
       } else {
-        updated++;
+        const [res]: any = await pool.execute(
+          `INSERT INTO \`CustomerRouteMapping\` (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) 
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE 
+             \`customerCode\` = VALUES(\`customerCode\`),
+             \`routeCode\` = VALUES(\`routeCode\`)`,
+          [cust_rt_id, m.customerCode, m.routeCode]
+        );
+        if (res.affectedRows === 1) {
+          inserted++;
+        } else {
+          updated++;
+        }
       }
     }
 
@@ -489,8 +580,7 @@ export const customerRepository = {
   async clearObsoleteCustomers(activeIds: string[]): Promise<number> {
     await ensureCustomerTableSchema();
     if (activeIds.length === 0) {
-      const [result]: any = await pool.execute('DELETE FROM `Customer`');
-      return result.affectedRows || 0;
+      return 0;
     }
 
     const activeSet = new Set(activeIds);
@@ -505,11 +595,17 @@ export const customerRepository = {
     for (let i = 0; i < toDelete.length; i += chunkSize) {
       const chunk = toDelete.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => '?').join(',');
-      const [res]: any = await pool.execute(
-        `DELETE FROM \`Customer\` WHERE \`cust_rt_id\` IN (${placeholders})`,
-        chunk
-      );
-      deleted += res.affectedRows || 0;
+      try {
+        const [res]: any = await pool.execute(
+          `DELETE FROM \`Customer\` 
+           WHERE \`cust_rt_id\` IN (${placeholders})
+             AND \`cust_rt_id\` NOT IN (SELECT DISTINCT \`cust_rt_id\` FROM \`CustomerRouteMapping\`)`,
+          chunk
+        );
+        deleted += res.affectedRows || 0;
+      } catch (err: any) {
+        console.warn('Skipped deleting some obsolete customers due to foreign key constraints:', err.message);
+      }
     }
     return deleted;
   },
@@ -517,8 +613,7 @@ export const customerRepository = {
   async clearObsoleteMappings(activeIds: string[]): Promise<number> {
     await ensureCustomerTableSchema();
     if (activeIds.length === 0) {
-      const [result]: any = await pool.execute('DELETE FROM `CustomerRouteMapping`');
-      return result.affectedRows || 0;
+      return 0;
     }
 
     const activeSet = new Set(activeIds);
@@ -533,11 +628,15 @@ export const customerRepository = {
     for (let i = 0; i < toDelete.length; i += chunkSize) {
       const chunk = toDelete.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => '?').join(',');
-      const [res]: any = await pool.execute(
-        `DELETE FROM \`CustomerRouteMapping\` WHERE \`cust_rt_id\` IN (${placeholders})`,
-        chunk
-      );
-      deleted += res.affectedRows || 0;
+      try {
+        const [res]: any = await pool.execute(
+          `DELETE FROM \`CustomerRouteMapping\` WHERE \`cust_rt_id\` IN (${placeholders})`,
+          chunk
+        );
+        deleted += res.affectedRows || 0;
+      } catch (err: any) {
+        console.warn('Skipped deleting some obsolete mappings due to foreign key constraints:', err.message);
+      }
     }
     return deleted;
   },

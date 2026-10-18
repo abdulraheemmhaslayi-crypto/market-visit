@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { routeRepository } from '@/repositories/route-repository';
 import { skuRepository } from '@/repositories/sku-repository';
+import { getCanonicalPowerSkusForChannel } from '@/lib/power-skus-data';
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,31 +19,48 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'routeCode parameter is required' }, { status: 400 });
     }
 
-    // 1. Fetch route details or deduce channel from route code
+    const customerCode = searchParams.get('customerCode');
+    const channelParam = searchParams.get('channel');
+
+    // 1. Fetch route details or deduce channel from route code / customer / param
     const routes = await routeRepository.getAllRoutes();
     const route = routes.find((r) => r.routeCode === routeCode);
-    let channel = route?.channel;
-    if (!channel) {
-      const isMT =
-        routeCode.toUpperCase().startsWith('C00') ||
-        routeCode.toUpperCase().startsWith('C42') ||
-        routeCode.toUpperCase().startsWith('C28') ||
-        routeCode.toUpperCase().startsWith('C30') ||
-        routeCode.toUpperCase().startsWith('C39') ||
-        routeCode.toUpperCase().startsWith('MT');
-      channel = isMT ? 'MT' : 'TT';
-    }
+    const rawChannel = channelParam || route?.channel || '';
+    const cleanRoute = (routeCode || '').toUpperCase().trim();
+    const cleanCust = (customerCode || '').toUpperCase().trim();
+    const cleanChannel = rawChannel.toUpperCase().trim();
 
-    // 2. Query Power SKUs filtered by Route Channel (strictly 24 for MT, 27 for TT)
-    let powerSkus = await skuRepository.getPowerSkusByChannel(channel);
-    if (!powerSkus || powerSkus.length === 0) {
-      const all = await skuRepository.getAllPowerSkus();
-      powerSkus = all.filter((s) => (s.channel || '').toUpperCase() === channel.toUpperCase());
-      if (powerSkus.length === 0) powerSkus = all;
-    }
+    const isMT =
+      cleanChannel === 'MT' ||
+      cleanChannel.startsWith('MT') ||
+      cleanChannel.includes('MODERN') ||
+      cleanChannel === 'KEY ACCOUNT' ||
+      cleanRoute.startsWith('MT') ||
+      cleanCust.startsWith('MTD');
 
-    const targetLimit = channel.toUpperCase() === 'MT' ? 24 : 27;
-    return NextResponse.json(powerSkus.slice(0, targetLimit));
+    const channel: 'MT' | 'TT' = isMT ? 'MT' : 'TT';
+    const canonicalList = getCanonicalPowerSkusForChannel(channel);
+
+    // Enrich with database records if available
+    let dbSkus: any[] = [];
+    try {
+      dbSkus = await skuRepository.getPowerSkusByChannel(channel);
+    } catch (_) {}
+
+    const dbMap = new Map((dbSkus || []).map((s: any) => [s.skuCode.toUpperCase().trim(), s]));
+    const result = canonicalList.map((c) => {
+      const fromDb = dbMap.get(c.skuCode.toUpperCase().trim());
+      return {
+        skuCode: c.skuCode,
+        skuName: c.skuName, // Canonical name
+        channel: c.channel,
+        skuType: c.skuType || 'Power Sku',
+        businessVertical: c.businessVertical,
+        ...(fromDb ? { createdAt: fromDb.createdAt, updatedAt: fromDb.updatedAt } : {}),
+      };
+    });
+
+    return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

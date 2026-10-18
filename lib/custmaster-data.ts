@@ -71,6 +71,7 @@ interface CustomerClassificationInfo {
 function getVariants(code: string): string[] {
   const clean = String(code || '').trim().toUpperCase();
   if (!clean) return [];
+  if (clean.startsWith('NAME:')) return [clean];
   const rawNum = clean.replace(/^C/i, '');
   const unpadded = rawNum.replace(/^0+/, '');
   const padded5 = rawNum.padStart(5, '0');
@@ -88,7 +89,25 @@ function getVariants(code: string): string[] {
   );
 }
 
-function loadCustomerClassifications(forceReload = false): Map<string, CustomerClassificationInfo> {
+function getRowVal(r: any, ...keys: string[]): string {
+  if (!r) return '';
+  for (const k of keys) {
+    if (r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') {
+      return String(r[k]).trim();
+    }
+  }
+  const rKeys = Object.keys(r);
+  for (const k of keys) {
+    const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const found = rKeys.find((rk) => rk.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanK);
+    if (found && r[found] !== undefined && r[found] !== null && String(r[found]).trim() !== '') {
+      return String(r[found]).trim();
+    }
+  }
+  return '';
+}
+
+export function loadCustomerClassifications(forceReload = false): Map<string, CustomerClassificationInfo> {
   const now = Date.now();
   if (!forceReload && cachedClassMap && now - lastClassMapTime < CACHE_TTL_MS) {
     return cachedClassMap;
@@ -98,7 +117,7 @@ function loadCustomerClassifications(forceReload = false): Map<string, CustomerC
   const setVariantInfo = (code: string, info: Partial<CustomerClassificationInfo>) => {
     const variants = getVariants(code);
     for (const v of variants) {
-      const existing = map.get(v) || { classification: 'C' };
+      const existing = map.get(v) || { classification: info.classification || info.dairyClassification || 'C' };
       if (info.classification) existing.classification = info.classification;
       if (info.dairyClassification) existing.dairyClassification = info.dairyClassification;
       if (info.iceCreamClassification) existing.iceCreamClassification = info.iceCreamClassification;
@@ -115,13 +134,29 @@ function loadCustomerClassifications(forceReload = false): Map<string, CustomerC
       if (Array.isArray(list)) {
         for (const item of list) {
           if (item.customerCode) {
-            const cls = (item.classification || item.dairyClassification || 'C').trim().toUpperCase();
+            const dairy = item.dairyClassification && item.dairyClassification !== '-' ? item.dairyClassification : undefined;
+            const ice = item.iceCreamClassification && item.iceCreamClassification !== '-' ? item.iceCreamClassification : undefined;
+            const cls = (dairy || item.classification || ice || 'C').trim().toUpperCase();
+            const ch = item.channel ? String(item.channel).trim().toUpperCase() : undefined;
+            
             setVariantInfo(item.customerCode, {
               classification: cls && cls !== '-' ? cls : 'C',
-              dairyClassification: item.dairyClassification || undefined,
-              iceCreamClassification: item.iceCreamClassification || undefined,
-              channel: item.channel ? String(item.channel).trim().toUpperCase() : undefined,
+              dairyClassification: dairy,
+              iceCreamClassification: ice,
+              channel: ch,
             });
+
+            if (item.customerName) {
+              const cleanName = String(item.customerName).toUpperCase().replace(/[^A-Z0-9]/g, '');
+              if (cleanName) {
+                setVariantInfo(`NAME:${cleanName}`, {
+                  classification: cls && cls !== '-' ? cls : 'C',
+                  dairyClassification: dairy,
+                  iceCreamClassification: ice,
+                  channel: ch,
+                });
+              }
+            }
           }
         }
       }
@@ -132,12 +167,14 @@ function loadCustomerClassifications(forceReload = false): Map<string, CustomerC
 
   // 2. Load from classification excel files if present
   const candidateClassFiles: string[] = [
+    path.join(process.cwd(), 'data', 'Customer_Classification.xlsx'),
     path.join(process.cwd(), 'data', 'Customer_Classification_DUMMY.xlsx'),
     path.join(process.cwd(), 'data', 'Master_Classification.xlsx'),
-    path.join(process.cwd(), 'data', 'Customer_Classification.xlsx'),
+    path.join(process.cwd(), 'public', 'uploads', 'Customer_Classification.xlsx'),
     path.join(process.cwd(), 'public', 'uploads', 'Customer_Classification_DUMMY.xlsx'),
     path.join(process.cwd(), 'public', 'uploads', 'Master_Classification.xlsx'),
-    path.join(process.cwd(), 'public', 'uploads', 'Customer_Classification.xlsx'),
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/SALES DATA/SALES BINDER & MASTERS/MASTER FILES/Customer_Classification.xlsx',
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/SALES DATA/SALES BINDER & MASTERS/MASTER FILES/Master_Classification.xlsx',
     'd:/OneDrive - Dandy Company Ltd/D- One Drive/MARKET VISIT- NEW/Customer_Classification.xlsx',
     'd:/OneDrive - Dandy Company Ltd/D- One Drive/MARKET VISIT- NEW/Master_Classification.xlsx',
   ];
@@ -145,6 +182,7 @@ function loadCustomerClassifications(forceReload = false): Map<string, CustomerC
   const searchDirs = [
     path.join(process.cwd(), 'data'),
     path.join(process.cwd(), 'public', 'uploads'),
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/SALES DATA/SALES BINDER & MASTERS/MASTER FILES',
     'd:/OneDrive - Dandy Company Ltd/D- One Drive/MARKET VISIT- NEW',
   ];
 
@@ -173,10 +211,11 @@ function loadCustomerClassifications(forceReload = false): Map<string, CustomerC
           const sheet = wb.Sheets[wb.SheetNames[0]];
           const rows = xlsx.utils.sheet_to_json(sheet) as any[];
           for (const row of rows) {
-            const code = row['Customer Code'] || row['CustomerCode'] || row['customercode'] || row['Code'];
-            const cls = row['Classification'] || row['Class'] || row['Grade'];
-            const vert = row['Business Vertical'] || row['BusinessVertical'] || row['Vertical'];
-            const ch = row['Channel'] || row['CHANNEL'];
+            const code = getRowVal(row, 'Customer Code', 'CustomerCode', 'customercode', 'Code');
+            const name = getRowVal(row, 'Customer Name', 'CustomerName', 'name');
+            const cls = getRowVal(row, 'Classification', 'Class', 'Grade');
+            const vert = getRowVal(row, 'Business vertical', 'Business Vertical', 'Vertical', 'businessVertical');
+            const ch = getRowVal(row, 'Channel', 'CHANNEL');
 
             if (code && cls) {
               const codeStr = String(code).trim().toUpperCase();
@@ -184,15 +223,24 @@ function loadCustomerClassifications(forceReload = false): Map<string, CustomerC
               const vertStr = String(vert || '').trim().toLowerCase();
               const chStr = ch ? String(ch).trim().toUpperCase() : undefined;
 
-              const isDairy = vertStr.includes('dairy');
               const isIce = vertStr.includes('ice');
+              const isDairy = vertStr.includes('dairy') || (!vertStr.includes('ice') && !vertStr.includes('dairy'));
 
-              setVariantInfo(codeStr, {
+              const info: Partial<CustomerClassificationInfo> = {
                 classification: clsStr !== '-' ? clsStr : undefined,
-                dairyClassification: isDairy ? clsStr : undefined,
-                iceCreamClassification: isIce ? clsStr : undefined,
+                dairyClassification: isDairy && clsStr !== '-' ? clsStr : undefined,
+                iceCreamClassification: isIce && clsStr !== '-' ? clsStr : undefined,
                 channel: chStr,
-              });
+              };
+
+              setVariantInfo(codeStr, info);
+
+              if (name) {
+                const cleanName = String(name).toUpperCase().replace(/[^A-Z0-9]/g, '');
+                if (cleanName) {
+                  setVariantInfo(`NAME:${cleanName}`, info);
+                }
+              }
             }
           }
         }
@@ -328,19 +376,42 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
               break;
             }
           }
+          if (!clsInfo && custName) {
+            const cleanName = custName.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (cleanName) {
+              clsInfo = classMap.get(`NAME:${cleanName}`);
+            }
+          }
 
           const dairyCls = clsInfo?.dairyClassification;
           const iceCls = clsInfo?.iceCreamClassification;
-          let cls = clsInfo?.classification || (dairyCls && dairyCls !== '-' ? dairyCls : (iceCls && iceCls !== '-' ? iceCls : 'C'));
+          // In dairy-focused operations, dairy classification from master classification file is primary
+          let cls = (dairyCls && dairyCls !== '-')
+            ? dairyCls
+            : (clsInfo?.classification && clsInfo.classification !== '-'
+                ? clsInfo.classification
+                : (iceCls && iceCls !== '-' ? iceCls : 'C'));
           if (!cls || cls === '-') cls = 'C';
           classificationSet.add(cls);
           customerClassificationMap[custCodeRaw] = cls;
 
           let finalChannel = channelRaw;
           if (!finalChannel || finalChannel === 'GENERAL TRADE' || finalChannel === 'GENERAL STORE' || finalChannel === 'GT') {
-            finalChannel = clsInfo?.channel || 'TT';
+            if (clsInfo?.channel && clsInfo.channel !== 'GT' && clsInfo.channel !== 'GENERAL TRADE') {
+              finalChannel = clsInfo.channel;
+            } else if (rtRaw.startsWith('MT')) {
+              finalChannel = 'MT';
+            } else if (rtRaw.startsWith('IS')) {
+              finalChannel = 'INST';
+            } else if (rtRaw.startsWith('TR')) {
+              finalChannel = 'TT';
+            } else if (validManager === 'ADNAN' || ['ASAD', 'SAIFULLAH', 'KISHAN', 'JAVED', 'MOHSIN', 'RASHWIN'].includes(validSupervisor)) {
+              finalChannel = 'MT';
+            } else {
+              finalChannel = 'TT';
+            }
           }
-          if (!finalChannel || finalChannel === 'GT') finalChannel = 'TT';
+          if (!finalChannel || finalChannel === 'GT') finalChannel = rtRaw.startsWith('MT') ? 'MT' : 'TT';
 
           if (custCodeRaw) {
             customerList.push({
@@ -351,7 +422,7 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
               managerName: validManager,
               superName: validSupervisor,
               classification: cls,
-              dairyClassification: dairyCls || undefined,
+              dairyClassification: dairyCls || cls,
               iceCreamClassification: iceCls || undefined,
               channel: finalChannel,
               rtm: finalChannel,

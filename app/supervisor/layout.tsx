@@ -27,6 +27,8 @@ import {
   Camera,
   AlertTriangle,
   Sparkles,
+  LayoutDashboard,
+  CalendarCheck,
 } from 'lucide-react';
 import { isFleetRole } from '@/lib/roles';
 
@@ -41,9 +43,10 @@ const FLEET_NAV_GROUPS = [
 
 const navGroups = [
   {
-    label: 'Operations',
+    label: 'Main',
     items: [
-      { name: 'My Visits', path: '/supervisor', icon: ClipboardList },
+      { name: 'Dashboard', path: '/supervisor', icon: LayoutDashboard },
+      { name: 'Visit Logs', path: '/supervisor/my-visits', icon: CalendarCheck },
       { name: 'New Audit', path: '/supervisor/visit', icon: PlusCircle },
       { name: 'No Visits', path: '/supervisor/no-visits', icon: AlertTriangle },
     ],
@@ -51,14 +54,14 @@ const navGroups = [
   {
     label: 'Analytics',
     items: [
-      { name: 'Reports', path: '/supervisor/reports', icon: BarChart3 },
       { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
-      { name: 'Data Usage', path: '/supervisor/data-usage', icon: Activity },
+      { name: 'AI Dashboard', path: '/supervisor/reports', icon: Sparkles },
     ],
   },
   {
-    label: 'Account',
+    label: 'System',
     items: [
+      { name: 'Data Usage Tracker', path: '/supervisor/data-usage', icon: Activity },
       { name: 'Profile', path: '/supervisor/profile', icon: User },
     ],
   },
@@ -80,13 +83,14 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
   const searchRef = useRef<HTMLInputElement>(null);
 
   const supervisorNavActions = [
-    { name: 'Dashboard', path: '/supervisor', icon: Home },
-    { name: 'My Visits', path: '/supervisor/my-visits', icon: MapPin },
+    { name: 'Dashboard', path: '/supervisor', icon: LayoutDashboard },
+    { name: 'Visit Logs', path: '/supervisor/my-visits', icon: CalendarCheck },
+    { name: 'New Audit', path: '/supervisor/visit', icon: PlusCircle },
     { name: 'No Visits', path: '/supervisor/no-visits', icon: AlertTriangle },
-    { name: 'New Audit Wizard', path: '/supervisor/visit', icon: Plus },
-    { name: 'Reports & Analytics', path: '/supervisor/reports', icon: BarChart3 },
     { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
-    { name: 'My Profile', path: '/supervisor/profile', icon: User },
+    { name: 'AI Dashboard', path: '/supervisor/reports', icon: Sparkles },
+    { name: 'Data Usage Tracker', path: '/supervisor/data-usage', icon: Activity },
+    { name: 'Profile', path: '/supervisor/profile', icon: User },
     { name: 'Toggle Light/Dark Theme', action: 'theme', icon: Moon },
     { name: 'Log Out Session', action: 'logout', icon: LogOut },
   ];
@@ -605,14 +609,14 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
             width: '20%',
           }}
         >
-          <Home className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname === '/supervisor' ? 'scale(1.1)' : 'scale(1)' }} />
+          <LayoutDashboard className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname === '/supervisor' ? 'scale(1.1)' : 'scale(1)' }} />
           <span className="text-[9px] tracking-wide font-semibold" style={{ fontWeight: pathname === '/supervisor' ? 700 : 500 }}>Dashboard</span>
           {pathname === '/supervisor' && (
             <span className="absolute bottom-0 w-1 h-1 rounded-full bg-[var(--accent)]" />
           )}
         </Link>
 
-        {/* My Visits Tab */}
+        {/* Visit Logs Tab */}
         <Link
           href="/supervisor/my-visits"
           className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
@@ -621,8 +625,8 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
             width: '20%',
           }}
         >
-          <MapPin className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/supervisor/my-visits') ? 'scale(1.1)' : 'scale(1)' }} />
-          <span className="text-[9px] tracking-wide font-semibold" style={{ fontWeight: pathname.startsWith('/supervisor/my-visits') ? 700 : 500 }}>My Visits</span>
+          <CalendarCheck className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/supervisor/my-visits') ? 'scale(1.1)' : 'scale(1)' }} />
+          <span className="text-[9px] tracking-wide font-semibold" style={{ fontWeight: pathname.startsWith('/supervisor/my-visits') ? 700 : 500 }}>Visit Logs</span>
           {pathname.startsWith('/supervisor/my-visits') && (
             <span className="absolute bottom-0 w-1 h-1 rounded-full bg-[var(--accent)]" />
           )}
@@ -659,7 +663,7 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
           );
         })()}
 
-        {/* Reports Tab */}
+        {/* AI Dashboard Tab */}
         <Link
           href="/supervisor/reports"
           className="flex flex-col items-center justify-center gap-0.5 transition-all relative py-1"
@@ -668,8 +672,8 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
             width: '20%',
           }}
         >
-          <BarChart3 className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/supervisor/reports') ? 'scale(1.1)' : 'scale(1)' }} />
-          <span className="text-[9px] tracking-wide font-semibold" style={{ fontWeight: pathname.startsWith('/supervisor/reports') ? 700 : 500 }}>Reports</span>
+          <Sparkles className="h-5 w-5 transition-transform duration-200" style={{ transform: pathname.startsWith('/supervisor/reports') ? 'scale(1.1)' : 'scale(1)' }} />
+          <span className="text-[9px] tracking-wide font-semibold" style={{ fontWeight: pathname.startsWith('/supervisor/reports') ? 700 : 500 }}>AI Dashboard</span>
           {pathname.startsWith('/supervisor/reports') && (
             <span className="absolute bottom-0 w-1 h-1 rounded-full bg-[var(--accent)]" />
           )}

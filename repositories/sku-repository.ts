@@ -1,5 +1,5 @@
 import { SKU, PowerSKU } from '@/types';
-import pool from '@/lib/db';
+import pool, { isMssql } from '@/lib/db';
 
 function mapRowToSKU(row: any): SKU {
   return {
@@ -21,7 +21,7 @@ function mapRowToPowerSKU(row: any): PowerSKU {
 let skuSchemaChecked = false;
 
 async function ensureSkuTableSchema(): Promise<void> {
-  if (skuSchemaChecked) return;
+  if (skuSchemaChecked || isMssql) return;
   try {
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS \`SKU\` (
@@ -104,19 +104,38 @@ export const skuRepository = {
     for (const sku of skus) {
       const typeVal = sku.type || 'SKU';
       const businessVerticalVal = sku.businessVertical || null;
-      const [res]: any = await pool.execute(
-        `INSERT INTO \`SKU\` (\`skuCode\`, \`skuName\`, \`type\`, \`businessVertical\`)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           \`skuName\` = VALUES(\`skuName\`),
-           \`type\` = VALUES(\`type\`),
-           \`businessVertical\` = VALUES(\`businessVertical\`)`,
-        [sku.skuCode, sku.skuName, typeVal, businessVerticalVal]
-      );
-      if (res.affectedRows === 1) {
-        inserted++;
+
+      if (isMssql) {
+        const [res]: any = await pool.execute(
+          `MERGE INTO \`SKU\` AS target
+           USING (SELECT ? AS skuCode, ? AS skuName, ? AS type, ? AS businessVertical) AS source
+           ON target.skuCode = source.skuCode
+           WHEN MATCHED THEN 
+             UPDATE SET \`skuName\` = source.skuName, \`type\` = source.type, \`businessVertical\` = source.businessVertical
+           WHEN NOT MATCHED THEN 
+             INSERT (\`skuCode\`, \`skuName\`, \`type\`, \`businessVertical\`) VALUES (source.skuCode, source.skuName, source.type, source.businessVertical);`,
+          [sku.skuCode, sku.skuName, typeVal, businessVerticalVal]
+        );
+        if (res.affectedRows === 1) {
+          inserted++;
+        } else {
+          updated++;
+        }
       } else {
-        updated++;
+        const [res]: any = await pool.execute(
+          `INSERT INTO \`SKU\` (\`skuCode\`, \`skuName\`, \`type\`, \`businessVertical\`)
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             \`skuName\` = VALUES(\`skuName\`),
+             \`type\` = VALUES(\`type\`),
+             \`businessVertical\` = VALUES(\`businessVertical\`)`,
+          [sku.skuCode, sku.skuName, typeVal, businessVerticalVal]
+        );
+        if (res.affectedRows === 1) {
+          inserted++;
+        } else {
+          updated++;
+        }
       }
     }
 
@@ -129,17 +148,35 @@ export const skuRepository = {
     let updated = 0;
 
     for (const ps of powerSkus) {
-      const [res]: any = await pool.execute(
-        `INSERT INTO \`PowerSKU\` (\`skuCode\`, \`skuName\`, \`channel\`) 
-         VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE 
-           \`skuName\` = VALUES(\`skuName\`)`,
-        [ps.skuCode, ps.skuName, ps.channel]
-      );
-      if (res.affectedRows === 1) {
-        inserted++;
+      if (isMssql) {
+        const [res]: any = await pool.execute(
+          `MERGE INTO \`PowerSKU\` AS target
+           USING (SELECT ? AS skuCode, ? AS skuName, ? AS channel) AS source
+           ON target.skuCode = source.skuCode AND target.channel = source.channel
+           WHEN MATCHED THEN 
+             UPDATE SET \`skuName\` = source.skuName
+           WHEN NOT MATCHED THEN 
+             INSERT (\`skuCode\`, \`skuName\`, \`channel\`) VALUES (source.skuCode, source.skuName, source.channel);`,
+          [ps.skuCode, ps.skuName, ps.channel]
+        );
+        if (res.affectedRows === 1) {
+          inserted++;
+        } else {
+          updated++;
+        }
       } else {
-        updated++;
+        const [res]: any = await pool.execute(
+          `INSERT INTO \`PowerSKU\` (\`skuCode\`, \`skuName\`, \`channel\`) 
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE 
+             \`skuName\` = VALUES(\`skuName\`)`,
+          [ps.skuCode, ps.skuName, ps.channel]
+        );
+        if (res.affectedRows === 1) {
+          inserted++;
+        } else {
+          updated++;
+        }
       }
     }
 

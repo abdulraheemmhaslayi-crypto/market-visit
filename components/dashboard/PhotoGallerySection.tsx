@@ -17,6 +17,7 @@ import {
   ChevronsRight,
   Maximize2,
   FileCheck,
+  Sparkles,
 } from 'lucide-react';
 import ImageLightboxModal from '@/components/ui/ImageLightboxModal';
 
@@ -31,6 +32,22 @@ export interface DashboardPhoto {
   outlet: string;
   route: string;
   channel: string;
+  rtm?: string;
+  observation?: string;
+  observations?: string | string[];
+  notes?: string;
+  assetObservations?: Array<{
+    assetId?: string;
+    assetType?: string;
+    sizeModel?: string;
+    temperature?: number | null;
+    tempInRange?: boolean;
+    actionRequired?: string;
+    observation?: string;
+  }>;
+  visitObservation?: string;
+  visitReason?: string;
+  visitNotes?: string;
 }
 
 interface PhotoGallerySectionProps {
@@ -154,6 +171,13 @@ export function PhotoGallerySection({
               const dateObj = new Date(photo.uploadedAt);
               const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
               const formattedTime = dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+              const cardObs = (
+                photo.observation ||
+                photo.notes ||
+                photo.visitObservation ||
+                (photo.assetObservations && photo.assetObservations.find((a: any) => a.observation && a.observation !== '—')?.observation) ||
+                ''
+              ).trim();
 
               return (
                 <div
@@ -199,8 +223,8 @@ export function PhotoGallerySection({
                   </div>
 
                   {/* Fixed/Uniform Footer Box */}
-                  <div className="p-3 space-y-1.5 flex-1 flex flex-col justify-between bg-[var(--surface)]">
-                    <div className="space-y-1">
+                  <div className="p-3 space-y-2 flex-1 flex flex-col justify-between bg-[var(--surface)]">
+                    <div className="space-y-1.5">
                       <p className="text-xs font-extrabold text-[var(--text-primary)] truncate flex items-center gap-1.5">
                         <Store className="h-3.5 w-3.5 text-accent flex-shrink-0" />
                         <span className="truncate" title={photo.outlet}>{photo.outlet}</span>
@@ -209,12 +233,34 @@ export function PhotoGallerySection({
                         <User className="h-3.5 w-3.5 text-[var(--text-muted)] flex-shrink-0" />
                         <span className="truncate">Sup: {photo.supervisor} ({photo.manager})</span>
                       </p>
+
+                      {/* Eye-Catchy Highlighted Observation Badge */}
+                      {cardObs && (
+                        <div className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-400/20 to-yellow-500/15 border border-amber-400/50 text-amber-200 text-[11px] shadow-xs flex items-start gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
+                          <div className="min-w-0">
+                            <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-400 block">
+                              Observation / Notes:
+                            </span>
+                            <p className="line-clamp-2 text-white font-bold text-xs drop-shadow-xs">
+                              &ldquo;{cardObs}&rdquo;
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="pt-2 border-t border-[var(--border-soft)] flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                      <span className="flex items-center gap-1 truncate max-w-[50%]">
-                        <MapPin className="h-3 w-3 flex-shrink-0" /> <span className="truncate">Route: {photo.route || 'N/A'}</span>
-                      </span>
+                      <div className="flex items-center gap-1.5 truncate max-w-[55%]">
+                        <span className="flex items-center gap-1 truncate">
+                          <MapPin className="h-3 w-3 flex-shrink-0" /> <span className="truncate">Route: {photo.route || 'N/A'}</span>
+                        </span>
+                        {(photo.rtm || photo.channel) && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                            RTM: {photo.rtm || photo.channel}
+                          </span>
+                        )}
+                      </div>
                       <span className="flex items-center gap-1 font-mono flex-shrink-0">
                         <Calendar className="h-3 w-3 text-accent" /> {formattedDate} {formattedTime}
                       </span>

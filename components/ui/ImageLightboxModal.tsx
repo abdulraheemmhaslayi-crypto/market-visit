@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useCallback, useState, useRef } from 'react';
+import React, { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import {
   X,
   ChevronLeft,
@@ -29,6 +29,8 @@ import {
   Check,
   FlipHorizontal,
   Loader2,
+  FileText,
+  Thermometer,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { AuditActionItem } from '@/lib/audit-actions';
@@ -49,8 +51,78 @@ export interface LightboxItem {
   uploadedAt?: string;
   visitId?: string;
   appName?: string;
+  observation?: string;
+  observations?: string | string[];
+  notes?: string;
+  remarks?: string;
+  assetObservations?: Array<{
+    assetId?: string;
+    assetType?: string;
+    sizeModel?: string;
+    temperature?: number | null;
+    tempInRange?: boolean;
+    actionRequired?: string;
+    observation?: string;
+  }>;
+  visitObservation?: string;
+  visitReason?: string;
+  visitNotes?: string;
   [key: string]: any;
 }
+
+const KNOWN_SUPERVISORS = [
+  'ASAD',
+  'DANISH',
+  'JAHID',
+  'JAVED',
+  'KISHAN',
+  'MOHSIN',
+  'MUSAVEER',
+  'RASHWIN',
+  'RIZVI',
+  'SAIF',
+  'SAIFULLAH',
+  'WALI',
+  'WASIM',
+  'YASAR',
+  'ZEESHAN',
+];
+
+const SUPERVISOR_MANAGER_MAP: Record<string, string> = {
+  ASAD: 'ADNAN',
+  JAVED: 'ADNAN',
+  KISHAN: 'ADNAN',
+  MOHSIN: 'ADNAN',
+  RASHWIN: 'ADNAN',
+  SAIFULLAH: 'ADNAN',
+  DANISH: 'KHALID',
+  MUSAVEER: 'KHALID',
+  RIZVI: 'KHALID',
+  YASAR: 'KHALID',
+  JAHID: 'ASHFAQ',
+  SAIF: 'ASHFAQ',
+  WALI: 'ASHFAQ',
+  ZEESHAN: 'ASHFAQ',
+  WASIM: 'INST MANAGER',
+};
+
+const SUPERVISOR_CHANNEL_MAP: Record<string, string> = {
+  ASAD: 'MT',
+  JAVED: 'MT',
+  KISHAN: 'MT',
+  MOHSIN: 'MT',
+  RASHWIN: 'MT',
+  SAIFULLAH: 'MT',
+  DANISH: 'TT',
+  MUSAVEER: 'TT',
+  RIZVI: 'TT',
+  YASAR: 'TT',
+  JAHID: 'TT',
+  SAIF: 'TT',
+  WALI: 'TT',
+  ZEESHAN: 'TT',
+  WASIM: 'INST',
+};
 
 export interface ImageLightboxModalProps {
   photos: LightboxItem[];
@@ -62,6 +134,7 @@ export interface ImageLightboxModalProps {
   userRole?: string;
   actionItems?: Record<string, AuditActionItem>;
   onActionUpdated?: () => void;
+  supervisors?: string[];
 }
 
 export default function ImageLightboxModal({
@@ -74,6 +147,7 @@ export default function ImageLightboxModal({
   userRole,
   actionItems = {},
   onActionUpdated,
+  supervisors = [],
 }: ImageLightboxModalProps) {
   const total = photos.length;
   const current = photos[currentIndex] || null;
@@ -81,8 +155,17 @@ export default function ImageLightboxModal({
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < total - 1;
 
+  const availableSupervisors: string[] = useMemo(() => {
+    const list: string[] = Array.from(new Set<string>([...(supervisors || []), ...KNOWN_SUPERVISORS])).filter(Boolean).sort();
+    return list;
+  }, [supervisors]);
+
   // Directive Form States
   const [isFlagging, setIsFlagging] = useState(false);
+  const [selectedAssignee, setSelectedAssignee] = useState('');
+  const [isReassigning, setIsReassigning] = useState(false);
+  const [reassignSupervisor, setReassignSupervisor] = useState('');
+  const [isSubmittingReassign, setIsSubmittingReassign] = useState(false);
   const [gmComment, setGmComment] = useState('');
   const [priority, setPriority] = useState<'Normal' | 'Urgent'>('Normal');
   const [deadline, setDeadline] = useState('24h');
@@ -103,42 +186,141 @@ export default function ImageLightboxModal({
 
   useEffect(() => {
     setMobileTab('photo');
-  }, [currentIndex]);
-
-  // Internal Action Item fallback state
-  const [internalActionItem, setInternalActionItem] = useState<AuditActionItem | null>(null);
-
-  // Derive currentAction from passed actionItems dictionary or internal dynamic fetch
-  const currentAction = (current?.photoId ? actionItems[current.photoId] : null) || internalActionItem;
-
-  // Auto-fetch action directive if not already provided in actionItems
-  useEffect(() => {
-    if (!current?.photoId) {
-      setInternalActionItem(null);
-      return;
+    if (current?.supervisor && current.supervisor !== 'UNASSIGNED') {
+      setSelectedAssignee(current.supervisor);
+    } else {
+      setSelectedAssignee(availableSupervisors[0] || 'Field Supervisor');
     }
-    if (actionItems && actionItems[current.photoId]) {
-      setInternalActionItem(actionItems[current.photoId]);
-      return;
-    }
-    let isMounted = true;
-    fetch(`/api/admin/audit-actions?photoId=${encodeURIComponent(current.photoId)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (isMounted && data.success && Array.isArray(data.items) && data.items.length > 0) {
-          setInternalActionItem(data.items[0]);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      isMounted = false;
-    };
-  }, [current?.photoId, actionItems]);
+    setIsReassigning(false);
+  }, [currentIndex, current?.photoId, current?.supervisor, availableSupervisors]);
 
   // Role Detection
   const { data: session } = useSession();
   const effectiveRole = userRole || (session?.user as any)?.role || 'Admin';
   const isSupervisor = effectiveRole.toLowerCase().includes('supervisor');
+  const loggedInSupName = (session?.user?.name || '').trim().toLowerCase();
+
+  // Internal Action Items cache mapped strictly by photoId
+  const [internalActionsMap, setInternalActionsMap] = useState<Record<string, AuditActionItem | null>>({});
+
+  const currentPhotoId = current?.photoId || '';
+
+  // Derive raw action strictly for THIS photoId (never leak another photo's action)
+  const rawAction = useMemo(() => {
+    if (!currentPhotoId) return null;
+    const item = (actionItems && actionItems[currentPhotoId]) || internalActionsMap[currentPhotoId] || null;
+    if (!item) return null;
+    // Strict isolation: ensure the action item belongs strictly to this photoId
+    if (item.photoId !== currentPhotoId) return null;
+    return item;
+  }, [currentPhotoId, actionItems, internalActionsMap]);
+
+  // Derive currentAction for the current viewer (strictly enforcing supervisor role scoping)
+  const currentAction = useMemo(() => {
+    if (!rawAction) return null;
+    // A supervisor must ONLY see directives assigned to THEM
+    if (isSupervisor) {
+      if (!loggedInSupName) return null;
+      const actionSup = (rawAction.supervisor || '').trim().toLowerCase();
+      if (actionSup !== loggedInSupName) {
+        return null;
+      }
+    }
+    return rawAction;
+  }, [rawAction, isSupervisor, loggedInSupName]);
+
+  const isActionAssignee = Boolean(
+    currentAction &&
+    (!currentAction.supervisor || !loggedInSupName || currentAction.supervisor.trim().toLowerCase() === loggedInSupName)
+  );
+
+  // Auto-fetch action directive if not already provided in actionItems or internal cache
+  useEffect(() => {
+    if (!currentPhotoId) return;
+
+    if (actionItems && currentPhotoId in actionItems) {
+      return;
+    }
+
+    if (currentPhotoId in internalActionsMap) {
+      return;
+    }
+
+    let isMounted = true;
+    const url = isSupervisor && loggedInSupName
+      ? `/api/admin/audit-actions?photoId=${encodeURIComponent(currentPhotoId)}&supervisor=${encodeURIComponent(loggedInSupName)}`
+      : `/api/admin/audit-actions?photoId=${encodeURIComponent(currentPhotoId)}`;
+
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!isMounted) return;
+        if (data.success && Array.isArray(data.items)) {
+          const matched = data.items.find((i: AuditActionItem) => i.photoId === currentPhotoId);
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [currentPhotoId]: matched || null,
+          }));
+        } else {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [currentPhotoId]: null,
+          }));
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [currentPhotoId]: null,
+          }));
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentPhotoId, actionItems, internalActionsMap, isSupervisor, loggedInSupName]);
+
+  // Cache of visit observations fetched on-demand
+  const [asyncObservations, setAsyncObservations] = useState<Record<string, any>>({});
+  const [isLoadingObservations, setIsLoadingObservations] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!current?.visitId) return;
+    const vId = current.visitId;
+
+    // Skip if current item already has assetObservations or already cached in state
+    if (
+      (current.assetObservations && current.assetObservations.length > 0) ||
+      asyncObservations[vId]
+    ) {
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingObservations(true);
+    fetch(`/api/visit/observations?visitId=${encodeURIComponent(vId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (isMounted && data.success) {
+          setAsyncObservations((prev) => ({
+            ...prev,
+            [vId]: data,
+          }));
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load visit observations:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingObservations(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [current?.visitId, current?.assetObservations, asyncObservations]);
 
   // Outlet Code Detection
   const outletCode =
@@ -301,6 +483,7 @@ export default function ImageLightboxModal({
   // Reset local form states and image transforms when current image changes
   useEffect(() => {
     setIsFlagging(false);
+    setIsReassigning(false);
     setIsSubmittingProof(false);
     setGmComment('');
     setSupervisorComment('');
@@ -379,6 +562,10 @@ export default function ImageLightboxModal({
     e.preventDefault();
     if (!current?.photoId || !gmComment.trim()) return;
 
+    const chosenSup = (selectedAssignee || current.supervisor || 'Field Supervisor').trim();
+    const chosenMgr = SUPERVISOR_MANAGER_MAP[chosenSup.toUpperCase()] || current.manager || '';
+    const chosenChannel = SUPERVISOR_CHANNEL_MAP[chosenSup.toUpperCase()] || current.channel || '';
+
     setIsSubmittingDirective(true);
     try {
       const res = await fetch('/api/admin/audit-actions', {
@@ -390,9 +577,9 @@ export default function ImageLightboxModal({
           outlet: current.outlet || 'General Outlet',
           outletCode: outletCode || '',
           route: current.route || 'N/A',
-          supervisor: current.supervisor || 'Field Supervisor',
-          manager: current.manager || '',
-          channel: current.channel || '',
+          supervisor: chosenSup,
+          manager: chosenMgr,
+          channel: chosenChannel,
           category: current.category || 'Audit Photo',
           originalPhotoUrl: current.cloudinaryUrl || current.url || '',
           gmComment: gmComment.trim(),
@@ -402,6 +589,13 @@ export default function ImageLightboxModal({
       });
 
       if (res.ok) {
+        const data = await res.json();
+        if (data.item && current?.photoId) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [current.photoId as string]: data.item,
+          }));
+        }
         setIsFlagging(false);
         setGmComment('');
         if (onActionUpdated) onActionUpdated();
@@ -410,6 +604,50 @@ export default function ImageLightboxModal({
       console.error('Failed to submit GM directive:', err);
     } finally {
       setIsSubmittingDirective(false);
+    }
+  };
+
+  // Handle Supervisor Reassignment
+  const handleReassignSupervisor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const actionId = currentAction?.id || current?.photoId;
+    if (!actionId || !reassignSupervisor.trim()) return;
+
+    const chosenSup = reassignSupervisor.trim().toUpperCase();
+    const chosenMgr = SUPERVISOR_MANAGER_MAP[chosenSup] || '';
+    const chosenChannel = SUPERVISOR_CHANNEL_MAP[chosenSup] || '';
+
+    setIsSubmittingReassign(true);
+    try {
+      const res = await fetch('/api/admin/audit-actions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: actionId,
+          photoId: current?.photoId,
+          supervisor: chosenSup,
+          manager: chosenMgr,
+          channel: chosenChannel,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.item && current?.photoId) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [current.photoId as string]: data.item,
+          }));
+        }
+        setIsReassigning(false);
+        if (onActionUpdated) onActionUpdated();
+      } else {
+        alert('Failed to reassign supervisor.');
+      }
+    } catch (err) {
+      console.error('Error reassigning supervisor:', err);
+    } finally {
+      setIsSubmittingReassign(false);
     }
   };
 
@@ -427,7 +665,7 @@ export default function ImageLightboxModal({
       return;
     }
 
-    const actionId = currentAction?.id || internalActionItem?.id || current?.photoId;
+    const actionId = currentAction?.id || current?.photoId;
     if (!actionId) {
       alert('Unable to identify action directive to update.');
       return;
@@ -468,8 +706,11 @@ export default function ImageLightboxModal({
 
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
-        if (data.item) {
-          setInternalActionItem(data.item);
+        if (data.item && current?.photoId) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [current.photoId as string]: data.item,
+          }));
           if (actionItems && current?.photoId) {
             actionItems[current.photoId] = data.item;
           }
@@ -506,8 +747,15 @@ export default function ImageLightboxModal({
             'Approved by General Manager. Corrective action verified with photo proof.',
         }),
       });
-      if (res.ok && onActionUpdated) {
-        onActionUpdated();
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.item && current?.photoId) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [current.photoId as string]: data.item,
+          }));
+        }
+        if (onActionUpdated) onActionUpdated();
       }
     } catch (err) {
       console.error('Failed to verify action:', err);
@@ -836,6 +1084,161 @@ export default function ImageLightboxModal({
           </button>
         </div>
 
+        {/* BOTTOM CENTER: Observations / Notes (Optional) - Dedicated area BELOW picture, never covering the picture */}
+        {(() => {
+          const currentVisitId = current.visitId || '';
+          const asyncData = currentVisitId ? asyncObservations[currentVisitId] : null;
+
+          const rawAssetObs: any[] =
+            (current.assetObservations && current.assetObservations.length > 0)
+              ? current.assetObservations
+              : (asyncData?.assetObservations || []);
+
+          // Determine the asset type of the currently viewed photo
+          const catLower = (current.category || '').toLowerCase();
+          const assetTypeLower = (current.assetType || '').toLowerCase();
+
+          let targetAssetType: 'Freezer' | 'Chiller' | null = null;
+          if (
+            catLower.includes('ice') ||
+            catLower.includes('freezer') ||
+            assetTypeLower.includes('freezer')
+          ) {
+            targetAssetType = 'Freezer';
+          } else if (
+            catLower.includes('dairy') ||
+            catLower.includes('beverage') ||
+            catLower.includes('chiller') ||
+            catLower.includes('vegetable') ||
+            assetTypeLower.includes('chiller')
+          ) {
+            targetAssetType = 'Chiller';
+          }
+
+          // Filter assets strictly to the current photo's asset type (Freezer OR Chiller, never both!)
+          const matchedAssets = targetAssetType
+            ? rawAssetObs.filter((ast: any) =>
+                String(ast.assetType || '').toLowerCase().includes(targetAssetType.toLowerCase())
+              )
+            : rawAssetObs;
+
+          // Find specific observations for this asset type
+          const assetObsList = matchedAssets
+            .map((ast: any) => (ast.observation || '').trim())
+            .filter((obs: string) => obs && obs !== '—');
+
+          // Check visit-level observation
+          const visitObsRaw = String(
+            current.visitObservation ||
+            asyncData?.visitObservation ||
+            current.observation ||
+            asyncData?.observation ||
+            current.notes ||
+            ''
+          ).trim();
+
+          // Does visitObsRaw specifically pertain to the other asset type?
+          const otherAssetWord = targetAssetType === 'Chiller' ? 'freezer' : targetAssetType === 'Freezer' ? 'chiller' : null;
+
+          let displayNote = '';
+          if (assetObsList.length > 0) {
+            displayNote = assetObsList.join('; ');
+          } else if (visitObsRaw && visitObsRaw !== '—') {
+            const parts = visitObsRaw.split(';').map((p) => p.trim()).filter(Boolean);
+            const filteredParts = parts.filter((part) => {
+              if (otherAssetWord && part.toLowerCase().includes(otherAssetWord)) {
+                return false;
+              }
+              return true;
+            });
+            if (filteredParts.length > 0) {
+              displayNote = filteredParts.join('; ');
+            }
+          }
+
+          const hasAssets = matchedAssets.length > 0;
+          const hasNote = Boolean(displayNote);
+
+          return (
+            <div className="w-full flex-shrink-0 bg-slate-950/95 border-t border-slate-800/80 px-4 py-2 z-20 flex justify-center items-center shadow-xl backdrop-blur-md">
+              <div className="max-w-4xl w-full bg-slate-900/95 border border-slate-800/90 rounded-xl px-4 py-2 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                {/* Left: Section Header & Matched Asset Badges */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] uppercase tracking-wider font-extrabold text-sky-400 flex items-center gap-1.5 flex-shrink-0">
+                    <FileText className="h-3.5 w-3.5 text-sky-400" />
+                    <span>Observations / Notes (Optional)</span>
+                  </span>
+
+                  {matchedAssets.map((ast: any, idx: number) => {
+                    const isFreezer = String(ast.assetType).toLowerCase().includes('freezer');
+                    const tempVal = ast.temperature !== null && ast.temperature !== undefined ? Number(ast.temperature) : null;
+                    return (
+                      <div key={ast.assetId || idx} className="inline-flex items-center gap-1.5 text-[10px] font-semibold">
+                        <span
+                          className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${
+                            isFreezer
+                              ? 'bg-cyan-950 text-cyan-300 border border-cyan-800/70'
+                              : 'bg-blue-950 text-blue-300 border border-blue-800/70'
+                          }`}
+                        >
+                          {ast.assetType || (isFreezer ? 'Freezer' : 'Chiller')}
+                        </span>
+                        {ast.sizeModel && (
+                          <span className="text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700/60 font-mono">
+                            {ast.sizeModel}
+                          </span>
+                        )}
+                        {tempVal !== null && !isNaN(tempVal) && (
+                          <span className="font-mono text-emerald-400 bg-slate-800 px-1.5 py-0.5 rounded border border-emerald-900/60 flex items-center gap-0.5">
+                            <Thermometer className="h-2.5 w-2.5" />
+                            {tempVal > 0 ? `+${tempVal}` : tempVal}°C
+                          </span>
+                        )}
+                        {ast.actionRequired && ast.actionRequired !== 'Select Status' && ast.actionRequired !== 'None' && (
+                          <span className="text-indigo-300 bg-slate-800 px-1.5 py-0.5 rounded border border-indigo-800/60">
+                            {ast.actionRequired}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Right: The Observation Quote for THIS Asset */}
+                <div className="flex-1 min-w-0 md:text-right">
+                  {hasNote ? (
+                    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/25 via-amber-400/30 to-yellow-500/25 border-2 border-amber-400 text-amber-100 shadow-lg shadow-amber-500/20 max-w-full text-left md:text-right">
+                      <div className="p-1 rounded-md bg-amber-400 text-slate-950 flex-shrink-0 shadow-xs">
+                        <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-300 block">
+                          Observation / Notes:
+                        </span>
+                        <p className="text-xs sm:text-[13px] font-extrabold text-white tracking-wide break-words drop-shadow">
+                          &ldquo;{displayNote}&rdquo;
+                        </p>
+                      </div>
+                    </div>
+                  ) : hasAssets ? (
+                    <p className="text-[11px] text-slate-400 italic md:text-right">
+                      No observation notes recorded for {targetAssetType || 'this asset'}.
+                    </p>
+                  ) : isLoadingObservations ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 md:justify-end">
+                      <Loader2 className="h-3 w-3 animate-spin text-sky-400" /> Loading notes…
+                    </span>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 italic md:text-right">
+                      No observations recorded.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Bottom Dock Bar: Navigation, Zoom & Rotation, and Pan Controls in Dedicated Blank Footer */}
         <div className="w-full flex-shrink-0 bg-slate-950/95 border-t border-slate-800/80 px-3 sm:px-6 py-2.5 z-30 select-none shadow-2xl backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
           {/* Group 1: Navigation Controls */}
@@ -1045,6 +1448,23 @@ export default function ImageLightboxModal({
                 <form onSubmit={handleSubmitDirective} className="space-y-3 pt-2 border-t border-slate-800/80">
                   <div>
                     <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                      Assign to Supervisor:
+                    </label>
+                    <select
+                      value={selectedAssignee}
+                      onChange={(e) => setSelectedAssignee(e.target.value)}
+                      className="w-full text-xs p-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 focus:outline-none focus:border-amber-400 font-semibold cursor-pointer"
+                    >
+                      {availableSupervisors.map((sup: string) => (
+                        <option key={sup} value={sup}>
+                          {sup} {SUPERVISOR_MANAGER_MAP[sup.toUpperCase()] ? `(Mgr: ${SUPERVISOR_MANAGER_MAP[sup.toUpperCase()]})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">
                       Directive / Action Remark for Supervisor:
                     </label>
                     <textarea
@@ -1102,15 +1522,69 @@ export default function ImageLightboxModal({
                   </div>
 
                   {/* Action Remark Block */}
-                  <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-1">
+                  <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-2">
                     <p className="text-[10px] text-slate-400 font-bold flex items-center justify-between">
                       <span>Action Directive ({currentAction.gmName || 'Management'}):</span>
                       <span className="font-mono text-slate-500">{new Date(currentAction.createdAt).toLocaleDateString()}</span>
                     </p>
                     <p className="text-amber-200 font-medium italic">"{currentAction.gmComment}"</p>
-                    <p className="text-[10px] text-slate-400 pt-1">
-                      Assigned to: <strong className="text-slate-200">{currentAction.supervisor}</strong>
-                    </p>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
+                      <p className="text-[11px] text-slate-300 font-medium">
+                        Assigned to: <strong className="text-amber-400 font-extrabold">{currentAction.supervisor}</strong>
+                        {currentAction.manager && currentAction.manager !== 'UNASSIGNED' && (
+                          <span className="text-slate-400 text-[10px] ml-1">({currentAction.manager})</span>
+                        )}
+                      </p>
+                      {!isSupervisor && !isReassigning && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReassignSupervisor(currentAction.supervisor || '');
+                            setIsReassigning(true);
+                          }}
+                          className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                          title="Change or reassign supervisor for this directive"
+                        >
+                          Reassign
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Inline Reassignment Form */}
+                    {isReassigning && (
+                      <form onSubmit={handleReassignSupervisor} className="p-2.5 rounded-lg bg-slate-950 border border-sky-500/40 space-y-2 mt-2">
+                        <label className="text-[10px] font-bold text-sky-300 block uppercase tracking-wider">
+                          Reassign Directive to Supervisor:
+                        </label>
+                        <select
+                          value={reassignSupervisor}
+                          onChange={(e) => setReassignSupervisor(e.target.value)}
+                          className="w-full text-xs p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-sky-400 font-semibold cursor-pointer"
+                        >
+                          {availableSupervisors.map((sup: string) => (
+                            <option key={sup} value={sup}>
+                              {sup} {SUPERVISOR_MANAGER_MAP[sup.toUpperCase()] ? `(Mgr: ${SUPERVISOR_MANAGER_MAP[sup.toUpperCase()]})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <button
+                            type="submit"
+                            disabled={isSubmittingReassign || !reassignSupervisor}
+                            className="flex-1 py-1 rounded text-[11px] font-bold bg-sky-500 hover:bg-sky-400 text-black disabled:opacity-50 transition-all cursor-pointer"
+                          >
+                            {isSubmittingReassign ? 'Saving...' : 'Save Reassignment'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsReassigning(false)}
+                            className="py-1 px-2.5 rounded text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
 
                   {/* SUPERVISOR RESOLUTION PROOF SECTION */}
@@ -1155,6 +1629,16 @@ export default function ImageLightboxModal({
                     </div>
                   ) : isSupervisor ? (
                     /* Supervisor Proof Form / Submission (Supervisor Only) */
+                    !isActionAssignee ? (
+                      <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300 space-y-1.5">
+                        <p className="font-semibold text-amber-300 flex items-center gap-1.5">
+                          <Clock className="h-4 w-4 text-amber-400" /> Directive Assigned to {currentAction.supervisor}
+                        </p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          This corrective directive is specifically assigned to <strong className="text-amber-200">{currentAction.supervisor}</strong>. Resolution proof is strictly submitted by the assigned supervisor.
+                        </p>
+                      </div>
+                    ) : (
                     <div>
                       {!isSubmittingProof ? (
                         <button
@@ -1384,6 +1868,7 @@ export default function ImageLightboxModal({
                         </form>
                       )}
                     </div>
+                    )
                   ) : (
                     /* Admin / Sub-Admin View: Awaiting Supervisor Proof */
                     <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300 space-y-1.5">
@@ -1413,24 +1898,42 @@ export default function ImageLightboxModal({
 
               <div>
                 <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                  Supervisor / Manager
+                  {currentAction ? 'Supervisor Assignment & Route' : 'Supervisor / Manager'}
                 </label>
-                <p className="text-xs font-medium text-slate-200 mt-0.5">
-                  {(() => {
-                    const sup = (current.supervisor && current.supervisor !== 'UNASSIGNED')
-                      ? current.supervisor
-                      : (currentAction?.supervisor && currentAction.supervisor !== 'UNASSIGNED' ? currentAction.supervisor : (current.supervisor || 'Field Supervisor'));
-                    const mgr = (current.manager && current.manager !== 'UNASSIGNED')
-                      ? current.manager
-                      : (currentAction?.manager && currentAction.manager !== 'UNASSIGNED' ? currentAction.manager : (current.manager || ''));
-                    return (
-                      <>
-                        {sup}{' '}
-                        {mgr && mgr !== 'UNASSIGNED' ? <span className="text-slate-400">({mgr})</span> : null}
-                      </>
-                    );
-                  })()}
-                </p>
+                <div className="text-xs font-medium text-slate-200 mt-1 space-y-1.5">
+                  {currentAction ? (
+                    <>
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/25">
+                        <span className="text-[10px] uppercase font-extrabold text-amber-400 tracking-wider">
+                          Assigned Supervisor:
+                        </span>
+                        <strong className="text-amber-200 font-extrabold text-xs">{currentAction.supervisor}</strong>
+                        {currentAction.manager && currentAction.manager !== 'UNASSIGNED' && (
+                          <span className="text-slate-400 text-[11px]">({currentAction.manager})</span>
+                        )}
+                      </div>
+                      {current.supervisor && current.supervisor.toUpperCase() !== (currentAction.supervisor || '').toUpperCase() && (
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 px-1">
+                          <span className="text-[10px] uppercase font-bold text-slate-400">
+                            Store Visit:
+                          </span>
+                          <span className="text-slate-300 font-semibold">{current.supervisor}</span>
+                          {current.manager && current.manager !== 'UNASSIGNED' && (
+                            <span className="text-slate-500 text-[10px]">({current.manager})</span>
+                          )}
+                          <span className="text-slate-500 text-[10px] font-mono">[{current.route || 'Route'}]</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p>
+                      {current.supervisor || 'Field Supervisor'}{' '}
+                      {current.manager && current.manager !== 'UNASSIGNED' ? (
+                        <span className="text-slate-400">({current.manager})</span>
+                      ) : null}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -1444,10 +1947,12 @@ export default function ImageLightboxModal({
                 </div>
                 <div>
                   <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
-                    Channel
+                    RTM
                   </label>
-                  <p className="text-xs font-medium text-slate-300 mt-0.5">
-                    {current.channel || currentAction?.channel || 'GT'}
+                  <p className="text-xs font-black text-indigo-400 mt-0.5">
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold uppercase tracking-wider inline-block">
+                      {current.rtm || current.channel || currentAction?.channel || 'TT'}
+                    </span>
                   </p>
                 </div>
               </div>

@@ -96,10 +96,20 @@ function getCellValue(row: Record<string, unknown>, key: string) {
   if (key === 'manager') return (row.manager || row.mgr || '—') as string;
   if (key === 'supervisor') return (row.supervisor || row.sup || '—') as string;
   if (key === 'routeCode') {
-    return (row.routeCode || row.route || row.rt || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[1] || String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    let rCode = (row.routeCode || row.route || row.rt || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[1] || String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    let oCode = (row.outletCode || row.custCode || row.code || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    if (/^(MT|TR|IS|EX|DIS|R\d)/i.test(oCode) && (/^C\d+/i.test(rCode) || /^\d+$/.test(rCode))) {
+      return oCode;
+    }
+    return rCode;
   }
   if (key === 'outletCode') {
-    return (row.outletCode || row.custCode || row.code || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    let rCode = (row.routeCode || row.route || row.rt || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[1] || String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    let oCode = (row.outletCode || row.custCode || row.code || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    if (/^(MT|TR|IS|EX|DIS|R\d)/i.test(oCode) && (/^C\d+/i.test(rCode) || /^\d+$/.test(rCode))) {
+      return rCode;
+    }
+    return oCode;
   }
   if (key === 'outletName') return (row.outletName || row.cust || '—') as string;
   if (key === 'classification') {
@@ -356,12 +366,14 @@ export default function DrilldownReportModal({
 
   const summaryText = useMemo(() => buildSummaryText(reportType, sortedData), [reportType, sortedData]);
 
-  const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
+  const isAll = pageSize === -1;
+  const totalPages = isAll ? 1 : Math.max(1, Math.ceil(sortedData.length / pageSize));
+  const currentPage = isAll ? 1 : Math.min(page, totalPages);
   const paginatedData = useMemo(() => {
+    if (isAll) return sortedData;
     const start = (currentPage - 1) * pageSize;
     return sortedData.slice(start, start + pageSize);
-  }, [sortedData, currentPage, pageSize]);
+  }, [sortedData, currentPage, pageSize, isAll]);
 
 
   if (!isOpen) return null;
@@ -407,6 +419,17 @@ export default function DrilldownReportModal({
             </button>
           </div>
         </div>
+
+        {reportType === 'classification' && (
+          <div className="px-5 py-2.5 bg-gradient-to-r from-indigo-50/90 via-sky-50/70 to-blue-50/90 dark:from-slate-900/90 dark:via-indigo-950/40 dark:to-slate-900/90 border-b border-indigo-200/60 dark:border-indigo-900/40 text-[11.5px] text-slate-700 dark:text-slate-300 flex items-center gap-2">
+            <span className="font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide text-[10px] bg-indigo-100 dark:bg-indigo-900/60 px-2 py-0.5 rounded-md">
+              Visit Policy
+            </span>
+            <span>
+              <strong>Class A</strong> = Twice per month (Bi-weekly) &nbsp;•&nbsp; <strong>Class B &amp; C</strong> = Once per month &nbsp;•&nbsp; <strong>Class D &amp; E</strong> = As per assigned PJP.
+            </span>
+          </div>
+        )}
 
         {showFilters && (
           <div className="px-5 py-4 border-b border-[var(--border-soft)] bg-[var(--surface-2)] flex flex-col gap-4">
@@ -549,6 +572,7 @@ export default function DrilldownReportModal({
             <span>Show</span>
             <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] cursor-pointer">
               {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size} items</option>)}
+              <option value={-1}>All</option>
             </select>
           </div>
         </div>
@@ -622,14 +646,14 @@ export default function DrilldownReportModal({
 
         <div className="px-5 py-4 border-t border-[var(--border-soft)] bg-[var(--surface)] flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
           <div className="text-[11.5px] text-[var(--text-muted)] font-semibold">
-            Showing {sortedData.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length} records
+            Showing {sortedData.length > 0 ? (isAll ? 1 : (currentPage - 1) * pageSize + 1) : 0} to {isAll ? sortedData.length : Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length} records
           </div>
           <div className="flex items-center gap-1.5 font-semibold">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-8 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1 || isAll} className="h-8 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1">
               <span className="text-xs">Previous</span>
             </button>
             <div className="text-xs px-3 py-1 bg-[var(--surface-2)] border border-[var(--border)] rounded-lg text-[var(--text-primary)]">Page {currentPage} of {totalPages}</div>
-            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="h-8 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1">
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || isAll} className="h-8 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-1">
               <span className="text-xs">Next</span>
             </button>
           </div>

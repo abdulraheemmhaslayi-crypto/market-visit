@@ -14,7 +14,8 @@ import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown';
 import { getSizeModelsForCategory, ASSET_CATEGORIES } from '@/utils/asset-config';
 import { PhotoGallerySection } from '@/components/dashboard/PhotoGallerySection';
 import VisitSummaryTable from '@/components/dashboard/VisitSummaryTable';
-import { RefreshCw } from 'lucide-react';
+import AuditActionsTrackerSummary from '@/components/dashboard/AuditActionsTrackerSummary';
+import { RefreshCw, Sparkles, Info } from 'lucide-react';
 
 const GCOL: Record<string, string> = {
   A: '#0b7a4c',
@@ -91,9 +92,50 @@ export default function AdminDashboardPage() {
     setMounted(true);
   }, []);
 
-  // Filter States
-  const [fFrom, setFFrom] = useState('');
-  const [fTo, setFTo] = useState('');
+  useEffect(() => {
+    if (userRole === 'Supervisor' && session?.user?.name && fSuper.length === 0) {
+      setFSuper([session.user.name.trim().toUpperCase()]);
+    }
+  }, [userRole, session?.user?.name]);
+
+  // Date Helpers for Quick Presets and -1 Day Benchmark Default
+  const getMinusOneDayStr = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getTodayStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getNDaysAgoStr = (n: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const getFirstDayOfMonthStr = (): string => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}-01`;
+  };
+
+  // Filter States - Defaulting to -1 Day Data (Prior Completed Operations)
+  const defaultMinusOne = getMinusOneDayStr();
+  const [fFrom, setFFrom] = useState<string>(defaultMinusOne);
+  const [fTo, setFTo] = useState<string>(defaultMinusOne);
   const [fMgr, setFMgr] = useState<string[]>([]);
   const [fSuper, setFSuper] = useState<string[]>([]);
   const [fChannel, setFChannel] = useState('');
@@ -106,8 +148,29 @@ export default function AdminDashboardPage() {
   const [fSizeModels, setFSizeModels] = useState<string[]>([]);
   const [masters, setMasters] = useState<any>(null);
 
+  const setQuickDate = (preset: 'minus1' | 'today' | '7d' | 'mtd' | 'all') => {
+    if (preset === 'minus1') {
+      const d = getMinusOneDayStr();
+      setFFrom(d);
+      setFTo(d);
+    } else if (preset === 'today') {
+      const today = getTodayStr();
+      setFFrom(today);
+      setFTo(today);
+    } else if (preset === '7d') {
+      setFFrom(getNDaysAgoStr(7));
+      setFTo(getTodayStr());
+    } else if (preset === 'mtd') {
+      setFFrom(getFirstDayOfMonthStr());
+      setFTo(getTodayStr());
+    } else if (preset === 'all') {
+      setFFrom('');
+      setFTo('');
+    }
+  };
+
   const latestDateRef = useRef<string>('');
-  const initialDateApplied = useRef<boolean>(false);
+  const initialDateApplied = useRef<boolean>(true); // Already initialized to -1 day
 
   // Helper to extract YYYY-MM-DD from row date
   const getRowDateStr = (r: any): string => {
@@ -149,10 +212,10 @@ export default function AdminDashboardPage() {
   // Chart instances
   const chartsRef = useRef<Record<string, any>>({});
 
-  // Initialize cached data immediately from sessionStorage to eliminate skeleton hangs & 0-data flash
+  // Initialize cached data immediately from sessionStorage/localStorage for instant 0ms painting
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('admin_dashboard_cache_v5');
+      const cached = sessionStorage.getItem('admin_dashboard_cache_v8') || (typeof window !== 'undefined' ? localStorage.getItem('admin_dashboard_cache_v8') : null);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && typeof parsed === 'object' && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
@@ -161,15 +224,6 @@ export default function AdminDashboardPage() {
           if (parsed.managerSupervisorMap) setManagerSupervisorMap(parsed.managerSupervisorMap);
           if (parsed.photos) setPhotos(parsed.photos);
           if (parsed.masters) setMasters(parsed.masters);
-          const cLatest = parsed.latestDate || getLatestDateFromRows(parsed.rows);
-          if (cLatest) {
-            latestDateRef.current = cLatest;
-            if (!initialDateApplied.current) {
-              setFFrom(cLatest);
-              setFTo(cLatest);
-              initialDateApplied.current = true;
-            }
-          }
           setIsLoading(false);
         }
       }
@@ -205,11 +259,6 @@ export default function AdminDashboardPage() {
 
           if (foundLatestDate) {
             latestDateRef.current = foundLatestDate;
-            if (!initialDateApplied.current) {
-              setFFrom(foundLatestDate);
-              setFTo(foundLatestDate);
-              initialDateApplied.current = true;
-            }
           }
 
           setRows(newRows);
@@ -220,14 +269,18 @@ export default function AdminDashboardPage() {
           setLastUpdated(new Date());
 
           try {
-            sessionStorage.setItem('admin_dashboard_cache_v5', JSON.stringify({
+            const cachePayload = JSON.stringify({
               rows: newRows,
               reportRows: newReportRows,
               managerSupervisorMap: newMgrSupMap,
               photos: newPhotos,
               masters: newMasters,
               latestDate: foundLatestDate || latestDateRef.current,
-            }));
+            });
+            sessionStorage.setItem('admin_dashboard_cache_v8', cachePayload);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('admin_dashboard_cache_v8', cachePayload);
+            }
           } catch (e) {
             // Ignore quota errors
           }
@@ -277,9 +330,10 @@ export default function AdminDashboardPage() {
     );
   }, [masters]);
 
-  // 2. Supervisor Options: Filtered strictly by Manager if selected, otherwise all supervisors from CUSTMASTER
+  // 2. Supervisor Options: Filtered strictly by Manager and/or RTM Channel if selected, otherwise all supervisors from CUSTMASTER
   const supOptions = useMemo<string[]>(() => {
     if (!masters) return [];
+    let list: string[] = [];
     if (fMgr.length > 0) {
       const mgrUppers = fMgr.map((m) => m.toUpperCase());
       const supsSet = new Set<string>();
@@ -298,10 +352,37 @@ export default function AdminDashboardPage() {
             });
         }
       });
-      return Array.from(supsSet).sort();
+      list = Array.from(supsSet);
+    } else {
+      list = ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
     }
-    return ((masters.supervisors || []) as string[]).filter((s) => s !== 'INTERNAL');
-  }, [masters, fMgr]);
+
+    if (fChannel) {
+      const targetChan = fChannel.trim().toUpperCase();
+      const channelSups = new Set<string>();
+
+      (masters.routes || []).forEach((r: any) => {
+        const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+        if (rChan === targetChan && r.superName) {
+          channelSups.add(r.superName.trim().toUpperCase());
+        }
+      });
+
+      (masters.customers || []).forEach((c: any) => {
+        let cChan = (c.rtm || c.channel || '').toUpperCase();
+        if (!cChan && c.routeCode) {
+          cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+        }
+        if (cChan === targetChan && c.superName) {
+          channelSups.add(c.superName.trim().toUpperCase());
+        }
+      });
+
+      list = list.filter((s) => channelSups.has(s.trim().toUpperCase()));
+    }
+
+    return list.sort();
+  }, [masters, fMgr, fChannel]);
 
   // 3. RTM Options: Strictly from CUSTMASTER Segment_Fin(120MT), filtered by selected Manager/Supervisor if applicable
   const rtmOptions = useMemo<string[]>(() => {
@@ -401,7 +482,7 @@ export default function AdminDashboardPage() {
 
   // Reset helper
   const resetFilters = () => {
-    const defaultDate = latestDateRef.current || '';
+    const defaultDate = getMinusOneDayStr();
     setFFrom(defaultDate);
     setFTo(defaultDate);
     setFMgr([]);
@@ -726,6 +807,23 @@ export default function AdminDashboardPage() {
   const breachesCount = useMemo(() => filtered.filter((r) => !r.ok).length, [filtered]);
   const fefoCount = useMemo(() => filtered.filter((r) => r.fefo).length, [filtered]);
   const noVisitCount = useMemo(() => filtered.filter((r) => r.visitType === 'No Visit' || r.visitType === 'NO_VISIT' || r.notes === 'No visit').length, [filtered]);
+  const activeDaysCount = useMemo(() => {
+    const dates = new Set<string>();
+    filtered.forEach((r) => {
+      const raw = r.createdAt || r.date;
+      if (raw) {
+        const d = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw.trim())
+          ? raw.trim().slice(0, 10)
+          : new Date(raw).toISOString().slice(0, 10);
+        if (d && d !== '1970-01-01') dates.add(d);
+      }
+    });
+    return dates.size;
+  }, [filtered]);
+  const avgVisitsPerDay = useMemo(() => {
+    if (!filtered.length || activeDaysCount === 0) return '0.0';
+    return (filtered.length / activeDaysCount).toFixed(1);
+  }, [filtered, activeDaysCount]);
   const breachPct = useMemo(
     () => (filtered.length ? ((breachesCount / filtered.length) * 100).toFixed(1) + '% of assets' : '–'),
     [filtered, breachesCount]
@@ -757,7 +855,6 @@ export default function AdminDashboardPage() {
   const activeNote = useMemo(() => {
     const parts = [];
     if (fFrom || fTo) parts.push(`Date: <b>${fFrom || 'Start'} → ${fTo || 'Now'}</b>`);
-    if (fMgr.length > 0) parts.push(`Manager: <b>${fMgr.join(', ')}</b>`);
     if (fSuper.length > 0) parts.push(`Supervisor: <b>${fSuper.join(', ')}</b>`);
     if (fChannel) parts.push(`RTM: <b>${fChannel}</b>`);
     if (fClass) parts.push(`Classification: <b>${fClass}</b>`);
@@ -766,7 +863,7 @@ export default function AdminDashboardPage() {
     if (fSku) parts.push(`SKU: <b>${fSku}</b>`);
     if (fVertical) parts.push(`Business Vertical: <b>${fVertical}</b>`);
     return parts.length ? 'Filtered by ' + parts.join(' · ') : 'Showing all visits';
-  }, [fFrom, fTo, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical]);
+  }, [fFrom, fTo, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical]);
 
   // Excel Export Handlers
   const handleExportAllFilteredVisits = () => {
@@ -811,6 +908,7 @@ export default function AdminDashboardPage() {
       data: [
         { metric: 'Total Visits Logged', value: filtered.length, details: 'Visits logged under current filters' },
         { metric: 'Outlets Covered', value: outletsCount, details: 'Unique retail outlets visited' },
+        { metric: 'Avg Visits Per Day', value: avgVisitsPerDay, details: `${activeDaysCount} active visit days in selected period` },
         { metric: 'Skipped Visits (No Visit)', value: noVisitCount, details: 'Visits logged as skipped outlet' },
         { metric: 'Assets Checked', value: filtered.length, details: 'Chiller and freezer units inspected' },
         { metric: 'Temperature Breaches', value: breachesCount, details: `${breachPct} temperature breach rate` },
@@ -993,71 +1091,45 @@ export default function AdminDashboardPage() {
   };
 
   const handleExportClassificationDairyChart = () => {
-    const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
-    const dairyVisitRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
-
-    const visitedMap = new Map<string, any>();
-    dairyVisitRows.forEach((r: any) => {
-      const key = r.outletCode || r.outletName;
-      if (key) visitedMap.set(key, r);
+    const dairyVisitRows = filteredForClassCharts.map((r: any) => {
+      const rawGr = r.dairyGr || r.dairyClassification || r.gr || r.classification || r.class || 'E';
+      const gr = ['A', 'B', 'C', 'D'].includes(String(rawGr).trim().toUpperCase())
+        ? String(rawGr).trim().toUpperCase()
+        : 'E';
+      const [cCode, rCode] = (r.cust_rt_id || '').split('|');
+      return {
+        date: r.createdAt || r.date,
+        channel: r.ch || r.channel || 'TT',
+        manager: r.mgr || r.manager || '—',
+        supervisor: r.sup || r.supervisor || '—',
+        routeCode: r.rt || r.route || rCode || '—',
+        outletCode: r.outletCode || r.custCode || cCode || '—',
+        outletName: r.cust || r.outletName || '—',
+        classification: gr,
+        businessVertical: 'Dairy',
+        visitType: r.visitType || 'Visit',
+      };
     });
-
-    const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
-      const mgrOk = isManagerMatch(o.manager, fMgr);
-      const supOk = isSupervisorMatch(o.supervisor, fSuper, fMgr);
-      const chOk = !fChannel || (o.channel || '').toLowerCase() === fChannel.toLowerCase();
-      const rtOk = !fRoute || o.route === fRoute;
-      const custOk = !fCust || o.name === fCust || o.code === fCust;
-      return mgrOk && supOk && chOk && rtOk && custOk;
-    });
-
-    const dataToExport = masterOutlets.length > 0
-      ? masterOutlets.map((o: any) => {
-          const visited = visitedMap.get(o.code) || visitedMap.get(o.name) || visitedMap.get(o.id);
-          return {
-            outletCode: o.code,
-            outletName: o.name,
-            routeCode: o.route,
-            manager: o.manager,
-            supervisor: o.supervisor,
-            channel: o.channel,
-            class: ['A', 'B', 'C', 'D'].includes(o.dairyGr) ? o.dairyGr : 'E',
-            status: visited ? 'Visited' : 'Unvisited',
-            lastVisitDate: visited?.date ? new Date(visited.date).toLocaleDateString() : '—',
-          };
-        })
-      : dairyVisitRows;
 
     exportToExcel({
-      filename: `classification_dairy_${new Date().toISOString().slice(0, 10)}`,
-      sheetName: 'Dairy Classification',
-      title: 'Outlet Classification Coverage - Dairy Vertical',
+      filename: `classification_dairy_visits_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Dairy Classification Visits',
+      title: 'Outlet Classification Visit Logs - Dairy Vertical',
       filterSummary: activeNote,
       userRole,
-      columns: masterOutlets.length > 0 ? [
+      columns: [
+        { header: 'Visit Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Channel', key: 'channel' },
+        { header: 'Manager', key: 'manager' },
+        { header: 'Supervisor', key: 'supervisor' },
+        { header: 'Route Code', key: 'routeCode' },
         { header: 'Outlet Code', key: 'outletCode' },
         { header: 'Outlet Name', key: 'outletName' },
-        { header: 'Classification Grade', key: 'class' },
-        { header: 'Visit Status', key: 'status' },
-        { header: 'Last Visit Date', key: 'lastVisitDate' },
-        { header: 'Route Code', key: 'routeCode' },
-        { header: 'Channel', key: 'channel' },
-        { header: 'Supervisor', key: 'supervisor' },
-        { header: 'Manager', key: 'manager' },
-      ] : [
-        { header: 'Date', key: 'date', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Channel', key: 'channel', formatter: (val: any, row: any) => val || row.ch || '—' },
-        { header: 'Manager', key: 'manager', formatter: (val: any, row: any) => val || row.mgr || '—' },
-        { header: 'Supervisor', key: 'supervisor', formatter: (val: any, row: any) => val || row.sup || '—' },
-        { header: 'Route Code', key: 'routeCode', formatter: (val: any, row: any) => val || row.route || (row.cust_rt_id ? row.cust_rt_id.split('|')[1] : '—') },
-        { header: 'Outlet Code', key: 'outletCode', formatter: (val: any, row: any) => val || row.custCode || (row.cust_rt_id ? row.cust_rt_id.split('|')[0] : '—') },
-        { header: 'Outlet Name', key: 'outletName', formatter: (val: any, row: any) => val || row.cust || '—' },
-        { header: 'Classification Grade', key: 'class', formatter: (val: any, row: any) => {
-          const g = val || row.gr || row.class || 'E';
-          return ['A', 'B', 'C', 'D'].includes(g) ? g : 'E';
-        } },
+        { header: 'Classification Grade', key: 'classification' },
+        { header: 'Business Vertical', key: 'businessVertical' },
+        { header: 'Visit Type', key: 'visitType' },
       ],
-      data: dataToExport,
+      data: dairyVisitRows,
     });
   };
 
@@ -1119,10 +1191,11 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (isLoading || !filtered) return;
 
-    const BLUE = '#4F46E5', BLUE_DEEP = '#4338CA', GREEN = '#0f9d63', AMBER = '#d08a12', RED = '#d63d2e', GREY = '#c3d2de';
+    const BLUE = '#4F46E5', BLUE_DEEP = '#4338CA', GREEN = '#10b981', AMBER = '#d97706', RED = '#ef4444', GREY = '#cbd5e1';
     const isDark = theme === 'dark';
     const gridColor = isDark ? '#2A3A55' : '#E4E9F0';
-    const textColor = isDark ? '#94A3B8' : '#5A6478';
+    const textColor = isDark ? '#f8fafc' : '#0f172a';
+    const mutedTextColor = isDark ? '#cbd5e1' : '#334155';
 
     const countFreq = (arr: any[], fn: (r: any) => string | number) => {
       const m: Record<string, number> = {};
@@ -1138,18 +1211,58 @@ export default function AdminDashboardPage() {
       afterDatasetsDraw(chart: any) {
         const { ctx } = chart;
         const dataset = chart.data.datasets[0];
-        chart.getDatasetMeta(0).data.forEach((bar: any, index: number) => {
+        if (!dataset || !dataset.data) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data) return;
+        meta.data.forEach((bar: any, index: number) => {
           const value = dataset.data[index];
           if (typeof value !== 'number') return;
           const label = `${value}%`;
+          const isAvail = index === 0;
+
           ctx.save();
-          ctx.font = '700 11px Inter, sans-serif';
+          ctx.font = '800 12.5px Inter, sans-serif';
+          const textWidth = ctx.measureText(label).width;
+          const badgeW = Math.max(textWidth + 16, 38);
+          const badgeH = 22;
+          const badgeX = bar.x - badgeW / 2;
+          const badgeY = Math.max(bar.y - badgeH - 6, 6);
+
+          // Pill Background
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+          } else {
+            ctx.rect(badgeX, badgeY, badgeW, badgeH);
+          }
+
+          if (isAvail && value > 0) {
+            ctx.fillStyle = isDark ? '#064e3b' : '#ecfdf5';
+            ctx.fill();
+            ctx.strokeStyle = isDark ? '#059669' : '#10b981';
+          } else if (!isAvail && value > 0) {
+            ctx.fillStyle = isDark ? '#450a0a' : '#fef2f2';
+            ctx.fill();
+            ctx.strokeStyle = isDark ? '#dc2626' : '#ef4444';
+          } else {
+            ctx.fillStyle = isDark ? '#1e293b' : '#f8fafc';
+            ctx.fill();
+            ctx.strokeStyle = isDark ? '#475569' : '#cbd5e1';
+          }
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          // Pill Text
           ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
-          ctx.shadowBlur = 4;
-          ctx.fillText(label, bar.x, bar.y - 4);
+          ctx.textBaseline = 'middle';
+          if (isAvail && value > 0) {
+            ctx.fillStyle = isDark ? '#34d399' : '#047857';
+          } else if (!isAvail && value > 0) {
+            ctx.fillStyle = isDark ? '#f87171' : '#b91c1c';
+          } else {
+            ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+          }
+          ctx.fillText(label, bar.x, badgeY + badgeH / 2);
           ctx.restore();
         });
       },
@@ -1160,18 +1273,41 @@ export default function AdminDashboardPage() {
       afterDatasetsDraw(chart: any) {
         const { ctx } = chart;
         const dataset = chart.data.datasets[0];
-        chart.getDatasetMeta(0).data.forEach((bar: any, index: number) => {
+        if (!dataset || !dataset.data) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data) return;
+
+        meta.data.forEach((bar: any, index: number) => {
           const value = dataset.data[index];
-          if (typeof value !== 'number') return;
+          if (typeof value !== 'number' || value <= 0) return;
           const label = `${value}`;
+
           ctx.save();
-          ctx.font = '700 11px Inter, sans-serif';
+          ctx.font = '800 12px Inter, sans-serif';
+          const textWidth = ctx.measureText(label).width;
+          const badgeW = Math.max(textWidth + 14, 26);
+          const badgeH = 20;
+          const badgeX = bar.x - badgeW / 2;
+          const badgeY = Math.max(bar.y - badgeH - 6, 6);
+
+          // Pill Background
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+          } else {
+            ctx.rect(badgeX, badgeY, badgeW, badgeH);
+          }
+          ctx.fillStyle = isDark ? '#1e293b' : '#ffffff';
+          ctx.fill();
+          ctx.strokeStyle = isDark ? '#475569' : '#cbd5e1';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          // Pill Text
           ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-          ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
-          ctx.shadowBlur = 4;
-          ctx.fillText(label, bar.x, bar.y - 4);
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+          ctx.fillText(label, bar.x, badgeY + badgeH / 2);
           ctx.restore();
         });
       },
@@ -1302,10 +1438,12 @@ export default function AdminDashboardPage() {
             {
               label: 'Visits',
               data: sortedDates.map((d) => dateCounts[d] || 0),
-              backgroundColor: BLUE,
+              backgroundColor: '#4f46e5',
               hoverBackgroundColor: '#4338ca',
-              borderRadius: 6,
-              maxBarThickness: 48,
+              borderColor: '#6366f1',
+              borderWidth: 1.5,
+              borderRadius: 8,
+              maxBarThickness: 46,
             },
           ],
         },
@@ -1319,19 +1457,36 @@ export default function AdminDashboardPage() {
               const meta = chart.getDatasetMeta(0);
               if (!meta || !meta.data) return;
 
-              const fontSize = sortedDates.length > 25 ? 9 : (sortedDates.length > 15 ? 10 : 11);
+              const fontSize = sortedDates.length > 25 ? 10 : (sortedDates.length > 15 ? 11 : 12);
               meta.data.forEach((bar: any, index: number) => {
                 const value = dataset.data[index];
                 if (typeof value !== 'number' || value <= 0) return;
                 const label = `${value}`;
+
                 ctx.save();
-                ctx.font = `700 ${fontSize}px Inter, sans-serif`;
+                ctx.font = `800 ${fontSize}px Inter, sans-serif`;
+                const textWidth = ctx.measureText(label).width;
+                const badgeW = Math.max(textWidth + 12, 24);
+                const badgeH = 19;
+                const badgeX = bar.x - badgeW / 2;
+                const badgeY = Math.max(bar.y - badgeH - 6, 6);
+
+                ctx.beginPath();
+                if (typeof ctx.roundRect === 'function') {
+                  ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+                } else {
+                  ctx.rect(badgeX, badgeY, badgeW, badgeH);
+                }
+                ctx.fillStyle = isDark ? '#1e293b' : '#ffffff';
+                ctx.fill();
+                ctx.strokeStyle = isDark ? '#475569' : '#cbd5e1';
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+
                 ctx.textAlign = 'center';
-                ctx.textBaseline = 'bottom';
-                ctx.fillStyle = theme === 'dark' ? '#f1f5f9' : '#0f172a';
-                ctx.shadowColor = theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.9)';
-                ctx.shadowBlur = 4;
-                ctx.fillText(label, bar.x, bar.y - 4);
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+                ctx.fillText(label, bar.x, badgeY + badgeH / 2);
                 ctx.restore();
               });
             },
@@ -1340,7 +1495,7 @@ export default function AdminDashboardPage() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 20 },
+            padding: { top: 26, bottom: 6, left: 4, right: 4 },
           },
           plugins: {
             legend: { display: false },
@@ -1372,22 +1527,23 @@ export default function AdminDashboardPage() {
           },
           scales: {
             x: {
-              grid: { color: gridColor },
+              grid: { display: false },
               ticks: {
                 color: textColor,
-                font: { weight: 'bold' },
-                maxRotation: 45,
-                minRotation: 45,
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: sortedDates.length > 20 ? 10.5 : 12 },
+                maxRotation: 40,
+                minRotation: 35,
                 autoSkip: false,
               },
             },
             y: {
               beginAtZero: true,
               grace: '15%',
-              grid: { color: gridColor },
+              grid: { display: false },
               ticks: {
-                color: textColor,
+                color: mutedTextColor,
                 precision: 0,
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: 11.5 },
               },
             },
           },
@@ -1488,8 +1644,12 @@ export default function AdminDashboardPage() {
             {
               label: 'Total Visits',
               data: topSup.map((x) => x[1]),
-              backgroundColor: BLUE,
-              borderRadius: 6,
+              backgroundColor: '#6366f1',
+              hoverBackgroundColor: '#4f46e5',
+              borderColor: '#818cf8',
+              borderWidth: 1.5,
+              borderRadius: 8,
+              maxBarThickness: 48,
             },
           ],
         },
@@ -1497,7 +1657,7 @@ export default function AdminDashboardPage() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 20 },
+            padding: { top: 28, bottom: 6, left: 6, right: 6 },
           },
           plugins: {
             legend: { display: false },
@@ -1513,8 +1673,23 @@ export default function AdminDashboardPage() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: 'bold' } } },
-            y: { beginAtZero: true, grace: '15%', grid: { color: gridColor }, ticks: { color: textColor, precision: 0 } },
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: textColor,
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: 12.5 },
+              },
+            },
+            y: {
+              beginAtZero: true,
+              grace: '15%',
+              grid: { display: false },
+              ticks: {
+                color: mutedTextColor,
+                precision: 0,
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: 11.5 },
+              },
+            },
           },
         },
       });
@@ -1554,27 +1729,67 @@ export default function AdminDashboardPage() {
 
       const tempPct = (count: number) => (tempTotal ? Math.round((count / tempTotal) * 100) : 0);
 
+      const tempPctVal = tempPct(okCount);
+
       chartsRef.current.cTemp = new Chart(canvasTempRef.current, {
         type: 'doughnut',
         data: {
           labels: ['Within range', 'Breach'],
           datasets: [
             {
-              data: [tempPct(okCount), tempPct(breachCount)],
-              backgroundColor: [GREEN, RED],
-              borderWidth: 0,
+              data: [tempPctVal, tempPct(breachCount)],
+              backgroundColor: ['#10b981', '#ef4444'],
+              hoverBackgroundColor: ['#059669', '#dc2626'],
+              borderColor: isDark ? '#1e293b' : '#ffffff',
+              borderWidth: 3,
             },
           ],
         },
-        plugins: [createDoughnutPctLabelPlugin()],
+        plugins: [
+          createDoughnutPctLabelPlugin(),
+          {
+            id: 'cTempCenterKpi',
+            beforeDraw(chart: any) {
+              const { ctx, chartArea } = chart;
+              if (!chartArea) return;
+              const { top, bottom, left, right } = chartArea;
+              const cx = (left + right) / 2;
+              const cy = (top + bottom) / 2;
+
+              ctx.save();
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+
+              // Big bold percentage
+              ctx.font = '900 28px Inter, sans-serif';
+              ctx.fillStyle = tempPctVal === 100
+                ? (isDark ? '#34d399' : '#059669')
+                : (tempPctVal >= 80 ? (isDark ? '#fbbf24' : '#d97706') : (isDark ? '#f87171' : '#dc2626'));
+              ctx.fillText(`${tempPctVal}%`, cx, cy - 7);
+
+              // Subtext badge
+              ctx.font = '800 10.5px Inter, sans-serif';
+              ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+              ctx.fillText(tempPctVal === 100 ? 'IN RANGE' : (breachCount > 0 ? `${tempPct(breachCount)}% BREACH` : 'OPTIMAL'), cx, cy + 15);
+
+              ctx.restore();
+            },
+          },
+        ],
         options: {
           maintainAspectRatio: false,
-          cutout: '62%',
+          cutout: '72%',
           plugins: {
             legend: {
               position: 'bottom',
               labels: {
                 color: textColor,
+                font: { family: 'Inter, sans-serif', size: 12, weight: 'bold' },
+                boxWidth: 10,
+                boxHeight: 10,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                padding: 12,
                 generateLabels: (chart: any) => {
                   const data = chart.data;
                   if (!data.labels.length || !data.datasets.length) return [];
@@ -1736,14 +1951,23 @@ export default function AdminDashboardPage() {
           datasets: [
             {
               data: [pskuPct(availCount), pskuPct(notAvailCount)],
-              backgroundColor: [GREEN, RED],
-              borderRadius: 6,
+              backgroundColor: ['#10b981', '#ef4444'],
+              hoverBackgroundColor: ['#059669', '#dc2626'],
+              borderColor: ['#34d399', '#f87171'],
+              borderWidth: 1.5,
+              borderRadius: 8,
+              borderSkipped: false,
+              maxBarThickness: 56,
+              barPercentage: 0.65,
             },
           ],
         },
         plugins: [createBarPctLabelPlugin()],
         options: {
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 32, bottom: 6, left: 8, right: 8 },
+          },
           plugins: {
             legend: { display: false },
             tooltip: { callbacks: { label: (ctx) => `${ctx.raw}% of ${pskuTotal} visits` } },
@@ -1767,14 +1991,28 @@ export default function AdminDashboardPage() {
             chart.canvas.style.cursor = el.length ? 'pointer' : 'default';
           },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { weight: 'bold' } } },
-            y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { color: textColor, callback: (v: any) => `${v}%` } },
+            x: {
+              grid: { display: false },
+              ticks: { color: textColor, font: { family: 'Inter, sans-serif', weight: 'bold', size: 13 } },
+            },
+            y: {
+              beginAtZero: true,
+              min: 0,
+              max: 100,
+              grid: { display: false },
+              ticks: {
+                color: mutedTextColor,
+                callback: (v: any) => `${v}%`,
+                stepSize: 20,
+                font: { family: 'Inter, sans-serif', weight: 'bold', size: 11.5 },
+              },
+            },
           },
         },
       });
     }
 
-    // 7. Classification Bar Charts (Dairy & Ice Cream) - Stacked Visited vs Unvisited Outlets
+    // 7. Classification Bar Charts (Dairy) - Total Visits Logged & Frequency Coverage
     if (canvasClassDairyRef.current) {
       if (chartsRef.current.cClassDairy) chartsRef.current.cClassDairy.destroy();
 
@@ -1789,27 +2027,38 @@ export default function AdminDashboardPage() {
       });
 
       // Filtered visits during the selected period
-      const visitLookup = new Map(filteredForClassCharts.map((row) => [row.visitId, row]));
-      const dairyVisitRows = (reportRows.classificationDairy || []).filter((r: any) => visitLookup.has(r.visitId));
+      const dairyVisitRows = filteredForClassCharts.map((r: any) => {
+        const rawGr = r.dairyGr || r.dairyClassification || r.gr || r.classification || r.class || 'E';
+        const gr = ['A', 'B', 'C', 'D'].includes(String(rawGr).trim().toUpperCase())
+          ? String(rawGr).trim().toUpperCase()
+          : 'E';
+        return {
+          ...r,
+          class: gr,
+          classification: gr,
+          businessVertical: 'Dairy',
+        };
+      });
 
       const visitedOutletKeys = new Set<string>();
-      const visitedByGrade: Record<string, Set<string>> = { A: new Set(), B: new Set(), C: new Set(), D: new Set(), E: new Set() };
+      const visitedOutletsByGrade: Record<string, Set<string>> = { A: new Set(), B: new Set(), C: new Set(), D: new Set(), E: new Set() };
+      const visitCountByGrade: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 };
 
       dairyVisitRows.forEach((r: any) => {
-        const key = r.outletCode || r.outletName;
+        const key = r.outletCode || r.outletName || r.custCode || r.cust;
+        const normalizedGr = r.class;
+        visitCountByGrade[normalizedGr] = (visitCountByGrade[normalizedGr] || 0) + 1;
         if (key) {
           visitedOutletKeys.add(key);
-          const gr = r.class || r.classification;
-          const normalizedGr = ['A', 'B', 'C', 'D'].includes(gr) ? gr : 'E';
-          if (!visitedByGrade[normalizedGr]) visitedByGrade[normalizedGr] = new Set();
-          visitedByGrade[normalizedGr].add(key);
+          if (!visitedOutletsByGrade[normalizedGr]) visitedOutletsByGrade[normalizedGr] = new Set();
+          visitedOutletsByGrade[normalizedGr].add(key);
         }
       });
 
       const allGrades = ['A', 'B', 'C', 'D', 'E'];
       const gradeLabels = ['A', 'B', 'C', 'D', 'E'];
 
-      const stats: Record<string, { total: number; visited: number; unvisited: number; coveragePct: number }> = {};
+      const stats: Record<string, { totalVisits: number; uniqueOutlets: number; masterTotal: number; coveragePct: number }> = {};
       allGrades.forEach((g) => {
         const outletsInGrade = masterOutlets.filter((o: any) => {
           const ogr = ['A', 'B', 'C', 'D'].includes(o.dairyGr) ? o.dairyGr : 'E';
@@ -1817,19 +2066,17 @@ export default function AdminDashboardPage() {
         });
 
         const masterTotal = outletsInGrade.length;
-        const visitedMasterCount = outletsInGrade.filter((o: any) => visitedOutletKeys.has(o.code) || visitedOutletKeys.has(o.name) || visitedOutletKeys.has(o.id)).length;
-        const visitedRowsCount = (visitedByGrade[g] || new Set()).size;
+        const visitedUniqueFromVisits = (visitedOutletsByGrade[g] || new Set()).size;
+        const totalVisits = visitCountByGrade[g] || 0;
+        const masterBase = masterTotal > 0 ? masterTotal : (visitedUniqueFromVisits || (totalVisits > 0 ? 1 : 0));
+        // Frequency Achievement %: total visits against assigned master outlets (e.g. 2 visits to an A-class store = 200%)
+        const coveragePct = masterBase > 0 ? Math.round((totalVisits / masterBase) * 100) : 0;
 
-        const visited = Math.max(visitedMasterCount, visitedRowsCount);
-        const total = Math.max(masterTotal, visited);
-        const unvisited = Math.max(0, total - visited);
-        const coveragePct = total > 0 ? Math.round((visited / total) * 100) : 0;
-
-        stats[g] = { total, visited, unvisited, coveragePct };
+        stats[g] = { totalVisits, uniqueOutlets: visitedUniqueFromVisits, masterTotal: masterBase, coveragePct };
       });
 
-      const maxTotal = Math.max(...allGrades.map((g) => stats[g]?.total || 0), 10);
-      const yMax = Math.ceil((maxTotal * 1.25) / 50) * 50;
+      const maxTotal = Math.max(...allGrades.map((g) => stats[g]?.totalVisits || 0), 10);
+      const yMax = Math.ceil((maxTotal * 1.35) / 10) * 10;
 
       chartsRef.current.cClassDairy = new Chart(canvasClassDairyRef.current, {
         type: 'bar',
@@ -1837,24 +2084,14 @@ export default function AdminDashboardPage() {
           labels: gradeLabels,
           datasets: [
             {
-              label: 'Visited Outlets',
-              data: allGrades.map((g) => stats[g].visited),
-              backgroundColor: '#10b981',
-              hoverBackgroundColor: '#059669',
-              borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 4, bottomRight: 4 },
+              label: 'Visits Logged',
+              data: allGrades.map((g) => stats[g].totalVisits),
+              backgroundColor: ['#10b981', '#0ea5e9', '#f59e0b', '#8b5cf6', '#64748b'],
+              hoverBackgroundColor: ['#059669', '#0284c7', '#d97706', '#7c3aed', '#475569'],
+              borderColor: ['#34d399', '#38bdf8', '#fbbf24', '#a78bfa', '#94a3b8'],
+              borderWidth: 1.5,
+              borderRadius: 8,
               borderSkipped: false,
-              stack: 'dairyStack',
-              barPercentage: 0.62,
-              categoryPercentage: 0.8,
-            },
-            {
-              label: 'Unvisited Outlets',
-              data: allGrades.map((g) => stats[g].unvisited),
-              backgroundColor: theme === 'dark' ? '#334155' : '#cbd5e1',
-              hoverBackgroundColor: theme === 'dark' ? '#475569' : '#94a3b8',
-              borderRadius: { topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0 },
-              borderSkipped: false,
-              stack: 'dairyStack',
               barPercentage: 0.62,
               categoryPercentage: 0.8,
             },
@@ -1866,33 +2103,32 @@ export default function AdminDashboardPage() {
             afterDatasetsDraw(chart: any) {
               const { ctx } = chart;
               const meta0 = chart.getDatasetMeta(0);
-              const meta1 = chart.getDatasetMeta(1);
-              if (!meta0 || !meta1) return;
+              if (!meta0) return;
 
               allGrades.forEach((g, i) => {
                 const s = stats[g];
-                if (!s || s.total === 0) return;
+                if (!s) return;
 
                 const bar0 = meta0.data[i];
-                const bar1 = meta1.data[i];
-                const topBar = s.unvisited > 0 && bar1 ? bar1 : bar0;
-                if (!topBar) return;
+                if (!bar0) return;
 
                 ctx.save();
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
 
-                // Line 1: Coverage %
-                ctx.font = '700 11px Inter, sans-serif';
-                ctx.fillStyle = s.coveragePct >= 50
-                  ? (theme === 'dark' ? '#34d399' : '#059669')
-                  : (theme === 'dark' ? '#fbbf24' : '#d97706');
-                ctx.fillText(`${s.coveragePct}%`, topBar.x, topBar.y - 14);
+                // Line 1: Total Visits (bold 13px)
+                ctx.font = '800 13px Inter, sans-serif';
+                ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+                ctx.fillText(`${s.totalVisits} visits`, bar0.x, bar0.y - 15);
 
-                // Line 2: Ratio (visited/total)
-                ctx.font = '600 9.5px Inter, sans-serif';
-                ctx.fillStyle = theme === 'dark' ? '#94a3b8' : '#64748b';
-                ctx.fillText(`${s.visited}/${s.total}`, topBar.x, topBar.y - 2);
+                // Line 2: Frequency Ratio & % (Visits / Master Outlets - e.g. 2 visits to 1 Class A outlet = 2/1 200%)
+                ctx.font = '700 11px Inter, sans-serif';
+                ctx.fillStyle = s.coveragePct >= 100
+                  ? (isDark ? '#34d399' : '#059669')
+                  : s.coveragePct >= 50
+                  ? (isDark ? '#38bdf8' : '#0284c7')
+                  : (isDark ? '#fbbf24' : '#d97706');
+                ctx.fillText(`${s.totalVisits}/${s.masterTotal} (${s.coveragePct}%)`, bar0.x, bar0.y - 2);
 
                 ctx.restore();
               });
@@ -1902,22 +2138,11 @@ export default function AdminDashboardPage() {
         options: {
           maintainAspectRatio: false,
           layout: {
-            padding: { top: 20, bottom: 4, left: 4, right: 6 },
+            padding: { top: 28, bottom: 4, left: 4, right: 6 },
           },
           plugins: {
             legend: {
-              display: true,
-              position: 'top',
-              align: 'end',
-              labels: {
-                color: textColor,
-                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
-                boxWidth: 8,
-                boxHeight: 8,
-                usePointStyle: true,
-                pointStyle: 'circle',
-                padding: 10,
-              },
+              display: false,
             },
             tooltip: {
               backgroundColor: theme === 'dark' ? '#1e293b' : '#0f172a',
@@ -1936,19 +2161,24 @@ export default function AdminDashboardPage() {
                   const g = allGrades[ctx.dataIndex];
                   const s = stats[g];
                   if (!s) return '';
-                  if (ctx.datasetIndex === 0) {
-                    return ` Visited Outlets: ${s.visited.toLocaleString()} (${s.coveragePct}% coverage)`;
-                  }
-                  return ` Unvisited Outlets: ${s.unvisited.toLocaleString()}`;
+                  const totalV = filteredForClassCharts.length;
+                  const pct = totalV > 0 ? Math.round((s.totalVisits / totalV) * 100) : 0;
+                  return ` Total Visits: ${s.totalVisits.toLocaleString()} visits (${pct}% of visits)`;
                 },
                 afterBody: (items: any[]) => {
                   const g = allGrades[items[0]?.dataIndex];
                   const s = stats[g];
                   if (!s) return [];
+                  const guideline = g === 'A'
+                    ? 'Twice per month (Bi-weekly) • 2 visits/store = 200%'
+                    : (g === 'B' || g === 'C')
+                    ? 'Once every month (Monthly) • 1 visit/store = 100%'
+                    : 'As per assigned PJP';
                   return [
                     '───────────────────────',
-                    ` Total Outlets: ${s.total.toLocaleString()}`,
-                    ` Outlet Visit Coverage: ${s.coveragePct}% (${s.visited}/${s.total})`,
+                    ` Frequency Target Achievement: ${s.totalVisits.toLocaleString()} visits on ${s.masterTotal.toLocaleString()} stores (${s.coveragePct}%)`,
+                    ` Unique Outlets Reached: ${s.uniqueOutlets.toLocaleString()} stores`,
+                    ` Visit Frequency Policy: ${guideline}`,
                   ];
                 },
               },
@@ -1958,14 +2188,14 @@ export default function AdminDashboardPage() {
             if (el.length > 0 && allowedReports.includes('classification')) {
               const rawLabel = chart.data.labels?.[el[0].index];
               const label = Array.isArray(rawLabel) ? rawLabel.join(' ') : String(rawLabel ?? '');
-              const matched = (reportRows.classificationDairy || []).filter((row: any) => {
+              const matched = dairyVisitRows.filter((row: any) => {
                 const rClass = row.class || row.classification;
                 const norm = ['A', 'B', 'C', 'D'].includes(rClass) ? rClass : 'E';
-                return norm === label && visitLookup.has(row.visitId);
+                return norm === label;
               });
               setReportModalType('classification');
               setReportModalSource('classificationDairy');
-              setReportModalTitle(`Outlets by Classification · Dairy · Class ${label}`);
+              setReportModalTitle(`Outlets by Classification · Dairy · Class ${label} (${matched.length} Visits)`);
               setReportModalRows(matched);
               setReportFilterChip({ key: 'segment', value: `Class: ${label}`, label: `Class: ${label}` });
               setReportModalOpen(true);
@@ -1976,25 +2206,23 @@ export default function AdminDashboardPage() {
           },
           scales: {
             x: {
-              stacked: true,
               grid: { display: false },
               ticks: {
                 color: textColor,
                 maxRotation: 0,
                 minRotation: 0,
                 autoSkip: false,
-                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
+                font: { family: 'Inter, sans-serif', size: 13.5, weight: 'bold' },
               },
             },
             y: {
-              stacked: true,
               beginAtZero: true,
               suggestedMax: yMax,
-              grid: { color: gridColor },
+              grid: { display: false },
               ticks: {
-                color: textColor,
+                color: mutedTextColor,
                 precision: 0,
-                font: { family: 'Inter, sans-serif', size: 10 },
+                font: { family: 'Inter, sans-serif', size: 11, weight: 'bold' },
               },
             },
           },
@@ -2140,77 +2368,90 @@ export default function AdminDashboardPage() {
           padding:14px 14px;
         }
         .filters {
-          display:flex;
-          gap:8px;
-          flex-wrap:wrap;
-          margin-bottom:8px;
-          align-items:flex-end;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          margin-bottom: 8px;
         }
         .fld {
-          display:flex;
-          flex-direction:column;
-          gap:4px;
-          position:relative;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          position: relative;
         }
         .fld label {
-          font-size:10.5px;
-          font-weight:800;
-          text-transform:uppercase;
-          letter-spacing:.05em;
-          color:var(--soft);
-          padding-left:4px;
+          font-size: 10.5px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+          color: var(--soft);
+          padding-left: 2px;
         }
         .filters select,
-        .filters input {
-          padding:8px 11px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:600;
-          color:var(--ink);
-          cursor:pointer;
-          min-width:120px;
+        .filters input:not([type="checkbox"]) {
+          padding: 8px 11px;
+          height: 38px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--ink);
+          cursor: pointer;
+          min-width: 120px;
         }
-        .filters input {
-          cursor:text;
+        .filters input:not([type="checkbox"]) {
+          cursor: text;
+        }
+        .filters input[type="date"] {
+          cursor: pointer;
         }
         .filters select:focus,
-        .filters input:focus {
-          outline:none;
-          border-color:var(--blue);
+        .filters input:not([type="checkbox"]):focus {
+          outline: none;
+          border-color: var(--blue);
+        }
+        .filters input[type="checkbox"] {
+          width: 16px !important;
+          min-width: 16px !important;
+          max-width: 16px !important;
+          height: 16px !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
         .reset {
-          padding:8px 12px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:inherit;
-          font-size:12px;
-          font-weight:700;
-          color:var(--blue-deep);
-          cursor:pointer;
+          padding: 8px 12px;
+          height: 38px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--blue-deep, #4F46E5);
+          cursor: pointer;
         }
         .live-badge {
-          display:flex;
-          align-items:center;
-          gap:8px;
-          padding:8px 12px;
-          border:1.5px solid var(--line);
-          border-radius:11px;
-          background:var(--card);
-          font-family:monospace;
-          font-size:10.5px;
-          font-weight:700;
-          color:var(--soft);
-          user-select:none;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          height: 38px;
+          padding: 0 12px;
+          border: 1.5px solid var(--line);
+          border-radius: 11px;
+          background: var(--card);
+          font-family: monospace;
+          font-size: 10.5px;
+          font-weight: 700;
+          color: var(--soft);
+          user-select: none;
         }
         .live-dot {
-          height:8px;
-          width:8px;
-          border-radius:50%;
-          display:inline-block;
+          height: 8px;
+          width: 8px;
+          border-radius: 50%;
+          display: inline-block;
         }
         .live-dot.active {
           background:var(--green);
@@ -2239,43 +2480,84 @@ export default function AdminDashboardPage() {
         }
         .kpis {
           display:grid;
-          grid-template-columns:repeat(5, minmax(0, 1fr));
-          gap:10px;
-          margin-bottom:12px;
+          grid-template-columns:repeat(6, minmax(0, 1fr));
+          gap:12px;
+          margin-bottom:14px;
         }
-        @media(max-width:980px){
-          .kpis { grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); }
+        @media(max-width:1200px){
+          .kpis { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+        }
+        @media(max-width:640px){
+          .kpis { grid-template-columns:repeat(2, minmax(0, 1fr)); }
         }
         .kpi {
-          background:var(--card);
-          border-radius:12px;
-          padding:10px 14px;
-          box-shadow:var(--shadow);
+          position:relative;
+          background:linear-gradient(180deg, var(--card) 0%, rgba(248, 250, 252, 0.6) 100%);
+          border-radius:14px;
+          padding:12px 14px 10px;
+          box-shadow:0 4px 12px -2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03);
           border:1px solid var(--line);
+          overflow:hidden;
+          transition:transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .kpi:hover {
+          transform:translateY(-2px);
+          box-shadow:0 10px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+        }
+        .kpi::before {
+          content:'';
+          position:absolute;
+          top:0;
+          left:0;
+          right:0;
+          height:3.5px;
+        }
+        .kpi.b::before { background:linear-gradient(90deg, #4338ca, #6366f1); }
+        .kpi.g::before { background:linear-gradient(90deg, #059669, #10b981); }
+        .kpi.a::before { background:linear-gradient(90deg, #d97706, #f59e0b); }
+        .kpi.r::before { background:linear-gradient(90deg, #dc2626, #f43f5e); }
+        .kpi-head {
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          margin-bottom:3px;
         }
         .kpi .lbl {
           font-size:10px;
           color:var(--soft);
-          font-weight:700;
+          font-weight:800;
+          text-transform:uppercase;
+          letter-spacing:.05em;
+        }
+        .kpi-tag {
+          font-size:9px;
+          font-weight:800;
           text-transform:uppercase;
           letter-spacing:.04em;
+          padding:1px 6px;
+          border-radius:99px;
         }
+        .kpi.b .kpi-tag { background:#eef2ff; color:#4338ca; }
+        .kpi.g .kpi-tag { background:#ecfdf5; color:#047857; }
+        .kpi.a .kpi-tag { background:#fffbeb; color:#b45309; }
+        .kpi.r .kpi-tag { background:#fef2f2; color:#b91c1c; }
         .kpi .val {
-          font-size:24px;
-          font-weight:800;
-          letter-spacing:-1px;
+          font-size:28px;
+          font-weight:900;
+          letter-spacing:-1.2px;
+          line-height:1.1;
           margin-top:2px;
         }
         .kpi .delta {
           font-size:11px;
-          font-weight:700;
-          margin-top:2px;
+          font-weight:600;
+          margin-top:3px;
           color:var(--soft);
         }
-        .kpi.b .val { color:var(--blue-deep); }
-        .kpi.g .val { color:var(--green); }
-        .kpi.a .val { color:var(--amber); }
-        .kpi.r .val { color:var(--red); }
+        .kpi.b .val { color:#3730a3; }
+        .kpi.g .val { color:#047857; }
+        .kpi.a .val { color:#b45309; }
+        .kpi.r .val { color:#b91c1c; }
         .grid {
           display:grid;
           grid-template-columns:2fr 1fr;
@@ -2293,25 +2575,31 @@ export default function AdminDashboardPage() {
         }
         .panel {
           background:var(--card);
-          border-radius:12px;
-          padding:10px 14px 6px;
-          box-shadow:var(--shadow);
+          border-radius:16px;
+          padding:14px 16px 10px;
+          box-shadow:0 1px 3px rgba(0,0,0,0.04), 0 8px 24px -4px rgba(0,0,0,0.04);
           border:1px solid var(--line);
+          transition:box-shadow 0.2s ease;
+        }
+        .panel:hover {
+          box-shadow:0 4px 12px rgba(0,0,0,0.06), 0 12px 28px -4px rgba(0,0,0,0.05);
         }
         .panel.tbl { padding-bottom:12px; }
         .panel h3 {
-          font-size:13px;
+          font-size:14.5px;
           font-weight:800;
-          margin-bottom:3px;
+          letter-spacing:-0.2px;
+          margin-bottom:2px;
+          color:var(--ink);
         }
         .panel .psub {
-          font-size:10px;
+          font-size:11px;
           color:var(--soft);
           font-weight:600;
           margin-bottom:8px;
         }
-        .chart-box { position:relative; height:165px; }
-        .chart-sm { position:relative; height:165px; }
+        .chart-box { position:relative; height:190px; }
+        .chart-sm { position:relative; height:190px; }
         table {
           width:100%;
           border-collapse:collapse;
@@ -2418,178 +2706,214 @@ export default function AdminDashboardPage() {
       <div className="wrap">
         {/* Filters Panel */}
         <div className="filters">
-          <div className="fld">
-            <label>From</label>
-            <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
+          {/* Quick Date Presets Strip */}
+          <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-1 text-xs">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--soft)] mr-1 flex items-center gap-1">
+              <span>DATE PRESETS:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setQuickDate('minus1')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                fFrom === defaultMinusOne && fTo === defaultMinusOne
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
+              }`}
+            >
+              <span>⚡ -1 Day (Yesterday)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('today')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                fFrom === getTodayStr() && fTo === getTodayStr()
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)]'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('7d')}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+            >
+              Last 7 Days
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('mtd')}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+            >
+              This Month
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuickDate('all')}
+              className="px-3 py-1 rounded-lg text-[11px] font-bold bg-[var(--surface-2)] text-[var(--ink)] border border-[var(--line)] hover:bg-[var(--line)] transition-all cursor-pointer"
+            >
+              All Dates
+            </button>
           </div>
 
-          <div className="fld">
-            <label>To</label>
-            <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
-          </div>
+          {/* Row 1 Slicers */}
+          <div className="flex gap-2 flex-wrap items-end">
+            <div className="fld">
+              <label>FROM</label>
+              <input type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} />
+            </div>
 
+            <div className="fld">
+              <label>TO</label>
+              <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
+            </div>
+            <div className="fld min-w-[165px]">
+              <label>SUPERVISOR</label>
+              <MultiSelectDropdown
+                placeholder="All Supervisors"
+                options={supOptions}
+                selectedValues={fSuper}
+                onChange={(selected) => {
+                  setFSuper(selected);
+                  if (fChannel && masters && selected.length > 0) {
+                    const targetChan = fChannel.trim().toUpperCase();
+                    const channelSups = new Set<string>();
+                    (masters.routes || []).forEach((r: any) => {
+                      const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+                      if (rChan === targetChan && r.superName) channelSups.add(r.superName.trim().toUpperCase());
+                    });
+                    (masters.customers || []).forEach((c: any) => {
+                      let cChan = (c.rtm || c.channel || '').toUpperCase();
+                      if (!cChan && c.routeCode) cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+                      if (cChan === targetChan && c.superName) channelSups.add(c.superName.trim().toUpperCase());
+                    });
+                    const hasInvalid = selected.some((s) => !channelSups.has(s.trim().toUpperCase()));
+                    if (hasInvalid) setFChannel('');
+                  }
+                  setFClass('');
+                  setFCust('');
+                  setFRoute('');
+                }}
+              />
+            </div>
 
+            <div className="fld min-w-[120px]">
+              <label>RTM</label>
+              <select
+                value={fChannel}
+                onChange={(e) => {
+                  const newChan = e.target.value;
+                  setFChannel(newChan);
+                  setFClass('');
+                  setFCust('');
+                  if (newChan && masters) {
+                    const targetChan = newChan.trim().toUpperCase();
+                    const channelSups = new Set<string>();
+                    (masters.routes || []).forEach((r: any) => {
+                      const rChan = (r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT')).toUpperCase();
+                      if (rChan === targetChan && r.superName) channelSups.add(r.superName.trim().toUpperCase());
+                    });
+                    (masters.customers || []).forEach((c: any) => {
+                      let cChan = (c.rtm || c.channel || '').toUpperCase();
+                      if (!cChan && c.routeCode) cChan = c.routeCode.startsWith('MT') ? 'MT' : c.routeCode.startsWith('IS') ? 'INST' : 'TT';
+                      if (cChan === targetChan && c.superName) channelSups.add(c.superName.trim().toUpperCase());
+                    });
+                    setFSuper((prev) => prev.filter((s) => channelSups.has(s.trim().toUpperCase())));
+                  }
+                }}
+              >
+                <option value="">All RTM</option>
+                {rtmOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="fld min-w-[155px]">
-            <label>Manager</label>
-            <MultiSelectDropdown
-              placeholder="All Managers"
-              options={mgrOptions}
-              selectedValues={fMgr}
-              onChange={(selected) => {
-                setFMgr(selected);
-                // Retain only supervisors that belong to selected managers, if any managers are selected
-                if (selected.length > 0 && masters) {
-                  const validSups = new Set<string>();
-                  selected.forEach((m) => {
-                    const mUpper = m.toUpperCase();
-                    if (masters.managerSupervisorMap && masters.managerSupervisorMap[mUpper]) {
-                      (masters.managerSupervisorMap[mUpper] as string[]).forEach((s) => validSups.add(s));
-                    } else {
-                      (masters.routes || [])
-                        .filter((r: any) => (r.managerName || '').toUpperCase() === mUpper)
-                        .forEach((r: any) => { if (r.superName) validSups.add(r.superName); });
-                    }
-                  });
-                  setFSuper((prev) => prev.filter((s) => validSups.has(s)));
-                }
-                setFChannel('');
-                setFClass('');
+            <div className="fld min-w-[150px]">
+              <label>CLASSIFICATION</label>
+              <select value={fClass} onChange={(e) => {
+                setFClass(e.target.value);
                 setFCust('');
-                setFRoute('');
-              }}
-            />
+              }}>
+                <option value="">All Classifications</option>
+                {classOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="fld min-w-[165px]">
-            <label>Supervisor</label>
-            <MultiSelectDropdown
-              placeholder="All Supervisors"
-              options={supOptions}
-              selectedValues={fSuper}
-              onChange={(selected) => {
-                setFSuper(selected);
-                setFChannel('');
-                setFClass('');
+          {/* Row 2: OUTLET / CUSTOMER, ROUTE CODE, Reset, Live Badge */}
+          <div className="flex gap-2 flex-wrap items-end mt-2">
+            <div className="fld flex-1 min-w-[280px] max-w-[420px]">
+              <label>OUTLET / CUSTOMER</label>
+              <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
+                <option value="">All Outlets</option>
+                {custOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="fld min-w-[150px]">
+              <label>ROUTE CODE</label>
+              <select value={fRoute} onChange={(e) => {
+                const val = e.target.value;
+                setFRoute(val);
                 setFCust('');
-                setFRoute('');
-                // If user selected supervisors and no manager was selected, check if they all belong to a single manager
-                if (selected.length > 0 && masters?.routes && fMgr.length === 0) {
-                  const matchingRoutes = (masters.routes as any[]).filter(
-                    (r) => selected.some((s) => (r.superName || '').toUpperCase() === s.toUpperCase())
-                  );
-                  const mgrs = Array.from(new Set(matchingRoutes.map((r) => r.managerName).filter(Boolean)));
-                  if (mgrs.length === 1) {
-                    setFMgr([mgrs[0]]);
+                if (val && masters?.routes) {
+                  const rtInfo = (masters.routes as any[]).find((r) => r.routeCode === val);
+                  if (rtInfo) {
+                    if (rtInfo.superName && fSuper.length === 0) setFSuper([rtInfo.superName]);
                   }
                 }
-              }}
-            />
-          </div>
+              }}>
+                <option value="">All Route Codes</option>
+                {routeOptions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="fld min-w-[120px]">
-            <label>RTM</label>
-            <select
-              value={fChannel}
-              onChange={(e) => {
-                setFChannel(e.target.value);
-                setFClass('');
-                setFCust('');
-              }}
-            >
-              <option value="">All RTM</option>
-              {rtmOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
+            <button className="reset" onClick={resetFilters}>Reset</button>
 
-          <div className="fld">
-            <label>Classification</label>
-            <select value={fClass} onChange={(e) => {
-              setFClass(e.target.value);
-              setFCust('');
-            }}>
-              <option value="">All Classifications</option>
-              {classOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="fld">
-            <label>Outlet / Customer</label>
-            <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
-              <option value="">All Outlets</option>
-              {custOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="fld">
-            <label>Route Code</label>
-            <select value={fRoute} onChange={(e) => {
-              const val = e.target.value;
-              setFRoute(val);
-              setFCust('');
-              if (val && masters?.routes) {
-                const rtInfo = (masters.routes as any[]).find((r) => r.routeCode === val);
-                if (rtInfo) {
-                  if (rtInfo.managerName && fMgr.length === 0) setFMgr([rtInfo.managerName]);
-                  if (rtInfo.superName && fSuper.length === 0) setFSuper([rtInfo.superName]);
-                }
-              }
-            }}>
-              <option value="">All Route Codes</option>
-              {routeOptions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* <div className="fld">
-            <label>Asset Category</label>
-            <select
-              value={fAssetCategory}
-              onChange={(e) => {
-                setFAssetCategory(e.target.value);
-                setFSizeModels([]);
-              }}
-            >
-              <option value="All">All Categories</option>
-              {ASSET_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div> */}
-
-          {/* <div className="fld min-w-[190px]">
-            <label>Size / Model</label>
-            <MultiSelectDropdown
-              placeholder="Select Size/Model"
-              options={availableSizeModels}
-              selectedValues={fSizeModels}
-              onChange={setFSizeModels}
-            />
-          </div> */}
-
-          <button className="reset" onClick={resetFilters}>Reset</button>
-
-          {/* <ExportButton onClick={handleExportAllFilteredVisits} label="Export Filtered Data" variant="default" /> */}
-
-          <div className="live-badge" suppressHydrationWarning>
-            <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
-            <span>{isSyncing ? 'SYNCING...' : 'LIVE SYNC ACTIVE'}</span>
-            <span style={{ opacity: 0.3 }}>|</span>
-            <span suppressHydrationWarning>UPDATED {mounted ? lastUpdated.toLocaleTimeString() : '...'}</span>
+            <div className="live-badge" suppressHydrationWarning>
+              <span className={`live-dot ${isSyncing ? 'syncing' : 'active'}`} />
+              <span>{isSyncing ? 'SYNCING...' : 'LIVE SYNC ACTIVE'}</span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span suppressHydrationWarning>UPDATED {mounted ? lastUpdated.toLocaleTimeString() : '...'}</span>
+            </div>
           </div>
         </div>
 
-        {isLoading && (
-          <div className="flex items-center justify-center gap-2 p-3 mb-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-[var(--accent)] animate-pulse">
-            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            <span>Loading executive analytics and master data in background...</span>
+        {/* High-Visibility Dark Executive Loading Banner */}
+        {(isLoading || isSyncing) && (
+          <div className="relative overflow-hidden mb-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-indigo-500/40 p-4 shadow-2xl text-white animate-fade-in">
+            <div className="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-indigo-600/30 border border-indigo-400/50 flex items-center justify-center text-cyan-300 shadow-inner flex-shrink-0 animate-spin">
+                  <RefreshCw className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                      LIVE DATABASE SYNC
+                    </span>
+                    <span className="text-[11px] text-slate-300 font-semibold">
+                      Benchmark: -1 Day Operations ({fFrom || defaultMinusOne})
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm font-bold text-white mt-0.5 tracking-tight">
+                    Loading executive market visit analytics, cold chain audits, and master records in background...
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-[11px] font-mono text-cyan-300 shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+                <span className="font-bold">SYNCHRONIZING</span>
+              </div>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-cyan-400 to-indigo-600 animate-pulse" />
           </div>
         )}
 
@@ -2602,27 +2926,50 @@ export default function AdminDashboardPage() {
         {/* KPI Row */}
         <div className="kpis">
           <div className="kpi b">
-            <div className="lbl">Total Visits</div>
+            <div className="kpi-head">
+              <span className="lbl">Total Visits</span>
+              <span className="kpi-tag">Execution</span>
+            </div>
             <div className="val">{isLoading && rows.length === 0 ? '...' : filtered.length}</div>
             <div className="delta">visits logged</div>
           </div>
           <div className="kpi g">
-            <div className="lbl">Outlets Covered</div>
+            <div className="kpi-head">
+              <span className="lbl">Outlets Covered</span>
+              <span className="kpi-tag">Reach</span>
+            </div>
             <div className="val">{isLoading && rows.length === 0 ? '...' : outletsCount}</div>
             <div className="delta">unique outlets</div>
           </div>
+          <div className="kpi b">
+            <div className="kpi-head">
+              <span className="lbl">Avg Visits / Day</span>
+              <span className="kpi-tag">Velocity</span>
+            </div>
+            <div className="val">{isLoading && rows.length === 0 ? '...' : avgVisitsPerDay}</div>
+            <div className="delta">{activeDaysCount} active day{activeDaysCount === 1 ? '' : 's'}</div>
+          </div>
           <div className="kpi a">
-            <div className="lbl">No Visits</div>
+            <div className="kpi-head">
+              <span className="lbl">No Visits</span>
+              <span className="kpi-tag">Skipped</span>
+            </div>
             <div className="val">{isLoading && rows.length === 0 ? '...' : noVisitCount}</div>
             <div className="delta">skipped outlet visits</div>
           </div>
           <div className="kpi b">
-            <div className="lbl">Assets Checked</div>
+            <div className="kpi-head">
+              <span className="lbl">Assets Checked</span>
+              <span className="kpi-tag">Cold Chain</span>
+            </div>
             <div className="val">{isLoading && rows.length === 0 ? '...' : filtered.length}</div>
             <div className="delta">chillers/freezers</div>
           </div>
           <div className="kpi r">
-            <div className="lbl">Temp Breaches</div>
+            <div className="kpi-head">
+              <span className="lbl">Temp Breaches</span>
+              <span className="kpi-tag">Integrity</span>
+            </div>
             <div className="val">{isLoading && rows.length === 0 ? '...' : breachesCount}</div>
             <div className="delta">{isLoading && rows.length === 0 ? '...' : breachPct}</div>
           </div>
@@ -2672,6 +3019,30 @@ export default function AdminDashboardPage() {
           </div>
         </div>
  
+        {/* Outlet Visit Frequency Policy Guidelines Banner */}
+        <div className="mb-4 rounded-xl border border-indigo-200/90 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/90 via-sky-50/70 to-blue-50/90 dark:from-slate-900/90 dark:via-indigo-950/40 dark:to-slate-900/90 p-3.5 shadow-xs">
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-indigo-500/20">
+              <Sparkles className="h-4.5 w-4.5" />
+            </div>
+            <div className="flex-1 min-w-[240px]">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
+                  Outlet Visit Frequency Policy Guidelines
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300">
+                  Standard Operating Procedure
+                </span>
+              </div>
+              <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
+                <strong className="text-slate-950 dark:text-white font-bold">Class A Outlets:</strong> Must visit <span className="underline decoration-indigo-500 decoration-2 font-bold text-indigo-900 dark:text-indigo-200">Twice per month</span> (Bi-weekly) &nbsp;•&nbsp;
+                <strong className="text-slate-950 dark:text-white font-bold">Class B &amp; C Outlets:</strong> Must visit <span className="underline decoration-sky-500 decoration-2 font-bold text-sky-900 dark:text-sky-200">Once every month</span> (Monthly) &nbsp;•&nbsp;
+                <strong className="text-slate-950 dark:text-white font-bold">Class D &amp; E Outlets:</strong> As per assigned <span className="font-bold text-violet-700 dark:text-violet-300">Permanent Journey Plan (PJP)</span>.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Chart Row 3 */}
         <div className="grid" style={{ gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 1.5fr)' }}>
           <div className="panel">
@@ -2682,7 +3053,7 @@ export default function AdminDashboardPage() {
               </div>
               <ExportButton onClick={handleExportPowerSkuChart} label="Export" variant="compact" />
             </div>
-            <div style={{ position: 'relative', height: '175px' }}>
+            <div style={{ position: 'relative', height: '190px' }}>
               <canvas ref={canvasPskuRef}></canvas>
             </div>
           </div>
@@ -2690,11 +3061,11 @@ export default function AdminDashboardPage() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3>Outlets by Classification · Dairy</h3>
-                <div className="psub">Outlet visit coverage (Visited vs Unvisited by Class)</div>
+                <div className="psub">Total visits logged by outlet classification grade</div>
               </div>
               <ExportButton onClick={handleExportClassificationDairyChart} label="Export" variant="compact" />
             </div>
-            <div style={{ position: 'relative', height: '175px' }}>
+            <div style={{ position: 'relative', height: '190px' }}>
               <canvas ref={canvasClassDairyRef}></canvas>
             </div>
           </div>
@@ -2720,21 +3091,19 @@ export default function AdminDashboardPage() {
           subtitle="Outlet-level audit details, SKU availability counts, and cold chain asset models"
         />
 
-        {/* Audit Photo Gallery Section with Pagination */}
-        {/* <PhotoGallerySection
-          photos={photos}
-          fFrom={fFrom}
-          fTo={fTo}
-          fMgr={fMgr}
-          fSuper={fSuper}
-          fChannel={fChannel}
-          fCust={fCust}
-          fRoute={fRoute}
-        /> */}
+        {/* Corrective Actions & Audit Directives Tracker Summary Sheet */}
+        <AuditActionsTrackerSummary
+          selectedManager={fMgr.length === 1 ? fMgr[0] : 'all'}
+          selectedSupervisor={fSuper.length === 1 ? fSuper[0] : 'all'}
+          selectedRtm={fChannel || 'all'}
+          userRole={userRole || 'Admin'}
+          title="Directives & Corrective Actions Tracker"
+          subtitle="Manager & Supervisor accountability sheet: Track audit issues flagged, proof submissions, open directives, and resolution compliance."
+        />
 
         {/* Footer */}
         <div className="foot">
-          <b>Real database visits live sync.</b> All five filters above are active — selections recalculate compliance & scorecard data dynamically.
+          <b>Real database visits live sync.</b> Filters above are active — selections recalculate compliance & scorecard data dynamically.
         </div>
       </div>
       <InteractiveChartTableModal

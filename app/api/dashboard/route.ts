@@ -6,6 +6,7 @@ import pool from '@/lib/db';
 import { getDashboardScope, isFleetRole, isFullAccessRole, isSupervisorRole, isReportAllowed } from '@/lib/roles';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
 import { getCustMasterData } from '@/lib/custmaster-data';
+import { MT_POWER_SKUS, TT_POWER_SKUS, MT_POWER_SKU_CODES, TT_POWER_SKU_CODES } from '@/lib/power-skus-data';
 
 let dashboardSchemaChecked = false;
 async function ensureDashboardSchema() {
@@ -15,11 +16,28 @@ async function ensureDashboardSchema() {
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`PowerSKU\` (\`skuCode\` VARCHAR(191) NOT NULL, \`skuName\` VARCHAR(191) NOT NULL, \`channel\` VARCHAR(191) NOT NULL, PRIMARY KEY (\`skuCode\`, \`channel\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`VisitAsset\` (\`assetId\` VARCHAR(191) PRIMARY KEY, \`visitId\` VARCHAR(191) NOT NULL, \`assetType\` VARCHAR(50) NOT NULL, \`temperature\` DOUBLE NULL, \`tempInRange\` TINYINT(1) NULL, \`actionRequired\` VARCHAR(50) NULL, \`observation\` TEXT NULL, \`isFirstInFlow\` TINYINT(1) NULL DEFAULT 0, \`fefoFollowed\` TINYINT(1) NULL DEFAULT 0, INDEX \`idx_asset_visit\` (\`visitId\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`VisitPowerSkuResult\` (\`visitId\` VARCHAR(191) NOT NULL, \`skuCode\` VARCHAR(191) NOT NULL, \`status\` VARCHAR(50) NOT NULL, PRIMARY KEY (\`visitId\`, \`skuCode\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
+
+    // Ensure collation is unified across all tables to prevent ER_CANT_AGGREGATE_2COLLATIONS
+    try {
+      await pool.execute(`ALTER TABLE \`VisitPowerSkuResult\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+      await pool.execute(`ALTER TABLE \`VisitAsset\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+      await pool.execute(`ALTER TABLE \`PowerSKU\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+
+      // Ensure all canonical Power SKUs exist in database
+      const allPskus = [...MT_POWER_SKUS, ...TT_POWER_SKUS];
+      for (const s of allPskus) {
+        await pool.execute(
+          'INSERT INTO `PowerSKU` (`skuCode`, `skuName`, `channel`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `skuName` = VALUES(`skuName`)',
+          [s.skuCode, s.skuName, s.channel]
+        );
+      }
+    } catch (_) {}
+
     dashboardSchemaChecked = true;
   } catch (e) {}
 }
 
-import { MasterCache, getCachedMasterData, setCachedMasterData } from '@/lib/dashboard-cache';
+import { MasterCache, getCachedMasterData, setCachedMasterData, dashboardApiCacheStore } from '@/lib/dashboard-cache';
 
 const MASTER_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -46,20 +64,29 @@ async function getMasterData(): Promise<MasterCache> {
     `).then(([rows]: any) => rows).catch(() => []),
   ]);
 
-  const custMaster = getCustMasterData();
+  const custMaster = getCustMasterData(true);
 
-  const customers = customersRaw && customersRaw.length > 0
-    ? customersRaw
-    : custMaster.customers.map((c: any) => ({
-        cust_rt_id: c.cust_rt_id,
-        customerCode: c.customerCode,
-        customerName: c.customerName,
-        classification: c.classification,
-        dairyClassification: c.dairyClassification || c.classification,
-        iceCreamClassification: c.iceCreamClassification || c.classification,
-        channel: c.channel || 'TT',
-        routeCode: c.routeCode,
-      }));
+  const rawCustList = customersRaw && customersRaw.length > 0 ? customersRaw : custMaster.customers;
+  const customers = rawCustList.map((c: any) => {
+    const rawCode = (c.customerCode || '').trim().toUpperCase();
+    const unpadded = rawCode.replace(/^C/i, '').replace(/^0+/, '');
+    const masterCls =
+      (rawCode ? custMaster?.customerClassificationMap?.[rawCode] : '') ||
+      (unpadded ? custMaster?.customerClassificationMap?.[unpadded] : '') ||
+      (rawCode.startsWith('C') ? custMaster?.customerClassificationMap?.[rawCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${rawCode}`]) ||
+      '';
+    const dairyCls = (masterCls && masterCls !== '-') ? masterCls : (c.dairyClassification || c.classification);
+    return {
+      cust_rt_id: c.cust_rt_id || `${c.customerCode}|${c.routeCode || ''}`,
+      customerCode: c.customerCode,
+      customerName: c.customerName,
+      classification: dairyCls || c.classification || 'C',
+      dairyClassification: dairyCls || 'C',
+      iceCreamClassification: c.iceCreamClassification || c.classification,
+      channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE' && c.channel !== 'GT') ? c.channel : 'TT',
+      routeCode: c.routeCode || '',
+    };
+  });
 
   const routeRows = custMaster.routes.length > 0
     ? custMaster.routes.map((r: any) => ({
@@ -127,7 +154,7 @@ async function getMasterData(): Promise<MasterCache> {
   return newCache;
 }
 
-const cacheStore = new Map<string, { timestamp: number; data: any }>();
+const cacheStore = dashboardApiCacheStore;
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds cache for instant tab switches & returns
 
 export async function GET(req: NextRequest) {
@@ -171,35 +198,38 @@ export async function GET(req: NextRequest) {
     const supervisorId = isSupervisor ? userSession.id : null;
 
     // 1. Fetch cached master data & raw visits concurrently with role-based scoping
+    const userLowerName = (userSession.name || '').toLowerCase().trim();
+    const userLowerEmail = (userSession.email || '').toLowerCase().trim();
+
     const [masters, visitsRaw, assets, pskuResults, npdResults, photosRaw] = await Promise.all([
       getMasterData(),
       isSupervisor
-        ? visitRepository.getVisitsBySupervisor(supervisorId!).catch(() => [])
+        ? visitRepository.getVisitsBySupervisor(supervisorId!, { name: userSession.name, email: userSession.email }).catch(() => [])
         : visitRepository.getAllVisits().catch(() => []),
       pool.execute(
         isSupervisor
-          ? 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId = v.visitId WHERE v.supervisorId = ?'
+          ? 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
           : 'SELECT * FROM `VisitAsset`',
-        isSupervisor ? [supervisorId] : []
-      ).then(([rows]: any) => rows).catch(() => []),
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Asset query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId = v.visitId WHERE v.supervisorId = ?'
+          ? 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
           : 'SELECT * FROM `VisitPowerSkuResult`',
-        isSupervisor ? [supervisorId] : []
-      ).then(([rows]: any) => rows).catch(() => []),
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard PSKU query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId = v.visitId WHERE v.supervisorId = ?'
+          ? 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
           : 'SELECT * FROM `NPDResponse`',
-        isSupervisor ? [supervisorId] : []
-      ).then(([rows]: any) => rows).catch(() => []),
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard NPD query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId = v.visitId WHERE v.supervisorId = ? ORDER BY vp.uploadedAt DESC LIMIT 100'
+          ? 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?) ORDER BY vp.uploadedAt DESC LIMIT 100'
           : 'SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC LIMIT 200',
-        isSupervisor ? [supervisorId] : []
-      ).then(([rows]: any) => rows).catch(() => []),
+        isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
+      ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Photo query error:', err); return []; }),
     ]);
 
     const {
@@ -220,7 +250,11 @@ export async function GET(req: NextRequest) {
 
     let visits = visitsRaw;
     if (scope === 'supervisor') {
-      visits = visits.filter((v: any) => v.supervisorId === userSession.id);
+      visits = visits.filter((v: any) => {
+        if (v.supervisorId === userSession.id) return true;
+        const cb = (v.createdBy || '').toLowerCase().trim();
+        return (userLowerEmail && cb === userLowerEmail) || (userLowerName && cb === userLowerName);
+      });
     }
 
     let filteredVisits: any[] = visits.filter((v: any) => v.status === 'Submitted');
@@ -308,7 +342,11 @@ export async function GET(req: NextRequest) {
       filteredVisits = filteredVisits.filter((v: any) => new Date(v.createdAt) <= end);
     }
     if (scope === 'supervisor') {
-      filteredVisits = filteredVisits.filter((v: any) => v.supervisorId === userSession.id);
+      filteredVisits = filteredVisits.filter((v: any) => {
+        if (v.supervisorId === userSession.id) return true;
+        const cb = (v.createdBy || '').toLowerCase().trim();
+        return (userLowerEmail && cb === userLowerEmail) || (userLowerName && cb === userLowerName);
+      });
     }
 
     // Filter by Manager parameter (if passed)
@@ -522,6 +560,12 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      if (/^(MT|TR|IS|EX|DIS|R\d)/i.test(custCodeRaw) && (/^C\d+/i.test(routeCodeRaw) || /^\d+$/.test(routeCodeRaw))) {
+        const tmp = custCodeRaw;
+        custCodeRaw = routeCodeRaw;
+        routeCodeRaw = tmp;
+      }
+
       const cleanCustCode = custCodeRaw.toUpperCase().trim();
       const unpaddedCustCode = cleanCustCode.replace(/^C/i, '').replace(/^0+/, '');
 
@@ -614,18 +658,50 @@ export async function GET(req: NextRequest) {
       }
 
       // 5. Resolve Channel (CUSTMASTER Segment_Fin(120MT) is primary source of truth!)
-      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, 'TT') || dbCust?.channel || '';
+      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, '') || dbCust?.channel || '';
       if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
-        ch = 'TT';
+        if (cleanRoute.startsWith('MT')) {
+          ch = 'MT';
+        } else if (cleanRoute.startsWith('IS')) {
+          ch = 'INST';
+        } else if (cleanRoute.startsWith('TR')) {
+          ch = 'TT';
+        } else if (mgrName === 'ADNAN' || ['ASAD', 'SAIFULLAH', 'KISHAN', 'JAVED', 'MOHSIN', 'RASHWIN'].includes(supName)) {
+          ch = 'MT';
+        } else if (mgrName === 'WASIM' || supName === 'WASIM') {
+          ch = 'INST';
+        } else {
+          ch = 'TT';
+        }
       }
       ch = ch.toUpperCase().trim();
 
-      // 6. Resolve Classifications (proper relationship with Customer_Classification)
-      const dairyGr = dbCust?.dairyClassification || cmCust?.dairyClassification || null;
-      const iceGr = dbCust?.iceCreamClassification || cmCust?.iceCreamClassification || null;
+      // 6. Resolve Classifications (proper relationship with Master Customer_Classification)
+      const masterDirectCls =
+        (cleanCustCode ? custMaster?.customerClassificationMap?.[cleanCustCode] : '') ||
+        (unpaddedCustCode ? custMaster?.customerClassificationMap?.[unpaddedCustCode] : '') ||
+        (cleanCustCode.startsWith('C') ? custMaster?.customerClassificationMap?.[cleanCustCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${cleanCustCode}`]) ||
+        '';
+
+      const dairyGr =
+        (masterDirectCls && masterDirectCls !== '-') ? masterDirectCls :
+        (cmCust?.dairyClassification && cmCust.dairyClassification !== '-') ? cmCust.dairyClassification :
+        (dbCust?.dairyClassification && dbCust.dairyClassification !== '-') ? dbCust.dairyClassification :
+        (v.dairyClassification && v.dairyClassification !== '-') ? v.dairyClassification :
+        (cmCust?.classification && cmCust.classification !== '-') ? cmCust.classification :
+        (dbCust?.classification && dbCust.classification !== '-') ? dbCust.classification :
+        null;
+
+      const iceGr =
+        (cmCust?.iceCreamClassification && cmCust.iceCreamClassification !== '-') ? cmCust.iceCreamClassification :
+        (dbCust?.iceCreamClassification && dbCust.iceCreamClassification !== '-') ? dbCust.iceCreamClassification :
+        (v.iceCreamClassification && v.iceCreamClassification !== '-') ? v.iceCreamClassification :
+        null;
+
       let gr =
         (dairyGr && dairyGr !== '-') ? dairyGr :
         (iceGr && iceGr !== '-') ? iceGr :
+        (masterDirectCls && masterDirectCls !== '-') ? masterDirectCls :
         (cmCust?.classification && cmCust.classification !== '-') ? cmCust.classification :
         (dbCust?.classification && dbCust.classification !== '-') ? dbCust.classification :
         'C';
@@ -650,8 +726,6 @@ export async function GET(req: NextRequest) {
       else if (visitNpd.some((r: any) => r.status === 'Not Available')) npd = 'N';
 
       const visitPsku = pskuMap.get(v.visitId) || [];
-      const hasAvail = visitPsku.some((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A');
-      const psku = hasAvail ? 'A' : 'N';
 
       const isTT = ch === 'TT' || cleanRoute.startsWith('TR') || cleanRoute.startsWith('TRI');
       const isMT =
@@ -659,16 +733,45 @@ export async function GET(req: NextRequest) {
         (ch === 'MT' ||
           cleanCustCode.startsWith('MTD') ||
           cleanRoute.startsWith('C') ||
+          cleanRoute.startsWith('MT') ||
           custName.toUpperCase().includes('LULU') ||
           custName.toUpperCase().includes('CARREFOUR') ||
           custName.toUpperCase().includes('MEGAMART') ||
           custName.toUpperCase().includes('AL MEERA') ||
           custName.toUpperCase().includes('HYPER'));
 
-      // User instruction: "power sku should not 41. for MT its 24 and for TT its 27, correct these 2."
-      const totalPskuCount = isMT ? 24 : 27;
-      const rawAvailPsku = visitPsku.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
+      // Strictly 24 for MT and 22 for TT matching official master lists
+      const totalPskuCount = isMT ? MT_POWER_SKUS.length : TT_POWER_SKUS.length;
+      const targetSkus = isMT ? MT_POWER_SKUS : TT_POWER_SKUS;
+      const visitPskuMap = new Map<string, any>();
+      visitPsku.forEach((item: any) => {
+        if (item?.skuCode) {
+          const code = String(item.skuCode).toUpperCase().trim();
+          visitPskuMap.set(code, item);
+          if (code.includes('/')) {
+            code.split('/').forEach((c) => visitPskuMap.set(c.trim(), item));
+          }
+        }
+      });
+      let rawAvailPsku = 0;
+      targetSkus.forEach((canonicalSku) => {
+        const code = canonicalSku.skuCode.toUpperCase().trim();
+        let item = visitPskuMap.get(code);
+        if (!item && code.includes('/')) {
+          for (const part of code.split('/').map((c) => c.trim())) {
+            if (visitPskuMap.has(part)) {
+              item = visitPskuMap.get(part);
+              break;
+            }
+          }
+        }
+        if (item && (item.status === 'Available' || item.status === 'YES' || item.status === 'A')) {
+          rawAvailPsku++;
+        }
+      });
       const pskuAvailableCount = Math.min(rawAvailPsku, totalPskuCount);
+      const hasAvail = rawAvailPsku > 0;
+      const psku = hasAvail ? 'A' : 'N';
       const npdAvailableCount = visitNpd.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
 
       const chillerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
@@ -864,29 +967,35 @@ export async function GET(req: NextRequest) {
           });
         }
 
-        // Populate PowerSKU Report Rows (Per SKU level granularity, excluding No Visit)
+        // Populate PowerSKU Report Rows (Strictly 24 MT or 22 TT canonical SKUs matching Master List)
         if (v.visit_type !== 'No Visit') {
+          const targetSkus = isMT ? MT_POWER_SKUS : TT_POWER_SKUS;
+          const visitPskuMap = new Map<string, any>();
           visitPsku.forEach((item: any) => {
-            const masterSku = skuMap.get(item.skuCode);
-            const pskuInfo = powerSkuMap.get(item.skuCode) || masterSku;
-            const isAvail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A');
+            if (item?.skuCode) {
+              const code = String(item.skuCode).toUpperCase().trim();
+              visitPskuMap.set(code, item);
+              if (code.includes('/')) {
+                code.split('/').forEach((c) => visitPskuMap.set(c.trim(), item));
+              }
+            }
+          });
+
+          targetSkus.forEach((canonicalSku) => {
+            const code = canonicalSku.skuCode.toUpperCase().trim();
+            let item = visitPskuMap.get(code);
+            if (!item && code.includes('/')) {
+              for (const part of code.split('/').map((c) => c.trim())) {
+                if (visitPskuMap.has(part)) {
+                  item = visitPskuMap.get(part);
+                  break;
+                }
+              }
+            }
+            const isAvail = item ? (item.status === 'Available' || item.status === 'YES' || item.status === 'A') : false;
             const avail = isAvail ? 'YES' : 'NO';
             const pskuCode = isAvail ? 'A' : 'N';
             const statusText = isAvail ? 'Available' : 'Not Available';
-
-            // Extract accurate business vertical from SKUMASTER
-            let bVertical = (masterSku?.businessVertical || pskuInfo?.businessVertical || masterSku?.type || pskuInfo?.type || '').toString().trim();
-            if (!bVertical || bVertical.toLowerCase() === 'general' || bVertical.toLowerCase() === 'standard' || bVertical.toLowerCase() === 'sku') {
-              const code = (item.skuCode || '').toUpperCase();
-              const name = (masterSku?.skuName || pskuInfo?.skuName || item.skuName || '').toUpperCase();
-              if (code.startsWith('FGIC') || name.includes('ICE CREAM') || name.includes('CONE') || name.includes('STICK') || name.includes('TUB') || name.includes('CANDY')) {
-                bVertical = 'Ice Cream';
-              } else if (code.startsWith('FGJU') || code.startsWith('FGBV') || name.includes('JUICE') || name.includes('DRINK') || name.includes('NECTAR')) {
-                bVertical = 'Beverage';
-              } else {
-                bVertical = 'Dairy';
-              }
-            }
 
             reportRows.psku.push({
               date: visitDate,
@@ -900,9 +1009,9 @@ export async function GET(req: NextRequest) {
               outletName: custName,
               classification: gr,
               class: gr,
-              businessVertical: bVertical,
-              skuCode: item.skuCode,
-              skuName: pskuInfo?.skuName || masterSku?.skuName || item.skuCode,
+              businessVertical: canonicalSku.businessVertical,
+              skuCode: canonicalSku.skuCode,
+              skuName: canonicalSku.skuName,
               status: statusText,
               availability: avail,
               psku: pskuCode,
@@ -1074,7 +1183,10 @@ export async function GET(req: NextRequest) {
       const masterCh = getCustMasterChannel(candidateCode, '');
       let ch = masterCh || customer?.channel || '';
       if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
-        ch = 'TT';
+        const rc = (routeCode || (visit ? visit.routeCode : '') || '').toUpperCase();
+        if (rc.startsWith('MT')) ch = 'MT';
+        else if (rc.startsWith('IS')) ch = 'INST';
+        else ch = 'TT';
       }
 
       return {
@@ -1120,6 +1232,8 @@ export async function GET(req: NextRequest) {
       visitsPerDayMap[d] = (visitsPerDayMap[d] || 0) + 1;
     });
     const visitsPerDay = Object.keys(visitsPerDayMap).sort().map(d => ({ date: d, count: visitsPerDayMap[d] }));
+    const activeDaysCount = Object.keys(visitsPerDayMap).length;
+    const avgVisitsPerDay = activeDaysCount > 0 ? Number((totalVisits / activeDaysCount).toFixed(1)) : 0;
 
     // High performance O(1) indexed maps for routes and supervisors
     const routeCustomerCountMap = new Map<string, number>();
@@ -1237,12 +1351,14 @@ export async function GET(req: NextRequest) {
               routeName: r.routeName || `Route ${r.routeCode}`,
               superName: (r.superName || '').trim(),
               managerName: (r.managerName || '').trim(),
+              channel: r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT'),
             }))
           : routeRows.map((r: any) => ({
               routeCode: r.routeCode,
               routeName: r.routeName,
               superName: (r.superName || '').trim(),
               managerName: (r.managerName || '').trim(),
+              channel: r.channel || (r.routeCode?.startsWith('MT') ? 'MT' : r.routeCode?.startsWith('IS') ? 'INST' : 'TT'),
             })),
         customers: custMaster?.customers?.length > 0
           ? custMaster.customers.map((c: any) => ({
@@ -1269,7 +1385,16 @@ export async function GET(req: NextRequest) {
           const rInfo = routeMap.get(c.routeCode);
           const mgrName = rInfo ? (rInfo.managerName || '').trim() : '';
           const supName = rInfo ? (rInfo.superName || '').trim() : '';
-          const dairyGr = (c.dairyClassification || c.classification || '-').trim();
+          const rawCode = (c.customerCode || '').trim().toUpperCase();
+          const unpadded = rawCode.replace(/^C/i, '').replace(/^0+/, '');
+          const masterCls =
+            (rawCode ? custMaster?.customerClassificationMap?.[rawCode] : '') ||
+            (unpadded ? custMaster?.customerClassificationMap?.[unpadded] : '') ||
+            (rawCode.startsWith('C') ? custMaster?.customerClassificationMap?.[rawCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${rawCode}`]) ||
+            '';
+          const dairyGr = (masterCls && masterCls !== '-')
+            ? masterCls
+            : ((c.dairyClassification && c.dairyClassification !== '-') ? c.dairyClassification : (c.classification || '-')).trim();
           return {
             id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
             code: c.customerCode,
@@ -1289,6 +1414,8 @@ export async function GET(req: NextRequest) {
       coveragePercent,
       tempBreachPercent,
       visitsPerDay,
+      activeDaysCount,
+      avgVisitsPerDay,
       coveragePerRoute,
       supervisorPerformance,
       temperatureBreaches,
