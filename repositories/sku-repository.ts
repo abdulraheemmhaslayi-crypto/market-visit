@@ -80,7 +80,10 @@ export const skuRepository = {
 
   async getSkusByType(type: string): Promise<SKU[]> {
     await ensureSkuTableSchema();
-    const [rows]: any = await pool.execute('SELECT * FROM `SKU` WHERE `type` = ?', [type]);
+    const [rows]: any = await pool.execute(
+      'SELECT * FROM `SKU` WHERE UPPER(TRIM(`type`)) = UPPER(TRIM(?))',
+      [type]
+    );
     return rows.map(mapRowToSKU);
   },
 
