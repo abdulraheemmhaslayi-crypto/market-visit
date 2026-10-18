@@ -422,6 +422,7 @@ export async function submitVisitAction(data: VisitInput) {
   const isMT =
     rawCh === 'KEY ACCOUNT' ||
     rawCh === 'MT' ||
+    rawCh.includes('MODERN') ||
     cleanRt.startsWith('MT') ||
     cleanRt.startsWith('C') ||
     cleanCust.startsWith('MTD') ||

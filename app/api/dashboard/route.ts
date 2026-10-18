@@ -740,13 +740,35 @@ export async function GET(req: NextRequest) {
           custName.toUpperCase().includes('AL MEERA') ||
           custName.toUpperCase().includes('HYPER'));
 
-      // Strictly 24 for MT and 27 for TT matching official master lists
-      const totalPskuCount = isMT ? 24 : 27;
-      const validTargetSkuCodes = isMT ? MT_POWER_SKU_CODES : TT_POWER_SKU_CODES;
-      const rawAvailPsku = visitPsku.filter((r: any) => 
-        validTargetSkuCodes.has(String(r.skuCode || '').toUpperCase().trim()) &&
-        (r.status === 'Available' || r.status === 'YES' || r.status === 'A')
-      ).length;
+      // Strictly 24 for MT and 22 for TT matching official master lists
+      const totalPskuCount = isMT ? MT_POWER_SKUS.length : TT_POWER_SKUS.length;
+      const targetSkus = isMT ? MT_POWER_SKUS : TT_POWER_SKUS;
+      const visitPskuMap = new Map<string, any>();
+      visitPsku.forEach((item: any) => {
+        if (item?.skuCode) {
+          const code = String(item.skuCode).toUpperCase().trim();
+          visitPskuMap.set(code, item);
+          if (code.includes('/')) {
+            code.split('/').forEach((c) => visitPskuMap.set(c.trim(), item));
+          }
+        }
+      });
+      let rawAvailPsku = 0;
+      targetSkus.forEach((canonicalSku) => {
+        const code = canonicalSku.skuCode.toUpperCase().trim();
+        let item = visitPskuMap.get(code);
+        if (!item && code.includes('/')) {
+          for (const part of code.split('/').map((c) => c.trim())) {
+            if (visitPskuMap.has(part)) {
+              item = visitPskuMap.get(part);
+              break;
+            }
+          }
+        }
+        if (item && (item.status === 'Available' || item.status === 'YES' || item.status === 'A')) {
+          rawAvailPsku++;
+        }
+      });
       const pskuAvailableCount = Math.min(rawAvailPsku, totalPskuCount);
       const hasAvail = rawAvailPsku > 0;
       const psku = hasAvail ? 'A' : 'N';
@@ -945,19 +967,31 @@ export async function GET(req: NextRequest) {
           });
         }
 
-        // Populate PowerSKU Report Rows (Strictly 24 MT or 27 TT canonical SKUs matching Master List)
+        // Populate PowerSKU Report Rows (Strictly 24 MT or 22 TT canonical SKUs matching Master List)
         if (v.visit_type !== 'No Visit') {
           const targetSkus = isMT ? MT_POWER_SKUS : TT_POWER_SKUS;
           const visitPskuMap = new Map<string, any>();
           visitPsku.forEach((item: any) => {
             if (item?.skuCode) {
-              visitPskuMap.set(String(item.skuCode).toUpperCase().trim(), item);
+              const code = String(item.skuCode).toUpperCase().trim();
+              visitPskuMap.set(code, item);
+              if (code.includes('/')) {
+                code.split('/').forEach((c) => visitPskuMap.set(c.trim(), item));
+              }
             }
           });
 
           targetSkus.forEach((canonicalSku) => {
             const code = canonicalSku.skuCode.toUpperCase().trim();
-            const item = visitPskuMap.get(code);
+            let item = visitPskuMap.get(code);
+            if (!item && code.includes('/')) {
+              for (const part of code.split('/').map((c) => c.trim())) {
+                if (visitPskuMap.has(part)) {
+                  item = visitPskuMap.get(part);
+                  break;
+                }
+              }
+            }
             const isAvail = item ? (item.status === 'Available' || item.status === 'YES' || item.status === 'A') : false;
             const avail = isAvail ? 'YES' : 'NO';
             const pskuCode = isAvail ? 'A' : 'N';
