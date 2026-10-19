@@ -28,7 +28,7 @@ export const MT_POWER_SKUS: PowerSkuDefinition[] = [
   { skuCode: 'FGJFP336', skuName: 'MIXED FRUIT NECTAR 1.35 LTR', channel: 'MT', skuType: 'Power Sku', businessVertical: 'Beverage' },
   { skuCode: 'FGISW942', skuName: 'SANDWICH FAMILY PACK 100 ML X6', channel: 'MT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
   { skuCode: 'FGIST906', skuName: 'ALMOND DELIGHT 100 ML X 6 PCS', channel: 'MT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGIBT601', skuName: 'BON BON 17MLX14  238 ML X 1', channel: 'MT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
+  { skuCode: 'FGIBT601', skuName: 'BON BON 17MLX14 238 ML X 1', channel: 'MT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
   { skuCode: 'FGIST909', skuName: 'ICE CREAM 50:50 NUS NUS 100MLX6', channel: 'MT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
   { skuCode: 'FGICO820', skuName: 'ICE CREAM CHOCOLATE CONE 110ML 1X6 FP', channel: 'MT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
   { skuCode: 'FGICO821', skuName: 'ICE CREAM VANILA CONE 110ML 1X6 FP', channel: 'MT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
@@ -37,36 +37,30 @@ export const MT_POWER_SKUS: PowerSkuDefinition[] = [
 ];
 
 /**
- * Canonical TT Power SKUs (Strictly 27 Items) - matches official Master List
+ * Canonical TT Power SKUs (Strictly 21 Items) - matches official Master List
  */
 export const TT_POWER_SKUS: PowerSkuDefinition[] = [
+  { skuCode: 'FGICU519 / FGIFP542', skuName: 'ICE CREAM SCOTCH VANILLA 125ML 1X27 / ICE CREAM SCOTCH VANILLA 1 LTR', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
+  { skuCode: 'FGICO821 / FGICO806', skuName: 'ICE CREAM VANILA CONE 110ML 1X6 FP / ICE CREAM VANILA CONE 110ML 1X20', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
+  { skuCode: 'FGICO820 / FGICO803', skuName: 'ICE CREAM CHOCOLATE CONE 110ML 1X6 FP / ICE CREAM CHOCOLATE CONE 110ML 1X20', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
+  { skuCode: 'FGIST911 / FGIST903', skuName: 'PEANUT DELIGHT 100 ML X 6 / PEANUT DELIGHT - 100 ML X 16', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
+  { skuCode: 'FGISW942 / FGISW941', skuName: 'SANDWICH FAMILY PACK 100 ML X6 / ICE CREAM SANDWITCH 100MLX24', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
+  { skuCode: 'FGIST906 / FGIST905', skuName: 'ALMOND DELIGHT 100 ML X 6 PCS / ALMOND DELIGHT 100 ML X 16', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
+  { skuCode: 'FGIST912', skuName: 'CHOCOBAR PLAIN 60 ML X 24', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
+  { skuCode: 'FGDYC111 / FGDYC120', skuName: 'YOGHURT FC 170GMX6 / YOGHURT FC 170GMX6 -SLEEVES', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
+  { skuCode: 'FGDLS210', skuName: 'LABAN SHARAB SWEET - LASSI 225ML X 12', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
+  { skuCode: 'FGDLS202', skuName: 'LABAN SHARAB 225 MLX12', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
+  { skuCode: 'FGJFR352', skuName: 'FRUTTI CUP 225 ML - ORANGE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
+  { skuCode: 'FGDLF217', skuName: 'FRESH LABAN 180 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
+  { skuCode: 'FGDLA242', skuName: 'LABAN AIRAN 180ML PET', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
   { skuCode: 'FGDLA236', skuName: 'LABAN STRAWBERRY 180 ML X 1', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
   { skuCode: 'FGDLA237', skuName: 'LABAN MANGO 180 ML X 1', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGDLA242', skuName: 'LABAN AIRAN 180ML PET', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGDLF217', skuName: 'FRESH LABAN 180 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGDLS202', skuName: 'LABAN SHARAB 225 MLX12', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGDLS203', skuName: 'LABAN SHARAB MINT 225 MLX12', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGDLS204', skuName: 'LABAN SHARAB ZEERA 225 MLX12', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGDLS210', skuName: 'LABAN SHARAB SWEET - LASSI 225ML X 12', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGDYC111', skuName: 'YOGHURT FC 170GMX6 or x6 Sleeves', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGDYC101', skuName: 'YOGHURT FC 150GMX12', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGDYF151', skuName: 'YOGHURT 1 KG.', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Dairy' },
-  { skuCode: 'FGICO803', skuName: 'ICE CREAM CHOCOLATE CONE 110ML 1X20', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGICO806', skuName: 'ICE CREAM VANILA CONE 110ML 1X20', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGICU518', skuName: 'ICE CREAM ROYAL CHOCLATE 125ML 1X27', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGICU519', skuName: 'ICE CREAM SCOTCH VANILLA 125ML 1X27', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGICU520', skuName: 'ICE CREAM STRAWBERRY 125ML 1X27', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGIST903', skuName: 'PEANUT DELIGHT - 100 ML X 16', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGIST905', skuName: 'ALMOND DELIGHT 100 ML X 16', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGIST912', skuName: 'CHOCOBAR PLAIN 60 ML X 24', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGISW941', skuName: 'ICE CREAM SANDWICH 100MLX24', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Ice Cream' },
-  { skuCode: 'FGJFR351', skuName: 'FRUTTI CUP 225 ML - FLAMTU', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
-  { skuCode: 'FGJFR352', skuName: 'FRUTTI CUP 225 ML ASSORTED - ORANGE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
-  { skuCode: 'FGJSS412', skuName: 'APPLE JUICE 200 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
+  { skuCode: 'FGJSS425', skuName: 'LEMON & MINT 200 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
   { skuCode: 'FGJSS413', skuName: 'MANGO NECTAR 200 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
   { skuCode: 'FGJSS414', skuName: 'MIXED FRUIT 200 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
-  { skuCode: 'FGJSS415', skuName: 'MIXED BERRY 200 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
-  { skuCode: 'FGJSS425', skuName: 'LEMON & MINT 200 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
+  { skuCode: 'FGJSS412', skuName: 'APPLE JUICE 200 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
+  { skuCode: 'FGJSS417', skuName: 'MIXED BERRY 200 ML PET BOTTLE', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
+  { skuCode: 'FGJSS439', skuName: 'WATERMELON DRINK 200 ML', channel: 'TT', skuType: 'Power Sku', businessVertical: 'Beverage' },
 ];
 
 export const ALL_CANONICAL_POWER_SKUS: PowerSkuDefinition[] = [
@@ -74,12 +68,34 @@ export const ALL_CANONICAL_POWER_SKUS: PowerSkuDefinition[] = [
   ...TT_POWER_SKUS,
 ];
 
-export const MT_POWER_SKU_CODES = new Set(MT_POWER_SKUS.map((s) => s.skuCode.toUpperCase()));
-export const TT_POWER_SKU_CODES = new Set(TT_POWER_SKUS.map((s) => s.skuCode.toUpperCase()));
+// Helper to expand slash codes into a Set of individual and full codes
+function expandCodes(skus: PowerSkuDefinition[]): Set<string> {
+  const set = new Set<string>();
+  for (const s of skus) {
+    const raw = s.skuCode.toUpperCase().trim();
+    set.add(raw);
+    if (raw.includes('/')) {
+      raw.split('/').forEach((part) => {
+        const trimmed = part.trim();
+        if (trimmed) set.add(trimmed);
+      });
+    }
+  }
+  return set;
+}
+
+export const MT_POWER_SKU_CODES = expandCodes(MT_POWER_SKUS);
+export const TT_POWER_SKU_CODES = expandCodes(TT_POWER_SKUS);
 
 export function getCanonicalPowerSkusForChannel(channel?: string | null): PowerSkuDefinition[] {
   const norm = String(channel || '').trim().toUpperCase();
-  if (norm === 'MT' || norm.startsWith('MT') || norm === 'KEY ACCOUNT') {
+  if (
+    norm === 'MT' ||
+    norm.startsWith('MT') ||
+    norm.includes('MODERN') ||
+    norm === 'KEY ACCOUNT' ||
+    norm.includes('HYPER')
+  ) {
     return MT_POWER_SKUS;
   }
   return TT_POWER_SKUS;

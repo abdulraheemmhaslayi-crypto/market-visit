@@ -7,7 +7,7 @@ import { skuRepository } from '@/repositories/sku-repository';
 import { userRepository } from '@/repositories/user-repository';
 import { parseSingleFile, mergeParsedData } from '@/utils/xlsx';
 import { auditService } from '@/services/audit-service';
-import { Route, Customer, CustomerRouteMapping, SKU, ImportSummary, PowerSKU } from '@/types';
+import { Route, Customer, CustomerRouteMapping, SKU, ImportSummary, PowerSKU, CustomerClassification } from '@/types';
 import { revalidatePath } from 'next/cache';
 import pool from '@/lib/db';
 import fs from 'fs';
@@ -126,10 +126,11 @@ export async function importExcelAction(payload: {
   mappings: CustomerRouteMapping[];
   skus: SKU[];
   powerSkus?: PowerSKU[];
+  classifications?: CustomerClassification[];
   clearObsolete?: boolean;
 }): Promise<ImportSummary> {
   const session = await verifyAdminSession();
-  const { routes, customers, mappings, skus, powerSkus, clearObsolete } = payload;
+  const { routes, customers, mappings, skus, powerSkus, classifications, clearObsolete } = payload;
 
   let inserted = 0;
   let updated = 0;
@@ -241,9 +242,23 @@ export async function importExcelAction(payload: {
       const res = await skuRepository.upsertPowerSkus(powerSkus);
       inserted += res.inserted;
       updated += res.updated;
+
+      // Always purge obsolete entries for the imported channels so stale lines (like unmerged items) are removed
+      const activeChannels = Array.from(new Set(powerSkus.map((p) => p.channel.trim().toUpperCase())));
+      const activePowerSkuKeys = powerSkus.map(
+        (ps) => `${ps.skuCode.trim().toUpperCase()}_${ps.channel.trim().toUpperCase()}`
+      );
+      removed += await skuRepository.clearObsoletePowerSkus(activePowerSkuKeys, activeChannels);
     }
 
-    // 7. Clear Obsolete entries if clearObsolete flag is true
+    // 7. Import Customer Classifications
+    if (classifications && classifications.length > 0) {
+      const res = await customerRepository.upsertClassifications(classifications);
+      inserted += res.inserted;
+      updated += res.updated;
+    }
+
+    // 8. Clear Obsolete entries if clearObsolete flag is true
     if (clearObsolete) {
       try {
         if (routes.length > 0) {
@@ -273,6 +288,28 @@ export async function importExcelAction(payload: {
       }
     }
 
+    // Synchronize JSON fallback files in data directory
+    try {
+      const dataDir = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      if (customers && customers.length > 0) {
+        fs.writeFileSync(path.join(dataDir, 'customers.json'), JSON.stringify(customers, null, 2), 'utf-8');
+      }
+      if (routes && routes.length > 0) {
+        fs.writeFileSync(path.join(dataDir, 'routes.json'), JSON.stringify(routes, null, 2), 'utf-8');
+      }
+      if (mappings && mappings.length > 0) {
+        fs.writeFileSync(path.join(dataDir, 'mappings.json'), JSON.stringify(mappings, null, 2), 'utf-8');
+      }
+      if (skus && skus.length > 0) {
+        fs.writeFileSync(path.join(dataDir, 'skus.json'), JSON.stringify(skus, null, 2), 'utf-8');
+      }
+    } catch (jsonErr) {
+      console.warn('Could not update JSON fallback files in data directory:', jsonErr);
+    }
+
     const adminUser = session.user?.email || 'Admin';
     await auditService.logAction(
       adminUser,
@@ -282,9 +319,11 @@ export async function importExcelAction(payload: {
 
     try {
       const { invalidateDashboardMasterCache } = await import('@/lib/dashboard-cache');
+      const { clearCustMasterCache } = await import('@/lib/custmaster-data');
+      const { clearCustMasterChannelCache } = await import('@/lib/custmaster-channel');
       invalidateDashboardMasterCache();
-      const { getCustMasterData } = await import('@/lib/custmaster-data');
-      getCustMasterData(true);
+      clearCustMasterCache();
+      clearCustMasterChannelCache();
     } catch {}
 
     revalidatePath('/', 'layout');
