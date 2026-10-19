@@ -511,3 +511,10 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
   lastCacheTime = now;
   return cachedCustMaster;
 }
+
+export function clearCustMasterCache(): void {
+  cachedCustMaster = null;
+  lastCacheTime = 0;
+  cachedClassMap = null;
+  lastClassMapTime = 0;
+}
