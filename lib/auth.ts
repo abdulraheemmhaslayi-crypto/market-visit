@@ -6,6 +6,10 @@ import { userRepository } from '@/repositories/user-repository';
 
 export const { auth, signIn, signOut, handlers } = NextAuth({
   ...authConfig,
+  pages: {
+    signIn: '/login',
+    error: '/login',
+  },
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'antigravity_secret_key_123_abc_xyz_secret_999',
   providers: [
     CredentialsProvider({

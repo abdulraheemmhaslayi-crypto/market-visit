@@ -1,4 +1,4 @@
-import { Customer, CustomerRouteMapping } from '@/types';
+import { Customer, CustomerRouteMapping, CustomerClassification } from '@/types';
 import pool, { isMssql } from '@/lib/db';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
 
@@ -154,7 +154,10 @@ function mapRowToCustomer(row: any): Customer {
   const masterCh = getCustMasterChannel(row.customerCode, '');
   let ch = masterCh || row.channel || '';
   if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch === 'GT' || ch.toUpperCase() === 'GENERAL STORE') {
-    ch = 'TT';
+    const rt = (row.routeCode || '').toUpperCase();
+    if (rt.startsWith('MT')) ch = 'MT';
+    else if (rt.startsWith('IS')) ch = 'INST';
+    else ch = 'TT';
   }
 
   return {
@@ -567,6 +570,90 @@ export const customerRepository = {
           inserted++;
         } else {
           updated++;
+        }
+      }
+    }
+
+    return { inserted, updated };
+  },
+
+  async upsertClassifications(classifications: CustomerClassification[]): Promise<{ inserted: number; updated: number }> {
+    await ensureCustomerTableSchema();
+    if (!classifications || classifications.length === 0) return { inserted: 0, updated: 0 };
+
+    let inserted = 0;
+    let updated = 0;
+
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < classifications.length; i += CHUNK_SIZE) {
+      const chunk = classifications.slice(i, i + CHUNK_SIZE);
+      for (const item of chunk) {
+        const code = (item.customerCode || '').trim().toUpperCase();
+        const bVert = (item.businessVertical || '').trim();
+        const cls = (item.classification || '').trim().toUpperCase();
+        const ch = item.channel ? item.channel.trim().toUpperCase() : null;
+
+        if (!code || !cls) continue;
+
+        try {
+          if (isMssql) {
+            const [res]: any = await pool.execute(
+              `MERGE INTO \`Customer_Classification\` AS target
+               USING (SELECT ? AS customerCode, ? AS businessVertical, ? AS classification, ? AS channel) AS source
+               ON target.customerCode = source.customerCode AND target.businessVertical = source.businessVertical
+               WHEN MATCHED THEN
+                 UPDATE SET \`classification\` = source.classification, \`channel\` = source.channel
+               WHEN NOT MATCHED THEN
+                 INSERT (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+                 VALUES (source.customerCode, source.businessVertical, source.classification, source.channel);`,
+              [code, bVert, cls, ch]
+            );
+            if (res?.affectedRows === 1) inserted++; else updated++;
+          } else {
+            const [res]: any = await pool.execute(
+              `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+               VALUES (?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`,
+              [code, bVert, cls, ch]
+            );
+            if (res?.affectedRows === 1) inserted++; else updated++;
+          }
+
+          // Also update matching Customer records in DB directly
+          const cleanVariants = [
+            code,
+            code.replace(/^C/i, ''),
+            `C${code.replace(/^C/i, '')}`,
+          ];
+          const placeholders = cleanVariants.map(() => '?').join(',');
+
+          if (bVert.toLowerCase() === 'dairy') {
+            await pool.execute(
+              `UPDATE \`Customer\`
+               SET \`dairyClassification\` = ?,
+                   \`classification\` = COALESCE(\`classification\`, ?)
+               WHERE UPPER(TRIM(\`customerCode\`)) IN (${placeholders})`,
+              [cls, cls, ...cleanVariants]
+            );
+          } else if (bVert.toLowerCase().includes('ice')) {
+            await pool.execute(
+              `UPDATE \`Customer\`
+               SET \`iceCreamClassification\` = ?,
+                   \`classification\` = COALESCE(\`classification\`, ?)
+               WHERE UPPER(TRIM(\`customerCode\`)) IN (${placeholders})`,
+              [cls, cls, ...cleanVariants]
+            );
+          }
+          if (ch && ch !== 'GT' && ch !== 'GENERAL TRADE') {
+            await pool.execute(
+              `UPDATE \`Customer\`
+               SET \`channel\` = ?
+               WHERE UPPER(TRIM(\`customerCode\`)) IN (${placeholders})`,
+              [ch, ...cleanVariants]
+            );
+          }
+        } catch (itemErr: any) {
+          console.warn('Could not upsert classification record:', code, bVert, itemErr.message);
         }
       }
     }
