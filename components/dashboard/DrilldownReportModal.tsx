@@ -96,10 +96,20 @@ function getCellValue(row: Record<string, unknown>, key: string) {
   if (key === 'manager') return (row.manager || row.mgr || '—') as string;
   if (key === 'supervisor') return (row.supervisor || row.sup || '—') as string;
   if (key === 'routeCode') {
-    return (row.routeCode || row.route || row.rt || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[1] || String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    let rCode = (row.routeCode || row.route || row.rt || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[1] || String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    let oCode = (row.outletCode || row.custCode || row.code || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    if (/^(MT|TR|IS|EX|DIS|R\d)/i.test(oCode) && (/^C\d+/i.test(rCode) || /^\d+$/.test(rCode))) {
+      return oCode;
+    }
+    return rCode;
   }
   if (key === 'outletCode') {
-    return (row.outletCode || row.custCode || row.code || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    let rCode = (row.routeCode || row.route || row.rt || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[1] || String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    let oCode = (row.outletCode || row.custCode || row.code || (row.cust_rt_id ? String(row.cust_rt_id).split('|')[0] : '—')) as string;
+    if (/^(MT|TR|IS|EX|DIS|R\d)/i.test(oCode) && (/^C\d+/i.test(rCode) || /^\d+$/.test(rCode))) {
+      return rCode;
+    }
+    return oCode;
   }
   if (key === 'outletName') return (row.outletName || row.cust || '—') as string;
   if (key === 'classification') {

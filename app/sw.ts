@@ -91,7 +91,7 @@ const serwist = new Serwist({
     },
     // 6. HTML pages -> Network First (ensures latest build assets, falls back to cache when offline)
     {
-      matcher: ({ request }) => request.destination === "document",
+      matcher: ({ request, url }) => request.destination === "document" && !url.pathname.startsWith("/api/"),
       handler: new NetworkFirst({
         cacheName: CACHE_NAMES.pages,
         networkTimeoutSeconds: 3,
@@ -109,6 +109,14 @@ const serwist = new Serwist({
       {
         url: "/offline",
         matcher({ request }) {
+          try {
+            const parsed = new URL(request.url);
+            if (parsed.pathname.startsWith("/api/")) {
+              return false;
+            }
+          } catch {
+            // ignore URL parse errors
+          }
           return request.destination === "document";
         },
       },
