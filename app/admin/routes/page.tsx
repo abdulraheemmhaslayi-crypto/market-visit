@@ -33,12 +33,20 @@ export default function RoutesPage() {
 
   const { data: routes = [], isLoading } = useQuery<Route[]>({
     queryKey: ['routes'],
-    queryFn: () => fetch('/api/routes').then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch('/api/routes');
+      if (!r.ok) throw new Error(`Failed to load routes (HTTP ${r.status})`);
+      return r.json();
+    },
   });
 
   const { data: stats } = useQuery<any>({
     queryKey: ['dashboard-stats', '', '', '', ''],
-    queryFn: () => fetch('/api/dashboard').then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch('/api/dashboard');
+      if (!r.ok) throw new Error(`Failed to load dashboard metrics (HTTP ${r.status})`);
+      return r.json();
+    },
   });
 
   const coverageData = stats?.coveragePerRoute ?? [];

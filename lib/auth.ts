@@ -13,8 +13,15 @@ const azureHost =
 if (azureHost) {
   process.env.AUTH_URL = `https://${azureHost}`;
   process.env.NEXTAUTH_URL = `https://${azureHost}`;
-  process.env.AUTH_TRUST_HOST = 'true';
 }
+
+if (!process.env.AUTH_SECRET) {
+  process.env.AUTH_SECRET = process.env.NEXTAUTH_SECRET || 'antigravity_secret_key_123_abc_xyz_secret_999_dandy_secure';
+}
+if (!process.env.NEXTAUTH_SECRET) {
+  process.env.NEXTAUTH_SECRET = process.env.AUTH_SECRET;
+}
+process.env.AUTH_TRUST_HOST = 'true';
 
 export const { auth, signIn, signOut, handlers } = NextAuth({
   ...authConfig,
