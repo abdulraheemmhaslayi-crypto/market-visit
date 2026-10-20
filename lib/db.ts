@@ -116,12 +116,8 @@ if (isMssql) {
   // ==========================================
   let sql: any = null;
   try {
-    sql = require('mssql');
-  } catch {
-    try {
-      sql = eval('require')('mssql');
-    } catch {}
-  }
+    sql = eval('require')('mssql');
+  } catch {}
 
   if (sql && sql.ConnectionPool) {
     const serverHost = process.env.DB_SERVER || process.env.DB_HOST || 'localhost';
