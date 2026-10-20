@@ -21,6 +21,11 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
+      allowedOrigins: [
+        "fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net",
+        "*.azurewebsites.net",
+        "localhost:3000",
+      ],
     },
   },
 };

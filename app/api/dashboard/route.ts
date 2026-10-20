@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { visitRepository } from '@/repositories/visit-repository';
 import { customerRepository } from '@/repositories/customer-repository';
-import pool from '@/lib/db';
+import pool, { isMssql } from '@/lib/db';
 import { getDashboardScope, isFleetRole, isFullAccessRole, isSupervisorRole, isReportAllowed } from '@/lib/roles';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
 import { getCustMasterData } from '@/lib/custmaster-data';
@@ -11,7 +11,7 @@ import { MT_POWER_SKUS, TT_POWER_SKUS, MT_POWER_SKU_CODES, TT_POWER_SKU_CODES } 
 
 let dashboardSchemaChecked = false;
 async function ensureDashboardSchema() {
-  if (dashboardSchemaChecked) return;
+  if (dashboardSchemaChecked || isMssql) return;
   try {
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`Manager\` (\`id\` VARCHAR(191) PRIMARY KEY, \`name\` VARCHAR(191) UNIQUE NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`PowerSKU\` (\`skuCode\` VARCHAR(191) NOT NULL, \`skuName\` VARCHAR(191) NOT NULL, \`channel\` VARCHAR(191) NOT NULL, PRIMARY KEY (\`skuCode\`, \`channel\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
@@ -57,15 +57,15 @@ async function getMasterData(): Promise<MasterCache> {
     customerRepository.getAllCustomers().catch(() => []),
     pool.execute(`
       SELECT u.id, u.name, u.role, u.email, m.name as managerName 
-      FROM User u 
-      LEFT JOIN Manager m ON u.managerId = m.id
+      FROM \`User\` u 
+      LEFT JOIN \`Manager\` m ON u.managerId = m.id
     `).then(([rows]: any) => rows).catch(() => []),
     pool.execute('SELECT `skuCode`, `skuName`, `type`, `businessVertical` FROM `SKU`').then(([rows]: any) => rows).catch(() => []),
     pool.execute('SELECT `skuCode`, `skuName`, `channel` FROM `PowerSKU`').then(([rows]: any) => rows).catch(() => []),
     pool.execute(`
       SELECT r.*, m.name as managerName 
-      FROM Route r 
-      LEFT JOIN Manager m ON r.managerId = m.id
+      FROM \`Route\` r 
+      LEFT JOIN \`Manager\` m ON r.managerId = m.id
     `).then(([rows]: any) => rows).catch(() => []),
   ]);
 
@@ -213,25 +213,33 @@ export async function GET(req: NextRequest) {
         : visitRepository.getAllVisits().catch(() => []),
       pool.execute(
         isSupervisor
-          ? 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+          ? (isMssql
+              ? 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+              : 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)')
           : 'SELECT * FROM `VisitAsset`',
         isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
       ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Asset query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+          ? (isMssql
+              ? 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+              : 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)')
           : 'SELECT * FROM `VisitPowerSkuResult`',
         isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
       ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard PSKU query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+          ? (isMssql
+              ? 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+              : 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)')
           : 'SELECT * FROM `NPDResponse`',
         isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
       ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard NPD query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?) ORDER BY vp.uploadedAt DESC LIMIT 100'
+          ? (isMssql
+              ? 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?) ORDER BY vp.uploadedAt DESC LIMIT 100'
+              : 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?) ORDER BY vp.uploadedAt DESC LIMIT 100')
           : 'SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC LIMIT 200',
         isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
       ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Photo query error:', err); return []; }),
