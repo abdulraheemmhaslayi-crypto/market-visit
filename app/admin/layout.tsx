@@ -174,7 +174,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
 
-  const handleSignOut = () => signOut({ callbackUrl: '/login' });
+  const handleSignOut = async () => {
+    try {
+      await signOut({ callbackUrl: '/login', redirect: true });
+    } catch {
+      window.location.href = '/login';
+    }
+  };
 
   const isActive = (path: string) =>
     path === '/admin' ? pathname === '/admin' : pathname.startsWith(path);

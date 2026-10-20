@@ -4,6 +4,18 @@ import bcrypt from 'bcryptjs';
 import { authConfig } from '@/auth.config';
 import { userRepository } from '@/repositories/user-repository';
 
+const azureHost =
+  process.env.WEBSITE_HOSTNAME ||
+  (process.env.NODE_ENV === 'production' && !process.env.AUTH_URL
+    ? 'fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net'
+    : null);
+
+if (azureHost) {
+  process.env.AUTH_URL = `https://${azureHost}`;
+  process.env.NEXTAUTH_URL = `https://${azureHost}`;
+  process.env.AUTH_TRUST_HOST = 'true';
+}
+
 export const { auth, signIn, signOut, handlers } = NextAuth({
   ...authConfig,
   pages: {
