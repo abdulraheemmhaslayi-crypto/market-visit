@@ -1,7 +1,7 @@
 import * as xlsx from 'xlsx';
 import fs from 'fs';
 import path from 'path';
-import { Route, Customer, CustomerRouteMapping, SKU, PowerSKU, CustomerClassification } from '@/types';
+import { Route, Customer, CustomerRouteMapping, SKU, PowerSKU } from '@/types';
 
 export interface ParseExcelResult {
   routes: Route[];
@@ -9,7 +9,6 @@ export interface ParseExcelResult {
   mappings: CustomerRouteMapping[];
   skus: SKU[];
   powerSkus: PowerSKU[];
-  classifications: CustomerClassification[];
 }
 
 export interface ParsedFileResult {
@@ -379,7 +378,6 @@ export function mergeParsedData(parsedFiles: ParsedFileResult[]): { payload: Par
     mappings: [],
     skus: [],
     powerSkus: [],
-    classifications: [],
   };
 
   const filesByType = {
@@ -523,14 +521,6 @@ export function mergeParsedData(parsedFiles: ParsedFileResult[]): { payload: Par
       }
 
       if (customerCode && classification && businessVertical) {
-        const canonicalVert = businessVertical === 'icecream' ? 'Ice Cream' : 'Dairy';
-        payload.classifications.push({
-          customerCode: cleanCustomerCode(customerCode),
-          businessVertical: canonicalVert,
-          classification: classification.toUpperCase(),
-          channel: channel ? channel.toUpperCase() : undefined,
-        });
-
         const variants = getCustomerCodeVariants(customerCode);
         for (const variant of variants) {
           const key = `${variant}|${businessVertical}`;

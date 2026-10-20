@@ -131,7 +131,3 @@ export function getCustMasterChannel(customerCode?: string | null, fallback = 'T
   }
   return fallback;
 }
-
-export function clearCustMasterChannelCache(): void {
-  channelCache = null;
-}

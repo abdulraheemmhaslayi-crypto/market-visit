@@ -6,7 +6,7 @@
   <style>
     @page {
       size: A4 portrait;
-      margin: 10mm 12mm 10mm 12mm;
+      margin: 12mm 14mm 12mm 14mm;
     }
     * {
       box-sizing: border-box;
@@ -19,34 +19,34 @@
       background-color: #ffffff;
       margin: 0;
       padding: 0;
-      font-size: 8.8pt;
-      line-height: 1.38;
+      font-size: 10pt;
+      line-height: 1.45;
     }
     .header-table {
       width: 100%;
       border-bottom: 2.5px solid #1e3a8a;
-      padding-bottom: 8px;
-      margin-bottom: 10px;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
     }
     .company-title {
-      font-size: 17pt;
+      font-size: 18pt;
       font-weight: 800;
       color: #0f172a;
       letter-spacing: -0.5px;
       margin: 0;
-      line-height: 1.15;
+      line-height: 1.2;
     }
     .company-subtitle {
-      font-size: 9.8pt;
+      font-size: 10.5pt;
       font-weight: 700;
       color: #2563eb;
-      margin: 2px 0 0 0;
+      margin: 3px 0 0 0;
     }
     .meta-box {
       text-align: right;
-      font-size: 8pt;
+      font-size: 8.5pt;
       color: #475569;
-      line-height: 1.3;
+      line-height: 1.35;
     }
     .meta-box strong {
       color: #0f172a;
@@ -55,89 +55,88 @@
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-left: 4px solid #1e3a8a;
-      padding: 8px 12px;
-      border-radius: 5px;
-      margin-bottom: 10px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 14px;
     }
     .summary-card h3 {
-      margin: 0 0 3px 0;
-      font-size: 9.5pt;
+      margin: 0 0 4px 0;
+      font-size: 10pt;
       color: #0f172a;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
     .summary-card p {
       margin: 0;
-      font-size: 8.5pt;
+      font-size: 9pt;
       color: #334155;
     }
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      margin-bottom: 10px;
+      gap: 10px;
+      margin-bottom: 14px;
     }
     .kpi-box {
       background: #f1f5f9;
       border: 1px solid #cbd5e1;
-      border-radius: 5px;
-      padding: 6px 8px;
+      border-radius: 6px;
+      padding: 8px 10px;
       text-align: center;
     }
     .kpi-value {
-      font-size: 15pt;
+      font-size: 16pt;
       font-weight: 800;
       color: #1e3a8a;
       line-height: 1.1;
     }
     .kpi-label {
-      font-size: 7pt;
+      font-size: 7.5pt;
       font-weight: 700;
       color: #475569;
       text-transform: uppercase;
       margin-top: 2px;
     }
     h2 {
-      font-size: 10.8pt;
+      font-size: 11.5pt;
       color: #0f172a;
       border-bottom: 1.5px solid #cbd5e1;
-      padding-bottom: 3px;
-      margin-top: 10px;
-      margin-bottom: 6px;
+      padding-bottom: 4px;
+      margin-top: 14px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
     }
     .badge-time {
-      font-size: 7.5pt;
+      font-size: 8pt;
       font-weight: 700;
       background: #eff6ff;
       color: #1d4ed8;
       border: 1px solid #bfdbfe;
-      padding: 1px 6px;
+      padding: 1px 7px;
       border-radius: 9999px;
       margin-left: 8px;
     }
     table.data-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 8px;
-      font-size: 8pt;
+      margin-bottom: 12px;
+      font-size: 8.5pt;
       page-break-inside: auto;
     }
     table.data-table th {
       background-color: #0f172a;
       color: #ffffff;
       text-align: left;
-      padding: 5px 7px;
+      padding: 6px 8px;
       font-weight: 700;
-      font-size: 7.5pt;
+      font-size: 8pt;
       letter-spacing: 0.3px;
     }
     table.data-table td {
-      padding: 4.5px 7px;
+      padding: 6px 8px;
       border-bottom: 1px solid #e2e8f0;
       vertical-align: top;
-      line-height: 1.3;
     }
     table.data-table tr:nth-child(even) td {
       background-color: #f8fafc;
@@ -147,9 +146,9 @@
     }
     .status-badge {
       display: inline-block;
-      font-size: 6.8pt;
+      font-size: 7pt;
       font-weight: 700;
-      padding: 1px 4.5px;
+      padding: 1.5px 5px;
       border-radius: 3px;
       text-transform: uppercase;
       white-space: nowrap;
@@ -172,34 +171,33 @@
     .hours-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 8px 0 10px 0;
-      font-size: 8.2pt;
+      margin: 10px 0 14px 0;
+      font-size: 9pt;
       page-break-inside: avoid;
     }
     .hours-table th {
       background-color: #1e293b;
       color: #ffffff;
-      padding: 5.5px 8px;
+      padding: 7px 10px;
       text-align: left;
-      font-size: 7.8pt;
+      font-size: 8.5pt;
     }
     .hours-table td {
-      padding: 5px 8px;
+      padding: 7px 10px;
       border-bottom: 1px solid #cbd5e1;
-      line-height: 1.32;
     }
     .hours-table tr.total-row td {
       background-color: #e2e8f0;
       font-weight: 800;
-      font-size: 8.8pt;
+      font-size: 9.5pt;
       color: #0f172a;
       border-top: 2px solid #0f172a;
     }
     .footer-note {
-      margin-top: 10px;
+      margin-top: 14px;
       border-top: 1px solid #e2e8f0;
-      padding-top: 6px;
-      font-size: 7.2pt;
+      padding-top: 8px;
+      font-size: 7.5pt;
       color: #64748b;
       display: flex;
       justify-content: space-between;
@@ -208,7 +206,7 @@
       page-break-before: always;
     }
     ul.compact {
-      margin: 3px 0 0 12px;
+      margin: 4px 0 0 14px;
       padding: 0;
     }
     ul.compact li {
@@ -228,8 +226,8 @@
       <td class="meta-box" style="vertical-align: middle;">
         <div><strong>Recipient:</strong> General Manager (GM)</div>
         <div><strong>Author:</strong> Lead Field Platform Developer</div>
-        <div><strong>Reporting Period:</strong> Aug 27, 2026 – Oct 19, 2026 (8 Weeks / 54 Days)</div>
-        <div><strong>Status:</strong> v2.8 Enterprise Production & Sync Pipeline Ready</div>
+        <div><strong>Reporting Period:</strong> Aug 27, 2026 – Oct 14, 2026 (7 Weeks)</div>
+        <div><strong>Status:</strong> v2.5 Enterprise Production Ready</div>
       </td>
     </tr>
   </table>
@@ -238,81 +236,75 @@
   <div class="summary-card">
     <h3>Executive Overview & Business Purpose</h3>
     <p>
-      This comprehensive report details the complete engineering lifecycle of the <strong>Field Visit & Market Execution Platform</strong> from architectural inception on <strong>August 27, 2026</strong> through release <strong>v2.8 on October 19, 2026</strong>. Over <strong>8 continuous weeks (54 calendar days / 29 dedicated active development days)</strong>, the platform evolved into a mission-critical operating system: integrating ERP/CUSTMASTER databases, migrating across dual database engines (MySQL & Azure SQL Server), deploying an enterprise Master Files Disk Persistence & Cache Invalidation Pipeline, standardizing canonical Power SKUs (MT=24, TT=27), tracking classification visit frequency targets, and securing audit actions via native MSSQL T-SQL MERGE logic.
+      This comprehensive report details the complete engineering lifecycle of the <strong>Field Visit & Market Execution Platform</strong> from initial architectural inception on <strong>August 27, 2026</strong> through release <strong>v2.5 on October 14, 2026</strong>. Over <strong>7 continuous weeks (49 calendar days / 25 dedicated active development days)</strong>, the platform was developed, integrated with enterprise ERP/CUSTMASTER databases, migrated across dual database engines (MySQL & Azure SQL Server), hardened against real-world field constraints, and delivered to senior leadership with luxury executive analytics and end-to-end corrective action tracking.
     </p>
   </div>
 
   <!-- KPI HIGHLIGHTS -->
   <div class="kpi-grid">
     <div class="kpi-box">
-      <div class="kpi-value">242 Hrs</div>
+      <div class="kpi-value">214 Hrs</div>
       <div class="kpi-label">Total Engineering Hours</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-value">121</div>
+      <div class="kpi-value">106</div>
       <div class="kpi-label">Production Commits</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-value">204 Modules</div>
-      <div class="kpi-label">168,000+ Lines of Code</div>
+      <div class="kpi-value">189 Files</div>
+      <div class="kpi-label">166,573 Lines of Code</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-value">8 Weeks</div>
+      <div class="kpi-value">7 Weeks</div>
       <div class="kpi-label">Full Lifecycle Span</div>
     </div>
   </div>
 
   <!-- COMPLETE TIME & EFFORT ALLOCATION -->
-  <h2>1. Full Lifecycle Engineering Effort & Time Allocation <span class="badge-time">Total: 242 Hours</span></h2>
+  <h2>1. Full Lifecycle Engineering Effort & Time Allocation <span class="badge-time">Total: 214 Hours</span></h2>
   <table class="hours-table">
     <thead>
       <tr>
-        <th style="width: 27%;">Development Phase</th>
-        <th style="width: 21%;">Timeline & Span</th>
-        <th style="width: 40%;">Primary Engineering Scope & Modules Delivered</th>
+        <th style="width: 28%;">Development Phase</th>
+        <th style="width: 22%;">Timeline & Span</th>
+        <th style="width: 38%;">Primary Engineering Scope & Modules Delivered</th>
         <th style="width: 12%; text-align: right;">Time Spent</th>
       </tr>
     </thead>
     <tbody>
       <tr>
         <td><strong>Phase 1: Platform Foundation & Offline PWA</strong></td>
-        <td>Aug 27 – Sep 10, 2026<br><span style="font-size: 7.2pt; color: #64748b;">(Weeks 1–2 · 10 Commits)</span></td>
+        <td>Aug 27 – Sep 10, 2026<br><span style="font-size: 7.5pt; color: #64748b;">(Weeks 1–2 · 10 Commits)</span></td>
         <td>Next.js 16 architecture, Cloudinary to local photo storage migration, PWA Service Worker offline caching, background sync engine, client data usage tracking, and initial supervisor visit wizard.</td>
         <td style="text-align: right; font-weight: 700;">42 Hours</td>
       </tr>
       <tr>
         <td><strong>Phase 2: Database Migration & Cloud CI/CD</strong></td>
-        <td>Sep 14 – Sep 23, 2026<br><span style="font-size: 7.2pt; color: #64748b;">(Weeks 3–4 · 11 Commits)</span></td>
+        <td>Sep 14 – Sep 23, 2026<br><span style="font-size: 7.5pt; color: #64748b;">(Weeks 3–4 · 11 Commits)</span></td>
         <td>Full SQL Server migration from legacy MySQL, Azure App Service containerized Next.js standalone build pipeline, GitHub Actions CI/CD workflows, runtime Azure environment injection, and initial admin seeding.</td>
         <td style="text-align: right; font-weight: 700;">36 Hours</td>
       </tr>
       <tr>
         <td><strong>Phase 3: CUSTMASTER Sync & GM Directives</strong></td>
-        <td>Sep 24 – Sep 30, 2026<br><span style="font-size: 7.2pt; color: #64748b;">(Weeks 4–5 · 37 Commits)</span></td>
+        <td>Sep 24 – Sep 30, 2026<br><span style="font-size: 7.5pt; color: #64748b;">(Weeks 4–5 · 37 Commits)</span></td>
         <td>CUSTMASTER ERP master data integration (Manager, Supervisor, Route, Classification), GM Directive & Supervisor Resolution Proof workflow, camera-only proof enforcement, Sub-Admin role, TT vs MT channel separation, and Saifullah vs Saif disambiguation.</td>
         <td style="text-align: right; font-weight: 700;">48 Hours</td>
       </tr>
       <tr>
         <td><strong>Phase 4: Analytics Suite & Lightbox Engine</strong></td>
-        <td>Oct 01 – Oct 08, 2026<br><span style="font-size: 7.2pt; color: #64748b;">(Week 6 · 14 Commits)</span></td>
+        <td>Oct 01 – Oct 08, 2026<br><span style="font-size: 7.5pt; color: #64748b;">(Week 6 · 14 Commits)</span></td>
         <td>Interactive high-resolution image audit lightbox with zoom, pan, and rotation dock; multi-asset chiller/freezer tracking; initial Visit Execution & Asset Summary Table with Excel export; Power SKU APIs.</td>
         <td style="text-align: right; font-weight: 700;">42 Hours</td>
       </tr>
       <tr>
         <td><strong>Phase 5: Executive Overhaul & Hardening</strong></td>
-        <td>Oct 09 – Oct 14, 2026<br><span style="font-size: 7.2pt; color: #64748b;">(Week 7 · 34 Commits)</span></td>
-        <td>Luxury executive dashboard redesign (donut KPIs, high contrast typography), strict Power SKU rule enforcement (MT=24, TT=27), strict directive isolation by photoId, Fit-to-Screen table mode, dual-engine Azure SQL/MySQL, and "All" records export pagination.</td>
+        <td>Oct 09 – Oct 14, 2026<br><span style="font-size: 7.5pt; color: #64748b;">(Week 7 · 34 Commits)</span></td>
+        <td>Luxury executive dashboard redesign (donut KPIs, high contrast typography), strict Power SKU rule enforcement (MT=24, TT=27), strict directive isolation by photoId (preventing cross-photo directive leakage), Fit-to-Screen table mode, dual-engine Azure SQL/MySQL, and "All" records export pagination.</td>
         <td style="text-align: right; font-weight: 700;">46 Hours</td>
-      </tr>
-      <tr>
-        <td><strong>Phase 6: Master Sync Pipeline, SLA Targets & MSSQL MERGE</strong></td>
-        <td>Oct 14 – Oct 19, 2026<br><span style="font-size: 7.2pt; color: #64748b;">(Week 8 · 15 Commits)</span></td>
-        <td>Master files Excel upload, disk persistence & instant memory cache invalidation; dynamic Power SKU serving (24 MT / 27 TT with Scotch Vanilla consolidation); outlet classification visit frequency guidelines (A: 4/mo, B: 2/mo, C: 1/mo, D: 0.5/mo) with achievement tracking; MSSQL native T-SQL MERGE preventing comment loss on deploys; dynamic route-to-channel resolution; and PWA API offline route bypass.</td>
-        <td style="text-align: right; font-weight: 700;">28 Hours</td>
       </tr>
       <tr class="total-row">
         <td colspan="3"><strong>TOTAL CUMULATIVE ENGINEERING TIME INVESTED ACROSS LIFECYCLE</strong></td>
-        <td style="text-align: right; color: #1e3a8a;">242 Hours</td>
+        <td style="text-align: right; color: #1e3a8a;">214 Hours</td>
       </tr>
     </tbody>
   </table>
@@ -333,60 +325,6 @@
     </thead>
     <tbody>
       <tr>
-        <td><strong>Master Sync Pipeline</strong></td>
-        <td>Enterprise admin pipeline to upload, parse, and persist updated Excel master files (Power SKUs, Classification) directly to server disk with zero container rebuilds, automatic memory cache eviction, and instant live synchronization across all field users.</td>
-        <td>Empowers commercial admin to update product catalogs & customer tiers without developer redeployments.</td>
-        <td><span class="status-badge badge-success">Production</span><br>Oct 18, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Dynamic Power SKU Serving</strong></td>
-        <td>Live dynamic serving of canonical MT (24 SKUs) and TT (27 SKUs) directly from master data with automatic flavor consolidation (Scotch Vanilla TT), unifying supervisor entry wizards and dashboard compliance slicers.</td>
-        <td>Guarantees 100% mathematical consistency across field entry and executive KPI compliance scoring.</td>
-        <td><span class="status-badge badge-success">Production</span><br>Oct 18, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Frequency Target Tracking</strong></td>
-        <td>Real-time tracking of supervisor visit frequency against monthly classification targets (Class A: 4/mo, Class B: 2/mo, Class C: 1/mo, Class D: 1 every 2 mos) with executive compliance guidelines banner and achievement percentage KPI.</td>
-        <td>Enforces operational route discipline; reveals under-visited key accounts before revenue impacts occur.</td>
-        <td><span class="status-badge badge-success">Production</span><br>Oct 15, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Dynamic Channel Mapping</strong></td>
-        <td>Dynamic resolution of outlet trade channels from supervisor affiliation and route nomenclature, eliminating inaccurate fallback assignments.</td>
-        <td>Ensures accurate commercial channel attribution between Modern Trade and Traditional Trade.</td>
-        <td><span class="status-badge badge-success">Production</span><br>Oct 15, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>PWA Network & Auth Resilience</strong></td>
-        <td>Service worker network route filtering ensuring Next.js `/api/*` endpoints bypass offline fallbacks during transient network fluctuations, paired with clean automatic session re-authentication.</td>
-        <td>Prevents stale offline error screens in field; provides seamless auto-recovery when mobile data reconnects.</td>
-        <td><span class="status-badge badge-success">Production</span><br>Oct 17, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Dashboard & "Avg Visits/Day"</strong></td>
-        <td>Streamlined dashboard slicers by eliminating redundant Manager filter, unifying Admin and Supervisor analytical metrics, and introducing average daily visit throughput tracking.</td>
-        <td>Provides executive leadership with direct, uncluttered visibility into daily field work rates.</td>
-        <td><span class="status-badge badge-success">Production</span><br>Oct 14, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>GM Directives Workflow</strong></td>
-        <td>Executive leadership can flag specific audit photos with corrective directives (Assigned Supervisor, Action Required, Priority). Supervisors must upload camera-only photo proof to mark resolved.</td>
-        <td>Closed-loop accountability: GM directives are verified with visual proof before closure.</td>
-        <td><span class="status-badge badge-success">Production</span><br>Sep 24, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>High-Res Lightbox Dock</strong></td>
-        <td>Interactive full-screen inspection modal with bottom dock controls: smooth zoom (up to 400%), mouse wheel zoom, 90° incremental rotation, panning, and observation details drawer.</td>
-        <td>Allows GM and management to scrutinize shelf planograms, share of voice, and asset condition.</td>
-        <td><span class="status-badge badge-success">Production</span><br>Oct 10, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Multi-Asset Tracking</strong></td>
-        <td>Comprehensive tracking for outlets with multiple refrigeration units (Chiller 1, Chiller 2, Freezer 1, Freezer 2) with exact size model identification and temperature compliance.</td>
-        <td>Full visibility into multi-cooler stores and cold-chain equipment health.</td>
-        <td><span class="status-badge badge-success">Production</span><br>Oct 10, 2026</td>
-      </tr>
-      <tr>
         <td><strong>Offline PWA Engine</strong></td>
         <td>Full Progressive Web App with custom Service Worker (`sw.ts`), client data compression, image down-sampling, and offline IndexedDB background queue sync.</td>
         <td>Supervisors audit remote outlets without cellular connectivity; zero data loss.</td>
@@ -399,16 +337,55 @@
         <td><span class="status-badge badge-success">Production</span><br>Aug 27, 2026</td>
       </tr>
       <tr>
-        <td><strong>Fit-to-Screen & All Export</strong></td>
-        <td>Comprehensive Visit Execution Table (`VisitSummaryTable.tsx`) with toggleable "Fit to Screen (No Scroll)" mode, quick modal inspect, column sorting, and unpaginated "All" records Excel export.</td>
+        <td><strong>Azure Cloud CI/CD</strong></td>
+        <td>Automated GitHub Actions workflow building Next.js standalone container artifacts deployed directly into Azure App Service with live environment variable injection.</td>
+        <td>Zero-downtime automated deployment pipeline; enterprise SLA stability.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Sep 14, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>CUSTMASTER Integration</strong></td>
+        <td>Direct relational schema linking visits to official ERP CUSTMASTER customer data: Segment_Fin, Channel, Manager, Supervisor, Classification (A/B/C/D), and Route Codes.</td>
+        <td>Guarantees 100% single-source-of-truth accuracy aligned with finance and sales.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Sep 24, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>GM Directives Workflow</strong></td>
+        <td>Executive leadership can flag specific audit photos with corrective directives (Assigned Supervisor, Action Required, Priority). Supervisors must upload camera-only photo proof to mark resolved.</td>
+        <td>Closed-loop accountability: GM directives are verified with visual proof before closure.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Sep 24, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>Multi-Asset Tracking</strong></td>
+        <td>Comprehensive tracking for outlets with multiple refrigeration units (Chiller 1, Chiller 2, Freezer 1, Freezer 2) with exact size model identification and temperature compliance.</td>
+        <td>Full visibility into multi-cooler stores and cold-chain equipment health.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Oct 10, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>High-Res Lightbox Dock</strong></td>
+        <td>Interactive full-screen inspection modal with bottom dock controls: smooth zoom (up to 400%), mouse wheel zoom, 90° incremental rotation, panning, and observation details drawer.</td>
+        <td>Allows GM and management to scrutinize shelf planograms and asset condition.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Oct 10, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>Fit-to-Screen & Summary</strong></td>
+        <td>Comprehensive Visit Execution Table (`VisitSummaryTable.tsx`) with toggleable "Fit to Screen (No Scroll)" mode, quick modal inspect, column sorting, and instant Excel export.</td>
         <td>Executive dashboard view fits on standard laptop screens without awkward horizontal scrolling.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Oct 12, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>Bypassed Visits Engine</strong></td>
+        <td>Dedicated No-Visit module tracking reasons why scheduled outlets were skipped (Shop Closed, Permission Refused, Absent) with supervisor GPS and photo proof.</td>
+        <td>Differentiates genuine outlet closures from field supervisor delinquency.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Oct 11, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>All Records Export</strong></td>
+        <td>Added "All" items option to "Show" page size dropdowns in DrilldownReportModal, InteractiveChartTableModal, and VisitSummaryTable with complete unpaginated Excel export.</td>
+        <td>Users and GM can inspect and export the entire dataset in a single click.</td>
         <td><span class="status-badge badge-success">Production</span><br>Oct 14, 2026</td>
       </tr>
     </tbody>
   </table>
-
-  <!-- PAGE BREAK FOR SECTION 3 & CONCLUSION -->
-  <div class="page-break"></div>
 
   <!-- SECTION 3: CRITICAL BUG FIXES & ARCHITECTURAL REMEDIATIONS -->
   <h2>3. Critical Architectural Bug Fixes & Problem Remediations</h2>
@@ -423,34 +400,10 @@
     </thead>
     <tbody>
       <tr>
-        <td><strong>Action Comments Lost on Deploy</strong></td>
-        <td>Container redeployments or visit re-syncs risked overwriting supervisor action comments. <em>Remediated by implementing native T-SQL MERGE (`MERGE INTO ActionComments ... WHEN MATCHED THEN UPDATE ... WHEN NOT MATCHED THEN INSERT`) dual-engine logic across repositories.</em></td>
-        <td>Permanent data preservation of all audit remarks and directive action comments on Azure SQL.</td>
-        <td><span class="status-badge badge-success">Resolved</span><br>Oct 18, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Stale PWA Offline API Interception</strong></td>
-        <td>Service worker inadvertently cached Next.js API mutations in offline mode, causing intermittent stale responses upon reconnection. <em>Remediated by strictly excluding `/api/*` and Server Action routes from Workbox offline fallback caches.</em></td>
-        <td>Guarantees live dynamic server data handoff immediately when cellular or Wi-Fi reconnects.</td>
-        <td><span class="status-badge badge-success">Resolved</span><br>Oct 17, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Master File Ephemeral Loss</strong></td>
-        <td>Uploaded master Excel files were stored in ephemeral runtime memory, losing updates on container recycling. <em>Remediated by engineering persistent local disk storage in `data/` directory with automated boot re-hydration & cache invalidation.</em></td>
-        <td>Master updates survive server reboots and container redeployments indefinitely.</td>
-        <td><span class="status-badge badge-success">Resolved</span><br>Oct 15, 2026</td>
-      </tr>
-      <tr>
         <td><strong>Directive Action Leak</strong></td>
         <td>Flagged directives in Audit Photo Gallery were displaying across all photos and supervisors. <em>Remediated by strictly isolating directives to compound key (`photoId + outletCode + supervisor`).</em></td>
         <td>Directives now appear exclusively on the exact photo, outlet, and supervisor intended.</td>
         <td><span class="status-badge badge-success">Resolved</span><br>Oct 14, 2026</td>
-      </tr>
-      <tr>
-        <td><strong>Power SKU Denominator</strong></td>
-        <td>Power SKU compliance was defaulting to 41 SKUs or exceeding 100%. <em>Remediated by strictly enforcing business rule: MT = 24 Power SKUs, TT = 27 Power SKUs, with Y-axis strictly capped at 100%.</em></td>
-        <td>Audited scores represent true store compliance without mathematical distortion.</td>
-        <td><span class="status-badge badge-success">Resolved</span><br>Oct 11, 2026</td>
       </tr>
       <tr>
         <td><strong>Saifullah vs Saif Ambiguity</strong></td>
@@ -463,6 +416,12 @@
         <td>Legacy records referenced "General Trade (GT)". <em>Remediated across all APIs, models, and UI components to official Dandy Traditional Trade (TT) vs Modern Trade (MT).</em></td>
         <td>Standardized operational nomenclature across all commercial reports.</td>
         <td><span class="status-badge badge-success">Resolved</span><br>Sep 30, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>Power SKU Denominator</strong></td>
+        <td>Power SKU compliance was defaulting to 41 SKUs or exceeding 100%. <em>Remediated by strictly enforcing business rule: MT = 24 Power SKUs, TT = 27 Power SKUs, with Y-axis strictly capped at 100%.</em></td>
+        <td>Audited scores represent true store compliance without mathematical distortion.</td>
+        <td><span class="status-badge badge-success">Resolved</span><br>Oct 11, 2026</td>
       </tr>
       <tr>
         <td><strong>Master Data Import Crash</strong></td>
@@ -479,44 +438,46 @@
     </tbody>
   </table>
 
+  <!-- PAGE BREAK FOR SECTION 4 & SIGN OFF -->
+  <div class="page-break"></div>
+
   <!-- SECTION 4: PLATFORM ARCHITECTURE OVERVIEW -->
   <h2>4. Core Technical Architecture & Security Model</h2>
-  <div class="summary-card" style="margin-bottom: 8px;">
+  <div class="summary-card" style="margin-bottom: 12px;">
     <h3>Full Enterprise Technology Stack</h3>
     <p>
       The platform is engineered on a modern enterprise stack designed for high throughput, sub-second query response times, and resilience in low-bandwidth field environments:
     </p>
-    <ul class="compact" style="margin-top: 4px; font-size: 8pt; color: #334155;">
+    <ul class="compact" style="margin-top: 6px; font-size: 8.5pt; color: #334155;">
       <li><strong>Frontend Layer:</strong> Next.js 16 (App Router), React 19, TypeScript, Vanilla CSS design tokens with executive theme engine.</li>
-      <li><strong>Offline & PWA:</strong> Progressive Web App with custom Service Worker (`sw.ts`), smart route bypass for dynamic APIs, client image down-sampling, and IndexedDB sync engine.</li>
-      <li><strong>Database & Dual-Engine ORM:</strong> Dual-Engine Architecture supporting Microsoft Azure SQL Server and MySQL with connection pooling and native T-SQL MERGE statements.</li>
-      <li><strong>Master Data Pipeline:</strong> Disk-persisted runtime Excel ingestion (`data/` directory) with automated in-memory cache eviction and live client distribution.</li>
-      <li><strong>Cloud Hosting & CI/CD:</strong> Microsoft Azure App Service with automated GitHub Actions CI/CD pipeline and Next.js standalone container deployment.</li>
+      <li><strong>Offline & PWA:</strong> Progressive Web App with custom service worker caching, client image compression, and background sync.</li>
+      <li><strong>Database & ORM:</strong> Dual-Engine Architecture supporting Microsoft Azure SQL Server and MySQL with connection pooling.</li>
+      <li><strong>Cloud Hosting:</strong> Microsoft Azure App Service with automated GitHub Actions CI/CD pipeline and Next.js standalone builds.</li>
       <li><strong>Security & Access Control:</strong> Role-Based Access Control (Admin, Sub-Admin, Supervisor) with tamper-resistant camera-only proof enforcement.</li>
     </ul>
   </div>
 
   <!-- SECTION 5: EXECUTIVE CONCLUSION & RECOMMENDATION -->
   <h2>5. Conclusion & Operational Readiness</h2>
-  <p style="font-size: 8.5pt; margin-bottom: 6px;">
-    The Field Visit Management Platform has evolved from an initial proof-of-concept into a mission-critical, enterprise-grade audit operating system. Across <strong>242 engineering hours, 121 production commits, and 8 continuous weeks of delivery</strong>, every operational requirement specified by commercial management and executive leadership has been rigorously built, tested, and validated.
+  <p style="font-size: 9pt; margin-bottom: 14px;">
+    The Field Visit Management Platform has evolved from an initial proof-of-concept into a mission-critical, enterprise-grade audit operating system. Across <strong>214 engineering hours, 106 commits, and 7 weeks of continuous delivery</strong>, every requirement specified by commercial operations and executive leadership has been rigorously built, tested, and validated.
   </p>
-  <p style="font-size: 8.5pt; margin-bottom: 10px;">
-    The system is currently <strong>100% active, stable, and production-ready (v2.8)</strong>, empowering the General Manager and executive committee with real-time operational visibility into market execution, asset preservation, and team accountability.
+  <p style="font-size: 9pt; margin-bottom: 14px;">
+    The system is currently <strong>100% active, stable, and production-ready</strong>, empowering the General Manager and executive committee with real-time operational visibility into market execution, asset preservation, and team accountability.
   </p>
 
   <!-- SIGN OFF BLOCK -->
-  <table style="width: 100%; border-top: 1.5px solid #0f172a; margin-top: 12px; padding-top: 6px;">
+  <table style="width: 100%; border-top: 2px solid #0f172a; margin-top: 30px; padding-top: 10px;">
     <tr>
       <td style="width: 50%;">
-        <div style="font-size: 7.8pt; color: #64748b; text-transform: uppercase; font-weight: 700;">Report Prepared By:</div>
-        <div style="font-size: 10.2pt; font-weight: 800; color: #0f172a; margin-top: 1px;">Lead Field Platform Developer</div>
-        <div style="font-size: 7.8pt; color: #475569;">Sales Operations & Enterprise Systems</div>
+        <div style="font-size: 8.5pt; color: #64748b; text-transform: uppercase; font-weight: 700;">Report Prepared By:</div>
+        <div style="font-size: 11pt; font-weight: 800; color: #0f172a; margin-top: 2px;">Lead Field Platform Developer</div>
+        <div style="font-size: 8.5pt; color: #475569;">Sales Operations & Enterprise Systems</div>
       </td>
       <td style="width: 50%; text-align: right;">
-        <div style="font-size: 7.8pt; color: #64748b; text-transform: uppercase; font-weight: 700;">Presented To:</div>
-        <div style="font-size: 10.2pt; font-weight: 800; color: #1e3a8a; margin-top: 1px;">General Manager (GM)</div>
-        <div style="font-size: 7.8pt; color: #475569;">Dandy Company LLC</div>
+        <div style="font-size: 8.5pt; color: #64748b; text-transform: uppercase; font-weight: 700;">Presented To:</div>
+        <div style="font-size: 11pt; font-weight: 800; color: #1e3a8a; margin-top: 2px;">General Manager (GM)</div>
+        <div style="font-size: 8.5pt; color: #475569;">Dandy Company LLC</div>
       </td>
     </tr>
   </table>
@@ -524,7 +485,7 @@
   <!-- FOOTER -->
   <div class="footer-note">
     <span>Field Visit & Market Execution Platform — Comprehensive Lifecycle Engineering Report</span>
-    <span>Document Ref: DND-FVS-GM-LIFECYCLE-2026-v2.8 · Confidential</span>
+    <span>Document Ref: DND-FVS-GM-LIFECYCLE-2026-v2.5 · Confidential</span>
   </div>
 
 </body>

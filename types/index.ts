@@ -76,13 +76,6 @@ export interface PowerSKU {
   channel: string;
 }
 
-export interface CustomerClassification {
-  customerCode: string;
-  businessVertical: string; // 'Dairy' | 'Ice Cream'
-  classification: string;   // 'A' | 'B' | 'C' | 'D' | 'E'
-  channel?: string;
-}
-
 export interface Visit {
   visitId: string;
   supervisorId: string; // User.id

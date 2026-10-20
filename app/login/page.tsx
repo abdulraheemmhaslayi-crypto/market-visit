@@ -80,28 +80,13 @@ function LoginForm() {
     }
   };
 
-  // Check searchParams for status errors and NextAuth error redirects
+  // Check searchParams for status errors (e.g. inactive)
   useEffect(() => {
     const errorParam = searchParams.get('error');
-    if (!errorParam) return;
-
-    let msg = 'An authentication error occurred. Please sign in again.';
     if (errorParam === 'Inactive') {
-      msg = 'Your account is currently disabled. Please contact your administrator.';
-    } else if (errorParam === 'CredentialsSignin') {
-      msg = 'Invalid email, employee code, or password. Please verify your credentials.';
-    } else if (errorParam === 'SessionRequired') {
-      msg = 'Your session has expired. Please sign in again.';
-    } else if (errorParam === 'AccessDenied') {
-      msg = 'Access denied. You do not have permission to access that section.';
-    } else if (errorParam === 'Configuration') {
-      msg = 'Authentication service is temporarily unavailable. Please try again shortly.';
-    } else if (errorParam === 'Verification') {
-      msg = 'The verification token has expired or is invalid.';
+      setErrorMsg('Your account is currently disabled. Please contact your administrator.');
+      showToast('Your account is inactive.', 'error');
     }
-
-    setErrorMsg(msg);
-    showToast(msg, 'error');
   }, [searchParams, showToast]);
 
   const {
@@ -141,19 +126,8 @@ function LoginForm() {
         router.refresh();
       }
     } catch (err: any) {
-      const errMsg = String(err?.message || '');
-      if (errMsg.includes('CredentialsSignin') || err?.type === 'CredentialsSignin') {
-        const msg = 'Invalid email, employee code, or password.';
-        setErrorMsg(msg);
-        showToast(msg, 'error');
-      } else if (errMsg.toLowerCase().includes('inactive')) {
-        const msg = 'Your account is inactive. Please contact the administrator.';
-        setErrorMsg(msg);
-        showToast(msg, 'error');
-      } else {
-        setErrorMsg('Invalid email or password. Please verify your credentials and try again.');
-        showToast('Login failed.', 'error');
-      }
+      setErrorMsg('An unexpected error occurred. Please try again.');
+      showToast('Login failed.', 'error');
     } finally {
       setLoading(false);
     }

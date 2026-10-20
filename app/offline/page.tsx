@@ -1,6 +1,6 @@
 "use client";
 
-import { WifiOff, RotateCw, Home, LogIn } from "lucide-react";
+import { WifiOff, RotateCw, Home } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function OfflinePage() {
@@ -21,14 +21,7 @@ export default function OfflinePage() {
   }, []);
 
   const handleRetry = () => {
-    if (typeof window !== "undefined") {
-      // If trapped on an internal API route like /api/auth/error, navigate safely out to login
-      if (window.location.pathname.startsWith("/api/")) {
-        window.location.href = "/login";
-        return;
-      }
-      window.location.reload();
-    }
+    window.location.reload();
   };
 
   return (
@@ -72,14 +65,6 @@ export default function OfflinePage() {
             Retry Connection
           </button>
           
-          <a
-            href="/login"
-            className="w-full py-3.5 px-6 rounded-xl bg-sky-50 dark:bg-sky-950/30 hover:bg-sky-100 dark:hover:bg-sky-900/40 text-[#0284c7] dark:text-sky-400 font-semibold text-sm flex items-center justify-center gap-2 border border-sky-200/50 dark:border-sky-800/40 transition-all duration-200 cursor-pointer"
-          >
-            <LogIn className="w-4 h-4" />
-            Go to Sign In
-          </a>
-
           <a
             href="/"
             className="w-full py-3.5 px-6 rounded-xl bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 active:bg-slate-300 dark:active:bg-slate-750 text-slate-700 dark:text-slate-300 font-semibold text-sm flex items-center justify-center gap-2 border border-slate-200/40 dark:border-slate-700/30 transition-all duration-200 cursor-pointer"

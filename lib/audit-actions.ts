@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import pool, { isMssql } from '@/lib/db';
+import pool from '@/lib/db';
 
 export interface AuditActionItem {
   id: string;
@@ -67,235 +67,123 @@ function writeLocalItems(items: AuditActionItem[]): void {
   }
 }
 
-let auditSchemaChecked = false;
-
-async function ensureAuditTable(): Promise<void> {
-  if (auditSchemaChecked) return;
-  try {
-    if (isMssql) {
-      await pool.execute(`
-        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'AuditActionItem')
-        BEGIN
-          CREATE TABLE [AuditActionItem] (
-            [id] VARCHAR(191) PRIMARY KEY,
-            [photoId] VARCHAR(191) NOT NULL,
-            [visitId] VARCHAR(191) NOT NULL,
-            [outlet] VARCHAR(191) NULL,
-            [outletCode] VARCHAR(100) NULL,
-            [route] VARCHAR(191) NULL,
-            [supervisor] VARCHAR(191) NULL,
-            [manager] VARCHAR(191) NULL,
-            [channel] VARCHAR(100) NULL,
-            [category] VARCHAR(100) NULL,
-            [originalPhotoUrl] NVARCHAR(MAX) NULL,
-            [gmComment] NVARCHAR(MAX) NOT NULL,
-            [gmName] VARCHAR(191) NULL,
-            [priority] VARCHAR(50) DEFAULT 'Normal',
-            [deadline] VARCHAR(100) NULL,
-            [actionStatus] VARCHAR(50) DEFAULT 'PENDING',
-            [supervisorComment] NVARCHAR(MAX) NULL,
-            [proofPhotoUrl] NVARCHAR(MAX) NULL,
-            [actionTakenAt] VARCHAR(100) NULL,
-            [gmVerifiedAt] VARCHAR(100) NULL,
-            [gmResolutionNotes] NVARCHAR(MAX) NULL,
-            [createdAt] VARCHAR(100) NOT NULL,
-            [updatedAt] VARCHAR(100) NOT NULL
-          );
-        END
-      `);
-      try {
-        await pool.execute(`
-          IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_audit_photoId' AND object_id = OBJECT_ID('AuditActionItem'))
-            CREATE INDEX [idx_audit_photoId] ON [AuditActionItem] ([photoId]);
-          IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_audit_actionStatus' AND object_id = OBJECT_ID('AuditActionItem'))
-            CREATE INDEX [idx_audit_actionStatus] ON [AuditActionItem] ([actionStatus]);
-        `);
-      } catch {}
-    } else {
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS \`AuditActionItem\` (
-          \`id\` VARCHAR(191) PRIMARY KEY,
-          \`photoId\` VARCHAR(191) NOT NULL,
-          \`visitId\` VARCHAR(191) NOT NULL,
-          \`outlet\` VARCHAR(191) NULL,
-          \`outletCode\` VARCHAR(100) NULL,
-          \`route\` VARCHAR(191) NULL,
-          \`supervisor\` VARCHAR(191) NULL,
-          \`manager\` VARCHAR(191) NULL,
-          \`channel\` VARCHAR(100) NULL,
-          \`category\` VARCHAR(100) NULL,
-          \`originalPhotoUrl\` LONGTEXT NULL,
-          \`gmComment\` TEXT NOT NULL,
-          \`gmName\` VARCHAR(191) NULL,
-          \`priority\` VARCHAR(50) DEFAULT 'Normal',
-          \`deadline\` VARCHAR(100) NULL,
-          \`actionStatus\` VARCHAR(50) DEFAULT 'PENDING',
-          \`supervisorComment\` TEXT NULL,
-          \`proofPhotoUrl\` LONGTEXT NULL,
-          \`actionTakenAt\` VARCHAR(100) NULL,
-          \`gmVerifiedAt\` VARCHAR(100) NULL,
-          \`gmResolutionNotes\` TEXT NULL,
-          \`createdAt\` VARCHAR(100) NOT NULL,
-          \`updatedAt\` VARCHAR(100) NOT NULL,
-          INDEX \`idx_photoId\` (\`photoId\`),
-          INDEX \`idx_actionStatus\` (\`actionStatus\`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-      `);
-
-      await pool.execute(`
-        ALTER TABLE \`AuditActionItem\`
-        MODIFY COLUMN \`proofPhotoUrl\` LONGTEXT NULL,
-        MODIFY COLUMN \`originalPhotoUrl\` LONGTEXT NULL
-      `).catch(() => {});
-    }
-    auditSchemaChecked = true;
-  } catch (err: any) {
-    console.warn('DB ensure table for audit action item:', err?.message);
-  }
-}
-
-// Reliable dual-database sync (MSSQL MERGE INTO and MySQL ON DUPLICATE KEY UPDATE)
+// Optional safe database sync (fails silently if DB offline)
 async function syncToDbSafe(item: AuditActionItem): Promise<void> {
   try {
-    await ensureAuditTable();
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS \`AuditActionItem\` (
+        \`id\` VARCHAR(191) PRIMARY KEY,
+        \`photoId\` VARCHAR(191) NOT NULL,
+        \`visitId\` VARCHAR(191) NOT NULL,
+        \`outlet\` VARCHAR(191) NULL,
+        \`outletCode\` VARCHAR(100) NULL,
+        \`route\` VARCHAR(191) NULL,
+        \`supervisor\` VARCHAR(191) NULL,
+        \`manager\` VARCHAR(191) NULL,
+        \`channel\` VARCHAR(100) NULL,
+        \`category\` VARCHAR(100) NULL,
+        \`originalPhotoUrl\` LONGTEXT NULL,
+        \`gmComment\` TEXT NOT NULL,
+        \`gmName\` VARCHAR(191) NULL,
+        \`priority\` VARCHAR(50) DEFAULT 'Normal',
+        \`deadline\` VARCHAR(100) NULL,
+        \`actionStatus\` VARCHAR(50) DEFAULT 'PENDING',
+        \`supervisorComment\` TEXT NULL,
+        \`proofPhotoUrl\` LONGTEXT NULL,
+        \`actionTakenAt\` VARCHAR(100) NULL,
+        \`gmVerifiedAt\` VARCHAR(100) NULL,
+        \`gmResolutionNotes\` TEXT NULL,
+        \`createdAt\` VARCHAR(100) NOT NULL,
+        \`updatedAt\` VARCHAR(100) NOT NULL,
+        INDEX \`idx_photoId\` (\`photoId\`),
+        INDEX \`idx_actionStatus\` (\`actionStatus\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
 
-    const params = [
-      item.id,
-      item.photoId,
-      item.visitId,
-      item.outlet || '',
-      item.outletCode || '',
-      item.route || '',
-      item.supervisor || '',
-      item.manager || '',
-      item.channel || 'GT',
-      item.category || '',
-      item.originalPhotoUrl || '',
-      item.gmComment || '',
-      item.gmName || 'General Manager',
-      item.priority || 'Normal',
-      item.deadline || null,
-      item.actionStatus || 'PENDING',
-      item.supervisorComment || null,
-      item.proofPhotoUrl || null,
-      item.actionTakenAt || null,
-      item.gmVerifiedAt || null,
-      item.gmResolutionNotes || null,
-      item.createdAt,
-      item.updatedAt,
-    ];
+    // Ensure columns support large image payloads if table already existed as TEXT
+    await pool.execute(`
+      ALTER TABLE \`AuditActionItem\`
+      MODIFY COLUMN \`proofPhotoUrl\` LONGTEXT NULL,
+      MODIFY COLUMN \`originalPhotoUrl\` LONGTEXT NULL
+    `).catch(() => {});
 
-    if (isMssql) {
-      await pool.execute(
-        `MERGE INTO \`AuditActionItem\` AS target
-         USING (SELECT ? AS id, ? AS photoId, ? AS visitId, ? AS outlet, ? AS outletCode,
-                       ? AS route, ? AS supervisor, ? AS manager, ? AS channel, ? AS category,
-                       ? AS originalPhotoUrl, ? AS gmComment, ? AS gmName, ? AS priority, ? AS deadline,
-                       ? AS actionStatus, ? AS supervisorComment, ? AS proofPhotoUrl, ? AS actionTakenAt,
-                       ? AS gmVerifiedAt, ? AS gmResolutionNotes, ? AS createdAt, ? AS updatedAt) AS source
-         ON target.id = source.id
-         WHEN MATCHED THEN
-           UPDATE SET
-             target.photoId = source.photoId,
-             target.visitId = source.visitId,
-             target.outlet = source.outlet,
-             target.outletCode = source.outletCode,
-             target.route = source.route,
-             target.supervisor = source.supervisor,
-             target.manager = source.manager,
-             target.channel = source.channel,
-             target.category = source.category,
-             target.originalPhotoUrl = source.originalPhotoUrl,
-             target.gmComment = source.gmComment,
-             target.gmName = source.gmName,
-             target.priority = source.priority,
-             target.deadline = source.deadline,
-             target.actionStatus = source.actionStatus,
-             target.supervisorComment = source.supervisorComment,
-             target.proofPhotoUrl = source.proofPhotoUrl,
-             target.actionTakenAt = source.actionTakenAt,
-             target.gmVerifiedAt = source.gmVerifiedAt,
-             target.gmResolutionNotes = source.gmResolutionNotes,
-             target.updatedAt = source.updatedAt
-         WHEN NOT MATCHED THEN
-           INSERT (
-             id, photoId, visitId, outlet, outletCode, route, supervisor, manager, channel, category,
-             originalPhotoUrl, gmComment, gmName, priority, deadline, actionStatus, supervisorComment,
-             proofPhotoUrl, actionTakenAt, gmVerifiedAt, gmResolutionNotes, createdAt, updatedAt
-           ) VALUES (
-             source.id, source.photoId, source.visitId, source.outlet, source.outletCode,
-             source.route, source.supervisor, source.manager, source.channel, source.category,
-             source.originalPhotoUrl, source.gmComment, source.gmName, source.priority, source.deadline,
-             source.actionStatus, source.supervisorComment, source.proofPhotoUrl, source.actionTakenAt,
-             source.gmVerifiedAt, source.gmResolutionNotes, source.createdAt, source.updatedAt
-           );`,
-        params
-      );
-    } else {
-      await pool.execute(
-        `INSERT INTO \`AuditActionItem\` (
-           \`id\`, \`photoId\`, \`visitId\`, \`outlet\`, \`outletCode\`, \`route\`, \`supervisor\`,
-           \`manager\`, \`channel\`, \`category\`, \`originalPhotoUrl\`, \`gmComment\`, \`gmName\`,
-           \`priority\`, \`deadline\`, \`actionStatus\`, \`supervisorComment\`, \`proofPhotoUrl\`,
-           \`actionTakenAt\`, \`gmVerifiedAt\`, \`gmResolutionNotes\`, \`createdAt\`, \`updatedAt\`
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           \`photoId\` = VALUES(\`photoId\`),
-           \`visitId\` = VALUES(\`visitId\`),
-           \`outlet\` = VALUES(\`outlet\`),
-           \`outletCode\` = VALUES(\`outletCode\`),
-           \`route\` = VALUES(\`route\`),
-           \`supervisor\` = VALUES(\`supervisor\`),
-           \`manager\` = VALUES(\`manager\`),
-           \`channel\` = VALUES(\`channel\`),
-           \`category\` = VALUES(\`category\`),
-           \`originalPhotoUrl\` = VALUES(\`originalPhotoUrl\`),
-           \`gmComment\` = VALUES(\`gmComment\`),
-           \`gmName\` = VALUES(\`gmName\`),
-           \`priority\` = VALUES(\`priority\`),
-           \`deadline\` = VALUES(\`deadline\`),
-           \`actionStatus\` = VALUES(\`actionStatus\`),
-           \`supervisorComment\` = VALUES(\`supervisorComment\`),
-           \`proofPhotoUrl\` = VALUES(\`proofPhotoUrl\`),
-           \`actionTakenAt\` = VALUES(\`actionTakenAt\`),
-           \`gmVerifiedAt\` = VALUES(\`gmVerifiedAt\`),
-           \`gmResolutionNotes\` = VALUES(\`gmResolutionNotes\`),
-           \`updatedAt\` = VALUES(\`updatedAt\`)`,
-        params
-      );
-    }
+    await pool.execute(
+      `REPLACE INTO \`AuditActionItem\`
+       (id, photoId, visitId, outlet, outletCode, route, supervisor, manager, channel, category, originalPhotoUrl, gmComment, gmName, priority, deadline, actionStatus, supervisorComment, proofPhotoUrl, actionTakenAt, gmVerifiedAt, gmResolutionNotes, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        item.id,
+        item.photoId,
+        item.visitId,
+        item.outlet || '',
+        item.outletCode || '',
+        item.route || '',
+        item.supervisor || '',
+        item.manager || '',
+        item.channel || 'GT',
+        item.category || '',
+        item.originalPhotoUrl || '',
+        item.gmComment || '',
+        item.gmName || 'General Manager',
+        item.priority || 'Normal',
+        item.deadline || null,
+        item.actionStatus || 'PENDING',
+        item.supervisorComment || null,
+        item.proofPhotoUrl || null,
+        item.actionTakenAt || null,
+        item.gmVerifiedAt || null,
+        item.gmResolutionNotes || null,
+        item.createdAt,
+        item.updatedAt,
+      ]
+    );
   } catch (err) {
     console.warn('DB replication for audit action notice:', (err as any)?.message);
   }
 }
 
+const PURGE_FLAG_FILE = path.join(DATA_DIR, '.dummy_actions_purged');
+
 export const auditActionRepository = {
   async clearAll(): Promise<void> {
     try {
-      await ensureAuditTable();
       await pool.execute('DELETE FROM `AuditActionItem`').catch(() => {});
     } catch {}
     writeLocalItems([]);
+    try {
+      fs.writeFileSync(PURGE_FLAG_FILE, new Date().toISOString(), 'utf8');
+    } catch {}
   },
 
   async getAll(): Promise<AuditActionItem[]> {
     try {
-      await ensureAuditTable();
+      // Auto-purge any legacy mock items created before Oct 11, 2026
+      await pool.execute("DELETE FROM `AuditActionItem` WHERE `createdAt` LIKE '2026-09%' OR `createdAt` < '2026-10-11'").catch(() => {});
+    } catch {}
+
+    if (!fs.existsSync(PURGE_FLAG_FILE)) {
+      try {
+        await pool.execute('DELETE FROM `AuditActionItem`').catch(() => {});
+      } catch {}
+      writeLocalItems([]);
+      try {
+        fs.writeFileSync(PURGE_FLAG_FILE, new Date().toISOString(), 'utf8');
+      } catch {}
+    }
+    try {
       const [rows]: any = await pool.execute('SELECT * FROM `AuditActionItem` ORDER BY `createdAt` DESC');
       if (Array.isArray(rows) && rows.length > 0) {
-        // Keep local cache synced with DB source of truth
-        writeLocalItems(rows as AuditActionItem[]);
         return rows as AuditActionItem[];
       }
     } catch (err) {
       // Fallback to local store
     }
-    return readLocalItems();
+    const local = readLocalItems();
+    return local.filter((i) => !i.createdAt || (!i.createdAt.startsWith('2026-09') && i.createdAt >= '2026-10-10'));
   },
 
   async getByPhotoId(photoId: string): Promise<AuditActionItem[]> {
     try {
-      await ensureAuditTable();
       const [rows]: any = await pool.execute('SELECT * FROM `AuditActionItem` WHERE `photoId` = ?', [photoId]);
       if (Array.isArray(rows) && rows.length > 0) {
         return rows as AuditActionItem[];
@@ -307,7 +195,6 @@ export const auditActionRepository = {
 
   async getById(id: string): Promise<AuditActionItem | null> {
     try {
-      await ensureAuditTable();
       const [rows]: any = await pool.execute('SELECT * FROM `AuditActionItem` WHERE `id` = ? OR `photoId` = ?', [id, id]);
       if (Array.isArray(rows) && rows.length > 0) {
         return rows[0] as AuditActionItem;
@@ -359,7 +246,7 @@ export const auditActionRepository = {
     items.unshift(newItem);
     writeLocalItems(items);
 
-    // Replicate to database (MSSQL or MySQL)
+    // Replicate to MySQL
     await syncToDbSafe(newItem);
 
     return newItem;
@@ -376,7 +263,6 @@ export const auditActionRepository = {
       // Check database
       let dbItem: AuditActionItem | null = null;
       try {
-        await ensureAuditTable();
         const [rows]: any = await pool.execute('SELECT * FROM `AuditActionItem` WHERE `id` = ? OR `photoId` = ?', [id, fallbackPhotoId || id]);
         if (Array.isArray(rows) && rows.length > 0) {
           dbItem = rows[0] as AuditActionItem;
@@ -420,7 +306,7 @@ export const auditActionRepository = {
     }
     writeLocalItems(items);
 
-    // Replicate to database (MSSQL or MySQL)
+    // Replicate to MySQL
     await syncToDbSafe(updated);
 
     return updated;
@@ -428,7 +314,6 @@ export const auditActionRepository = {
 
   async delete(id: string): Promise<boolean> {
     try {
-      await ensureAuditTable();
       await pool.execute('DELETE FROM `AuditActionItem` WHERE `id` = ?', [id]);
     } catch (err) {}
     const items = readLocalItems();
