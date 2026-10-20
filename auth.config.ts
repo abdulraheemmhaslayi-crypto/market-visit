@@ -6,6 +6,7 @@ export const authConfig = {
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'antigravity_secret_key_123_abc_xyz_secret_999',
   pages: {
     signIn: '/login',
+    error: '/login',
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
@@ -16,8 +17,8 @@ export const authConfig = {
       const isAdminRoute = nextUrl.pathname.startsWith('/admin');
       const isSupervisorRoute = nextUrl.pathname.startsWith('/supervisor');
 
-      // Exclude API routes from middleware redirect logic to let routes check tokens internally
-      if (nextUrl.pathname.startsWith('/api') && !nextUrl.pathname.startsWith('/api/auth')) {
+      // Exclude API routes from middleware redirect logic so handlers run freely
+      if (nextUrl.pathname.startsWith('/api')) {
         return true;
       }
 
