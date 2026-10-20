@@ -98,15 +98,15 @@ export const routeRepository = {
       routeMap.set(r.routeCode.toUpperCase().trim(), r);
     });
 
-    // Merge CUSTMASTER routes only as fallback if not present in DB
+    // CUSTMASTER is the source of truth for all valid routes
     (custMaster.routes || []).forEach((r) => {
       const cleanCode = r.routeCode.toUpperCase().trim();
       const existing = routeMap.get(cleanCode);
       const channel = cleanCode.startsWith('MT') ? 'MT' : (cleanCode.startsWith('IS') ? 'INST' : 'TT');
       if (existing) {
-        if (!existing.superName) existing.superName = r.superName;
-        if (!existing.managerName) existing.managerName = r.managerName;
-        if (!existing.channel) existing.channel = channel;
+        existing.superName = r.superName || existing.superName;
+        existing.managerName = r.managerName || existing.managerName;
+        existing.channel = channel;
       } else {
         routeMap.set(cleanCode, {
           routeCode: r.routeCode,
@@ -141,29 +141,7 @@ export const routeRepository = {
       }
     }
 
-    // 2. Primary source: database Route table (populated by ROUTE MASTER.xlsx)
-    let sql = 'SELECT * FROM `Route` WHERE `supervisorId` = ?';
-    const params: any[] = [supervisorId];
-
-    if (sName) {
-      const normalizedName = sName.toLowerCase().replace(/\s+/g, '');
-      sql += ' OR (LOWER(REPLACE(IFNULL(`superName`, \'\'), \' \', \'\')) = ?)';
-      params.push(normalizedName);
-    }
-    const [rows]: any = await pool.execute(sql, params);
-    let mapped = (rows as any[]).map(mapRowToRoute);
-
-    if (sName === 'SAIFULLAH' || supervisorId === 'usr_rqwxav8') {
-      mapped = mapped.filter((r: Route) => !r.routeCode.startsWith('TR'));
-    } else if (sName === 'SAIF' || supervisorId === 'usr_tgb2s6h') {
-      mapped = mapped.filter((r: Route) => !r.routeCode.startsWith('MT'));
-    }
-
-    if (mapped.length > 0) {
-      return mapped;
-    }
-
-    // 3. Fallback to CUSTMASTER file if DB has no routes for this supervisor
+    // 2. If CUSTMASTER has routes for this supervisor, return them directly
     if (sName) {
       const supRoutes = custMaster.supervisorRoutesMap[sName] || [];
       if (supRoutes.length > 0) {
@@ -182,7 +160,25 @@ export const routeRepository = {
       }
     }
 
-    return [];
+    // Fallback to database Route table
+    let sql = 'SELECT * FROM `Route` WHERE `supervisorId` = ?';
+    const params: any[] = [supervisorId];
+
+    if (sName) {
+      const normalizedName = sName.toLowerCase().replace(/\s+/g, '');
+      sql += ' OR (LOWER(REPLACE(IFNULL(`superName`, \'\'), \' \', \'\')) = ?)';
+      params.push(normalizedName);
+    }
+    const [rows]: any = await pool.execute(sql, params);
+    let mapped = rows.map(mapRowToRoute);
+
+    if (sName === 'SAIFULLAH' || supervisorId === 'usr_rqwxav8') {
+      mapped = mapped.filter((r: Route) => !r.routeCode.startsWith('TR'));
+    } else if (sName === 'SAIF' || supervisorId === 'usr_tgb2s6h') {
+      mapped = mapped.filter((r: Route) => !r.routeCode.startsWith('MT'));
+    }
+
+    return mapped;
   },
 
   async isRouteAssignedToSupervisor(routeCode: string, supervisorId: string, supervisorName?: string): Promise<boolean> {
@@ -204,30 +200,13 @@ export const routeRepository = {
       }
     }
 
-    // 2. Check DB Route table first (populated by ROUTE MASTER.xlsx)
-    const [routeRows]: any = await pool.execute('SELECT * FROM `Route` WHERE `routeCode` = ? LIMIT 1', [cleanRoute]);
-    if (routeRows.length > 0) {
-      const route = routeRows[0];
-      if (route.supervisorId === supervisorId) return true;
-
-      if (sName && route.superName) {
-        const norm1 = sName.toLowerCase().replace(/\s+/g, '');
-        const norm2 = route.superName.trim().toLowerCase().replace(/\s+/g, '');
-        if (norm1 === norm2) return true;
-      }
-
-      if (route.supervisorId || route.superName) {
-        // Explicitly assigned to someone else in ROUTE MASTER
-        return false;
-      }
-    }
-
-    // 3. Fallback check from CUSTMASTER
+    // 2. Check CUSTMASTER first as the single source of truth
     const { getCustMasterData } = await import('@/lib/custmaster-data');
     const custMaster = getCustMasterData();
     const assignedSup = (custMaster.routeSupervisorMap[cleanRoute] || '').trim().toUpperCase();
 
     if (assignedSup && sName) {
+      // Disambiguate SAIFULLAH (Modern Trade) vs SAIF (Traditional Trade)
       if (sName === 'SAIFULLAH' || supervisorId === 'usr_rqwxav8') {
         return assignedSup === 'SAIFULLAH';
       }
@@ -237,7 +216,9 @@ export const routeRepository = {
       return assignedSup === sName;
     }
 
-    return true;
+    // 3. Check if route exists in DB
+    const [routeRows]: any = await pool.execute('SELECT * FROM `Route` WHERE `routeCode` = ? LIMIT 1', [cleanRoute]);
+    if (routeRows.length === 0) return true;
 
     const route = routeRows[0];
     if (!route.supervisorId && !route.superName) return true;

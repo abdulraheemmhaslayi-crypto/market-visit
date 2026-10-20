@@ -855,6 +855,7 @@ export default function AdminDashboardPage() {
   const activeNote = useMemo(() => {
     const parts = [];
     if (fFrom || fTo) parts.push(`Date: <b>${fFrom || 'Start'} → ${fTo || 'Now'}</b>`);
+    if (fMgr.length > 0) parts.push(`Manager: <b>${fMgr.join(', ')}</b>`);
     if (fSuper.length > 0) parts.push(`Supervisor: <b>${fSuper.join(', ')}</b>`);
     if (fChannel) parts.push(`RTM: <b>${fChannel}</b>`);
     if (fClass) parts.push(`Classification: <b>${fClass}</b>`);
@@ -863,7 +864,7 @@ export default function AdminDashboardPage() {
     if (fSku) parts.push(`SKU: <b>${fSku}</b>`);
     if (fVertical) parts.push(`Business Vertical: <b>${fVertical}</b>`);
     return parts.length ? 'Filtered by ' + parts.join(' · ') : 'Showing all visits';
-  }, [fFrom, fTo, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical]);
+  }, [fFrom, fTo, fMgr, fSuper, fChannel, fClass, fCust, fRoute, fSku, fVertical]);
 
   // Excel Export Handlers
   const handleExportAllFilteredVisits = () => {
@@ -2066,13 +2067,14 @@ export default function AdminDashboardPage() {
         });
 
         const masterTotal = outletsInGrade.length;
+        const visitedMasterCount = outletsInGrade.filter((o: any) => visitedOutletKeys.has(o.code) || visitedOutletKeys.has(o.name) || visitedOutletKeys.has(o.id)).length;
         const visitedUniqueFromVisits = (visitedOutletsByGrade[g] || new Set()).size;
+        const uniqueOutlets = Math.max(visitedMasterCount, visitedUniqueFromVisits);
         const totalVisits = visitCountByGrade[g] || 0;
-        const masterBase = masterTotal > 0 ? masterTotal : (visitedUniqueFromVisits || (totalVisits > 0 ? 1 : 0));
-        // Frequency Achievement %: total visits against assigned master outlets (e.g. 2 visits to an A-class store = 200%)
-        const coveragePct = masterBase > 0 ? Math.round((totalVisits / masterBase) * 100) : 0;
+        const coverageBase = Math.max(masterTotal, uniqueOutlets);
+        const coveragePct = coverageBase > 0 ? Math.round((uniqueOutlets / coverageBase) * 100) : 0;
 
-        stats[g] = { totalVisits, uniqueOutlets: visitedUniqueFromVisits, masterTotal: masterBase, coveragePct };
+        stats[g] = { totalVisits, uniqueOutlets, masterTotal: coverageBase, coveragePct };
       });
 
       const maxTotal = Math.max(...allGrades.map((g) => stats[g]?.totalVisits || 0), 10);
@@ -2116,19 +2118,17 @@ export default function AdminDashboardPage() {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
 
-                // Line 1: Total Visits (bold 13px)
+                // Line 1: Total Visits (bold 13.5px)
                 ctx.font = '800 13px Inter, sans-serif';
                 ctx.fillStyle = isDark ? '#f8fafc' : '#0f172a';
                 ctx.fillText(`${s.totalVisits} visits`, bar0.x, bar0.y - 15);
 
-                // Line 2: Frequency Ratio & % (Visits / Master Outlets - e.g. 2 visits to 1 Class A outlet = 2/1 200%)
+                // Line 2: Reach / Coverage (Ratio + %)
                 ctx.font = '700 11px Inter, sans-serif';
-                ctx.fillStyle = s.coveragePct >= 100
+                ctx.fillStyle = s.coveragePct >= 50
                   ? (isDark ? '#34d399' : '#059669')
-                  : s.coveragePct >= 50
-                  ? (isDark ? '#38bdf8' : '#0284c7')
                   : (isDark ? '#fbbf24' : '#d97706');
-                ctx.fillText(`${s.totalVisits}/${s.masterTotal} (${s.coveragePct}%)`, bar0.x, bar0.y - 2);
+                ctx.fillText(`${s.uniqueOutlets}/${s.masterTotal} (${s.coveragePct}%)`, bar0.x, bar0.y - 2);
 
                 ctx.restore();
               });
@@ -2170,14 +2170,13 @@ export default function AdminDashboardPage() {
                   const s = stats[g];
                   if (!s) return [];
                   const guideline = g === 'A'
-                    ? 'Twice per month (Bi-weekly) • 2 visits/store = 200%'
+                    ? 'Twice per month (Bi-weekly)'
                     : (g === 'B' || g === 'C')
-                    ? 'Once every month (Monthly) • 1 visit/store = 100%'
+                    ? 'Once every month (Monthly)'
                     : 'As per assigned PJP';
                   return [
                     '───────────────────────',
-                    ` Frequency Target Achievement: ${s.totalVisits.toLocaleString()} visits on ${s.masterTotal.toLocaleString()} stores (${s.coveragePct}%)`,
-                    ` Unique Outlets Reached: ${s.uniqueOutlets.toLocaleString()} stores`,
+                    ` Unique Outlets Covered: ${s.uniqueOutlets.toLocaleString()} of ${s.masterTotal.toLocaleString()} (${s.coveragePct}% reach)`,
                     ` Visit Frequency Policy: ${guideline}`,
                   ];
                 },
@@ -2767,6 +2766,37 @@ export default function AdminDashboardPage() {
               <label>TO</label>
               <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} />
             </div>
+
+            <div className="fld min-w-[155px]">
+              <label>MANAGER</label>
+              <MultiSelectDropdown
+                placeholder="All Managers"
+                options={mgrOptions}
+                selectedValues={fMgr}
+                onChange={(selected) => {
+                  setFMgr(selected);
+                  if (selected.length > 0 && masters) {
+                    const validSups = new Set<string>();
+                    selected.forEach((m) => {
+                      const mUpper = m.toUpperCase();
+                      if (masters.managerSupervisorMap && masters.managerSupervisorMap[mUpper]) {
+                        (masters.managerSupervisorMap[mUpper] as string[]).forEach((s) => validSups.add(s));
+                      } else {
+                        (masters.routes || [])
+                          .filter((r: any) => (r.managerName || '').toUpperCase() === mUpper)
+                          .forEach((r: any) => { if (r.superName) validSups.add(r.superName); });
+                      }
+                    });
+                    setFSuper((prev) => prev.filter((s) => validSups.has(s)));
+                  }
+                  setFChannel('');
+                  setFClass('');
+                  setFCust('');
+                  setFRoute('');
+                }}
+              />
+            </div>
+
             <div className="fld min-w-[165px]">
               <label>SUPERVISOR</label>
               <MultiSelectDropdown
@@ -2793,6 +2823,15 @@ export default function AdminDashboardPage() {
                   setFClass('');
                   setFCust('');
                   setFRoute('');
+                  if (selected.length > 0 && masters?.routes && fMgr.length === 0) {
+                    const matchingRoutes = (masters.routes as any[]).filter(
+                      (r) => selected.some((s) => (r.superName || '').toUpperCase() === s.toUpperCase())
+                    );
+                    const mgrs = Array.from(new Set(matchingRoutes.map((r) => r.managerName).filter(Boolean)));
+                    if (mgrs.length === 1) {
+                      setFMgr([mgrs[0]]);
+                    }
+                  }
                 }}
               />
             </div>
@@ -2864,6 +2903,7 @@ export default function AdminDashboardPage() {
                 if (val && masters?.routes) {
                   const rtInfo = (masters.routes as any[]).find((r) => r.routeCode === val);
                   if (rtInfo) {
+                    if (rtInfo.managerName && fMgr.length === 0) setFMgr([rtInfo.managerName]);
                     if (rtInfo.superName && fSuper.length === 0) setFSuper([rtInfo.superName]);
                   }
                 }
@@ -3103,7 +3143,7 @@ export default function AdminDashboardPage() {
 
         {/* Footer */}
         <div className="foot">
-          <b>Real database visits live sync.</b> Filters above are active — selections recalculate compliance & scorecard data dynamically.
+          <b>Real database visits live sync.</b> All five filters above are active — selections recalculate compliance & scorecard data dynamically.
         </div>
       </div>
       <InteractiveChartTableModal

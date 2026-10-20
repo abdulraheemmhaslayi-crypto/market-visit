@@ -19,7 +19,6 @@ export interface MasterCache {
 }
 
 let masterCache: MasterCache | null = null;
-export const dashboardApiCacheStore = new Map<string, { timestamp: number; data: any }>();
 
 export function getCachedMasterData(): MasterCache | null {
   return masterCache;
@@ -31,5 +30,4 @@ export function setCachedMasterData(cache: MasterCache) {
 
 export function invalidateDashboardMasterCache() {
   masterCache = null;
-  dashboardApiCacheStore.clear();
 }

@@ -6,8 +6,6 @@ import pool from '@/lib/db';
 import { getDashboardScope, isFleetRole, isFullAccessRole, isSupervisorRole, isReportAllowed } from '@/lib/roles';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
 import { getCustMasterData } from '@/lib/custmaster-data';
-import { skuRepository } from '@/repositories/sku-repository';
-import { MT_POWER_SKUS, TT_POWER_SKUS, MT_POWER_SKU_CODES, TT_POWER_SKU_CODES } from '@/lib/power-skus-data';
 
 let dashboardSchemaChecked = false;
 async function ensureDashboardSchema() {
@@ -23,26 +21,13 @@ async function ensureDashboardSchema() {
       await pool.execute(`ALTER TABLE \`VisitPowerSkuResult\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
       await pool.execute(`ALTER TABLE \`VisitAsset\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
       await pool.execute(`ALTER TABLE \`PowerSKU\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
-
-      // Ensure all canonical Power SKUs exist in database
-      const allPskus = [...MT_POWER_SKUS, ...TT_POWER_SKUS];
-      for (const s of allPskus) {
-        await pool.execute(
-          'INSERT INTO `PowerSKU` (`skuCode`, `skuName`, `channel`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `skuName` = VALUES(`skuName`)',
-          [s.skuCode, s.skuName, s.channel]
-        );
-      }
-      const activeKeys = allPskus.map(
-        (ps) => `${ps.skuCode.trim().toUpperCase()}_${ps.channel.trim().toUpperCase()}`
-      );
-      await skuRepository.clearObsoletePowerSkus(activeKeys);
     } catch (_) {}
 
     dashboardSchemaChecked = true;
   } catch (e) {}
 }
 
-import { MasterCache, getCachedMasterData, setCachedMasterData, dashboardApiCacheStore } from '@/lib/dashboard-cache';
+import { MasterCache, getCachedMasterData, setCachedMasterData } from '@/lib/dashboard-cache';
 
 const MASTER_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -159,7 +144,7 @@ async function getMasterData(): Promise<MasterCache> {
   return newCache;
 }
 
-const cacheStore = dashboardApiCacheStore;
+const cacheStore = new Map<string, { timestamp: number; data: any }>();
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds cache for instant tab switches & returns
 
 export async function GET(req: NextRequest) {
@@ -565,12 +550,6 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      if (/^(MT|TR|IS|EX|DIS|R\d)/i.test(custCodeRaw) && (/^C\d+/i.test(routeCodeRaw) || /^\d+$/.test(routeCodeRaw))) {
-        const tmp = custCodeRaw;
-        custCodeRaw = routeCodeRaw;
-        routeCodeRaw = tmp;
-      }
-
       const cleanCustCode = custCodeRaw.toUpperCase().trim();
       const unpaddedCustCode = cleanCustCode.replace(/^C/i, '').replace(/^0+/, '');
 
@@ -663,21 +642,9 @@ export async function GET(req: NextRequest) {
       }
 
       // 5. Resolve Channel (CUSTMASTER Segment_Fin(120MT) is primary source of truth!)
-      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, '') || dbCust?.channel || '';
+      let ch = cmCust?.channel || getCustMasterChannel(cleanCustCode, 'TT') || dbCust?.channel || '';
       if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
-        if (cleanRoute.startsWith('MT')) {
-          ch = 'MT';
-        } else if (cleanRoute.startsWith('IS')) {
-          ch = 'INST';
-        } else if (cleanRoute.startsWith('TR')) {
-          ch = 'TT';
-        } else if (mgrName === 'ADNAN' || ['ASAD', 'SAIFULLAH', 'KISHAN', 'JAVED', 'MOHSIN', 'RASHWIN'].includes(supName)) {
-          ch = 'MT';
-        } else if (mgrName === 'WASIM' || supName === 'WASIM') {
-          ch = 'INST';
-        } else {
-          ch = 'TT';
-        }
+        ch = 'TT';
       }
       ch = ch.toUpperCase().trim();
 
@@ -731,6 +698,8 @@ export async function GET(req: NextRequest) {
       else if (visitNpd.some((r: any) => r.status === 'Not Available')) npd = 'N';
 
       const visitPsku = pskuMap.get(v.visitId) || [];
+      const hasAvail = visitPsku.some((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A');
+      const psku = hasAvail ? 'A' : 'N';
 
       const isTT = ch === 'TT' || cleanRoute.startsWith('TR') || cleanRoute.startsWith('TRI');
       const isMT =
@@ -738,45 +707,16 @@ export async function GET(req: NextRequest) {
         (ch === 'MT' ||
           cleanCustCode.startsWith('MTD') ||
           cleanRoute.startsWith('C') ||
-          cleanRoute.startsWith('MT') ||
           custName.toUpperCase().includes('LULU') ||
           custName.toUpperCase().includes('CARREFOUR') ||
           custName.toUpperCase().includes('MEGAMART') ||
           custName.toUpperCase().includes('AL MEERA') ||
           custName.toUpperCase().includes('HYPER'));
 
-      // Strictly 24 for MT and 22 for TT matching official master lists
-      const totalPskuCount = isMT ? MT_POWER_SKUS.length : TT_POWER_SKUS.length;
-      const targetSkus = isMT ? MT_POWER_SKUS : TT_POWER_SKUS;
-      const visitPskuMap = new Map<string, any>();
-      visitPsku.forEach((item: any) => {
-        if (item?.skuCode) {
-          const code = String(item.skuCode).toUpperCase().trim();
-          visitPskuMap.set(code, item);
-          if (code.includes('/')) {
-            code.split('/').forEach((c) => visitPskuMap.set(c.trim(), item));
-          }
-        }
-      });
-      let rawAvailPsku = 0;
-      targetSkus.forEach((canonicalSku) => {
-        const code = canonicalSku.skuCode.toUpperCase().trim();
-        let item = visitPskuMap.get(code);
-        if (!item && code.includes('/')) {
-          for (const part of code.split('/').map((c) => c.trim())) {
-            if (visitPskuMap.has(part)) {
-              item = visitPskuMap.get(part);
-              break;
-            }
-          }
-        }
-        if (item && (item.status === 'Available' || item.status === 'YES' || item.status === 'A')) {
-          rawAvailPsku++;
-        }
-      });
+      // User instruction: "power sku should not 41. for MT its 24 and for TT its 27, correct these 2."
+      const totalPskuCount = isMT ? 24 : 27;
+      const rawAvailPsku = visitPsku.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
       const pskuAvailableCount = Math.min(rawAvailPsku, totalPskuCount);
-      const hasAvail = rawAvailPsku > 0;
-      const psku = hasAvail ? 'A' : 'N';
       const npdAvailableCount = visitNpd.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
 
       const chillerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
@@ -972,35 +912,29 @@ export async function GET(req: NextRequest) {
           });
         }
 
-        // Populate PowerSKU Report Rows (Strictly 24 MT or 22 TT canonical SKUs matching Master List)
+        // Populate PowerSKU Report Rows (Per SKU level granularity, excluding No Visit)
         if (v.visit_type !== 'No Visit') {
-          const targetSkus = isMT ? MT_POWER_SKUS : TT_POWER_SKUS;
-          const visitPskuMap = new Map<string, any>();
           visitPsku.forEach((item: any) => {
-            if (item?.skuCode) {
-              const code = String(item.skuCode).toUpperCase().trim();
-              visitPskuMap.set(code, item);
-              if (code.includes('/')) {
-                code.split('/').forEach((c) => visitPskuMap.set(c.trim(), item));
-              }
-            }
-          });
-
-          targetSkus.forEach((canonicalSku) => {
-            const code = canonicalSku.skuCode.toUpperCase().trim();
-            let item = visitPskuMap.get(code);
-            if (!item && code.includes('/')) {
-              for (const part of code.split('/').map((c) => c.trim())) {
-                if (visitPskuMap.has(part)) {
-                  item = visitPskuMap.get(part);
-                  break;
-                }
-              }
-            }
-            const isAvail = item ? (item.status === 'Available' || item.status === 'YES' || item.status === 'A') : false;
+            const masterSku = skuMap.get(item.skuCode);
+            const pskuInfo = powerSkuMap.get(item.skuCode) || masterSku;
+            const isAvail = (item.status === 'Available' || item.status === 'YES' || item.status === 'A');
             const avail = isAvail ? 'YES' : 'NO';
             const pskuCode = isAvail ? 'A' : 'N';
             const statusText = isAvail ? 'Available' : 'Not Available';
+
+            // Extract accurate business vertical from SKUMASTER
+            let bVertical = (masterSku?.businessVertical || pskuInfo?.businessVertical || masterSku?.type || pskuInfo?.type || '').toString().trim();
+            if (!bVertical || bVertical.toLowerCase() === 'general' || bVertical.toLowerCase() === 'standard' || bVertical.toLowerCase() === 'sku') {
+              const code = (item.skuCode || '').toUpperCase();
+              const name = (masterSku?.skuName || pskuInfo?.skuName || item.skuName || '').toUpperCase();
+              if (code.startsWith('FGIC') || name.includes('ICE CREAM') || name.includes('CONE') || name.includes('STICK') || name.includes('TUB') || name.includes('CANDY')) {
+                bVertical = 'Ice Cream';
+              } else if (code.startsWith('FGJU') || code.startsWith('FGBV') || name.includes('JUICE') || name.includes('DRINK') || name.includes('NECTAR')) {
+                bVertical = 'Beverage';
+              } else {
+                bVertical = 'Dairy';
+              }
+            }
 
             reportRows.psku.push({
               date: visitDate,
@@ -1014,9 +948,9 @@ export async function GET(req: NextRequest) {
               outletName: custName,
               classification: gr,
               class: gr,
-              businessVertical: canonicalSku.businessVertical,
-              skuCode: canonicalSku.skuCode,
-              skuName: canonicalSku.skuName,
+              businessVertical: bVertical,
+              skuCode: item.skuCode,
+              skuName: pskuInfo?.skuName || masterSku?.skuName || item.skuCode,
               status: statusText,
               availability: avail,
               psku: pskuCode,
@@ -1188,10 +1122,7 @@ export async function GET(req: NextRequest) {
       const masterCh = getCustMasterChannel(candidateCode, '');
       let ch = masterCh || customer?.channel || '';
       if (!ch || ch.toUpperCase() === 'GENERAL TRADE' || ch.toUpperCase() === 'GENERAL STORE' || ch.toUpperCase() === 'GT') {
-        const rc = (routeCode || (visit ? visit.routeCode : '') || '').toUpperCase();
-        if (rc.startsWith('MT')) ch = 'MT';
-        else if (rc.startsWith('IS')) ch = 'INST';
-        else ch = 'TT';
+        ch = 'TT';
       }
 
       return {

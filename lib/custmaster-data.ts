@@ -397,21 +397,9 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
 
           let finalChannel = channelRaw;
           if (!finalChannel || finalChannel === 'GENERAL TRADE' || finalChannel === 'GENERAL STORE' || finalChannel === 'GT') {
-            if (clsInfo?.channel && clsInfo.channel !== 'GT' && clsInfo.channel !== 'GENERAL TRADE') {
-              finalChannel = clsInfo.channel;
-            } else if (rtRaw.startsWith('MT')) {
-              finalChannel = 'MT';
-            } else if (rtRaw.startsWith('IS')) {
-              finalChannel = 'INST';
-            } else if (rtRaw.startsWith('TR')) {
-              finalChannel = 'TT';
-            } else if (validManager === 'ADNAN' || ['ASAD', 'SAIFULLAH', 'KISHAN', 'JAVED', 'MOHSIN', 'RASHWIN'].includes(validSupervisor)) {
-              finalChannel = 'MT';
-            } else {
-              finalChannel = 'TT';
-            }
+            finalChannel = clsInfo?.channel || 'TT';
           }
-          if (!finalChannel || finalChannel === 'GT') finalChannel = rtRaw.startsWith('MT') ? 'MT' : 'TT';
+          if (!finalChannel || finalChannel === 'GT') finalChannel = 'TT';
 
           if (custCodeRaw) {
             customerList.push({
@@ -510,11 +498,4 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
 
   lastCacheTime = now;
   return cachedCustMaster;
-}
-
-export function clearCustMasterCache(): void {
-  cachedCustMaster = null;
-  lastCacheTime = 0;
-  cachedClassMap = null;
-  lastClassMapTime = 0;
 }
