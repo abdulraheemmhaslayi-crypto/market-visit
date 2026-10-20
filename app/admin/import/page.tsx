@@ -8,7 +8,7 @@ import {
   ArrowLeft, Map, Users, Package, Link2,
   CheckCheck, Info, X
 } from 'lucide-react';
-import { Route, Customer, CustomerRouteMapping, SKU, ImportSummary } from '@/types';
+import { Route, Customer, CustomerRouteMapping, SKU, ImportSummary, PowerSKU, CustomerClassification } from '@/types';
 
 import { useSession } from 'next-auth/react';
 import { canImportMasterData } from '@/lib/roles';
@@ -50,12 +50,28 @@ export default function MasterImportPage() {
 
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ row: number; error: string }[]>([]);
-  const [routesPreview, setRoutesPreview]       = useState<Route[]>([]);
-  const [customersPreview, setCustomersPreview] = useState<Customer[]>([]);
-  const [mappingsPreview, setMappingsPreview]   = useState<CustomerRouteMapping[]>([]);
-  const [skusPreview, setSkusPreview]           = useState<SKU[]>([]);
-  const [counts, setCounts] = useState({ routes: 0, customers: 0, mappings: 0, skus: 0 });
-  const [importPayload, setImportPayload] = useState<{ routes: Route[]; customers: Customer[]; mappings: CustomerRouteMapping[]; skus: SKU[] } | null>(null);
+  const [routesPreview, setRoutesPreview]               = useState<Route[]>([]);
+  const [customersPreview, setCustomersPreview]         = useState<Customer[]>([]);
+  const [mappingsPreview, setMappingsPreview]           = useState<CustomerRouteMapping[]>([]);
+  const [skusPreview, setSkusPreview]                   = useState<SKU[]>([]);
+  const [powerSkusPreview, setPowerSkusPreview]         = useState<PowerSKU[]>([]);
+  const [classificationsPreview, setClassificationsPreview] = useState<CustomerClassification[]>([]);
+  const [counts, setCounts] = useState({
+    routes: 0,
+    customers: 0,
+    mappings: 0,
+    skus: 0,
+    powerSkus: 0,
+    classifications: 0,
+  });
+  const [importPayload, setImportPayload] = useState<{
+    routes: Route[];
+    customers: Customer[];
+    mappings: CustomerRouteMapping[];
+    skus: SKU[];
+    powerSkus?: PowerSKU[];
+    classifications?: CustomerClassification[];
+  } | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
 
   // Individual file input refs
@@ -120,15 +136,19 @@ export default function MasterImportPage() {
       }
       if (res.success) {
         setCounts({
-          routes: res.routesCount,
-          customers: res.customersCount,
-          mappings: res.mappingsCount,
-          skus: res.skusCount
+          routes: res.routesCount || 0,
+          customers: res.customersCount || 0,
+          mappings: res.mappingsCount || 0,
+          skus: res.skusCount || 0,
+          powerSkus: res.powerSkusCount || 0,
+          classifications: res.classificationsCount || 0,
         });
-        setRoutesPreview(res.routesPreview as Route[]);
-        setCustomersPreview(res.customersPreview as Customer[]);
-        setMappingsPreview(res.mappingsPreview as CustomerRouteMapping[]);
-        setSkusPreview(res.skusPreview as SKU[]);
+        setRoutesPreview((res.routesPreview as Route[]) || []);
+        setCustomersPreview((res.customersPreview as Customer[]) || []);
+        setMappingsPreview((res.mappingsPreview as CustomerRouteMapping[]) || []);
+        setSkusPreview((res.skusPreview as SKU[]) || []);
+        setPowerSkusPreview((res.powerSkusPreview as PowerSKU[]) || []);
+        setClassificationsPreview((res.classificationsPreview as CustomerClassification[]) || []);
         setValidationErrors(res.errors as any[]);
         setImportPayload(res.payload);
         setStep('VALIDATE');
@@ -170,15 +190,19 @@ export default function MasterImportPage() {
       }
       if (res.success) {
         setCounts({
-          routes: res.routesCount,
-          customers: res.customersCount,
-          mappings: res.mappingsCount,
-          skus: res.skusCount
+          routes: res.routesCount || 0,
+          customers: res.customersCount || 0,
+          mappings: res.mappingsCount || 0,
+          skus: res.skusCount || 0,
+          powerSkus: res.powerSkusCount || 0,
+          classifications: res.classificationsCount || 0,
         });
-        setRoutesPreview(res.routesPreview as Route[]);
-        setCustomersPreview(res.customersPreview as Customer[]);
-        setMappingsPreview(res.mappingsPreview as CustomerRouteMapping[]);
-        setSkusPreview(res.skusPreview as SKU[]);
+        setRoutesPreview((res.routesPreview as Route[]) || []);
+        setCustomersPreview((res.customersPreview as Customer[]) || []);
+        setMappingsPreview((res.mappingsPreview as CustomerRouteMapping[]) || []);
+        setSkusPreview((res.skusPreview as SKU[]) || []);
+        setPowerSkusPreview((res.powerSkusPreview as PowerSKU[]) || []);
+        setClassificationsPreview((res.classificationsPreview as CustomerClassification[]) || []);
         setValidationErrors(res.errors as any[]);
         setImportPayload(res.payload);
         setStep('VALIDATE');
@@ -203,7 +227,7 @@ export default function MasterImportPage() {
         },
         body: JSON.stringify({
           ...importPayload,
-          clearObsolete: activeImportKey === 'ALL',
+          clearObsolete: true,
         }),
       });
 
@@ -288,8 +312,8 @@ export default function MasterImportPage() {
     },
     {
       key: 'classification' as const,
-      name: 'Customer_Classification_DUMMY.xlsx',
-      label: 'Customer Classification ',
+      name: 'Customer_Classification.xlsx',
+      label: 'Customer Classification',
       description: 'Contains CustomerCode, Classification, Channel, and Business Vertical (Dairy / Ice Cream) columns. A customer may have one row per vertical.',
       required: true,
       ref: classificationRef,
@@ -299,10 +323,10 @@ export default function MasterImportPage() {
     },
     {
       key: 'powerSkuMaster' as const,
-      name: 'PowerSku_Master_DUMMY.xlsx',
-      label: 'Power SKU Master  (Optional)',
-      description: 'Contains additional Power SKU codes and names.',
-      required: true,
+      name: 'PowerSku_Master.xlsx',
+      label: 'Power SKU Master (Optional)',
+      description: 'Contains SKUCode, SKUName, and Channel (MT / TT) columns.',
+      required: false,
       ref: powerSkuMasterRef,
       icon: Package,
       color: '#EC4899',
@@ -512,12 +536,14 @@ export default function MasterImportPage() {
           </div>
 
           {/* Count Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { label: 'Routes Detected', value: counts.routes, icon: Map, color: 'var(--accent)', bg: 'var(--accent-light)' },
               { label: 'Customers Constructed', value: counts.customers, icon: Users, color: '#8B5CF6', bg: '#F5F3FF' },
               { label: 'Mappings Extracted', value: counts.mappings, icon: Link2, color: 'var(--warning)', bg: 'var(--warning-light)' },
               { label: 'SKUs Extracted', value: counts.skus, icon: Package, color: 'var(--success)', bg: 'var(--success-light)' },
+              { label: 'Power SKUs', value: counts.powerSkus, icon: Package, color: '#EC4899', bg: '#FDF2F8' },
+              { label: 'Classifications', value: counts.classifications, icon: Link2, color: '#0EA5E9', bg: '#F0F9FF' },
             ].map(k => {
               const Icon = k.icon;
               return (
@@ -542,17 +568,17 @@ export default function MasterImportPage() {
                 Data Preview (First 5 Rows)
               </span>
             </div>
-            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {[
                 {
                   label: 'Routes', rows: routesPreview,
-                  cols: ['routeCode', 'routeName'],
-                  heads: ['Code', 'Name'],
+                  cols: ['routeCode', 'routeName', 'channel', 'superName'],
+                  heads: ['Code', 'Name', 'Channel', 'Super'],
                 },
                 {
                   label: 'Customers (Merged Classification)', rows: customersPreview,
                   cols: ['customerCode', 'customerName', 'dairyClassification', 'iceCreamClassification', 'channel'],
-                  heads: ['Code', 'Name', 'Class (Dairy)', 'Class (Ice Cream)', 'Channel'],
+                  heads: ['Code', 'Name', 'Dairy', 'Ice Cream', 'Channel'],
                 },
                 {
                   label: 'Customer-Route Mappings', rows: mappingsPreview,
@@ -560,9 +586,19 @@ export default function MasterImportPage() {
                   heads: ['Customer', 'Route'],
                 },
                 {
-                  label: 'SKUs (Merged)', rows: skusPreview,
-                  cols: ['skuCode', 'skuName'],
-                  heads: ['SKU Code', 'SKU Name'],
+                  label: 'SKUs (Master)', rows: skusPreview,
+                  cols: ['skuCode', 'skuName', 'type', 'businessVertical'],
+                  heads: ['Code', 'Name', 'Type', 'Vertical'],
+                },
+                {
+                  label: 'Power SKUs (by Channel)', rows: powerSkusPreview,
+                  cols: ['skuCode', 'skuName', 'channel'],
+                  heads: ['Code', 'Name', 'Channel'],
+                },
+                {
+                  label: 'Customer Classifications', rows: classificationsPreview,
+                  cols: ['customerCode', 'businessVertical', 'classification', 'channel'],
+                  heads: ['Cust Code', 'Vertical', 'Class', 'Channel'],
                 },
               ].map(({ label, rows, cols, heads }) => (
                 <div key={label} className="space-y-2">
@@ -575,7 +611,7 @@ export default function MasterImportPage() {
                         <thead>
                           <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
                             {heads.map(h => (
-                              <th key={h} className="px-3 py-2 text-left font-semibold" style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                              <th key={h} className="px-2 py-2 text-left font-semibold" style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -583,8 +619,8 @@ export default function MasterImportPage() {
                           {rows.map((row: any, i) => (
                             <tr key={i} style={{ borderBottom: '1px solid var(--border-soft)' }}>
                               {cols.map((col, j) => (
-                                <td key={col} className="px-3 py-2" style={{ color: 'var(--text-secondary)', fontFamily: j === 0 ? 'monospace' : undefined }}>
-                                  <span className="truncate block max-w-[120px]">{row[col]}</span>
+                                <td key={col} className="px-2 py-2" style={{ color: 'var(--text-secondary)', fontFamily: j === 0 ? 'monospace' : undefined }}>
+                                  <span className="truncate block max-w-[110px]">{row[col] ?? '—'}</span>
                                 </td>
                               ))}
                             </tr>

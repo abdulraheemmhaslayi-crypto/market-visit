@@ -141,8 +141,19 @@ function LoginForm() {
         router.refresh();
       }
     } catch (err: any) {
-      setErrorMsg('An unexpected error occurred. Please try again.');
-      showToast('Login failed.', 'error');
+      const errMsg = String(err?.message || '');
+      if (errMsg.includes('CredentialsSignin') || err?.type === 'CredentialsSignin') {
+        const msg = 'Invalid email, employee code, or password.';
+        setErrorMsg(msg);
+        showToast(msg, 'error');
+      } else if (errMsg.toLowerCase().includes('inactive')) {
+        const msg = 'Your account is inactive. Please contact the administrator.';
+        setErrorMsg(msg);
+        showToast(msg, 'error');
+      } else {
+        setErrorMsg('Invalid email or password. Please verify your credentials and try again.');
+        showToast('Login failed.', 'error');
+      }
     } finally {
       setLoading(false);
     }
