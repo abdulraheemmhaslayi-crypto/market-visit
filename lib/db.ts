@@ -8,12 +8,13 @@ declare global {
 }
 
 // Determine if we should connect using Microsoft SQL Server (Azure SQL) or MySQL
-const isMssql = Boolean(
-  process.env.DB_SERVER ||
-  process.env.DB_ENCRYPT === 'true' ||
-  (process.env.DB_PORT && Number(process.env.DB_PORT) === 3342) ||
-  (process.env.DB_PORT && Number(process.env.DB_PORT) === 1433)
-);
+const isMssql =
+  process.env.DB_MODE !== 'MYSQL' &&
+  (process.env.DB_MODE === 'MSSQL' ||
+    Boolean(
+      (process.env.DB_SERVER && !process.env.DB_SERVER.includes('rlwy.net')) ||
+      (process.env.DB_PORT && (Number(process.env.DB_PORT) === 1433 || Number(process.env.DB_PORT) === 3342))
+    ));
 
 function transformQueryForMssql(query: string, params: any[] = []) {
   // 1. Replace MySQL backticks with SQL Server brackets
@@ -68,6 +69,45 @@ function transformQueryForMssql(query: string, params: any[] = []) {
   return { q, requestInputs };
 }
 
+function createMysqlPool() {
+  const mysql = require('mysql2/promise');
+  const isAzure = Boolean(process.env.WEBSITE_HOSTNAME);
+  const isLocalHost = !process.env.DB_HOST || process.env.DB_HOST === 'localhost' || process.env.DB_HOST === '127.0.0.1';
+
+  // If deployed on Azure App Service without custom host, or if DB_HOST is localhost,
+  // automatically route to production Railway cloud database
+  const host = (isAzure && isLocalHost) ? 'altaria.proxy.rlwy.net' : (process.env.DB_HOST || process.env.DB_SERVER || 'altaria.proxy.rlwy.net');
+  const port = (isAzure && isLocalHost) ? 50182 : (Number(process.env.DB_PORT) || 50182);
+  const user = (isAzure && isLocalHost) ? 'root' : (process.env.DB_USER || 'root');
+  const password = (isAzure && isLocalHost) ? 'QiJokQggRqsLDHctRTUBkMAwQemyQsYV' : (process.env.DB_PASSWORD || 'QiJokQggRqsLDHctRTUBkMAwQemyQsYV');
+  const database = (isAzure && isLocalHost) ? 'railway' : (process.env.DB_NAME || 'railway');
+
+  const mysqlConfig = {
+    host,
+    port,
+    user,
+    password,
+    database,
+    waitForConnections: true,
+    connectionLimit: 15,
+    maxIdle: 10,
+    idleTimeout: 30000,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    connectTimeout: 10000,
+  };
+
+  if (process.env.NODE_ENV === 'production') {
+    return mysql.createPool(mysqlConfig);
+  } else {
+    if (!global.__mysqlPool) {
+      global.__mysqlPool = mysql.createPool(mysqlConfig);
+    }
+    return global.__mysqlPool;
+  }
+}
+
 let pool: any;
 
 if (isMssql) {
@@ -76,150 +116,135 @@ if (isMssql) {
   // ==========================================
   let sql: any = null;
   try {
-    sql = eval('require')('mssql');
-  } catch {}
-
-  const serverHost = process.env.DB_SERVER || process.env.DB_HOST || 'localhost';
-  const serverPort = Number(process.env.DB_PORT) || 1433;
-
-  const dbConfig = {
-    server: serverHost,
-    port: serverPort,
-    user: process.env.DB_USER || 'sa',
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME || 'FieldVisitDB',
-    options: {
-      encrypt: process.env.DB_ENCRYPT !== 'false',
-      trustServerCertificate: true,
-    },
-    pool: {
-      max: 20,
-      min: 0,
-      idleTimeoutMillis: 30000,
-    },
-    connectionTimeout: 15000,
-  };
-
-  if (process.env.NODE_ENV === 'production') {
-    pool = new sql.ConnectionPool(dbConfig);
-  } else {
-    if (!global.__mssqlPool) {
-      global.__mssqlPool = new sql.ConnectionPool(dbConfig);
-    }
-    pool = global.__mssqlPool;
+    sql = require('mssql');
+  } catch {
+    try {
+      sql = eval('require')('mssql');
+    } catch {}
   }
 
-  pool.execute = async (query: string, params: any[] = []) => {
-    if (!pool.connected) {
-      await pool.connect();
-    }
-    const request = pool.request();
-    const { q, requestInputs } = transformQueryForMssql(query, params);
+  if (sql && sql.ConnectionPool) {
+    const serverHost = process.env.DB_SERVER || process.env.DB_HOST || 'localhost';
+    const serverPort = Number(process.env.DB_PORT) || 1433;
 
-    for (const input of requestInputs) {
-      request.input(input.name, input.value);
-    }
-
-    try {
-      const result = await request.query(q);
-      const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
-      if (isSelect) {
-        return [result.recordset || [], null];
-      } else {
-        const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
-        return [{ affectedRows }, null];
-      }
-    } catch (err: any) {
-      console.error('MSSQL execute error:', err.message, 'Query:', q);
-      throw err;
-    }
-  };
-
-  pool.getConnection = async () => {
-    if (!pool.connected) {
-      await pool.connect();
-    }
-    const transaction = new sql.Transaction(pool);
-    let activeRequest: any = null;
-    let isTransactionActive = false;
-
-    return {
-      beginTransaction: async () => {
-        await transaction.begin();
-        activeRequest = new sql.Request(transaction);
-        isTransactionActive = true;
+    const dbConfig = {
+      server: serverHost,
+      port: serverPort,
+      user: process.env.DB_USER || 'sa',
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME || 'FieldVisitDB',
+      options: {
+        encrypt: process.env.DB_ENCRYPT !== 'false',
+        trustServerCertificate: true,
       },
-      commit: async () => {
-        if (isTransactionActive) {
-          await transaction.commit();
-          isTransactionActive = false;
-          activeRequest = null;
-        }
+      pool: {
+        max: 20,
+        min: 0,
+        idleTimeoutMillis: 30000,
       },
-      rollback: async () => {
-        if (isTransactionActive) {
-          await transaction.rollback();
-          isTransactionActive = false;
-          activeRequest = null;
-        }
-      },
-      release: () => {
-        // No-op for mssql wrapper
-      },
-      execute: async (query: string, params: any[] = []) => {
-        const request = activeRequest || pool.request();
-        const { q, requestInputs } = transformQueryForMssql(query, params);
-
-        for (const input of requestInputs) {
-          request.input(input.name, input.value);
-        }
-
-        try {
-          const result = await request.query(q);
-          const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
-          if (isSelect) {
-            return [result.recordset || [], null];
-          } else {
-            const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
-            return [{ affectedRows }, null];
-          }
-        } catch (err: any) {
-          console.error('MSSQL connection execute error:', err.message, 'Query:', q);
-          throw err;
-        }
-      },
+      connectionTimeout: 15000,
     };
-  };
+
+    if (process.env.NODE_ENV === 'production') {
+      pool = new sql.ConnectionPool(dbConfig);
+    } else {
+      if (!global.__mssqlPool) {
+        global.__mssqlPool = new sql.ConnectionPool(dbConfig);
+      }
+      pool = global.__mssqlPool;
+    }
+
+    pool.execute = async (query: string, params: any[] = []) => {
+      if (!pool.connected) {
+        await pool.connect();
+      }
+      const request = pool.request();
+      const { q, requestInputs } = transformQueryForMssql(query, params);
+
+      for (const input of requestInputs) {
+        request.input(input.name, input.value);
+      }
+
+      try {
+        const result = await request.query(q);
+        const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
+        if (isSelect) {
+          return [result.recordset || [], null];
+        } else {
+          const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
+          return [{ affectedRows }, null];
+        }
+      } catch (err: any) {
+        console.error('MSSQL execute error:', err.message, 'Query:', q);
+        throw err;
+      }
+    };
+
+    pool.getConnection = async () => {
+      if (!pool.connected) {
+        await pool.connect();
+      }
+      const transaction = new sql.Transaction(pool);
+      let activeRequest: any = null;
+      let isTransactionActive = false;
+
+      return {
+        beginTransaction: async () => {
+          await transaction.begin();
+          activeRequest = new sql.Request(transaction);
+          isTransactionActive = true;
+        },
+        commit: async () => {
+          if (isTransactionActive) {
+            await transaction.commit();
+            isTransactionActive = false;
+            activeRequest = null;
+          }
+        },
+        rollback: async () => {
+          if (isTransactionActive) {
+            await transaction.rollback();
+            isTransactionActive = false;
+            activeRequest = null;
+          }
+        },
+        release: () => {
+          // No-op for mssql wrapper
+        },
+        execute: async (query: string, params: any[] = []) => {
+          const request = activeRequest || pool.request();
+          const { q, requestInputs } = transformQueryForMssql(query, params);
+
+          for (const input of requestInputs) {
+            request.input(input.name, input.value);
+          }
+
+          try {
+            const result = await request.query(q);
+            const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
+            if (isSelect) {
+              return [result.recordset || [], null];
+            } else {
+              const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
+              return [{ affectedRows }, null];
+            }
+          } catch (err: any) {
+            console.error('MSSQL connection execute error:', err.message, 'Query:', q);
+            throw err;
+          }
+        },
+      };
+    };
+  } else {
+    // If MSSQL driver failed to load, fall back cleanly to MySQL
+    console.warn('MSSQL driver unavailable, falling back to MySQL connection pool.');
+    pool = createMysqlPool();
+  }
 } else {
   // ==========================================
   // MYSQL (MYSQL2 / RAILWAY / LOCAL)
   // ==========================================
-  const mysql = require('mysql2/promise');
-
-  const mysqlConfig = {
-    host: process.env.DB_HOST || process.env.DB_SERVER || 'localhost',
-    port: Number(process.env.DB_PORT) || 3306,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 15,
-    maxIdle: 10,
-    idleTimeout: 30000,
-    queueLimit: 0,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0,
-    connectTimeout: 8000,
-  };
-
-  if (process.env.NODE_ENV === 'production') {
-    pool = mysql.createPool(mysqlConfig);
-  } else {
-    if (!global.__mysqlPool) {
-      global.__mysqlPool = mysql.createPool(mysqlConfig);
-    }
-    pool = global.__mysqlPool;
-  }
+  pool = createMysqlPool();
 }
 
 export { isMssql };
