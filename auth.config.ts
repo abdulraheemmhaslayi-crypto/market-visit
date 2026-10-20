@@ -1,6 +1,29 @@
 import type { NextAuthConfig } from 'next-auth';
 import { canAccessAdminRoute, canAccessSupervisorRoute, isFullAccessRole, isSupervisorRole } from '@/lib/roles';
 
+const azureHost =
+  process.env.WEBSITE_HOSTNAME ||
+  (process.env.NODE_ENV === 'production' && !process.env.AUTH_URL
+    ? 'fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net'
+    : null);
+
+if (azureHost) {
+  process.env.AUTH_URL = `https://${azureHost}`;
+  process.env.NEXTAUTH_URL = `https://${azureHost}`;
+  process.env.AUTH_TRUST_HOST = 'true';
+}
+
+function getTargetUrl(path: string, nextUrl: URL, request?: any) {
+  const host =
+    request?.headers?.get?.('x-forwarded-host') ||
+    azureHost ||
+    nextUrl.host;
+  const proto =
+    request?.headers?.get?.('x-forwarded-proto') ||
+    (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
+  return new URL(path, `${proto}://${host}`);
+}
+
 export const authConfig = {
   trustHost: true,
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'antigravity_secret_key_123_abc_xyz_secret_999',
@@ -9,7 +32,8 @@ export const authConfig = {
     error: '/login',
   },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
+    authorized({ auth, request }) {
+      const nextUrl = request.nextUrl;
       const isLoggedIn = !!auth?.user;
       const user = auth?.user as any;
       const userRole = user?.role as string | undefined;
@@ -32,7 +56,7 @@ export const authConfig = {
             : isSupervisorRole(userRole)
               ? '/supervisor/visit'
               : '/supervisor';
-          return Response.redirect(new URL(destination, nextUrl));
+          return Response.redirect(getTargetUrl(destination, nextUrl, request));
         }
         return true;
       }
@@ -42,22 +66,22 @@ export const authConfig = {
       }
 
       if (user?.status !== 'Active') {
-        const url = new URL('/login', nextUrl);
+        const url = getTargetUrl('/login', nextUrl, request);
         url.searchParams.set('error', 'Inactive');
         return Response.redirect(url);
       }
 
       if (isAdminRoute && !canAccessAdminRoute(userRole)) {
         const destination = isSupervisorRole(userRole) ? '/supervisor/visit' : '/supervisor';
-        return Response.redirect(new URL(destination, nextUrl));
+        return Response.redirect(getTargetUrl(destination, nextUrl, request));
       }
 
       if (isSupervisorRoute && !canAccessSupervisorRoute(userRole)) {
-        return Response.redirect(new URL('/admin', nextUrl));
+        return Response.redirect(getTargetUrl('/admin', nextUrl, request));
       }
 
       if (isSupervisorRoute && isFullAccessRole(userRole)) {
-        return Response.redirect(new URL('/admin', nextUrl));
+        return Response.redirect(getTargetUrl('/admin', nextUrl, request));
       }
 
       if (nextUrl.pathname === '/') {
@@ -66,7 +90,7 @@ export const authConfig = {
           : isSupervisorRole(userRole)
             ? '/supervisor/visit'
             : '/supervisor';
-        return Response.redirect(new URL(destination, nextUrl));
+        return Response.redirect(getTargetUrl(destination, nextUrl, request));
       }
 
       return true;

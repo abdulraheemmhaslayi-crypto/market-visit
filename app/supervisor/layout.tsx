@@ -175,7 +175,13 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
 
-  const handleSignOut = () => signOut({ callbackUrl: '/login' });
+  const handleSignOut = async () => {
+    try {
+      await signOut({ callbackUrl: '/login', redirect: true });
+    } catch {
+      window.location.href = '/login';
+    }
+  };
 
   const isActive = (path: string) =>
     path === '/supervisor' ? pathname === '/supervisor' : pathname.startsWith(path);
