@@ -532,3 +532,15 @@ export async function deleteVisitAction(visitId: string) {
 
   return { success: true };
 }
+
+export async function getVisitsFilterOptionsAction(): Promise<{ routes: string[]; supervisors: string[] }> {
+  try {
+    const { getCustMasterData } = await import('@/lib/custmaster-data');
+    const custMaster = getCustMasterData();
+    const routes = (custMaster.routes || []).map((r) => r.routeCode).sort();
+    const supervisors = (custMaster.supervisors || []).sort();
+    return { routes, supervisors };
+  } catch (err) {
+    return { routes: [], supervisors: [] };
+  }
+}

@@ -71,14 +71,47 @@ function mapRowToNpd(row: any): NPDResponse {
 let visitSchemaChecked = false;
 let visitSchemaPromise: Promise<void> | null = null;
 
-async function ensureVisitTableSchema(connection: mysql.Connection | mysql.PoolConnection): Promise<void> {
-  if (visitSchemaChecked || isMssql) return;
+async function ensureVisitTableSchema(connection?: any): Promise<void> {
+  if (visitSchemaChecked) return;
   if (visitSchemaPromise) return visitSchemaPromise;
 
   visitSchemaChecked = true;
   visitSchemaPromise = (async () => {
     try {
-      const [columnsResult]: any = await connection.execute(
+      const conn = connection || pool;
+      if (isMssql) {
+        const mssqlColumns = [
+          { name: 'visit_type', type: 'VARCHAR(50) NOT NULL DEFAULT \'Visit\'' },
+          { name: 'reason_category', type: 'VARCHAR(191) NULL' },
+          { name: 'reason', type: 'NVARCHAR(MAX) NULL' },
+          { name: 'observation', type: 'NVARCHAR(MAX) NULL' },
+          { name: 'sosAsPerBda', type: 'TINYINT NULL' },
+          { name: 'visit_datetime', type: 'DATETIME NULL' },
+          { name: 'cust_rt_id', type: 'VARCHAR(191) NULL' },
+          { name: 'dairyClassification', type: 'VARCHAR(50) NULL' },
+          { name: 'iceCreamClassification', type: 'VARCHAR(50) NULL' },
+          { name: 'routeCode', type: 'VARCHAR(50) NULL' },
+          { name: 'customerCode', type: 'VARCHAR(50) NULL' },
+        ];
+        for (const col of mssqlColumns) {
+          try {
+            await conn.execute(`
+              IF NOT EXISTS (
+                SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'Visit' AND COLUMN_NAME = '${col.name}'
+              )
+              BEGIN
+                ALTER TABLE [Visit] ADD [${col.name}] ${col.type};
+              END
+            `);
+          } catch (e: any) {
+            // Ignore if column already exists
+          }
+        }
+        return;
+      }
+
+      const [columnsResult]: any = await conn.execute(
         "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Visit'"
       );
       const existingColumns = new Set((columnsResult as any[]).map((row: any) => row.COLUMN_NAME));
@@ -840,5 +873,9 @@ export const visitRepository = {
   async deleteVisit(visitId: string): Promise<void> {
     // Native ON DELETE CASCADE automatically handles VisitPhoto, VisitAsset, NPDResponse, VisitPowerSkuResult removal
     await pool.execute('DELETE FROM `Visit` WHERE `visitId` = ?', [visitId]);
+  },
+
+  async ensureSchema(): Promise<void> {
+    await ensureVisitTableSchema();
   },
 };

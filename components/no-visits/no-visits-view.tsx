@@ -144,6 +144,16 @@ export default function NoVisitsView({ role }: NoVisitsViewProps) {
 
     try {
       const res = await fetch('/api/no-visits');
+      if (!res.ok) {
+        let errMessage = 'Failed to load records';
+        try {
+          const errData = await res.json();
+          errMessage = errData?.error || errMessage;
+        } catch {
+          // Response was not JSON (e.g. plain text 500 error)
+        }
+        throw new Error(errMessage);
+      }
       const data = await res.json();
       if (data?.success) {
         setVisits(data.visits || []);

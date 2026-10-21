@@ -22,6 +22,9 @@ function transformQueryForMssql(query: string, params: any[] = []) {
   // 2. Replace MySQL NOW() with SQL Server GETDATE()
   q = q.replace(/\bNOW\(\)/gi, 'GETDATE()');
 
+  // 2b. Replace MySQL DATE(expr) with SQL Server CAST(expr AS DATE)
+  q = q.replace(/\bDATE\(([^)]+)\)/gi, 'CAST($1 AS DATE)');
+
   // 3. Replace MySQL IFNULL with SQL Server ISNULL
   q = q.replace(/\bIFNULL\(/gi, 'ISNULL(');
 
