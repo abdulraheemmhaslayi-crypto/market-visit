@@ -7,14 +7,16 @@ declare global {
   var __mysqlPool: any | undefined;
 }
 
-// Determine if we should connect using Microsoft SQL Server (Azure SQL) or MySQL
-const isMssql =
-  process.env.DB_MODE !== 'MYSQL' &&
-  (process.env.DB_MODE === 'MSSQL' ||
+// Determine if we should attempt connecting using Microsoft SQL Server (Azure SQL) or MySQL
+const wantsMssql =
+  process.env.DB_MODE === 'MSSQL' ||
+  (process.env.DB_MODE !== 'MYSQL' &&
     Boolean(
-      (process.env.DB_SERVER && !process.env.DB_SERVER.includes('rlwy.net')) ||
-      (process.env.DB_PORT && (Number(process.env.DB_PORT) === 1433 || Number(process.env.DB_PORT) === 3342))
+      process.env.DB_PORT && (Number(process.env.DB_PORT) === 1433 || Number(process.env.DB_PORT) === 3342)
     ));
+
+let pool: any;
+let isMssql = false;
 
 function transformQueryForMssql(query: string, params: any[] = []) {
   // 1. Replace MySQL backticks with SQL Server brackets
@@ -79,7 +81,7 @@ function createMysqlPool() {
 
   // If deployed on Azure App Service without custom host, or if DB_HOST is localhost,
   // automatically route to production Railway cloud database
-  const host = (isAzure && isLocalHost) ? 'altaria.proxy.rlwy.net' : (process.env.DB_HOST || process.env.DB_SERVER || 'altaria.proxy.rlwy.net');
+  const host = (isAzure && isLocalHost) ? 'altaria.proxy.rlwy.net' : (process.env.DB_HOST || 'altaria.proxy.rlwy.net');
   const port = (isAzure && isLocalHost) ? 50182 : (Number(process.env.DB_PORT) || 50182);
   const user = (isAzure && isLocalHost) ? 'root' : (process.env.DB_USER || 'root');
   const password = (isAzure && isLocalHost) ? 'QiJokQggRqsLDHctRTUBkMAwQemyQsYV' : (process.env.DB_PASSWORD || 'QiJokQggRqsLDHctRTUBkMAwQemyQsYV');
@@ -115,9 +117,7 @@ function createMysqlPool() {
   return p;
 }
 
-let pool: any;
-
-if (isMssql) {
+if (wantsMssql) {
   // ==========================================
   // MICROSOFT SQL SERVER / AZURE SQL DATABASE
   // ==========================================
@@ -127,6 +127,7 @@ if (isMssql) {
   } catch {}
 
   if (sql && sql.ConnectionPool) {
+    isMssql = true;
     const serverHost = process.env.DB_SERVER || process.env.DB_HOST || 'localhost';
     const serverPort = Number(process.env.DB_PORT) || 1433;
 
@@ -242,12 +243,14 @@ if (isMssql) {
     // If MSSQL driver failed to load, fall back cleanly to MySQL
     console.warn('MSSQL driver unavailable, falling back to MySQL connection pool.');
     pool = createMysqlPool();
+    isMssql = false;
   }
 } else {
   // ==========================================
   // MYSQL (MYSQL2 / RAILWAY / LOCAL)
   // ==========================================
   pool = createMysqlPool();
+  isMssql = false;
 }
 
 export { isMssql };
