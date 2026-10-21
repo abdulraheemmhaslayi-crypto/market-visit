@@ -215,7 +215,7 @@ export default function AdminDashboardPage() {
   // Initialize cached data immediately from sessionStorage/localStorage for instant 0ms painting
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('admin_dashboard_cache_v8') || (typeof window !== 'undefined' ? localStorage.getItem('admin_dashboard_cache_v8') : null);
+      const cached = sessionStorage.getItem('admin_dashboard_cache_v9') || (typeof window !== 'undefined' ? localStorage.getItem('admin_dashboard_cache_v9') : null);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && typeof parsed === 'object' && Array.isArray(parsed.rows) && parsed.rows.length > 0) {
@@ -277,9 +277,9 @@ export default function AdminDashboardPage() {
               masters: newMasters,
               latestDate: foundLatestDate || latestDateRef.current,
             });
-            sessionStorage.setItem('admin_dashboard_cache_v8', cachePayload);
+            sessionStorage.setItem('admin_dashboard_cache_v9', cachePayload);
             if (typeof window !== 'undefined') {
-              localStorage.setItem('admin_dashboard_cache_v8', cachePayload);
+              localStorage.setItem('admin_dashboard_cache_v9', cachePayload);
             }
           } catch (e) {
             // Ignore quota errors
@@ -2018,10 +2018,10 @@ export default function AdminDashboardPage() {
 
       // Master outlets matching active upstream filters
       const masterOutlets = (masters?.dairyOutlets || []).filter((o: any) => {
-        const mgrOk = isManagerMatch(o.manager, fMgr);
-        const supOk = isSupervisorMatch(o.supervisor, fSuper, fMgr);
+        const mgrOk = isManagerMatch(o.manager, fMgr) || (Array.isArray(o.managers) && o.managers.some((m: string) => isManagerMatch(m, fMgr)));
+        const supOk = isSupervisorMatch(o.supervisor, fSuper, fMgr) || (Array.isArray(o.supervisors) && o.supervisors.some((s: string) => isSupervisorMatch(s, fSuper, fMgr)));
         const chOk = !fChannel || (o.channel || '').toLowerCase() === fChannel.toLowerCase();
-        const rtOk = !fRoute || o.route === fRoute;
+        const rtOk = !fRoute || o.route === fRoute || (Array.isArray(o.routes) && o.routes.includes(fRoute));
         const custOk = !fCust || o.name === fCust || o.code === fCust;
         return mgrOk && supOk && chOk && rtOk && custOk;
       });

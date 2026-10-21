@@ -44,9 +44,9 @@
   {
     "customerCode": "C41538",
     "customerName": "7 EXPRESS MINI MART",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C29830",
@@ -82,9 +82,9 @@
   {
     "customerCode": "C40065",
     "customerName": "A TO Z HYPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C42616",
@@ -122,9 +122,9 @@
   {
     "customerCode": "C29201",
     "customerName": "Abdul Rahman Al Khayrin Grocery",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C00352",
@@ -211,9 +211,9 @@
   {
     "customerCode": "C07258",
     "customerName": "ABDULLAH AL MALKI SM",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04166",
@@ -237,9 +237,9 @@
   {
     "customerCode": "C04169",
     "customerName": "ABDULLAH ALI BUMTER S/M",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C28468",
@@ -347,9 +347,9 @@
   {
     "customerCode": "C04188",
     "customerName": "ABU HALUF FOOD STUFF &RAT STOR",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C42379",
@@ -529,22 +529,22 @@
     "customerCode": "C41477",
     "customerName": "AFGAN BROTHERS",
     "classification": "B",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "B"
   },
   {
     "customerCode": "C41768",
     "customerName": "AFGHAN BROTHER RESTAURANT",
     "classification": "D",
-    "channel": "HORECA",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C39856",
     "customerName": "Afghan Brothers - Al Nasser",
     "classification": "B",
-    "channel": "HORECA",
-    "dairyClassification": "B"
+    "channel": "TT",
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04221",
@@ -564,15 +564,15 @@
     "customerCode": "C04222",
     "customerName": "AFGHAN BROTHERS RESTAURANT - WAKRA",
     "classification": "C",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "C"
   },
   {
     "customerCode": "C04223",
     "customerName": "AFGHAN BROTHERS RESTAURENT - MUAITHER",
-    "classification": "B",
+    "classification": "C",
     "channel": "HORECA",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04224",
@@ -603,9 +603,9 @@
   {
     "customerCode": "C42022",
     "customerName": "Afiya Mart Supermarket",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C24231",
@@ -646,9 +646,9 @@
   {
     "customerCode": "C42392",
     "customerName": "Agora Supermarket",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C42049",
@@ -882,9 +882,9 @@
   {
     "customerCode": "C41622",
     "customerName": "Al Aabdar Trading food stuff",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04265",
@@ -959,9 +959,9 @@
   {
     "customerCode": "C04271",
     "customerName": "Al Adel Vegitable Grocery",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C32437",
@@ -972,9 +972,9 @@
   {
     "customerCode": "C32300",
     "customerName": "Al Afari SM",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C02639",
@@ -1037,16 +1037,16 @@
   {
     "customerCode": "C04284",
     "customerName": "Al Alam sm",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04285",
     "customerName": "Al Alam Supermarket",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C04286",
@@ -1138,9 +1138,9 @@
   {
     "customerCode": "C04290",
     "customerName": "AL AMIR SM",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C02644",
@@ -1183,9 +1183,9 @@
   {
     "customerCode": "C08259",
     "customerName": "Al Annabi Supermarket",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C08260",
@@ -1266,9 +1266,9 @@
   {
     "customerCode": "C08265",
     "customerName": "Al Arais Supermarket",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C08266",
@@ -1279,9 +1279,9 @@
   {
     "customerCode": "C28846",
     "customerName": "AL ARIAF SUPERMARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C00932",
@@ -1418,8 +1418,8 @@
     "customerCode": "C24300",
     "customerName": "AL BAIDA CAFETERIA",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C40254",
@@ -1456,9 +1456,9 @@
   {
     "customerCode": "C29221",
     "customerName": "Al Bani Supermarket",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C31158",
@@ -1483,9 +1483,9 @@
   {
     "customerCode": "C37905",
     "customerName": "Al Baraha Supermarket",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C04335",
@@ -1594,9 +1594,9 @@
   {
     "customerCode": "C31654",
     "customerName": "Al Boser Mart",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C04345",
@@ -1738,9 +1738,9 @@
   {
     "customerCode": "C04364",
     "customerName": "AL EFESHA GROCERY",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C12322",
@@ -1974,9 +1974,9 @@
   {
     "customerCode": "C04389",
     "customerName": "AL FASHEE FOOD STUFF",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C04390",
@@ -2024,9 +2024,9 @@
   {
     "customerCode": "C40833",
     "customerName": "AL FILAH SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C23936",
@@ -2049,9 +2049,9 @@
   {
     "customerCode": "C04405",
     "customerName": "AL FOALH GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C41526",
@@ -2074,9 +2074,9 @@
   {
     "customerCode": "C08290",
     "customerName": "Al Fujaira food stuff",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C04407",
@@ -2301,9 +2301,9 @@
   {
     "customerCode": "C04427",
     "customerName": "AL HAMEED GROCERY",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C01333",
@@ -2320,9 +2320,9 @@
   {
     "customerCode": "C30087",
     "customerName": "AL Harmain Cold Store",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C27702",
@@ -2385,9 +2385,9 @@
   {
     "customerCode": "C32491",
     "customerName": "Al Hayer Grocery",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C40293",
@@ -2468,7 +2468,7 @@
     "customerCode": "C12266",
     "customerName": "AL HIJAZ CAFE",
     "classification": "B",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "B"
   },
   {
@@ -2739,9 +2739,9 @@
   {
     "customerCode": "C02130",
     "customerName": "Al Jadeea Grocery (Abdul Aziz)",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04476",
@@ -2827,7 +2827,7 @@
     "customerCode": "C41533",
     "customerName": "AL JASOOR CAFETERIA",
     "classification": "B",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "B"
   },
   {
@@ -2914,8 +2914,8 @@
     "customerCode": "C12363",
     "customerName": "AL KAABI CAFETERIA",
     "classification": "B",
-    "channel": "HORECA",
-    "dairyClassification": "B"
+    "channel": "TT",
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04513",
@@ -3222,9 +3222,9 @@
   {
     "customerCode": "C39540",
     "customerName": "Al Kheesa Express",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C42395",
@@ -3373,9 +3373,9 @@
   {
     "customerCode": "C29465",
     "customerName": "Al Madeena Food - Al Nasir",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C39642",
@@ -3399,9 +3399,9 @@
   {
     "customerCode": "C04592",
     "customerName": "Al Madina food centre",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C21696",
@@ -3528,9 +3528,9 @@
   {
     "customerCode": "C12443",
     "customerName": "AL MAIDAN FOOD GROCERY",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C38307",
@@ -3553,9 +3553,9 @@
   {
     "customerCode": "C04604",
     "customerName": "AL MALKI SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C08330",
@@ -3573,9 +3573,9 @@
   {
     "customerCode": "C04605",
     "customerName": "AL MALKI TRADING",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C12321",
@@ -3623,9 +3623,9 @@
   {
     "customerCode": "C04610",
     "customerName": "AL MANHAL GROCERY",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C21660",
@@ -3637,9 +3637,9 @@
   {
     "customerCode": "C29783",
     "customerName": "AL MANHAL SUPARMARKET (MUSHRIEB)",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C08331",
@@ -3728,9 +3728,9 @@
   {
     "customerCode": "C39940",
     "customerName": "Al Markhiya Comercial Super Market",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04619",
@@ -3844,16 +3844,16 @@
   {
     "customerCode": "C00003",
     "customerName": "AL MEERA - AIRPORT HYPER MARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C38444",
     "customerName": "AL MEERA - AL ASMAKH MALL",
-    "classification": "D",
+    "classification": "C",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C24904",
@@ -3879,9 +3879,9 @@
   {
     "customerCode": "C37253",
     "customerName": "Al Meera - Central Jail",
-    "classification": "D",
+    "classification": "C",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C38484",
@@ -4063,9 +4063,9 @@
   {
     "customerCode": "C40645",
     "customerName": "AL MEERA AL KARANA",
-    "classification": "C",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C00014",
@@ -4174,9 +4174,9 @@
   {
     "customerCode": "C00016",
     "customerName": "AL MEERA-MANSOURA",
-    "classification": "B",
+    "classification": "A",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C00020",
@@ -4231,22 +4231,22 @@
     "customerCode": "C00026",
     "customerName": "Al Meera-Residential Complex 1 Branch",
     "classification": "D",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C00036",
     "customerName": "AL MEERA-RT AL THUMAMA",
-    "classification": "C",
+    "classification": "B",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C28503",
     "customerName": "AL MEERA-SAILIYA SOUTH",
-    "classification": "B",
+    "classification": "C",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C00028",
@@ -4286,9 +4286,9 @@
   {
     "customerCode": "C00032",
     "customerName": "Al Meera-Wakra New",
-    "classification": "B",
+    "classification": "A",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C00039",
@@ -4327,9 +4327,9 @@
   {
     "customerCode": "C21607",
     "customerName": "AL MIHRAB 17 - STREET 10 LEFT",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C29337",
@@ -4347,9 +4347,9 @@
   {
     "customerCode": "C42282",
     "customerName": "Al Mihrab Grocery",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C25040",
@@ -4410,9 +4410,9 @@
   {
     "customerCode": "C12331",
     "customerName": "AL MIRHAB 52 L",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C12334",
@@ -4454,9 +4454,9 @@
   {
     "customerCode": "C42661",
     "customerName": "AL MISBAH GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C08341",
@@ -4689,9 +4689,9 @@
   {
     "customerCode": "C04661",
     "customerName": "Al Muthawakkal sm",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C08348",
@@ -4708,9 +4708,9 @@
   {
     "customerCode": "C08349",
     "customerName": "AL NAEEM GROCERY",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C40275",
@@ -4795,9 +4795,9 @@
   {
     "customerCode": "C23973",
     "customerName": "Al Najaf Grocery",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C12025",
@@ -4930,9 +4930,9 @@
   {
     "customerCode": "C12107",
     "customerName": "AL NIGYAN GROCERY",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C32444",
@@ -5160,9 +5160,9 @@
   {
     "customerCode": "C04700",
     "customerName": "AL RAFA SUPERMARKET",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04701",
@@ -5174,9 +5174,9 @@
   {
     "customerCode": "C28430",
     "customerName": "Al Raheek Sup Mar",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04703",
@@ -5238,23 +5238,23 @@
   {
     "customerCode": "C04712",
     "customerName": "AL RAUDA GROCERY",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C00044",
     "customerName": "AL RAWABI FOOD CENTER - AL RAYYAN",
-    "classification": "A",
+    "classification": "B",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C00045",
     "customerName": "AL RAWABI FOOD CENTER - AL WAKRA",
-    "classification": "A",
+    "classification": "B",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C42210",
@@ -5423,9 +5423,9 @@
   {
     "customerCode": "C08364",
     "customerName": "AL RUWAIS SHOPING CENTRE",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C04737",
@@ -5719,9 +5719,9 @@
   {
     "customerCode": "C04771",
     "customerName": "AL SEYOOF FOOD STUFF",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C02725",
@@ -5763,9 +5763,9 @@
   {
     "customerCode": "C02726",
     "customerName": "AL SHAHEEN GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C39326",
@@ -5828,9 +5828,9 @@
   {
     "customerCode": "C04784",
     "customerName": "AL SHAM GROCERY II",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04785",
@@ -5929,7 +5929,7 @@
     "customerCode": "C42213",
     "customerName": "AL SHATI CAFETERIA",
     "classification": "B",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "B"
   },
   {
@@ -5973,9 +5973,9 @@
   {
     "customerCode": "C04806",
     "customerName": "AL SIDHEEQUE JUICE STALL",
-    "classification": "E",
-    "channel": "HORECA",
-    "dairyClassification": "E"
+    "classification": "B",
+    "channel": "TT",
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C02267",
@@ -6065,9 +6065,9 @@
   {
     "customerCode": "C44256",
     "customerName": "AL TAHIYA SUPERMARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C04823",
@@ -6084,16 +6084,16 @@
   {
     "customerCode": "C42289",
     "customerName": "Al Tamer Supermarket & Food stuff",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C08392",
     "customerName": "Al Taqwa Grocery",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04828",
@@ -6194,9 +6194,9 @@
   {
     "customerCode": "C29038",
     "customerName": "Al Thofir Fruits & Vegetable",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C04837",
@@ -6262,9 +6262,9 @@
   {
     "customerCode": "C29351",
     "customerName": "AL WADI GROCERY",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C12451",
@@ -6378,16 +6378,16 @@
   {
     "customerCode": "C04856",
     "customerName": "AL WAKRA AHALI GROCERY",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C08401",
     "customerName": "AL WAKRA BEACH",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C40658",
@@ -6458,9 +6458,9 @@
   {
     "customerCode": "C08405",
     "customerName": "AL WATHED GROCERY",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C40685",
@@ -6497,9 +6497,9 @@
   {
     "customerCode": "C41013",
     "customerName": "AL WISHAH GROCERY 01",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C41014",
@@ -6537,9 +6537,9 @@
   {
     "customerCode": "C04872",
     "customerName": "AL WUSAIL MODERN SM",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C04873",
@@ -6615,8 +6615,8 @@
     "customerCode": "C04891",
     "customerName": "Al Zarka restaurant",
     "classification": "D",
-    "channel": "HORECA",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C29276",
@@ -6640,16 +6640,16 @@
   {
     "customerCode": "C17435",
     "customerName": "AL ZEENA AL JADEEDA",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C08413",
     "customerName": "Al Zeena Grocery - Najma",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C12148",
@@ -6697,9 +6697,9 @@
   {
     "customerCode": "C38927",
     "customerName": "ALBAYT ALRIYADI SUPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C43000",
@@ -6868,9 +6868,9 @@
   {
     "customerCode": "C39833",
     "customerName": "Alif Supermarket",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C41912",
@@ -6960,7 +6960,7 @@
     "customerCode": "C44357",
     "customerName": "AL-MAHA AL QADEEM RESTAURANT",
     "classification": "E",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -7247,8 +7247,8 @@
     "customerCode": "C31813",
     "customerName": "Ansar Gallery - Sana",
     "classification": "C",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C00302",
@@ -7494,9 +7494,9 @@
   {
     "customerCode": "C43389",
     "customerName": "AREBIAN SUPER MARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C40135",
@@ -7508,9 +7508,9 @@
   {
     "customerCode": "C40826",
     "customerName": "AREBIAN SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C04956",
@@ -7573,8 +7573,8 @@
     "customerCode": "C04959",
     "customerName": "AROMA RESTAURENT",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C30446",
@@ -7617,9 +7617,9 @@
   {
     "customerCode": "C43360",
     "customerName": "ASACO SUPERMARKET",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C01944",
@@ -7697,9 +7697,9 @@
   {
     "customerCode": "C28542",
     "customerName": "Asiri Grocery",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C41501",
@@ -7711,9 +7711,9 @@
   {
     "customerCode": "C40314",
     "customerName": "ASMA ASMA GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C04978",
@@ -7774,9 +7774,9 @@
   {
     "customerCode": "C08432",
     "customerName": "Athmar Supermarket",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C38596",
@@ -7788,15 +7788,15 @@
     "customerCode": "C24955",
     "customerName": "AUCKLAND CAFETARIA - STREET 15",
     "classification": "B",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "B"
   },
   {
     "customerCode": "C29282",
     "customerName": "Auckland Cafeteria Street - 16 Left",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C43394",
@@ -8053,9 +8053,9 @@
   {
     "customerCode": "C38049",
     "customerName": "Babseel Grocery",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C28532",
@@ -8235,7 +8235,8 @@
     "customerCode": "C39933",
     "customerName": "BALADNA TRADING",
     "classification": "A",
-    "channel": "TT"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C43448",
@@ -8484,9 +8485,9 @@
   {
     "customerCode": "C05057",
     "customerName": "BARHOWS GROCERY",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C40533",
@@ -8516,16 +8517,16 @@
   {
     "customerCode": "C23962",
     "customerName": "Barq Al Junoob - Street 35",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C41760",
     "customerName": "Barq Al Junoob supermarket",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C42933",
@@ -8568,9 +8569,9 @@
   {
     "customerCode": "C29998",
     "customerName": "BASHEER AL KHAIR GROCERY",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C05061",
@@ -8676,9 +8677,9 @@
   {
     "customerCode": "C05066",
     "customerName": "Bengal Food Stuff",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C05067",
@@ -8886,9 +8887,9 @@
   {
     "customerCode": "C44517",
     "customerName": "BILLA SUPERMARKET",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C31752",
@@ -9015,9 +9016,9 @@
   {
     "customerCode": "C27142",
     "customerName": "BIN YUSF SUPPLY CENTRE",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C05102",
@@ -9405,9 +9406,9 @@
   {
     "customerCode": "C05131",
     "customerName": "BU AHAMED SUPER MARKET",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C05132",
@@ -9809,9 +9810,9 @@
   {
     "customerCode": "C39124",
     "customerName": "Carry Fresh Hypermarket (Cash)",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C40348",
@@ -9828,9 +9829,9 @@
   {
     "customerCode": "C41749",
     "customerName": "Cash N Carry",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C05191",
@@ -9977,8 +9978,8 @@
     "customerCode": "C12085",
     "customerName": "CHAPATHI KARKI JUICE STALL",
     "classification": "D",
-    "channel": "HORECA",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C01680",
@@ -10153,9 +10154,9 @@
   {
     "customerCode": "C05216",
     "customerName": "CINYARI GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C42500",
@@ -10191,9 +10192,9 @@
   {
     "customerCode": "C05221",
     "customerName": "CITY MART GORCERY",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C05223",
@@ -10433,9 +10434,9 @@
   {
     "customerCode": "C05246",
     "customerName": "CORNER SUPERMARKET - Ezdan 18",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C40493",
@@ -10598,9 +10599,9 @@
   {
     "customerCode": "C38777",
     "customerName": "DAILY SOUQ",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C28517",
@@ -10732,9 +10733,9 @@
   {
     "customerCode": "C37929",
     "customerName": "Dana Supermarket - Shamal",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C08450",
@@ -10835,9 +10836,9 @@
   {
     "customerCode": "C40830",
     "customerName": "DANUBE SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C40831",
@@ -10896,9 +10897,9 @@
   {
     "customerCode": "C40534",
     "customerName": "DAY & NIGHT SUPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C31224",
@@ -11299,7 +11300,7 @@
     "customerCode": "C05307",
     "customerName": "DOHA HOUSE RESTUARENT",
     "classification": "B",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "B"
   },
   {
@@ -11342,9 +11343,9 @@
   {
     "customerCode": "C38338",
     "customerName": "DOHA SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C05315",
@@ -11497,9 +11498,9 @@
   {
     "customerCode": "C42485",
     "customerName": "DOWN TOWN MART",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C05330",
@@ -11566,9 +11567,9 @@
   {
     "customerCode": "C00330",
     "customerName": "DUHAIL COMPLEX",
-    "classification": "B",
+    "classification": "A",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C05334",
@@ -11580,9 +11581,9 @@
   {
     "customerCode": "C02422",
     "customerName": "DUHEL FOOD CENTER",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C31333",
@@ -11665,9 +11666,9 @@
   {
     "customerCode": "C28494",
     "customerName": "Easy Food",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C32441",
@@ -11768,9 +11769,9 @@
   {
     "customerCode": "C12445",
     "customerName": "EJAFA GROCERY",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C05345",
@@ -11989,9 +11990,9 @@
   {
     "customerCode": "C08467",
     "customerName": "Everest Grocery -  Azizia",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C05362",
@@ -12082,9 +12083,9 @@
   {
     "customerCode": "C08471",
     "customerName": "EZDAN - 5",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C08472",
@@ -12122,9 +12123,9 @@
   {
     "customerCode": "C30390",
     "customerName": "Fabulous Trading & Services",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C29137",
@@ -12180,9 +12181,9 @@
   {
     "customerCode": "C40231",
     "customerName": "Fair Mart Supermarket",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C05377",
@@ -12289,9 +12290,9 @@
   {
     "customerCode": "C42319",
     "customerName": "FALCON FOOD CENTER",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C06246",
@@ -12457,8 +12458,8 @@
     "customerCode": "C27801",
     "customerName": "FAMILY SHOPPING COMPLEX - MURRA",
     "classification": "B",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "B"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C00074",
@@ -12606,9 +12607,9 @@
   {
     "customerCode": "C44385",
     "customerName": "FARM FRESH MINI MART",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C44074",
@@ -12632,9 +12633,9 @@
   {
     "customerCode": "C05400",
     "customerName": "FASEELA FOOD CENTER",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C32015",
@@ -12911,8 +12912,8 @@
     "customerCode": "C05416",
     "customerName": "FLAFEL AL AKAWI RESTAURANT",
     "classification": "D",
-    "channel": "HORECA",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C44267",
@@ -12994,9 +12995,9 @@
   {
     "customerCode": "C42909",
     "customerName": "FOCUS GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C29063",
@@ -13105,16 +13106,16 @@
   {
     "customerCode": "C28518",
     "customerName": "Food City Hypermarket",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C40143",
     "customerName": "FOOD CITY MARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C28579",
@@ -13192,9 +13193,9 @@
   {
     "customerCode": "C08485",
     "customerName": "Food Court",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C42623",
@@ -13324,9 +13325,9 @@
   {
     "customerCode": "C30864",
     "customerName": "Food Plus Supermarket - Barwa",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C08488",
@@ -13375,9 +13376,9 @@
   {
     "customerCode": "C02445",
     "customerName": "FOOD WORLD (IND.AREA)",
-    "classification": "C",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C41818",
@@ -13389,9 +13390,9 @@
   {
     "customerCode": "C29248",
     "customerName": "Foodbuy Grocery",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C39230",
@@ -13490,9 +13491,9 @@
   {
     "customerCode": "C40803",
     "customerName": "FRESH & MORE SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C37292",
@@ -13545,9 +13546,9 @@
   {
     "customerCode": "C38537",
     "customerName": "Fresh Express - Mughlina",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C05442",
@@ -13579,9 +13580,9 @@
   {
     "customerCode": "C39346",
     "customerName": "Fresh Express Mart",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C12355",
@@ -13828,16 +13829,16 @@
   {
     "customerCode": "C43391",
     "customerName": "FRINDS AND FAMILY TRADING",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C12041",
     "customerName": "FRUIT GARDEN SUPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C31223",
@@ -13958,9 +13959,9 @@
   {
     "customerCode": "C05466",
     "customerName": "GARAFA CORNER SM",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C05467",
@@ -14448,8 +14449,8 @@
     "customerCode": "C31631",
     "customerName": "Golden Hotel",
     "classification": "D",
-    "channel": "HORECA",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C31221",
@@ -14628,9 +14629,9 @@
   {
     "customerCode": "C21536",
     "customerName": "GRAND EXPRESS - HYPER MARKET PLAZA 3",
-    "classification": "C",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C39136",
@@ -14642,9 +14643,9 @@
   {
     "customerCode": "C00372",
     "customerName": "GRAND EXPRESS- PLAZA MALL-2",
-    "classification": "C",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C30436",
@@ -14778,9 +14779,9 @@
   {
     "customerCode": "C42417",
     "customerName": "Grandex Supermarket",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C44011",
@@ -14791,9 +14792,9 @@
   {
     "customerCode": "C30815",
     "customerName": "Grandex Supermarket - Al Khor",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C31885",
@@ -14880,8 +14881,9 @@
   {
     "customerCode": "C42337",
     "customerName": "Green Doha Supermarket",
-    "classification": "B",
-    "channel": "TT"
+    "classification": "E",
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C43764",
@@ -14948,16 +14950,16 @@
   {
     "customerCode": "C40213",
     "customerName": "GREEN MART",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C30299",
     "customerName": "Green Mart Supermarket",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C39852",
@@ -15036,9 +15038,9 @@
   {
     "customerCode": "C40825",
     "customerName": "GREENS SUPERMARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C38200",
@@ -15174,9 +15176,9 @@
   {
     "customerCode": "C08510",
     "customerName": "Gulf Indian Super Market",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C42726",
@@ -15253,9 +15255,9 @@
   {
     "customerCode": "C00978",
     "customerName": "H. D. C - Camp",
-    "classification": "C",
+    "classification": "B",
     "channel": "HORECA",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C12230",
@@ -15334,8 +15336,9 @@
   {
     "customerCode": "C39347",
     "customerName": "Hajar Food Stuffs",
-    "classification": "B",
-    "channel": "TT"
+    "classification": "A",
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C40912",
@@ -15558,9 +15561,9 @@
   {
     "customerCode": "C43940",
     "customerName": "HARAM AL MADEENA S/M",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C31310",
@@ -15589,9 +15592,9 @@
   {
     "customerCode": "C29283",
     "customerName": "Harmony Mini Mart",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C29529",
@@ -15621,9 +15624,9 @@
   {
     "customerCode": "C05624",
     "customerName": "HASHMI SUPERMARKET",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C05625",
@@ -15670,9 +15673,9 @@
   {
     "customerCode": "C42569",
     "customerName": "HAYA SUPERMARKET",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C41727",
@@ -15697,9 +15700,9 @@
   {
     "customerCode": "C44555",
     "customerName": "HAYYA SUPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C12116",
@@ -15830,23 +15833,23 @@
   {
     "customerCode": "C05635",
     "customerName": "Hey Mart - Ezdan 29",
+    "classification": "C",
+    "channel": "TT",
+    "dairyClassification": "C"
+  },
+  {
+    "customerCode": "C32406",
+    "customerName": "Hey New Mart",
     "classification": "D",
     "channel": "TT",
     "dairyClassification": "D"
   },
   {
-    "customerCode": "C32406",
-    "customerName": "Hey New Mart",
-    "classification": "E",
-    "channel": "TT",
-    "dairyClassification": "E"
-  },
-  {
     "customerCode": "C40969",
     "customerName": "HEY NEW MART",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C42913",
@@ -16061,9 +16064,9 @@
   {
     "customerCode": "C05652",
     "customerName": "HOME FOOD STUFF GROCER",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C05654",
@@ -16099,9 +16102,9 @@
   {
     "customerCode": "C27101",
     "customerName": "Horizon Food Trading",
-    "classification": "E",
+    "classification": "D",
     "channel": "HORECA",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C40706",
@@ -16734,9 +16737,9 @@
   {
     "customerCode": "C22168",
     "customerName": "ISMAIL ANSARI - 33 (STREET 32 LEFT)",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C21605",
@@ -16820,8 +16823,8 @@
     "customerCode": "C28477",
     "customerName": "Jaal Restaurant",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C41301",
@@ -16954,9 +16957,9 @@
   {
     "customerCode": "C40937",
     "customerName": "Jana Baladna Market",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C05752",
@@ -16967,9 +16970,9 @@
   {
     "customerCode": "C43100",
     "customerName": "JANNAT SUPER MARKET",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C05753",
@@ -17095,9 +17098,9 @@
   {
     "customerCode": "C05770",
     "customerName": "Jawazi Super market",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C27104",
@@ -17114,9 +17117,9 @@
   {
     "customerCode": "C32710",
     "customerName": "Jazila Supermarket",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C28670",
@@ -17322,16 +17325,16 @@
   {
     "customerCode": "C29031",
     "customerName": "Kabayan International HPMKT",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C32438",
     "customerName": "Kabayan SM - Al Sadd",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C08531",
@@ -17463,9 +17466,9 @@
   {
     "customerCode": "C08534",
     "customerName": "Karana Grocery",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C05812",
@@ -17477,7 +17480,7 @@
     "customerCode": "C05815",
     "customerName": "KAREEM CANTEEN (24 R/ H SIDE)",
     "classification": "C",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "C"
   },
   {
@@ -17570,9 +17573,9 @@
   {
     "customerCode": "C05827",
     "customerName": "Kawasar Food Stuff",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C40704",
@@ -17871,8 +17874,9 @@
   {
     "customerCode": "C39474",
     "customerName": "Kinz Aldar Food Trading",
-    "classification": "D",
-    "channel": "TT"
+    "classification": "B",
+    "channel": "TT",
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C37877",
@@ -17891,8 +17895,8 @@
     "customerCode": "C42216",
     "customerName": "KK CAFETERIA",
     "classification": "B",
-    "channel": "HORECA",
-    "dairyClassification": "B"
+    "channel": "TT",
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C12437",
@@ -17949,8 +17953,8 @@
     "customerCode": "C24324",
     "customerName": "Kottapalli Cafeteria - Street 14",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C39357",
@@ -18006,9 +18010,9 @@
   {
     "customerCode": "C05873",
     "customerName": "LABER POWAR FOOD CENTRE(AQARIY",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C41502",
@@ -18056,16 +18060,16 @@
   {
     "customerCode": "C05880",
     "customerName": "LAGOON COMPLEX FAMILY SHOPPING",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C02953",
     "customerName": "LAGOON MINI MART",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C05881",
@@ -18215,9 +18219,9 @@
   {
     "customerCode": "C23964",
     "customerName": "Lanka Restaurant-Mansoora",
-    "classification": "D",
+    "classification": "E",
     "channel": "HORECA",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C27299",
@@ -18234,9 +18238,9 @@
   {
     "customerCode": "C41419",
     "customerName": "LAROSE MINI MART",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C38045",
@@ -18371,9 +18375,9 @@
   {
     "customerCode": "C27531",
     "customerName": "Lime Supermarket",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C37669",
@@ -18531,9 +18535,9 @@
   {
     "customerCode": "C41268",
     "customerName": "Lua Lua Al Hijas supermarket",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C05921",
@@ -18772,9 +18776,9 @@
   {
     "customerCode": "C05932",
     "customerName": "Luqta Grocery",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C31226",
@@ -18868,9 +18872,9 @@
   {
     "customerCode": "C39990",
     "customerName": "Madeena Shopping Center",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C12074",
@@ -18956,9 +18960,9 @@
   {
     "customerCode": "C39277",
     "customerName": "Maesh Best Supermarket",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C24336",
@@ -18969,9 +18973,9 @@
   {
     "customerCode": "C12733",
     "customerName": "MAF HYPER MARKET(CARREFOUR)-AL MIRQAB",
-    "classification": "D",
+    "classification": "C",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C00138",
@@ -19114,9 +19118,9 @@
   {
     "customerCode": "C05964",
     "customerName": "Majid Grocery - Old Mattar",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C05965",
@@ -19182,9 +19186,9 @@
   {
     "customerCode": "C05970",
     "customerName": "MAKKA GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C05971",
@@ -19277,9 +19281,9 @@
   {
     "customerCode": "C02395",
     "customerName": "Malik S/M (Salwa Road)",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C40066",
@@ -19334,9 +19338,9 @@
   {
     "customerCode": "C28544",
     "customerName": "Mamoura Food Center",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C05980",
@@ -19456,7 +19460,7 @@
     "customerCode": "C24171",
     "customerName": "MANGO CAFETARIA - STREET 12",
     "classification": "C",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "C"
   },
   {
@@ -19560,9 +19564,9 @@
   {
     "customerCode": "C29073",
     "customerName": "MANHAL SHOPPING CENTER",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C44343",
@@ -19641,8 +19645,9 @@
   {
     "customerCode": "C31017",
     "customerName": "Mansoor Mohammed Al Emadi",
-    "classification": "C",
-    "channel": "TT"
+    "classification": "E",
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C06028",
@@ -19901,8 +19906,8 @@
     "customerCode": "C42312",
     "customerName": "MARZA HYPERMARKET - MUSHERIEB",
     "classification": "D",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C12593",
@@ -19982,9 +19987,9 @@
   {
     "customerCode": "C40964",
     "customerName": "MASTERS SUPERMARKET",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C42509",
@@ -20057,9 +20062,9 @@
   {
     "customerCode": "C44534",
     "customerName": "MEGA MART - MM PEARL",
-    "classification": "D",
+    "classification": "E",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C28620",
@@ -20105,9 +20110,9 @@
   {
     "customerCode": "C00158",
     "customerName": "MEGAMART (THE CENTRE)",
-    "classification": "E",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C28142",
@@ -20155,9 +20160,9 @@
   {
     "customerCode": "C42378",
     "customerName": "Merakh Food Complex",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C31127",
@@ -20225,9 +20230,9 @@
   {
     "customerCode": "C12341",
     "customerName": "METRO MART",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C32730",
@@ -20244,9 +20249,9 @@
   {
     "customerCode": "C31289",
     "customerName": "METRO RESTAURENT - SALWA ROAD",
-    "classification": "B",
+    "classification": "C",
     "channel": "HORECA",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C06065",
@@ -20462,9 +20467,9 @@
   {
     "customerCode": "C08545",
     "customerName": "MINI MARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C24301",
@@ -20482,9 +20487,9 @@
   {
     "customerCode": "C43433",
     "customerName": "MINI ROYAL GATE",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C30514",
@@ -20525,16 +20530,16 @@
   {
     "customerCode": "C06077",
     "customerName": "MINT. SUPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C27152",
     "customerName": "MIRACLE GROCERY - street 52",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C41358",
@@ -20768,9 +20773,9 @@
   {
     "customerCode": "C42674",
     "customerName": "MJ EXPRESS",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C29343",
@@ -20782,16 +20787,16 @@
   {
     "customerCode": "C30193",
     "customerName": "MM Food Stuff",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C27300",
     "customerName": "MM GROCERY - Street 48",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C38289",
@@ -20859,16 +20864,16 @@
   {
     "customerCode": "C41637",
     "customerName": "MOHAMMAD AL RASHID -2",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C27165",
     "customerName": "MOHAMMAD AL RASHID SM",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C07870",
@@ -20886,9 +20891,9 @@
   {
     "customerCode": "C06101",
     "customerName": "MOHAMMAD CABIN",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT CAMP",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C28458",
@@ -21023,9 +21028,9 @@
   {
     "customerCode": "C21411",
     "customerName": "MONOPRIX - PALM TOWER",
-    "classification": "D",
+    "classification": "C",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C30833",
@@ -21043,16 +21048,16 @@
   {
     "customerCode": "C40301",
     "customerName": "Monoprix Vendome Mall",
-    "classification": "D",
+    "classification": "C",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C42229",
     "customerName": "MONOPRIX WEST WALK [MWW]",
-    "classification": "E",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C43027",
@@ -21115,9 +21120,9 @@
   {
     "customerCode": "C42336",
     "customerName": "Moovender Trading",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C06142",
@@ -21232,8 +21237,8 @@
     "customerCode": "C23943",
     "customerName": "MRA RESTAURANT - STREET 37",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C06146",
@@ -21323,9 +21328,9 @@
   {
     "customerCode": "C42717",
     "customerName": "MUMTAZ SUPERMARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C39456",
@@ -21469,16 +21474,16 @@
   {
     "customerCode": "C03015",
     "customerName": "My Home Supermarket",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C30799",
     "customerName": "My Mart Food Stuff",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C40359",
@@ -21490,9 +21495,9 @@
   {
     "customerCode": "C12325",
     "customerName": "MYSORE GROCERY",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C06183",
@@ -21597,9 +21602,9 @@
   {
     "customerCode": "C12168",
     "customerName": "NAJEEMA SUPER MARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C06195",
@@ -21882,9 +21887,9 @@
   {
     "customerCode": "C41845",
     "customerName": "NEW ADIB SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C08553",
@@ -21919,9 +21924,9 @@
   {
     "customerCode": "C08555",
     "customerName": "NEW AL MAMOURAH GROCERY",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C06234",
@@ -21952,9 +21957,9 @@
   {
     "customerCode": "C40234",
     "customerName": "New Al Waab Supermarket",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C40829",
@@ -21991,9 +21996,9 @@
   {
     "customerCode": "C40273",
     "customerName": "NEW BRIGHT GROCERY",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C06242",
@@ -22069,23 +22074,23 @@
   {
     "customerCode": "C01180",
     "customerName": "New Falcon S/M",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C08557",
     "customerName": "NEW FALCON SHOPPING CENTRE",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C40183",
     "customerName": "New Falcon SM",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C29132",
@@ -22241,9 +22246,9 @@
   {
     "customerCode": "C44381",
     "customerName": "NEW HIMALAYAN GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C00382",
@@ -22255,9 +22260,9 @@
   {
     "customerCode": "C43947",
     "customerName": "NEW JANATH SUPERMARKET",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C30549",
@@ -22361,9 +22366,9 @@
   {
     "customerCode": "C39417",
     "customerName": "New Q Mart Hypermarket",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C08560",
@@ -22388,15 +22393,15 @@
     "customerCode": "C06263",
     "customerName": "NEW RESTUARENT",
     "classification": "E",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
     "customerCode": "C28547",
     "customerName": "NEW SAAD GROCERY",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C08562",
@@ -22421,9 +22426,9 @@
   {
     "customerCode": "C02413",
     "customerName": "NEW SAAD SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C37615",
@@ -22604,9 +22609,9 @@
   {
     "customerCode": "C43743",
     "customerName": "NEW VILLEGE MINI MART EZDAN-19",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C06267",
@@ -22617,9 +22622,9 @@
   {
     "customerCode": "C06268",
     "customerName": "New Zubaida Grocery",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C43336",
@@ -22721,8 +22726,8 @@
     "customerCode": "C06270",
     "customerName": "NICE RESTAURANT",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C12024",
@@ -22969,9 +22974,9 @@
   {
     "customerCode": "C39880",
     "customerName": "Oasis Super Market",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C40038",
@@ -23187,8 +23192,8 @@
     "customerCode": "C00653",
     "customerName": "Opera Cafe (Industrial Area)",
     "classification": "B",
-    "channel": "HORECA",
-    "dairyClassification": "B"
+    "channel": "TT",
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C00655",
@@ -23367,7 +23372,7 @@
     "customerCode": "C38046",
     "customerName": "Pak Pakwan",
     "classification": "B",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "B"
   },
   {
@@ -23436,8 +23441,8 @@
     "customerCode": "C02235",
     "customerName": "Panda Hypermarket (Musherib)",
     "classification": "C",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C12188",
@@ -23449,8 +23454,8 @@
     "customerCode": "C44482",
     "customerName": "PANDA XPRESS SUPERMARKET",
     "classification": "D",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C41457",
@@ -23524,9 +23529,9 @@
   {
     "customerCode": "C24138",
     "customerName": "PARADISE GROCERY (STREET 08 LEFT)",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C37892",
@@ -23557,8 +23562,8 @@
     "customerCode": "C30717",
     "customerName": "PARIS HYPERMARKET",
     "classification": "B",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "B"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C40908",
@@ -23633,8 +23638,8 @@
     "customerCode": "C29199",
     "customerName": "Pearl Cafeteria",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C06296",
@@ -23764,9 +23769,9 @@
   {
     "customerCode": "C24571",
     "customerName": "Pick N Pay Grocery - Street 45",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C06338",
@@ -23873,9 +23878,9 @@
   {
     "customerCode": "C44344",
     "customerName": "POINT EIGHT SUPERMARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C44595",
@@ -23917,9 +23922,9 @@
   {
     "customerCode": "C42559",
     "customerName": "PRADMA QATAR FOOD",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C31422",
@@ -23981,8 +23986,8 @@
     "customerCode": "C12170",
     "customerName": "PUNJAB RESTAURANT",
     "classification": "D",
-    "channel": "HORECA",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C43007",
@@ -23994,9 +23999,9 @@
   {
     "customerCode": "C29075",
     "customerName": "Pure Gold Trading",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C28984",
@@ -24080,9 +24085,9 @@
   {
     "customerCode": "C39543",
     "customerName": "Qamar Al Doha Supermarket",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C38005",
@@ -24390,9 +24395,9 @@
   {
     "customerCode": "C28557",
     "customerName": "Quala Grocery",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C00310",
@@ -24442,9 +24447,9 @@
   {
     "customerCode": "C43074",
     "customerName": "quick store shop supermarket",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C41887",
@@ -24706,8 +24711,8 @@
     "customerCode": "C27792",
     "customerName": "RAMADAN CUSTOMER (CASH)",
     "classification": "A",
-    "channel": "HORECA",
-    "dairyClassification": "B"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C42707",
@@ -24738,8 +24743,8 @@
     "customerCode": "C00293",
     "customerName": "Ramez Shopping-Al Nasr",
     "classification": "D",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C00292",
@@ -24800,9 +24805,9 @@
   {
     "customerCode": "C42301",
     "customerName": "RAQEEB FOOD CENTRE",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C28849",
@@ -24888,9 +24893,9 @@
   {
     "customerCode": "C27301",
     "customerName": "RAWABI HYPERMARKET - AL RAYYAN OLD",
-    "classification": "A",
+    "classification": "B",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C41398",
@@ -24939,9 +24944,9 @@
   {
     "customerCode": "C25042",
     "customerName": "Rawnaq Grocery",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C28470",
@@ -24983,9 +24988,9 @@
   {
     "customerCode": "C42715",
     "customerName": "REAL MART",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C30874",
@@ -24996,9 +25001,9 @@
   {
     "customerCode": "C41503",
     "customerName": "Real Mart Supermarket",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C23940",
@@ -25176,9 +25181,9 @@
   {
     "customerCode": "C31267",
     "customerName": "REGENCY SHOPPING CENTER (CR)- AIN KHALID",
-    "classification": "B",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "B"
+    "classification": "C",
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C01316",
@@ -25198,8 +25203,8 @@
     "customerCode": "C29894",
     "customerName": "REGENCY SHOPPING COMPLEX - Wakra",
     "classification": "C",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C40429",
@@ -25322,9 +25327,9 @@
   {
     "customerCode": "C00242",
     "customerName": "RETAIL MART-INDUSTRIAL AREA",
-    "classification": "B",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "B"
+    "classification": "C",
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C00245",
@@ -25411,9 +25416,9 @@
   {
     "customerCode": "C06544",
     "customerName": "Riwoli supermarket - Najma",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C41689",
@@ -25598,7 +25603,7 @@
     "customerCode": "C31417",
     "customerName": "Rotana Restaurant - Al Khor",
     "classification": "C",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "C"
   },
   {
@@ -25706,9 +25711,9 @@
   {
     "customerCode": "C41696",
     "customerName": "RUBIYAN SUPERMARKET",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C01814",
@@ -25719,16 +25724,16 @@
   {
     "customerCode": "C43115",
     "customerName": "RUHAL SUPERMARKET",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C39702",
     "customerName": "Ruman Hyper Market",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C28457",
@@ -26228,8 +26233,9 @@
   {
     "customerCode": "C06620",
     "customerName": "SALWA FAMILY SHOPPING COMPLEX",
-    "classification": "B",
-    "channel": "TT"
+    "classification": "E",
+    "channel": "KEY ACCOUNT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C06621",
@@ -26516,8 +26522,8 @@
     "customerCode": "C08687",
     "customerName": "SAUDIA HYPERMARKET-AL KHOR",
     "classification": "B",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "B"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C01593",
@@ -26603,9 +26609,9 @@
   {
     "customerCode": "C38977",
     "customerName": "Sea Mark Grocery",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C28745",
@@ -26756,9 +26762,9 @@
   {
     "customerCode": "C27898",
     "customerName": "Selection Mart - Hilal",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C06663",
@@ -26846,9 +26852,9 @@
   {
     "customerCode": "C42595",
     "customerName": "SEVEN ONE SUPERMARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C06669",
@@ -26941,9 +26947,9 @@
   {
     "customerCode": "C08616",
     "customerName": "Shaheen Grocery",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C06684",
@@ -27021,7 +27027,7 @@
     "customerCode": "C06693",
     "customerName": "SHAKLAAN CAFETARIA 47R",
     "classification": "B",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "B"
   },
   {
@@ -27034,9 +27040,9 @@
   {
     "customerCode": "C01858",
     "customerName": "SHAKLAN GROCERY",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C31119",
@@ -27106,9 +27112,9 @@
   {
     "customerCode": "C06701",
     "customerName": "SHAMEED SUPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C24331",
@@ -27242,8 +27248,8 @@
     "customerCode": "C08051",
     "customerName": "Shareek Cafeteria - Street 11",
     "classification": "B",
-    "channel": "HORECA",
-    "dairyClassification": "B"
+    "channel": "TT",
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C28193",
@@ -27273,9 +27279,9 @@
   {
     "customerCode": "C28520",
     "customerName": "Shariya Food Center",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C27121",
@@ -27312,9 +27318,9 @@
   {
     "customerCode": "C12404",
     "customerName": "SHARQI SUPER MARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C01622",
@@ -27419,9 +27425,9 @@
   {
     "customerCode": "C06723",
     "customerName": "SHIMLA CAFETERIA & GROCERY",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C12072",
@@ -27650,9 +27656,9 @@
   {
     "customerCode": "C38563",
     "customerName": "Shreeji Restaurant",
-    "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "classification": "D",
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C06734",
@@ -27664,8 +27670,9 @@
   {
     "customerCode": "C42533",
     "customerName": "SIDHEEQUE'S FALAFEL",
-    "classification": "B",
-    "channel": "TT"
+    "classification": "D",
+    "channel": "HORECA",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C43954",
@@ -27690,9 +27697,9 @@
   {
     "customerCode": "C08619",
     "customerName": "Sikander Trading",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C40842",
@@ -27895,9 +27902,9 @@
   {
     "customerCode": "C40783",
     "customerName": "SMART FOOD GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C24181",
@@ -27969,23 +27976,23 @@
   {
     "customerCode": "C40744",
     "customerName": "SNOONU MART - INDUSTIRAL AREA",
-    "classification": "A",
-    "channel": "ECOM",
-    "dairyClassification": "A"
-  },
-  {
-    "customerCode": "C44423",
-    "customerName": "SNOONU MART WAKRA",
     "classification": "B",
     "channel": "ECOM",
     "dairyClassification": "B"
   },
   {
+    "customerCode": "C44423",
+    "customerName": "SNOONU MART WAKRA",
+    "classification": "C",
+    "channel": "ECOM",
+    "dairyClassification": "C"
+  },
+  {
     "customerCode": "C31183",
     "customerName": "Soghaat Sweets & Bakery",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C39813",
@@ -28235,9 +28242,9 @@
   {
     "customerCode": "C06363",
     "customerName": "Star Food Stuff- Humama",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C38331",
@@ -28292,9 +28299,9 @@
   {
     "customerCode": "C30325",
     "customerName": "Star Max Grocery (Azizia)",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C29316",
@@ -28326,9 +28333,9 @@
   {
     "customerCode": "C39157",
     "customerName": "STAR OF SKY - Street 38",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C40683",
@@ -28365,16 +28372,16 @@
   {
     "customerCode": "C30548",
     "customerName": "Starmart Supermarket",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C41277",
     "customerName": "STARMAX GROCERY",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C39954",
@@ -28432,9 +28439,9 @@
   {
     "customerCode": "C28529",
     "customerName": "Stop N Shop",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C08627",
@@ -28826,9 +28833,9 @@
   {
     "customerCode": "C07036",
     "customerName": "SUPER MARKET AL GHAREEB",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C28963",
@@ -28871,9 +28878,9 @@
   {
     "customerCode": "C07040",
     "customerName": "Supermarket Hudood",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C31706",
@@ -28904,9 +28911,9 @@
   {
     "customerCode": "C39715",
     "customerName": "Supermarket Umm Gura",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C38895",
@@ -29053,9 +29060,9 @@
   {
     "customerCode": "C23959",
     "customerName": "Taj Al Madeena - Street 29",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C12065",
@@ -29112,16 +29119,16 @@
   {
     "customerCode": "C37906",
     "customerName": "TALABAT SERVICES COMPANY - LUSAIL",
-    "classification": "C",
+    "classification": "B",
     "channel": "ECOM",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C38185",
     "customerName": "TALABAT SERVICES COMPANY - MUNTAZA",
-    "classification": "B",
+    "classification": "A",
     "channel": "ECOM",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C32741",
@@ -29407,9 +29414,9 @@
   {
     "customerCode": "C44434",
     "customerName": "TAWHIDA TRADING",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C27145",
@@ -29743,9 +29750,9 @@
   {
     "customerCode": "C43029",
     "customerName": "The Grocer",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C32213",
@@ -29789,9 +29796,9 @@
   {
     "customerCode": "C28519",
     "customerName": "The Phlippine Store",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C30378",
@@ -29966,9 +29973,9 @@
   {
     "customerCode": "C40125",
     "customerName": "TOTAL FRESH MINI MART",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C41377",
@@ -30091,7 +30098,7 @@
     "customerCode": "C12058",
     "customerName": "TURKEY CENTRAL RESTAURANT",
     "classification": "A",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "A"
   },
   {
@@ -30237,9 +30244,9 @@
   {
     "customerCode": "C28573",
     "customerName": "Umm Al Zubar Grocery",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C07146",
@@ -30513,8 +30520,8 @@
     "customerCode": "C29780",
     "customerName": "Village Market",
     "classification": "D",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C30387",
@@ -30544,9 +30551,9 @@
   {
     "customerCode": "C02326",
     "customerName": "Village Mini Mart (Wakra Ezdan 30)",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C23967",
@@ -30608,9 +30615,9 @@
   {
     "customerCode": "C12495",
     "customerName": "WADAH S.M",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C40356",
@@ -30627,9 +30634,9 @@
   {
     "customerCode": "C08642",
     "customerName": "Wadi Al Arab Grocery",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C38973",
@@ -30734,9 +30741,9 @@
   {
     "customerCode": "C08646",
     "customerName": "WALMART SUPERMARKET",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C08647",
@@ -30864,9 +30871,9 @@
   {
     "customerCode": "C44420",
     "customerName": "WETO MART SUPERMARKET",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C00391",
@@ -31004,8 +31011,8 @@
     "customerCode": "C32299",
     "customerName": "Woqod - Al Mamoura",
     "classification": "E",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "E"
+    "channel": "TT",
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C32734",
@@ -31053,8 +31060,8 @@
     "customerCode": "C41137",
     "customerName": "Woqod - Al Waab",
     "classification": "E",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "E"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C29127",
@@ -31171,7 +31178,7 @@
     "customerCode": "C31521",
     "customerName": "Woqod - New Al Rayyan 2 PS",
     "classification": "E",
-    "channel": "KEY ACCOUNT",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -31213,8 +31220,8 @@
     "customerCode": "C28908",
     "customerName": "Woqod - Old Salata",
     "classification": "E",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "E"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C30431",
@@ -31269,7 +31276,7 @@
     "customerCode": "C37724",
     "customerName": "Woqod - Qatar Rail Cornich",
     "classification": "E",
-    "channel": "KEY ACCOUNT",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -31282,9 +31289,9 @@
   {
     "customerCode": "C39741",
     "customerName": "Woqod - Raslaffan PS",
-    "classification": "C",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C29368",
@@ -31345,16 +31352,16 @@
   {
     "customerCode": "C27535",
     "customerName": "Woqod - Thumama",
-    "classification": "E",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C31687",
     "customerName": "Woqod - Umm Al Seneem PS (Ain Khalid 2)",
-    "classification": "E",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "E"
+    "classification": "D",
+    "channel": "TT",
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C17691",
@@ -31465,15 +31472,15 @@
     "customerCode": "C00253",
     "customerName": "Woqod-Bu Fassela",
     "classification": "E",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "E"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C00254",
     "customerName": "Woqod-Dukhan",
-    "classification": "D",
+    "classification": "E",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C00255",
@@ -31611,9 +31618,9 @@
   {
     "customerCode": "C00274",
     "customerName": "Woqod-Rayyan",
-    "classification": "E",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C00275",
@@ -31646,7 +31653,7 @@
     "customerCode": "C00279",
     "customerName": "Woqod-Thakhira",
     "classification": "E",
-    "channel": "KEY ACCOUNT",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -31667,7 +31674,7 @@
     "customerCode": "C00282",
     "customerName": "Woqod-Wajba",
     "classification": "E",
-    "channel": "KEY ACCOUNT",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -31692,9 +31699,9 @@
   {
     "customerCode": "C03187",
     "customerName": "World Star",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C31269",
@@ -31712,9 +31719,9 @@
   {
     "customerCode": "C24224",
     "customerName": "World Star - 2 (Umm Al Afai)",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C12063",
@@ -31783,9 +31790,9 @@
   {
     "customerCode": "C07206",
     "customerName": "Yana Sena Grocery",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C39914",
@@ -31971,9 +31978,9 @@
   {
     "customerCode": "C28632",
     "customerName": "Zadcome S/M",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C28555",
@@ -31985,9 +31992,9 @@
   {
     "customerCode": "C24945",
     "customerName": "ZAEBEEL CAFETARIA - Street 43",
-    "classification": "A",
+    "classification": "B",
     "channel": "HORECA",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C38830",
@@ -32265,9 +32272,9 @@
   {
     "customerCode": "C12409",
     "customerName": "ZOOM GROCERY",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C12478",
@@ -32481,8 +32488,9 @@
   {
     "customerCode": "C44810",
     "customerName": "Tasty Tea (Aspire Zone)",
-    "classification": "C",
-    "channel": "TT"
+    "classification": "E",
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C44681",
@@ -32591,9 +32599,9 @@
   {
     "customerCode": "C44934",
     "customerName": "QATAR GALVANIZING COMPANY",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C42552",
@@ -32715,9 +32723,9 @@
   {
     "customerCode": "C45048",
     "customerName": "SHATY TRADING",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C45047",
@@ -32748,9 +32756,9 @@
   {
     "customerCode": "C44994",
     "customerName": "CONTENU MART",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C44646",
@@ -32938,9 +32946,9 @@
   {
     "customerCode": "C45230",
     "customerName": "BU QARN SUPERMARKET",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C41162",
@@ -33004,9 +33012,9 @@
   {
     "customerCode": "C45245",
     "customerName": "NEW AZHAR TRADING SHOP NO -23 KHALEEFA GATE -RLIC",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C45246",
@@ -33055,9 +33063,9 @@
   {
     "customerCode": "C45257",
     "customerName": "NEW AZHAR TRADING SHOP NO -55 AL AQARIA - WASEEF SHOP",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C42140",
@@ -33153,9 +33161,9 @@
   {
     "customerCode": "C45256",
     "customerName": "NEW AZHAR TRADING SHOP NO -54 AKD COMLEX",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C45291",
@@ -33199,9 +33207,9 @@
   {
     "customerCode": "C45289",
     "customerName": "AL JAVED DÉCORAL",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C45271",
@@ -33280,15 +33288,15 @@
     "customerCode": "C45344",
     "customerName": "TURKISH LAAYONAK RESTAURANT",
     "classification": "B",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "B"
   },
   {
     "customerCode": "C45355",
     "customerName": "BLUECITY RESTAURANT",
-    "classification": "D",
-    "channel": "HORECA",
-    "dairyClassification": "D"
+    "classification": "E",
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C45342",
@@ -33584,7 +33592,7 @@
     "customerCode": "C44707",
     "customerName": "MAHA AL KHALEEJ RESTAURANT",
     "classification": "E",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -33638,8 +33646,8 @@
   {
     "customerCode": "C44604",
     "customerName": "SUNRISE RSETAURANT",
-    "classification": "E",
-    "channel": "HORECA",
+    "classification": "D",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -33664,7 +33672,7 @@
     "customerCode": "C45360",
     "customerName": "Tasty Tea Cafeteria",
     "classification": "E",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -33713,9 +33721,9 @@
   {
     "customerCode": "C45534",
     "customerName": "CENTRAL MART",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C45530",
@@ -33763,9 +33771,9 @@
   {
     "customerCode": "C45444",
     "customerName": "LULU EXPRESS TRADING - UM AL AMAD",
-    "classification": "C",
+    "classification": "B",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C45544",
@@ -33790,8 +33798,8 @@
     "customerCode": "C45545",
     "customerName": "Madina Albukamal Restaurant",
     "classification": "C",
-    "channel": "HORECA",
-    "dairyClassification": "C"
+    "channel": "TT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C45300",
@@ -33889,8 +33897,9 @@
   {
     "customerCode": "C45382",
     "customerName": "DARSEEN RESTAURANT",
-    "classification": "B",
-    "channel": "TT"
+    "classification": "E",
+    "channel": "HORECA",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C45460",
@@ -33925,9 +33934,9 @@
   {
     "customerCode": "C45559",
     "customerName": "Grand Bazar",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C41018",
@@ -34052,7 +34061,7 @@
     "customerCode": "C43872",
     "customerName": "The Weekend Restaurant",
     "classification": "E",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -34064,9 +34073,9 @@
   {
     "customerCode": "C45604",
     "customerName": "Laktha Restaurant& juice Stall",
-    "classification": "D",
+    "classification": "E",
     "channel": "HORECA",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C45605",
@@ -34212,9 +34221,9 @@
   {
     "customerCode": "C45624",
     "customerName": "AL JADIYA GROCERY",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C45625",
@@ -34277,9 +34286,9 @@
   {
     "customerCode": "C45754",
     "customerName": "Merco Hypermarket",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C45628",
@@ -34322,9 +34331,9 @@
   {
     "customerCode": "C45811",
     "customerName": "NINJA GATE TRADING - AL NASER",
-    "classification": "C",
+    "classification": "D",
     "channel": "ECOM",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C45618",
@@ -34490,9 +34499,9 @@
   {
     "customerCode": "C45927",
     "customerName": "SHOPWISE HYPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C45934",
@@ -34536,9 +34545,9 @@
   {
     "customerCode": "C45931",
     "customerName": "MUMTAZ GROCERY ST 47",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C45905",
@@ -34549,9 +34558,9 @@
   {
     "customerCode": "C45933",
     "customerName": "MY FAIR TRADING",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C45753",
@@ -34636,9 +34645,9 @@
   {
     "customerCode": "C45543",
     "customerName": "Grandex supermarket",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C45975",
@@ -34650,9 +34659,9 @@
   {
     "customerCode": "C45989",
     "customerName": "Al Mahally Grocery",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C44812",
@@ -34746,8 +34755,9 @@
   {
     "customerCode": "C45976",
     "customerName": "ABU SALEM CAFETERIA",
-    "classification": "B",
-    "channel": "TT"
+    "classification": "E",
+    "channel": "HORECA",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C45926",
@@ -34803,9 +34813,9 @@
   {
     "customerCode": "C46085",
     "customerName": "ONLINE GROCERY",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C46101",
@@ -34889,9 +34899,9 @@
   {
     "customerCode": "C44013",
     "customerName": "FULL CART SUPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C46310",
@@ -34922,9 +34932,9 @@
   {
     "customerCode": "C46212",
     "customerName": "PARAD GROCERY    ST 46 L",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C46215",
@@ -34975,9 +34985,9 @@
   {
     "customerCode": "C46330",
     "customerName": "Thamel Kathmandu Supermarket",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C46357",
@@ -35028,7 +35038,7 @@
     "customerCode": "C44570",
     "customerName": "NAMMAAACHI EXPRESS RESTAURANT",
     "classification": "E",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "E"
   },
   {
@@ -35138,23 +35148,23 @@
   {
     "customerCode": "C46157",
     "customerName": "JUZZI ORCHID FOR TRADE AND CATERING",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C46454",
     "customerName": "Babssail Supermarket",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C46455",
     "customerName": "Apple Mini Mart",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C46468",
@@ -35165,9 +35175,9 @@
   {
     "customerCode": "C46478",
     "customerName": "BAKALA NOJOM ASYA",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C46466",
@@ -35261,8 +35271,8 @@
     "customerCode": "C46496",
     "customerName": "GRAND EXPRESS AL ATTIYAH",
     "classification": "D",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C46552",
@@ -35396,8 +35406,8 @@
     "customerCode": "C46629",
     "customerName": "RETAIL MART",
     "classification": "D",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C46655",
@@ -35476,9 +35486,9 @@
   {
     "customerCode": "C46561",
     "customerName": "Ahla Mart",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C46368",
@@ -35751,9 +35761,9 @@
   {
     "customerCode": "C46865",
     "customerName": "FOOD CART SUPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C47005",
@@ -35785,9 +35795,9 @@
   {
     "customerCode": "C46868",
     "customerName": "ABRAJ MINI MART",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C45852",
@@ -35833,16 +35843,16 @@
   {
     "customerCode": "C47083",
     "customerName": "STAR AL MADEENA TRADING ST45",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C46740",
     "customerName": "GLOBAL FASHION MART TRADING",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C46369",
@@ -35895,7 +35905,7 @@
     "customerCode": "C47134",
     "customerName": "CITY GROUP RESTAURANT",
     "classification": "A",
-    "channel": "HORECA",
+    "channel": "TT",
     "dairyClassification": "A"
   },
   {
@@ -35908,9 +35918,9 @@
   {
     "customerCode": "C46933",
     "customerName": "FRESH FOOD SUPERMARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C47118",
@@ -35983,9 +35993,9 @@
   {
     "customerCode": "C45652",
     "customerName": "FOOD TOWN SUPERMARKET",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C46389",
@@ -36024,9 +36034,9 @@
   {
     "customerCode": "C46962",
     "customerName": "FALCON BIG MART",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C46960",
@@ -36038,23 +36048,23 @@
   {
     "customerCode": "C47125",
     "customerName": "RUN SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C47007",
     "customerName": "TITAS MART HYPERMARKET",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C47124",
     "customerName": "SAVE MORE MARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C45685",
@@ -36111,9 +36121,9 @@
   {
     "customerCode": "C47122",
     "customerName": "AL WIYAM SUPERMARKET",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C38810",
@@ -36171,9 +36181,9 @@
   {
     "customerCode": "C47333",
     "customerName": "MALABAR S.M  ST25",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C47335",
@@ -36245,16 +36255,16 @@
   {
     "customerCode": "C47135",
     "customerName": "Al Daayan Supermarket",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C47364",
     "customerName": "COFFEISTA SUPERMARKET & CAFÉ",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C47212",
@@ -36266,9 +36276,9 @@
   {
     "customerCode": "C47439",
     "customerName": "SAVE RITE SUPERMARKET",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C47425",
@@ -36334,9 +36344,9 @@
   {
     "customerCode": "C46806",
     "customerName": "NINJA GATE TRADING - GHARAFA",
-    "classification": "D",
-    "channel": "ECOM",
-    "dairyClassification": "E"
+    "classification": "E",
+    "channel": "KEY ACCOUNT",
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C47470",
@@ -36369,8 +36379,8 @@
     "customerCode": "C47471",
     "customerName": "KHAN LALA RESTAURANT ST10",
     "classification": "D",
-    "channel": "HORECA",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C47466",
@@ -36477,9 +36487,9 @@
   {
     "customerCode": "C46972",
     "customerName": "NEW BALADNA FOOD TRADING",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C47524",
@@ -36547,9 +36557,9 @@
   {
     "customerCode": "C45649",
     "customerName": "AL DAFRA TRADING",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C47551",
@@ -36580,9 +36590,9 @@
   {
     "customerCode": "C47559",
     "customerName": "MOHANA SUPERMARKET",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C46547",
@@ -36620,9 +36630,9 @@
   {
     "customerCode": "C42719",
     "customerName": "Al Rajab Grocery - M.K South",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C46934",
@@ -36667,9 +36677,9 @@
   {
     "customerCode": "C47648",
     "customerName": "MALTI SEVEN TRADING",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C47638",
@@ -36754,9 +36764,9 @@
   {
     "customerCode": "C47679",
     "customerName": "BROTHER,S & SONS TRADING",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C47639",
@@ -36826,9 +36836,9 @@
   {
     "customerCode": "C45231",
     "customerName": "Furusiya Supermarket",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "10323467",
@@ -36845,9 +36855,9 @@
   {
     "customerCode": "C47742",
     "customerName": "MARZA HYPERMARKET",
-    "classification": "C",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "classification": "D",
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C47717",
@@ -36917,9 +36927,9 @@
   {
     "customerCode": "C47743",
     "customerName": "HEY NEW MART",
-    "classification": "D",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C47695",
@@ -37058,9 +37068,9 @@
   {
     "customerCode": "C47800",
     "customerName": "Al Khayat Grocery",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C47756",
@@ -37148,9 +37158,9 @@
   {
     "customerCode": "C44734",
     "customerName": "Mango Trading - Argentina Neibourhood",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C47643",
@@ -37210,8 +37220,8 @@
     "customerCode": "C47575",
     "customerName": "DANA MARKET",
     "classification": "D",
-    "channel": "KEY ACCOUNT",
-    "dairyClassification": "D"
+    "channel": "TT",
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C47839",
@@ -37237,9 +37247,9 @@
   {
     "customerCode": "C47681",
     "customerName": "QR PLUS SUPERMARKET",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C47841",
@@ -37381,9 +37391,9 @@
   {
     "customerCode": "C47963",
     "customerName": "NEW AL FAREEJ FOOD CENTRE SUPERMARKET",
-    "classification": "A",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "A"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C47969",
@@ -37610,9 +37620,9 @@
   {
     "customerCode": "C48136",
     "customerName": "LOFT FOOD MART",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C47426",
@@ -37797,9 +37807,9 @@
   {
     "customerCode": "C48345",
     "customerName": "SNOOMART - AL KHOR",
-    "classification": "E",
+    "classification": "D",
     "channel": "ECOM",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C48114",
@@ -37873,9 +37883,9 @@
   {
     "customerCode": "C42946",
     "customerName": "NEW FALCON S.M  KARWA",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C48053",
@@ -37893,9 +37903,9 @@
   {
     "customerCode": "C48514",
     "customerName": "PARISH HYPERMARKET - AL KHOR",
-    "classification": "C",
+    "classification": "D",
     "channel": "KEY ACCOUNT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C48419",
@@ -37928,9 +37938,9 @@
   {
     "customerCode": "C48498",
     "customerName": "SHAZELA SUPERMARKET",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C47758",
@@ -37947,9 +37957,9 @@
   {
     "customerCode": "C47136",
     "customerName": "Day To Day Center",
-    "classification": "C",
+    "classification": "B",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "B"
   },
   {
     "customerCode": "C48574",
@@ -37966,9 +37976,9 @@
   {
     "customerCode": "C48568",
     "customerName": "AL MADEENA CITY SHOP TRADING",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C48569",
@@ -38207,9 +38217,9 @@
   {
     "customerCode": "C48717",
     "customerName": "D FOOD GROCERY",
-    "classification": "E",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "E"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C48737",
@@ -38283,9 +38293,9 @@
   {
     "customerCode": "C48847",
     "customerName": "SNOOMART AL SHAHANIYA",
-    "classification": "D",
+    "classification": "E",
     "channel": "ECOM",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C48814",
@@ -38394,9 +38404,9 @@
   {
     "customerCode": "C48944",
     "customerName": "U TURAN SUPERMARKET",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C48943",
@@ -38408,9 +38418,9 @@
   {
     "customerCode": "C48945",
     "customerName": "QISMAT BALADNA TRADING",
-    "classification": "C",
+    "classification": "D",
     "channel": "TT",
-    "dairyClassification": "C"
+    "dairyClassification": "D"
   },
   {
     "customerCode": "C48922",
@@ -38422,9 +38432,9 @@
   {
     "customerCode": "C48957",
     "customerName": "ASWAQ ALMALAKI TRADING",
-    "classification": "B",
+    "classification": "A",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "A"
   },
   {
     "customerCode": "C00380",
@@ -38483,9 +38493,9 @@
   {
     "customerCode": "C48862",
     "customerName": "AL MADINA HYPERMARKET",
-    "classification": "B",
+    "classification": "C",
     "channel": "TT",
-    "dairyClassification": "B"
+    "dairyClassification": "C"
   },
   {
     "customerCode": "C49016",
@@ -38511,9 +38521,9 @@
   {
     "customerCode": "C49041",
     "customerName": "GRAND LUSAIL HYPER MARKET",
-    "classification": "D",
+    "classification": "E",
     "channel": "TT",
-    "dairyClassification": "D"
+    "dairyClassification": "E"
   },
   {
     "customerCode": "C49039",
