@@ -21,13 +21,19 @@ if (!process.env.NEXTAUTH_SECRET) {
 process.env.AUTH_TRUST_HOST = 'true';
 
 function getTargetUrl(path: string, nextUrl: URL, request?: any) {
-  const host =
+  let host =
     request?.headers?.get?.('x-forwarded-host') ||
     azureHost ||
     nextUrl.host;
-  const proto =
+  if (host && host.includes(',')) {
+    host = host.split(',')[0].trim();
+  }
+  let proto =
     request?.headers?.get?.('x-forwarded-proto') ||
     (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
+  if (proto && proto.includes(',')) {
+    proto = proto.split(',')[0].trim();
+  }
   return new URL(path, `${proto}://${host}`);
 }
 
@@ -48,8 +54,8 @@ export const authConfig = {
       const isAdminRoute = nextUrl.pathname.startsWith('/admin');
       const isSupervisorRoute = nextUrl.pathname.startsWith('/supervisor');
 
-      // Exclude API routes from middleware redirect logic so handlers run freely
-      if (nextUrl.pathname.startsWith('/api')) {
+      // Exclude API routes and uploaded images from middleware redirect logic so handlers run freely
+      if (nextUrl.pathname.startsWith('/api') || nextUrl.pathname.startsWith('/uploads')) {
         return true;
       }
 
