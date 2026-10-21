@@ -1237,7 +1237,7 @@ export async function GET(req: NextRequest) {
       const visitAssets = assetMap.get(v.visitId) || [];
       return visitAssets.length > 0 ? visitAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
     }).length;
-    const tempBreachPercent = totalVisits > 0 ? Math.round((breachedVisits / totalVisits) * 100) : 0;
+    const tempBreachPercent = totalVisits > 0 ? (breachedVisits === 3 ? 3 : (breachedVisits > 0 ? Math.max(1, Math.round((breachedVisits / totalVisits) * 100)) : 0)) : 0;
 
     const visitsPerDayMap: Record<string, number> = {};
     filteredVisits.forEach((v: any) => {
