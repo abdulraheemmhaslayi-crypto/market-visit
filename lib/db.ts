@@ -8,13 +8,17 @@ declare global {
 }
 
 // Determine if we should connect using Microsoft SQL Server (Azure SQL) or MySQL
-const isMssql =
-  process.env.DB_MODE !== 'MYSQL' &&
-  (process.env.DB_MODE === 'MSSQL' ||
-    Boolean(
-      (process.env.DB_SERVER && !process.env.DB_SERVER.includes('rlwy.net')) ||
-      (process.env.DB_PORT && (Number(process.env.DB_PORT) === 1433 || Number(process.env.DB_PORT) === 3342))
-    ));
+const dbHostOrServer = process.env.DB_SERVER || process.env.DB_HOST || '';
+const isRailway = dbHostOrServer.includes('rlwy.net');
+const isExplicitMysql = process.env.DB_MODE === 'MYSQL';
+const isExplicitMssql = process.env.DB_MODE === 'MSSQL';
+
+let isMssql = !isExplicitMysql && !isRailway && (
+  isExplicitMssql ||
+  dbHostOrServer.includes('database.windows.net') ||
+  Number(process.env.DB_PORT) === 3342 ||
+  (Number(process.env.DB_PORT) === 1433 && Boolean(process.env.DB_SERVER) && !process.env.DB_SERVER?.includes('DESKTOP-'))
+);
 
 function transformQueryForMssql(query: string, params: any[] = []) {
   // 1. Replace MySQL backticks with SQL Server brackets
@@ -72,6 +76,153 @@ function transformQueryForMssql(query: string, params: any[] = []) {
   return { q, requestInputs };
 }
 
+function transformMergeIntoForMysql(query: string): string {
+  if (!/MERGE\s+INTO/i.test(query)) return query;
+
+  // 1. Route with 6 params: (routeCode, routeName, channel, supervisorId, managerId, superName)
+  if (/MERGE\s+INTO\s+[`\[]?Route[`\]]?\s+AS\s+target[\s\S]+supervisorId[\s\S]+managerId/i.test(query)) {
+    return `INSERT INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`, \`supervisorId\`, \`managerId\`, \`superName\`)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              \`routeName\` = VALUES(\`routeName\`),
+              \`channel\` = VALUES(\`channel\`),
+              \`supervisorId\` = VALUES(\`supervisorId\`),
+              \`managerId\` = VALUES(\`managerId\`),
+              \`superName\` = VALUES(\`superName\`)`;
+  }
+
+  // 2. Route with 3 params: (routeCode, routeName, channel)
+  if (/MERGE\s+INTO\s+[`\[]?Route[`\]]?\s+AS\s+target[\s\S]+WHEN\s+NOT\s+MATCHED/i.test(query)) {
+    return `INSERT IGNORE INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`) VALUES (?, ?, ?)`;
+  }
+
+  // 3. Customer
+  if (/MERGE\s+INTO\s+[`\[]?Customer[`\]]?\s+AS\s+target/i.test(query)) {
+    return `INSERT INTO \`Customer\` (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+              \`customerName\` = VALUES(\`customerName\`),
+              \`classification\` = VALUES(\`classification\`),
+              \`dairyClassification\` = COALESCE(VALUES(\`dairyClassification\`), \`Customer\`.\`dairyClassification\`),
+              \`iceCreamClassification\` = COALESCE(VALUES(\`iceCreamClassification\`), \`Customer\`.\`iceCreamClassification\`),
+              \`channel\` = VALUES(\`channel\`),
+              \`customerCode\` = VALUES(\`customerCode\`),
+              \`routeCode\` = VALUES(\`routeCode\`)`;
+  }
+
+  // 4. Customer_Classification with literal 'Dairy'
+  if (/MERGE\s+INTO\s+[`\[]?Customer_Classification[`\]]?[\s\S]+'Dairy'/i.test(query)) {
+    return `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+            VALUES (?, 'Dairy', ?, ?)
+            ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`;
+  }
+
+  // 5. Customer_Classification with literal 'Ice Cream'
+  if (/MERGE\s+INTO\s+[`\[]?Customer_Classification[`\]]?[\s\S]+'Ice\s+Cream'/i.test(query)) {
+    return `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+            VALUES (?, 'Ice Cream', ?, ?)
+            ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`;
+  }
+
+  // 6. Customer_Classification with 4 params
+  if (/MERGE\s+INTO\s+[`\[]?Customer_Classification[`\]]?/i.test(query)) {
+    return `INSERT INTO \`Customer_Classification\` (\`customerCode\`, \`businessVertical\`, \`classification\`, \`channel\`)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE \`classification\` = VALUES(\`classification\`), \`channel\` = VALUES(\`channel\`)`;
+  }
+
+  // 7. SKU
+  if (/MERGE\s+INTO\s+[`\[]?SKU[`\]]?/i.test(query)) {
+    return `INSERT INTO \`SKU\` (\`skuCode\`, \`skuName\`, \`category\`, \`channel\`)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE \`skuName\` = VALUES(\`skuName\`), \`category\` = VALUES(\`category\`), \`channel\` = VALUES(\`channel\`)`;
+  }
+
+  // 8. PowerSKU
+  if (/MERGE\s+INTO\s+[`\[]?PowerSKU[`\]]?/i.test(query)) {
+    return `INSERT INTO \`PowerSKU\` (\`channel\`, \`skuCode\`, \`skuName\`, \`category\`)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE \`skuName\` = VALUES(\`skuName\`), \`category\` = VALUES(\`category\`)`;
+  }
+
+  // 9. VisitAsset
+  if (/MERGE\s+INTO\s+[`\[]?VisitAsset[`\]]?/i.test(query)) {
+    return `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              \`assetType\` = VALUES(\`assetType\`),
+              \`temperature\` = VALUES(\`temperature\`),
+              \`tempInRange\` = VALUES(\`tempInRange\`),
+              \`actionRequired\` = VALUES(\`actionRequired\`),
+              \`observation\` = VALUES(\`observation\`),
+              \`isFirstInFlow\` = VALUES(\`isFirstInFlow\`),
+              \`fefoFollowed\` = VALUES(\`fefoFollowed\`),
+              \`sizeModel\` = VALUES(\`sizeModel\`)`;
+  }
+
+  // 10. Visit
+  if (/MERGE\s+INTO\s+[`\[]?Visit[`\]]?/i.test(query)) {
+    return `INSERT INTO \`Visit\` (
+              \`visitId\`, \`supervisorId\`, \`cust_rt_id\`, \`routeCode\`, \`customerCode\`, \`dairyClassification\`, \`iceCreamClassification\`, \`visit_type\`, \`reason_category\`, \`reason\`, \`observation\`,
+              \`latitude\`, \`longitude\`, \`accuracy\`, \`status\`, 
+              \`createdBy\`, \`visit_datetime\`, \`createdAt\`, \`updatedAt\`, \`sosAsPerBda\`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              \`supervisorId\` = VALUES(\`supervisorId\`),
+              \`cust_rt_id\` = VALUES(\`cust_rt_id\`),
+              \`routeCode\` = VALUES(\`routeCode\`),
+              \`customerCode\` = VALUES(\`customerCode\`),
+              \`dairyClassification\` = VALUES(\`dairyClassification\`),
+              \`iceCreamClassification\` = VALUES(\`iceCreamClassification\`),
+              \`visit_type\` = VALUES(\`visit_type\`),
+              \`reason_category\` = VALUES(\`reason_category\`),
+              \`reason\` = VALUES(\`reason\`),
+              \`observation\` = VALUES(\`observation\`),
+              \`latitude\` = VALUES(\`latitude\`),
+              \`longitude\` = VALUES(\`longitude\`),
+              \`accuracy\` = VALUES(\`accuracy\`),
+              \`status\` = VALUES(\`status\`),
+              \`createdBy\` = VALUES(\`createdBy\`),
+              \`visit_datetime\` = VALUES(\`visit_datetime\`),
+              \`updatedAt\` = VALUES(\`updatedAt\`),
+              \`sosAsPerBda\` = VALUES(\`sosAsPerBda\`)`;
+  }
+
+  // 11. AuditActionItem
+  if (/MERGE\s+INTO\s+[`\[]?AuditActionItem[`\]]?/i.test(query)) {
+    return `INSERT INTO \`AuditActionItem\` (
+              \`id\`, \`photoId\`, \`visitId\`, \`outlet\`, \`outletCode\`, \`route\`, \`supervisor\`,
+              \`manager\`, \`channel\`, \`category\`, \`originalPhotoUrl\`, \`gmComment\`, \`gmName\`,
+              \`priority\`, \`deadline\`, \`actionStatus\`, \`supervisorComment\`, \`proofPhotoUrl\`,
+              \`actionTakenAt\`, \`gmVerifiedAt\`, \`gmResolutionNotes\`, \`createdAt\`, \`updatedAt\`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              \`photoId\` = VALUES(\`photoId\`),
+              \`visitId\` = VALUES(\`visitId\`),
+              \`outlet\` = VALUES(\`outlet\`),
+              \`outletCode\` = VALUES(\`outletCode\`),
+              \`route\` = VALUES(\`route\`),
+              \`supervisor\` = VALUES(\`supervisor\`),
+              \`manager\` = VALUES(\`manager\`),
+              \`channel\` = VALUES(\`channel\`),
+              \`category\` = VALUES(\`category\`),
+              \`originalPhotoUrl\` = VALUES(\`originalPhotoUrl\`),
+              \`gmComment\` = VALUES(\`gmComment\`),
+              \`gmName\` = VALUES(\`gmName\`),
+              \`priority\` = VALUES(\`priority\`),
+              \`deadline\` = VALUES(\`deadline\`),
+              \`actionStatus\` = VALUES(\`actionStatus\`),
+              \`supervisorComment\` = VALUES(\`supervisorComment\`),
+              \`proofPhotoUrl\` = VALUES(\`proofPhotoUrl\`),
+              \`actionTakenAt\` = VALUES(\`actionTakenAt\`),
+              \`gmVerifiedAt\` = VALUES(\`gmVerifiedAt\`),
+              \`gmResolutionNotes\` = VALUES(\`gmResolutionNotes\`),
+              \`updatedAt\` = VALUES(\`updatedAt\`)`;
+  }
+
+  return query;
+}
+
 function createMysqlPool() {
   const mysql = require('mysql2/promise');
   const isAzure = Boolean(process.env.WEBSITE_HOSTNAME);
@@ -112,6 +263,39 @@ function createMysqlPool() {
     });
   } catch {}
 
+  // Wrap execute, query, and getConnection to safely intercept MERGE INTO queries if sent to MySQL
+  const origExecute = p.execute.bind(p);
+  p.execute = async (query: string, params: any[] = []) => {
+    let q = query;
+    if (typeof q === 'string' && q.includes('MERGE INTO')) {
+      q = transformMergeIntoForMysql(q);
+    }
+    return origExecute(q, params);
+  };
+
+  const origQuery = p.query.bind(p);
+  p.query = async (query: string, params: any[] = []) => {
+    let q = query;
+    if (typeof q === 'string' && q.includes('MERGE INTO')) {
+      q = transformMergeIntoForMysql(q);
+    }
+    return origQuery(q, params);
+  };
+
+  const origGetConnection = p.getConnection.bind(p);
+  p.getConnection = async () => {
+    const conn = await origGetConnection();
+    const origConnExecute = conn.execute.bind(conn);
+    conn.execute = async (query: string, params: any[] = []) => {
+      let q = query;
+      if (typeof q === 'string' && q.includes('MERGE INTO')) {
+        q = transformMergeIntoForMysql(q);
+      }
+      return origConnExecute(q, params);
+    };
+    return conn;
+  };
+
   return p;
 }
 
@@ -123,8 +307,12 @@ if (isMssql) {
   // ==========================================
   let sql: any = null;
   try {
-    sql = eval('require')('mssql');
-  } catch {}
+    sql = require('mssql');
+  } catch {
+    try {
+      sql = eval('require')('mssql');
+    } catch {}
+  }
 
   if (sql && sql.ConnectionPool) {
     const serverHost = process.env.DB_SERVER || process.env.DB_HOST || 'localhost';
@@ -242,12 +430,18 @@ if (isMssql) {
     // If MSSQL driver failed to load, fall back cleanly to MySQL
     console.warn('MSSQL driver unavailable, falling back to MySQL connection pool.');
     pool = createMysqlPool();
+    isMssql = false;
   }
 } else {
   // ==========================================
   // MYSQL (MYSQL2 / RAILWAY / LOCAL)
   // ==========================================
   pool = createMysqlPool();
+  isMssql = false;
+}
+
+if (pool) {
+  pool.isMssql = isMssql;
 }
 
 export { isMssql };

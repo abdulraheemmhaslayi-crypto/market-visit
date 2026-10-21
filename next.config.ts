@@ -13,6 +13,7 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ['mssql', 'mysql2'],
   allowedDevOrigins: [
     "http://localhost:3000",
     "fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net",
