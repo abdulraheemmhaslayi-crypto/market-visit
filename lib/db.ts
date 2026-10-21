@@ -7,18 +7,21 @@ declare global {
   var __mysqlPool: any | undefined;
 }
 
-// Determine if we should connect using Microsoft SQL Server (Azure SQL) or MySQL
+// Determine if we should attempt connecting using Microsoft SQL Server (Azure SQL) or MySQL
 const dbHostOrServer = process.env.DB_SERVER || process.env.DB_HOST || '';
 const isRailway = dbHostOrServer.includes('rlwy.net');
 const isExplicitMysql = process.env.DB_MODE === 'MYSQL';
 const isExplicitMssql = process.env.DB_MODE === 'MSSQL';
 
-let isMssql = !isExplicitMysql && !isRailway && (
+const wantsMssql = !isExplicitMysql && !isRailway && (
   isExplicitMssql ||
   dbHostOrServer.includes('database.windows.net') ||
   Number(process.env.DB_PORT) === 3342 ||
   (Number(process.env.DB_PORT) === 1433 && Boolean(process.env.DB_SERVER) && !process.env.DB_SERVER?.includes('DESKTOP-'))
 );
+
+let pool: any;
+let isMssql = false;
 
 function transformQueryForMssql(query: string, params: any[] = []) {
   // 1. Replace MySQL backticks with SQL Server brackets
@@ -230,7 +233,7 @@ function createMysqlPool() {
 
   // If deployed on Azure App Service without custom host, or if DB_HOST is localhost,
   // automatically route to production Railway cloud database
-  const host = (isAzure && isLocalHost) ? 'altaria.proxy.rlwy.net' : (process.env.DB_HOST || process.env.DB_SERVER || 'altaria.proxy.rlwy.net');
+  const host = (isAzure && isLocalHost) ? 'altaria.proxy.rlwy.net' : (process.env.DB_HOST || 'altaria.proxy.rlwy.net');
   const port = (isAzure && isLocalHost) ? 50182 : (Number(process.env.DB_PORT) || 50182);
   const user = (isAzure && isLocalHost) ? 'root' : (process.env.DB_USER || 'root');
   const password = (isAzure && isLocalHost) ? 'QiJokQggRqsLDHctRTUBkMAwQemyQsYV' : (process.env.DB_PASSWORD || 'QiJokQggRqsLDHctRTUBkMAwQemyQsYV');
@@ -299,9 +302,7 @@ function createMysqlPool() {
   return p;
 }
 
-let pool: any;
-
-if (isMssql) {
+if (wantsMssql) {
   // ==========================================
   // MICROSOFT SQL SERVER / AZURE SQL DATABASE
   // ==========================================
@@ -315,6 +316,7 @@ if (isMssql) {
   }
 
   if (sql && sql.ConnectionPool) {
+    isMssql = true;
     const serverHost = process.env.DB_SERVER || process.env.DB_HOST || 'localhost';
     const serverPort = Number(process.env.DB_PORT) || 1433;
 
