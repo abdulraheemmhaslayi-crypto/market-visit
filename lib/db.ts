@@ -95,17 +95,21 @@ function createMysqlPool() {
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
-    connectTimeout: 10000,
+    connectTimeout: 15000,
   };
 
-  if (process.env.NODE_ENV === 'production') {
-    return mysql.createPool(mysqlConfig);
-  } else {
-    if (!global.__mysqlPool) {
-      global.__mysqlPool = mysql.createPool(mysqlConfig);
-    }
-    return global.__mysqlPool;
-  }
+  const p = (process.env.NODE_ENV === 'production')
+    ? mysql.createPool(mysqlConfig)
+    : (global.__mysqlPool || (global.__mysqlPool = mysql.createPool(mysqlConfig)));
+
+  // Prevent uncaught pool socket errors from terminating the Node.js process on Azure
+  try {
+    p.on?.('error', (err: any) => {
+      console.warn('[Azure MySQL Pool Warning]:', err?.message || err);
+    });
+  } catch {}
+
+  return p;
 }
 
 let pool: any;

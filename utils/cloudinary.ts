@@ -29,9 +29,9 @@ export const uploadToCloudinary = async (
   fileBase64: string,
   category: string
 ): Promise<CloudinaryUploadResult> => {
-  const rawCloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  const rawCloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dgjdd4cub';
+  const apiKey = process.env.CLOUDINARY_API_KEY || '536386225722798';
+  const apiSecret = process.env.CLOUDINARY_API_SECRET || 'JDfwLK3g2eVzP4NF8COA0xpxum4';
   const cloudName = rawCloudName?.trim().toLowerCase();
 
   if (!cloudName || !apiKey || !apiSecret) {

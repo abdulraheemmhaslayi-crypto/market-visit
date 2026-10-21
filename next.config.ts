@@ -15,6 +15,7 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "http://localhost:3000",
+    "fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net",
   ],
   output: "standalone",
 
