@@ -126,20 +126,21 @@ export default function MasterImportPage() {
         method: 'POST',
         body: fd,
       });
-      const text = await response.text();
-      let res: any = {};
+      const responseText = await response.text();
+      let res: any = null;
       try {
-        res = JSON.parse(text);
+        res = JSON.parse(responseText);
       } catch {
-        throw new Error(text || `Validation server returned ${response.status}`);
+        // Non-JSON response
       }
+
       if (!response.ok) {
-        throw new Error(res.error || text || `Validation server returned ${response.status}`);
+        throw new Error(res?.error || (responseText && responseText.length < 300 ? responseText : `Validation server returned ${response.status}`));
       }
-      if (res.error) {
+      if (res?.error) {
         throw new Error(res.error);
       }
-      if (res.success) {
+      if (res?.success) {
         setCounts({
           routes: res.routesCount || 0,
           customers: res.customersCount || 0,
@@ -185,20 +186,21 @@ export default function MasterImportPage() {
         method: 'POST',
         body: fd,
       });
-      const text = await response.text();
-      let res: any = {};
+      const responseText = await response.text();
+      let res: any = null;
       try {
-        res = JSON.parse(text);
+        res = JSON.parse(responseText);
       } catch {
-        throw new Error(text || `Validation server returned ${response.status}`);
+        // Non-JSON response
       }
+
       if (!response.ok) {
-        throw new Error(res.error || text || `Validation server returned ${response.status}`);
+        throw new Error(res?.error || (responseText && responseText.length < 300 ? responseText : `Validation server returned ${response.status}`));
       }
-      if (res.error) {
+      if (res?.error) {
         throw new Error(res.error);
       }
-      if (res.success) {
+      if (res?.success) {
         setCounts({
           routes: res.routesCount || 0,
           customers: res.customersCount || 0,
@@ -241,20 +243,20 @@ export default function MasterImportPage() {
         }),
       });
 
-      const text = await response.text();
-      let summaryResult: any = {};
+      const responseText = await response.text();
+      let summaryResult: any = null;
       try {
-        summaryResult = JSON.parse(text);
+        summaryResult = JSON.parse(responseText);
       } catch {
-        const errorExcerpt = text ? (text.length > 200 ? text.substring(0, 200) + '...' : text) : `Server error (${response.status})`;
-        throw new Error(errorExcerpt);
+        // Non-JSON response
       }
 
       if (!response.ok) {
-        throw new Error(summaryResult.error || summaryResult.message || `Server error (${response.status})`);
+        const errorMsg = summaryResult?.error || (responseText && responseText.length < 300 ? responseText : `Server error (${response.status})`);
+        throw new Error(errorMsg);
       }
 
-      if (summaryResult.error) {
+      if (summaryResult?.error) {
         throw new Error(summaryResult.error);
       }
 

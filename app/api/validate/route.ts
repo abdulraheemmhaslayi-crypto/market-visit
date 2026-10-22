@@ -4,6 +4,8 @@ import { parseSingleFile, mergeParsedData } from '@/utils/xlsx';
 import fs from 'fs';
 import path from 'path';
 
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
