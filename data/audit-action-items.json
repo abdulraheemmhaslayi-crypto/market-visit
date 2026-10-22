@@ -22,6 +22,7 @@
     "gmVerifiedAt": null,
     "gmResolutionNotes": null,
     "createdAt": "2026-10-14T05:47:10.710Z",
-    "updatedAt": "2026-10-14T05:47:10.710Z"
+    "updatedAt": "2026-10-14T05:47:10.710Z",
+    "acknowledged": false
   }
 ]

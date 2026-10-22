@@ -1834,14 +1834,6 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
     }
   })({
     precacheEntries: [
-      {
-        revision: "58bd31979c38763ea8c6329d9dba0812",
-        url: "/_next/static/F404PQzuqCCSo7yMQpAE_/_buildManifest.js",
-      },
-      {
-        revision: "b6652df95db52feb4daf4eca35380933",
-        url: "/_next/static/F404PQzuqCCSo7yMQpAE_/_ssgManifest.js",
-      },
       { revision: null, url: "/_next/static/chunks/118-bebfdb1c4506c7fa.js" },
       { revision: null, url: "/_next/static/chunks/1318-e16f2871f42c271f.js" },
       { revision: null, url: "/_next/static/chunks/146-074a38891991abc8.js" },
@@ -1892,7 +1884,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       },
       {
         revision: null,
-        url: "/_next/static/chunks/app/admin/import/page-99ec5dc330743d52.js",
+        url: "/_next/static/chunks/app/admin/import/page-87101a2d730086ee.js",
       },
       {
         revision: null,
@@ -2131,8 +2123,16 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
         revision: null,
         url: "/_next/static/chunks/webpack-d48005f1ca8b1568.js",
       },
+      { revision: null, url: "/_next/static/css/2c73146d25c5ef10.css" },
       { revision: null, url: "/_next/static/css/c73bf331df7a0795.css" },
-      { revision: null, url: "/_next/static/css/e5c16a62e5d47fdf.css" },
+      {
+        revision: "58bd31979c38763ea8c6329d9dba0812",
+        url: "/_next/static/kPKb06sweRD8bT6hBYKXQ/_buildManifest.js",
+      },
+      {
+        revision: "b6652df95db52feb4daf4eca35380933",
+        url: "/_next/static/kPKb06sweRD8bT6hBYKXQ/_ssgManifest.js",
+      },
       {
         revision: "d3540be18474c8b43881fad2656de3cd",
         url: "/_next/static/media/097a874ebc292602-s.p.woff2",
@@ -2197,7 +2197,7 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
         revision: "0f8d347d49960d05c9430d83e49edeb7",
         url: "/_next/static/media/f911b923c6adde36-s.woff2",
       },
-      { revision: "a4b1c022-631b-4a44-86b5-a78a9ba3f039", url: "/offline" },
+      { revision: "d70aaea3-5ba8-4ed1-a110-b9d6be5bfcb0", url: "/offline" },
     ],
     skipWaiting: !0,
     clientsClaim: !0,

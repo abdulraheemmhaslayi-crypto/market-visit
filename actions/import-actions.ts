@@ -71,13 +71,15 @@ export async function validateExcelAction(formData: FormData) {
       mappingsCount: 0,
       skusCount: 0,
       powerSkusCount: 0,
+      classificationsCount: 0,
       routesPreview: [],
       customersPreview: [],
       mappingsPreview: [],
       skusPreview: [],
       powerSkusPreview: [],
+      classificationsPreview: [],
       errors,
-      payload: { routes: [], customers: [], mappings: [], skus: [], powerSkus: [] },
+      payload: { routes: [], customers: [], mappings: [], skus: [], powerSkus: [], classifications: [] },
     };
   }
 
@@ -110,11 +112,13 @@ export async function validateExcelAction(formData: FormData) {
     mappingsCount: merged.payload.mappings.length,
     skusCount: merged.payload.skus.length,
     powerSkusCount: merged.payload.powerSkus.length,
+    classificationsCount: merged.payload.classifications.length,
     routesPreview: merged.payload.routes.slice(0, 5),
     customersPreview: merged.payload.customers.slice(0, 5),
     mappingsPreview: merged.payload.mappings.slice(0, 5),
     skusPreview: merged.payload.skus.slice(0, 5),
     powerSkusPreview: merged.payload.powerSkus.slice(0, 5),
+    classificationsPreview: merged.payload.classifications.slice(0, 5),
     errors: merged.errors,
     payload: merged.payload,
   };
