@@ -373,39 +373,39 @@ if (wantsMssql) {
       }
     };
 
+    pool.query = pool.execute;
+
     pool.getConnection = async () => {
       if (!pool.connected) {
         await pool.connect();
       }
       const transaction = new sql.Transaction(pool);
-      let activeRequest: any = null;
       let isTransactionActive = false;
 
-      return {
+      const connObj: any = {
         beginTransaction: async () => {
           await transaction.begin();
-          activeRequest = new sql.Request(transaction);
           isTransactionActive = true;
         },
         commit: async () => {
           if (isTransactionActive) {
             await transaction.commit();
             isTransactionActive = false;
-            activeRequest = null;
           }
         },
         rollback: async () => {
           if (isTransactionActive) {
             await transaction.rollback();
             isTransactionActive = false;
-            activeRequest = null;
           }
         },
         release: () => {
           // No-op for mssql wrapper
         },
         execute: async (query: string, params: any[] = []) => {
-          const request = activeRequest || pool.request();
+          // In node-mssql, each query requires a new sql.Request instance.
+          // Reusing the same Request instance across queries causes duplicate parameter errors (@p0 already declared).
+          const request = isTransactionActive ? new sql.Request(transaction) : pool.request();
           const { q, requestInputs } = transformQueryForMssql(query, params);
 
           for (const input of requestInputs) {
@@ -427,6 +427,9 @@ if (wantsMssql) {
           }
         },
       };
+
+      connObj.query = connObj.execute;
+      return connObj;
     };
   } else {
     // If MSSQL driver failed to load, fall back cleanly to MySQL
