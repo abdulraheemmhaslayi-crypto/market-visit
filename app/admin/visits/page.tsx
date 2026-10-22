@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { getVisitsAction, deleteVisitAction, getVisitDetailsAction } from '@/actions/visit-actions';
+import { getVisitsAction, deleteVisitAction, getVisitDetailsAction, getVisitsFilterOptionsAction } from '@/actions/visit-actions';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmationDialog } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -122,6 +122,10 @@ export default function VisitLogsPage() {
   // 5. Supervisor Slicer
   const [selectedSupervisor, setSelectedSupervisor] = useState('');
 
+  // Master data options for slicers when visits are zero or to complete the dropdown lists
+  const [masterRoutes, setMasterRoutes] = useState<string[]>([]);
+  const [masterSupervisors, setMasterSupervisors] = useState<string[]>([]);
+
   // Modals & detail view
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -174,6 +178,17 @@ export default function VisitLogsPage() {
     };
     load();
 
+    const loadFilterOptions = async () => {
+      try {
+        const opts = await getVisitsFilterOptionsAction();
+        if (active && opts) {
+          if (opts.routes) setMasterRoutes(opts.routes);
+          if (opts.supervisors) setMasterSupervisors(opts.supervisors);
+        }
+      } catch {}
+    };
+    loadFilterOptions();
+
     const interval = setInterval(async () => {
       if (active && typeof document !== 'undefined' && !document.hidden) {
         await fetchVisits(true);
@@ -223,10 +238,15 @@ export default function VisitLogsPage() {
         counts.set(v.routeCode, (counts.get(v.routeCode) || 0) + 1);
       }
     }
+    for (const r of masterRoutes) {
+      if (!counts.has(r)) {
+        counts.set(r, 0);
+      }
+    }
     return Array.from(counts.entries())
       .map(([code, count]) => ({ code, count }))
       .sort((a, b) => a.code.localeCompare(b.code));
-  }, [visits]);
+  }, [visits, masterRoutes]);
 
   const supervisorOptions = useMemo(() => {
     const map = new Map<string, { id: string; name: string; count: number }>();
@@ -247,8 +267,17 @@ export default function VisitLogsPage() {
         });
       }
     }
+    for (const s of masterSupervisors) {
+      if (!map.has(s)) {
+        map.set(s, {
+          id: s,
+          name: s,
+          count: 0,
+        });
+      }
+    }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [visits]);
+  }, [visits, masterSupervisors]);
 
   const customerCodeSuggestions = useMemo(() => {
     const set = new Set<string>();

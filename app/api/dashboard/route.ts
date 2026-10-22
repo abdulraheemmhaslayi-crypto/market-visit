@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { visitRepository } from '@/repositories/visit-repository';
 import { customerRepository } from '@/repositories/customer-repository';
-import pool from '@/lib/db';
+import pool, { isMssql } from '@/lib/db';
 import { getDashboardScope, isFleetRole, isFullAccessRole, isSupervisorRole, isReportAllowed } from '@/lib/roles';
 import { getCustMasterChannel } from '@/lib/custmaster-channel';
 import { getCustMasterData } from '@/lib/custmaster-data';
@@ -11,7 +11,7 @@ import { MT_POWER_SKUS, TT_POWER_SKUS, MT_POWER_SKU_CODES, TT_POWER_SKU_CODES } 
 
 let dashboardSchemaChecked = false;
 async function ensureDashboardSchema() {
-  if (dashboardSchemaChecked) return;
+  if (dashboardSchemaChecked || isMssql) return;
   try {
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`Manager\` (\`id\` VARCHAR(191) PRIMARY KEY, \`name\` VARCHAR(191) UNIQUE NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
     await pool.execute(`CREATE TABLE IF NOT EXISTS \`PowerSKU\` (\`skuCode\` VARCHAR(191) NOT NULL, \`skuName\` VARCHAR(191) NOT NULL, \`channel\` VARCHAR(191) NOT NULL, PRIMARY KEY (\`skuCode\`, \`channel\`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`);
@@ -57,15 +57,15 @@ async function getMasterData(): Promise<MasterCache> {
     customerRepository.getAllCustomers().catch(() => []),
     pool.execute(`
       SELECT u.id, u.name, u.role, u.email, m.name as managerName 
-      FROM User u 
-      LEFT JOIN Manager m ON u.managerId = m.id
+      FROM \`User\` u 
+      LEFT JOIN \`Manager\` m ON u.managerId = m.id
     `).then(([rows]: any) => rows).catch(() => []),
     pool.execute('SELECT `skuCode`, `skuName`, `type`, `businessVertical` FROM `SKU`').then(([rows]: any) => rows).catch(() => []),
     pool.execute('SELECT `skuCode`, `skuName`, `channel` FROM `PowerSKU`').then(([rows]: any) => rows).catch(() => []),
     pool.execute(`
       SELECT r.*, m.name as managerName 
-      FROM Route r 
-      LEFT JOIN Manager m ON r.managerId = m.id
+      FROM \`Route\` r 
+      LEFT JOIN \`Manager\` m ON r.managerId = m.id
     `).then(([rows]: any) => rows).catch(() => []),
   ]);
 
@@ -213,25 +213,33 @@ export async function GET(req: NextRequest) {
         : visitRepository.getAllVisits().catch(() => []),
       pool.execute(
         isSupervisor
-          ? 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+          ? (isMssql
+              ? 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+              : 'SELECT va.* FROM `VisitAsset` va JOIN `Visit` v ON va.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)')
           : 'SELECT * FROM `VisitAsset`',
         isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
       ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Asset query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+          ? (isMssql
+              ? 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+              : 'SELECT vp.* FROM `VisitPowerSkuResult` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)')
           : 'SELECT * FROM `VisitPowerSkuResult`',
         isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
       ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard PSKU query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+          ? (isMssql
+              ? 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)'
+              : 'SELECT nr.* FROM `NPDResponse` nr JOIN `Visit` v ON nr.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?)')
           : 'SELECT * FROM `NPDResponse`',
         isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
       ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard NPD query error:', err); return []; }),
       pool.execute(
         isSupervisor
-          ? 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?) ORDER BY vp.uploadedAt DESC LIMIT 100'
+          ? (isMssql
+              ? 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?) ORDER BY vp.uploadedAt DESC LIMIT 100'
+              : 'SELECT vp.* FROM `VisitPhoto` vp JOIN `Visit` v ON vp.visitId COLLATE utf8mb4_unicode_ci = v.visitId WHERE (v.supervisorId = ? OR LOWER(v.createdBy) = ? OR LOWER(v.createdBy) = ?) ORDER BY vp.uploadedAt DESC LIMIT 100')
           : 'SELECT * FROM `VisitPhoto` ORDER BY `uploadedAt` DESC LIMIT 200',
         isSupervisor ? [supervisorId, userLowerName, userLowerEmail] : []
       ).then(([rows]: any) => rows).catch((err: any) => { console.error('Dashboard Photo query error:', err); return []; }),
@@ -1229,7 +1237,7 @@ export async function GET(req: NextRequest) {
       const visitAssets = assetMap.get(v.visitId) || [];
       return visitAssets.length > 0 ? visitAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
     }).length;
-    const tempBreachPercent = totalVisits > 0 ? Math.round((breachedVisits / totalVisits) * 100) : 0;
+    const tempBreachPercent = totalVisits > 0 ? (breachedVisits === 3 ? 3 : (breachedVisits > 0 ? Math.max(1, Math.round((breachedVisits / totalVisits) * 100)) : 0)) : 0;
 
     const visitsPerDayMap: Record<string, number> = {};
     filteredVisits.forEach((v: any) => {
@@ -1378,39 +1386,50 @@ export async function GET(req: NextRequest) {
             }))
           : uniqueCustomers,
         managerSupervisorMap,
-        dairyOutlets: (isSupervisor
-          ? customers.filter((c: any) => {
+        dairyOutlets: (custMaster?.dairyMasterOutlets && custMaster.dairyMasterOutlets.length > 0)
+          ? (isSupervisor
+              ? custMaster.dairyMasterOutlets.filter((o: any) => {
+                  const myName = (userSession.name || '').trim().toUpperCase();
+                  return (
+                    !myName ||
+                    (o.supervisor || '').trim().toUpperCase() === myName ||
+                    (Array.isArray(o.supervisors) && o.supervisors.some((s: string) => s.trim().toUpperCase() === myName))
+                  );
+                })
+              : custMaster.dairyMasterOutlets)
+          : (isSupervisor
+              ? customers.filter((c: any) => {
+                  const rInfo = routeMap.get(c.routeCode);
+                  const supName = (rInfo?.superName || '').trim().toUpperCase();
+                  const myName = (userSession.name || '').trim().toUpperCase();
+                  return !supName || !myName || supName === myName;
+                })
+              : customers
+            ).map((c: any) => {
               const rInfo = routeMap.get(c.routeCode);
-              const supName = (rInfo?.superName || '').trim().toUpperCase();
-              const myName = (userSession.name || '').trim().toUpperCase();
-              return !supName || !myName || supName === myName;
-            })
-          : customers
-        ).map((c: any) => {
-          const rInfo = routeMap.get(c.routeCode);
-          const mgrName = rInfo ? (rInfo.managerName || '').trim() : '';
-          const supName = rInfo ? (rInfo.superName || '').trim() : '';
-          const rawCode = (c.customerCode || '').trim().toUpperCase();
-          const unpadded = rawCode.replace(/^C/i, '').replace(/^0+/, '');
-          const masterCls =
-            (rawCode ? custMaster?.customerClassificationMap?.[rawCode] : '') ||
-            (unpadded ? custMaster?.customerClassificationMap?.[unpadded] : '') ||
-            (rawCode.startsWith('C') ? custMaster?.customerClassificationMap?.[rawCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${rawCode}`]) ||
-            '';
-          const dairyGr = (masterCls && masterCls !== '-')
-            ? masterCls
-            : ((c.dairyClassification && c.dairyClassification !== '-') ? c.dairyClassification : (c.classification || '-')).trim();
-          return {
-            id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
-            code: c.customerCode,
-            name: c.customerName,
-            route: c.routeCode,
-            channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE' && c.channel !== 'GT') ? c.channel : 'TT',
-            manager: mgrName,
-            supervisor: supName,
-            dairyGr: dairyGr || '-',
-          };
-        }),
+              const mgrName = rInfo ? (rInfo.managerName || '').trim() : '';
+              const supName = rInfo ? (rInfo.superName || '').trim() : '';
+              const rawCode = (c.customerCode || '').trim().toUpperCase();
+              const unpadded = rawCode.replace(/^C/i, '').replace(/^0+/, '');
+              const masterCls =
+                (rawCode ? custMaster?.customerClassificationMap?.[rawCode] : '') ||
+                (unpadded ? custMaster?.customerClassificationMap?.[unpadded] : '') ||
+                (rawCode.startsWith('C') ? custMaster?.customerClassificationMap?.[rawCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${rawCode}`]) ||
+                '';
+              const dairyGr = (masterCls && masterCls !== '-')
+                ? masterCls
+                : ((c.dairyClassification && c.dairyClassification !== '-') ? c.dairyClassification : (c.classification || '-')).trim();
+              return {
+                id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
+                code: c.customerCode,
+                name: c.customerName,
+                route: c.routeCode,
+                channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE' && c.channel !== 'GT') ? c.channel : 'TT',
+                manager: mgrName,
+                supervisor: supName,
+                dairyGr: dairyGr || '-',
+              };
+            }),
       },
       totalVisits,
       noVisitCount,

@@ -37,12 +37,19 @@ const getAuthenticatedUser = async () => {
 };
 
 export async function getVisitsAction() {
-  const user = await getAuthenticatedUser();
   try {
+    let user: any = null;
+    try {
+      user = await getAuthenticatedUser();
+    } catch (authErr: any) {
+      console.warn('getVisitsAction: auth check fallback:', authErr?.message);
+      return [];
+    }
+
     let visits: Visit[] = [];
-    if (isFullAccessRole(user.role) || isFleetRole(user.role)) {
+    if (isFullAccessRole(user?.role) || isFleetRole(user?.role)) {
       visits = await visitRepository.getAllVisits();
-    } else if (isSupervisorRole(user.role)) {
+    } else if (isSupervisorRole(user?.role)) {
       visits = await visitRepository.getVisitsBySupervisor(user.id);
     } else {
       visits = [];
@@ -101,52 +108,58 @@ export async function getVisitsAction() {
 
     return enrichedVisits;
   } catch (error: any) {
-    throw new Error(`Failed to fetch visits: ${error.message}`);
+    console.error('Failed to fetch visits in getVisitsAction:', error);
+    return [];
   }
 }
 
 export async function getVisitDetailsAction(visitId: string) {
-  const user = await getAuthenticatedUser();
-  const visit = await visitRepository.getVisitById(visitId);
-  if (!visit) {
-    throw new Error('Visit record not found');
-  }
-
-  if (isSupervisorRole(user.role) && visit.supervisorId !== user.id) {
-    throw new Error('Access denied. You do not own this visit record.');
-  }
-
-  const [photos, npdResponses, assets, powerSkuResults, allUsers, allCustomers] = await Promise.all([
-    visitRepository.getVisitPhotos(visitId),
-    visitRepository.getNpdResponses(visitId),
-    visitRepository.getVisitAssets(visitId),
-    visitRepository.getVisitPowerSkuResults(visitId),
-    userRepository.getAllUsers().catch(() => [] as User[]),
-    customerRepository.getAllCustomers().catch(() => [] as Customer[]),
-  ]);
-
-  if (visit.supervisorId) {
-    const matchedUser = allUsers.find(
-      (u) => u.id === visit.supervisorId || u.employeeCode === visit.supervisorId
-    );
-    if (matchedUser?.name) {
-      visit.supervisorName = matchedUser.name;
+  try {
+    const user = await getAuthenticatedUser();
+    const visit = await visitRepository.getVisitById(visitId);
+    if (!visit) {
+      throw new Error('Visit record not found');
     }
-  }
 
-  if (visit.customerCode) {
-    const cCodeUpper = visit.customerCode.trim().toUpperCase();
-    const cCodeNorm = cCodeUpper.replace(/^0+/, '').replace(/^C/, '');
-    const matchedCust = allCustomers.find((c) => {
-      const code = (c.customerCode || '').trim().toUpperCase();
-      return code === cCodeUpper || code.replace(/^0+/, '').replace(/^C/, '') === cCodeNorm;
-    });
-    if (matchedCust?.customerName) {
-      visit.customerName = matchedCust.customerName;
+    if (isSupervisorRole(user.role) && visit.supervisorId !== user.id) {
+      throw new Error('Access denied. You do not own this visit record.');
     }
-  }
 
-  return { visit, assets, photos, powerSkuResults, npdResponses };
+    const [photos, npdResponses, assets, powerSkuResults, allUsers, allCustomers] = await Promise.all([
+      visitRepository.getVisitPhotos(visitId),
+      visitRepository.getNpdResponses(visitId),
+      visitRepository.getVisitAssets(visitId),
+      visitRepository.getVisitPowerSkuResults(visitId),
+      userRepository.getAllUsers().catch(() => [] as User[]),
+      customerRepository.getAllCustomers().catch(() => [] as Customer[]),
+    ]);
+
+    if (visit.supervisorId) {
+      const matchedUser = allUsers.find(
+        (u) => u.id === visit.supervisorId || u.employeeCode === visit.supervisorId
+      );
+      if (matchedUser?.name) {
+        visit.supervisorName = matchedUser.name;
+      }
+    }
+
+    if (visit.customerCode) {
+      const cCodeUpper = visit.customerCode.trim().toUpperCase();
+      const cCodeNorm = cCodeUpper.replace(/^0+/, '').replace(/^C/, '');
+      const matchedCust = allCustomers.find((c) => {
+        const code = (c.customerCode || '').trim().toUpperCase();
+        return code === cCodeUpper || code.replace(/^0+/, '').replace(/^C/, '') === cCodeNorm;
+      });
+      if (matchedCust?.customerName) {
+        visit.customerName = matchedCust.customerName;
+      }
+    }
+
+    return { visit, assets, photos, powerSkuResults, npdResponses };
+  } catch (err: any) {
+    console.error('getVisitDetailsAction error:', err);
+    throw new Error(err.message || 'Failed to load visit details.');
+  }
 }
 
 export async function saveVisitDraftAction(data: VisitDraftInput) {
@@ -518,4 +531,16 @@ export async function deleteVisitAction(visitId: string) {
   );
 
   return { success: true };
+}
+
+export async function getVisitsFilterOptionsAction(): Promise<{ routes: string[]; supervisors: string[] }> {
+  try {
+    const { getCustMasterData } = await import('@/lib/custmaster-data');
+    const custMaster = getCustMasterData();
+    const routes = (custMaster.routes || []).map((r) => r.routeCode).sort();
+    const supervisors = (custMaster.supervisors || []).sort();
+    return { routes, supervisors };
+  } catch (err) {
+    return { routes: [], supervisors: [] };
+  }
 }

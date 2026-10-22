@@ -33,10 +33,18 @@ const verifyAdminSession = async () => {
 };
 
 export async function getSupervisorsAction(): Promise<any[]> {
-  await verifyAdminSession();
   try {
+    await verifyAdminSession();
     const users = await userRepository.getAllUsers();
-    return users.map((u) => ({
+    
+    // Import master data supervisors
+    let masterSupervisors: string[] = [];
+    try {
+      const { getCustMasterData } = await import('@/lib/custmaster-data');
+      masterSupervisors = getCustMasterData().supervisors || [];
+    } catch {}
+
+    const userList = users.map((u) => ({
       id: u.id,
       name: u.name,
       employeeCode: u.employeeCode,
@@ -46,8 +54,29 @@ export async function getSupervisorsAction(): Promise<any[]> {
       status: u.status,
       createdAt: u.createdAt,
     }));
+
+    // If there are master supervisors not yet in User table, merge them so admin can see all 15 supervisors
+    const existingNames = new Set(userList.map((u) => (u.name || '').toUpperCase().trim()));
+    for (const sName of masterSupervisors) {
+      const upper = sName.toUpperCase().trim();
+      if (upper && !existingNames.has(upper) && upper !== 'INTERNAL' && upper !== 'SAMRA') {
+        userList.push({
+          id: `master_${upper.toLowerCase()}`,
+          name: sName,
+          employeeCode: `SV-${upper}`,
+          email: `${upper.toLowerCase()}@marketvisit.com`,
+          mobile: '—',
+          role: 'Supervisor' as any,
+          status: 'Active' as any,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    return userList;
   } catch (error: any) {
-    throw new Error(`Failed to fetch supervisors: ${error.message}`);
+    console.error('Failed to get supervisors:', error);
+    return [];
   }
 }
 

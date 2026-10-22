@@ -171,7 +171,8 @@ export default function ImageLightboxModal({
   const [deadline, setDeadline] = useState('24h');
   const [isSubmittingDirective, setIsSubmittingDirective] = useState(false);
 
-  // Supervisor Proof Form States
+  // Supervisor Proof & Acknowledgement States
+  const [isAcknowledging, setIsAcknowledging] = useState(false);
   const [isSubmittingProof, setIsSubmittingProof] = useState(false);
   const [supervisorComment, setSupervisorComment] = useState('');
   const [proofPhotoUrl, setProofPhotoUrl] = useState('');
@@ -648,6 +649,51 @@ export default function ImageLightboxModal({
       console.error('Error reassigning supervisor:', err);
     } finally {
       setIsSubmittingReassign(false);
+    }
+  };
+
+  // Handle Supervisor Acknowledgement
+  const handleSupervisorAcknowledge = async () => {
+    const actionId = currentAction?.id || current?.photoId;
+    if (!actionId) return;
+
+    setIsAcknowledging(true);
+    try {
+      const ackDate = new Date().toISOString();
+      const ackBy = session?.user?.name || currentAction?.supervisor || 'Supervisor';
+
+      const res = await fetch('/api/admin/audit-actions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: actionId,
+          photoId: current?.photoId,
+          acknowledged: true,
+          acknowledgedAt: ackDate,
+          acknowledgedBy: ackBy,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.item && current?.photoId) {
+          setInternalActionsMap((prev) => ({
+            ...prev,
+            [current.photoId as string]: data.item,
+          }));
+          if (actionItems && current?.photoId) {
+            actionItems[current.photoId] = data.item;
+          }
+        }
+        if (onActionUpdated) onActionUpdated();
+      } else {
+        alert('Failed to record supervisor acknowledgement.');
+      }
+    } catch (err: any) {
+      console.error('Failed to acknowledge:', err);
+      alert('Error recording acknowledgement.');
+    } finally {
+      setIsAcknowledging(false);
     }
   };
 
@@ -1586,6 +1632,65 @@ export default function ImageLightboxModal({
                       </form>
                     )}
                   </div>
+
+                  {/* SUPERVISOR ACKNOWLEDGEMENT SECTION */}
+                  {currentAction.acknowledged ? (
+                    <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-950/40 via-emerald-900/30 to-slate-900 border border-emerald-500/40 flex items-center justify-between text-xs shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 rounded-full bg-emerald-500/20 text-emerald-400 flex-shrink-0">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-extrabold text-emerald-300 flex items-center gap-1.5">
+                            Supervisor Acknowledged
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                              Verified
+                            </span>
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {currentAction.acknowledgedBy ? `Acknowledged by ${currentAction.acknowledgedBy}` : `Acknowledged by ${currentAction.supervisor}`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className="text-[10px] font-mono text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40 inline-block">
+                          {currentAction.acknowledgedAt
+                            ? new Date(currentAction.acknowledgedAt).toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'Acknowledged'}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2.5 rounded-xl bg-amber-950/25 border border-amber-500/40 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-amber-300 font-extrabold flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-amber-400 animate-pulse" />
+                          Supervisor Acknowledgement
+                        </span>
+                        <span className="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Pending Ack
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-tight">
+                        Supervisor must acknowledge receipt and awareness of this flagged issue.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={isAcknowledging}
+                        onClick={handleSupervisorAcknowledge}
+                        className="w-full py-2 px-3 rounded-lg text-xs font-extrabold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                      >
+                        <Check className="h-4 w-4" />
+                        {isAcknowledging ? 'Recording Acknowledgement...' : 'Supervisor Acknowledgement (Acknowledge Issue)'}
+                      </button>
+                    </div>
+                  )}
 
                   {/* SUPERVISOR RESOLUTION PROOF SECTION */}
                   {currentAction.proofPhotoUrl ? (

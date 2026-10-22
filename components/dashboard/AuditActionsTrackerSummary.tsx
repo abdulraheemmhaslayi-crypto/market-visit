@@ -22,6 +22,7 @@ import {
   SlidersHorizontal,
   ExternalLink,
   ShieldAlert,
+  Check,
 } from 'lucide-react';
 import { AuditActionItem } from '@/lib/audit-actions';
 import { exportToExcel } from '@/utils/excelExport';
@@ -53,8 +54,10 @@ export default function AuditActionsTrackerSummary({
   // Detailed log filters
   const [statusFilter, setStatusFilter] = useState<'all' | 'PENDING' | 'SUBMITTED' | 'RESOLVED'>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'Urgent' | 'Normal'>('all');
+  const [ackFilter, setAckFilter] = useState<'all' | 'acknowledged' | 'pending'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filteredSupName, setFilteredSupName] = useState<string>('all');
+  const [quickAckingId, setQuickAckingId] = useState<string | null>(null);
 
   // Lightbox modal state
   const [inspectIndex, setInspectIndex] = useState<number | null>(null);
@@ -75,6 +78,30 @@ export default function AuditActionsTrackerSummary({
       setIsRefreshing(false);
     }
   }, []);
+
+  const handleQuickAcknowledge = async (item: AuditActionItem) => {
+    setQuickAckingId(item.id);
+    try {
+      const res = await fetch('/api/admin/audit-actions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: item.id,
+          photoId: item.photoId,
+          acknowledged: true,
+          acknowledgedAt: new Date().toISOString(),
+          acknowledgedBy: item.supervisor || 'Supervisor',
+        }),
+      });
+      if (res.ok) {
+        await fetchItems(true);
+      }
+    } catch (err) {
+      console.error('Failed to quick acknowledge:', err);
+    } finally {
+      setQuickAckingId(null);
+    }
+  };
 
   useEffect(() => {
     fetchItems(false);
@@ -99,13 +126,15 @@ export default function AuditActionsTrackerSummary({
   // Overall KPI Counts
   const kpis = useMemo(() => {
     const total = scopedItems.length;
+    const acknowledged = scopedItems.filter((i) => i.acknowledged).length;
     const pending = scopedItems.filter((i) => i.actionStatus === 'PENDING').length;
     const submitted = scopedItems.filter((i) => i.actionStatus === 'SUBMITTED').length;
     const resolved = scopedItems.filter((i) => i.actionStatus === 'RESOLVED').length;
     const urgent = scopedItems.filter((i) => i.priority === 'Urgent').length;
     const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 100;
+    const ackRate = total > 0 ? Math.round((acknowledged / total) * 100) : 100;
 
-    return { total, pending, submitted, resolved, urgent, resolutionRate };
+    return { total, acknowledged, pending, submitted, resolved, urgent, resolutionRate, ackRate };
   }, [scopedItems]);
 
   // Supervisor Rollup Breakdown
@@ -115,6 +144,7 @@ export default function AuditActionsTrackerSummary({
       manager: string;
       channel: string;
       total: number;
+      acknowledged: number;
       pending: number;
       submitted: number;
       resolved: number;
@@ -128,6 +158,7 @@ export default function AuditActionsTrackerSummary({
         manager: i.manager || '—',
         channel: i.channel || 'GT',
         total: 0,
+        acknowledged: 0,
         pending: 0,
         submitted: 0,
         resolved: 0,
@@ -135,6 +166,7 @@ export default function AuditActionsTrackerSummary({
       };
 
       current.total += 1;
+      if (i.acknowledged) current.acknowledged += 1;
       if (i.actionStatus === 'PENDING') current.pending += 1;
       else if (i.actionStatus === 'SUBMITTED') current.submitted += 1;
       else if (i.actionStatus === 'RESOLVED') current.resolved += 1;
@@ -147,6 +179,7 @@ export default function AuditActionsTrackerSummary({
     return Array.from(map.values())
       .map((row) => ({
         ...row,
+        ackRate: row.total > 0 ? Math.round((row.acknowledged / row.total) * 100) : 100,
         resolutionRate: row.total > 0 ? Math.round((row.resolved / row.total) * 100) : 100,
       }))
       .sort((a, b) => b.pending - a.pending || b.total - a.total);
@@ -158,6 +191,7 @@ export default function AuditActionsTrackerSummary({
       manager: string;
       supervisors: Set<string>;
       total: number;
+      acknowledged: number;
       pending: number;
       submitted: number;
       resolved: number;
@@ -170,6 +204,7 @@ export default function AuditActionsTrackerSummary({
         manager: mgr,
         supervisors: new Set<string>(),
         total: 0,
+        acknowledged: 0,
         pending: 0,
         submitted: 0,
         resolved: 0,
@@ -178,6 +213,7 @@ export default function AuditActionsTrackerSummary({
 
       if (i.supervisor) current.supervisors.add(i.supervisor.trim().toUpperCase());
       current.total += 1;
+      if (i.acknowledged) current.acknowledged += 1;
       if (i.actionStatus === 'PENDING') current.pending += 1;
       else if (i.actionStatus === 'SUBMITTED') current.submitted += 1;
       else if (i.actionStatus === 'RESOLVED') current.resolved += 1;
@@ -191,6 +227,7 @@ export default function AuditActionsTrackerSummary({
       .map((row) => ({
         ...row,
         supervisorsCount: row.supervisors.size,
+        ackRate: row.total > 0 ? Math.round((row.acknowledged / row.total) * 100) : 100,
         resolutionRate: row.total > 0 ? Math.round((row.resolved / row.total) * 100) : 100,
       }))
       .sort((a, b) => b.pending - a.pending || b.total - a.total);
@@ -201,6 +238,8 @@ export default function AuditActionsTrackerSummary({
     return scopedItems.filter((i) => {
       if (statusFilter !== 'all' && i.actionStatus !== statusFilter) return false;
       if (priorityFilter !== 'all' && i.priority !== priorityFilter) return false;
+      if (ackFilter === 'acknowledged' && !i.acknowledged) return false;
+      if (ackFilter === 'pending' && i.acknowledged) return false;
       if (filteredSupName !== 'all' && (i.supervisor || '').trim().toUpperCase() !== filteredSupName.toUpperCase()) {
         return false;
       }
@@ -218,7 +257,7 @@ export default function AuditActionsTrackerSummary({
       }
       return true;
     });
-  }, [scopedItems, statusFilter, priorityFilter, filteredSupName, searchQuery]);
+  }, [scopedItems, statusFilter, priorityFilter, ackFilter, filteredSupName, searchQuery]);
 
   // Export to Excel
   const handleExport = () => {
@@ -230,6 +269,9 @@ export default function AuditActionsTrackerSummary({
       columns: [
         { header: 'Date Flagged', key: 'createdAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
         { header: 'Status', key: 'actionStatus', formatter: (val: any) => val === 'RESOLVED' ? 'Verified Resolved' : val === 'SUBMITTED' ? 'Proof Uploaded' : 'Action Pending' },
+        { header: 'Supervisor Acknowledged', key: 'acknowledged', formatter: (val: any) => val ? 'Yes' : 'Pending' },
+        { header: 'Acknowledged Date', key: 'acknowledgedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Acknowledged By', key: 'acknowledgedBy', formatter: (val: any) => val || '—' },
         { header: 'Priority', key: 'priority' },
         { header: 'Outlet Name', key: 'outlet' },
         { header: 'Outlet Code', key: 'outletCode', formatter: (val: any) => val || '—' },
@@ -312,7 +354,7 @@ export default function AuditActionsTrackerSummary({
       </div>
 
       {/* KPI Cards Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         {/* Total Flagged */}
         <div className="p-3.5 rounded-xl bg-slate-500/10 border border-slate-500/20 space-y-1">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -320,6 +362,17 @@ export default function AuditActionsTrackerSummary({
           </span>
           <p className="text-2xl font-black text-[var(--text-primary)]">{kpis.total}</p>
           <span className="text-[10px] text-[var(--text-muted)] font-medium">Directives assigned</span>
+        </div>
+
+        {/* Supervisor Acknowledged */}
+        <div className="p-3.5 rounded-xl bg-teal-500/10 border border-teal-500/30 space-y-1">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-700 dark:text-teal-400 flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" /> Supervisor Ack
+          </span>
+          <p className="text-2xl font-black text-teal-600 dark:text-teal-300">
+            {kpis.acknowledged} <span className="text-xs font-semibold text-[var(--text-muted)]">/ {kpis.total}</span>
+          </p>
+          <span className="text-[10px] text-teal-800 dark:text-teal-400 font-medium">{kpis.ackRate}% acknowledged</span>
         </div>
 
         {/* Action Pending */}
@@ -452,6 +505,7 @@ export default function AuditActionsTrackerSummary({
                 <th className="py-3 px-3.5">Reporting Manager</th>
                 <th className="py-3 px-3.5">Channel / RTM</th>
                 <th className="py-3 px-3.5 text-center">Total Issues</th>
+                <th className="py-3 px-3.5 text-center">Supervisor Ack</th>
                 <th className="py-3 px-3.5 text-center">Action Pending</th>
                 <th className="py-3 px-3.5 text-center">Proof Ready</th>
                 <th className="py-3 px-3.5 text-center">Resolved Closed</th>
@@ -463,7 +517,7 @@ export default function AuditActionsTrackerSummary({
             <tbody className="divide-y divide-[var(--border-soft)] font-medium">
               {supervisorRollup.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-xs text-[var(--text-muted)]">
+                  <td colSpan={11} className="py-8 text-center text-xs text-[var(--text-muted)]">
                     No action directives highlighted to supervisors for the selected scope.
                   </td>
                 </tr>
@@ -489,6 +543,12 @@ export default function AuditActionsTrackerSummary({
                     </td>
                     <td className="py-2.5 px-3.5 text-center font-bold text-[var(--text-primary)]">
                       {row.total}
+                    </td>
+                    <td className="py-2.5 px-3.5 text-center">
+                      <span className="font-extrabold text-[11px] text-teal-600 dark:text-teal-400">
+                        {row.acknowledged}
+                      </span>
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono"> / {row.total} ({row.ackRate}%)</span>
                     </td>
                     <td className="py-2.5 px-3.5 text-center">
                       {row.pending > 0 ? (
@@ -568,6 +628,7 @@ export default function AuditActionsTrackerSummary({
                 <th className="py-3 px-3.5">Reporting Manager</th>
                 <th className="py-3 px-3.5 text-center">Supervisors Count</th>
                 <th className="py-3 px-3.5 text-center">Total Highlighted Directives</th>
+                <th className="py-3 px-3.5 text-center">Team Ack</th>
                 <th className="py-3 px-3.5 text-center">Team Pending</th>
                 <th className="py-3 px-3.5 text-center">Proof Uploaded</th>
                 <th className="py-3 px-3.5 text-center">Resolved Closed</th>
@@ -578,7 +639,7 @@ export default function AuditActionsTrackerSummary({
             <tbody className="divide-y divide-[var(--border-soft)] font-medium">
               {managerRollup.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-xs text-[var(--text-muted)]">
+                  <td colSpan={9} className="py-8 text-center text-xs text-[var(--text-muted)]">
                     No action directives recorded for any manager.
                   </td>
                 </tr>
@@ -599,6 +660,12 @@ export default function AuditActionsTrackerSummary({
                     </td>
                     <td className="py-2.5 px-3.5 text-center font-bold text-[var(--text-primary)]">
                       {row.total}
+                    </td>
+                    <td className="py-2.5 px-3.5 text-center">
+                      <span className="font-extrabold text-[11px] text-teal-600 dark:text-teal-400">
+                        {row.acknowledged}
+                      </span>
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono"> / {row.total} ({row.ackRate}%)</span>
                     </td>
                     <td className="py-2.5 px-3.5 text-center">
                       {row.pending > 0 ? (
@@ -704,6 +771,17 @@ export default function AuditActionsTrackerSummary({
                 <option value="Normal">Normal</option>
               </select>
 
+              {/* Acknowledgement Slicer */}
+              <select
+                value={ackFilter}
+                onChange={(e) => setAckFilter(e.target.value as any)}
+                className="text-xs py-1 px-2.5 rounded-lg bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--border)] focus:outline-none font-semibold cursor-pointer"
+              >
+                <option value="all">All Acknowledgements</option>
+                <option value="acknowledged">Acknowledged Only</option>
+                <option value="pending">Pending Acknowledgement</option>
+              </select>
+
               {/* Supervisor Slicer */}
               <select
                 value={filteredSupName}
@@ -725,6 +803,7 @@ export default function AuditActionsTrackerSummary({
                 <tr>
                   <th className="py-3 px-3">Date</th>
                   <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-3">Supervisor Ack</th>
                   <th className="py-3 px-3">Outlet / Store</th>
                   <th className="py-3 px-3">Route / RTM</th>
                   <th className="py-3 px-3">Assigned Supervisor</th>
@@ -736,7 +815,7 @@ export default function AuditActionsTrackerSummary({
               <tbody className="divide-y divide-[var(--border-soft)] font-medium">
                 {detailedFilteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-xs text-[var(--text-muted)]">
+                    <td colSpan={9} className="py-8 text-center text-xs text-[var(--text-muted)]">
                       No matching directives found with the selected filters.
                     </td>
                   </tr>
@@ -777,6 +856,41 @@ export default function AuditActionsTrackerSummary({
                           <span className="ml-1 px-1 py-0.2 rounded text-[9px] font-black uppercase bg-rose-500/20 text-rose-500 border border-rose-500/30">
                             Urgent
                           </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        {item.acknowledged ? (
+                          <div className="space-y-0.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" /> Acknowledged
+                            </span>
+                            <p className="text-[10px] font-mono text-[var(--text-muted)]">
+                              {item.acknowledgedAt
+                                ? new Date(item.acknowledgedAt).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                : 'Recorded'}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 inline-flex items-center gap-1">
+                              <Clock className="h-3 w-3 animate-pulse" /> Pending
+                            </span>
+                            <button
+                              type="button"
+                              disabled={quickAckingId === item.id}
+                              onClick={() => handleQuickAcknowledge(item)}
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer shadow-sm disabled:opacity-50 inline-flex items-center gap-0.5"
+                              title="Quick Acknowledge"
+                            >
+                              <Check className="h-2.5 w-2.5" />
+                              {quickAckingId === item.id ? '...' : 'Ack'}
+                            </button>
+                          </div>
                         )}
                       </td>
                       <td className="py-2.5 px-3">

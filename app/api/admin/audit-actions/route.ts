@@ -60,6 +60,9 @@ export async function POST(req: NextRequest) {
       gmComment,
       priority,
       deadline,
+      acknowledged,
+      acknowledgedAt,
+      acknowledgedBy,
     } = body;
 
     if (!photoId || !gmComment?.trim()) {
@@ -86,6 +89,9 @@ export async function POST(req: NextRequest) {
       gmName,
       priority: priority === 'Urgent' ? 'Urgent' : 'Normal',
       deadline: deadline || undefined,
+      acknowledged: Boolean(acknowledged),
+      acknowledgedAt: acknowledgedAt || (acknowledged ? new Date().toISOString() : undefined),
+      acknowledgedBy: acknowledgedBy || undefined,
     });
 
     return NextResponse.json({ success: true, item: newItem }, { status: 201 });
@@ -97,6 +103,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const session = await auth();
     const body = await req.json();
     const {
       id,
@@ -111,6 +118,9 @@ export async function PATCH(req: NextRequest) {
       gmComment,
       priority,
       deadline,
+      acknowledged,
+      acknowledgedAt,
+      acknowledgedBy,
     } = body;
 
     const targetId = id || photoId;
@@ -122,6 +132,18 @@ export async function PATCH(req: NextRequest) {
 
     if (actionStatus) {
       updates.actionStatus = actionStatus;
+    }
+
+    // Supervisor Acknowledgement
+    if (acknowledged !== undefined) {
+      updates.acknowledged = Boolean(acknowledged);
+      if (updates.acknowledged) {
+        updates.acknowledgedAt = acknowledgedAt || new Date().toISOString();
+        updates.acknowledgedBy = acknowledgedBy || session?.user?.name || supervisor || 'Supervisor';
+      }
+    } else {
+      if (acknowledgedAt !== undefined) updates.acknowledgedAt = acknowledgedAt;
+      if (acknowledgedBy !== undefined) updates.acknowledgedBy = acknowledgedBy;
     }
 
     // Support reassigning supervisor / manager / channel
@@ -149,6 +171,12 @@ export async function PATCH(req: NextRequest) {
       if (proofPhotoUrl !== undefined) updates.proofPhotoUrl = proofPhotoUrl;
       updates.actionTakenAt = new Date().toISOString();
       if (!actionStatus) updates.actionStatus = 'SUBMITTED';
+      // Auto-acknowledge if not already done
+      if (updates.acknowledged === undefined) {
+        updates.acknowledged = true;
+        if (!updates.acknowledgedAt) updates.acknowledgedAt = new Date().toISOString();
+        if (!updates.acknowledgedBy) updates.acknowledgedBy = session?.user?.name || supervisor || 'Supervisor';
+      }
     }
 
     // When GM verifies:
