@@ -23,6 +23,21 @@ export interface CustMasterCustomer {
   rtm?: string;
 }
 
+export interface DairyMasterOutlet {
+  id: string;
+  code: string;
+  name: string;
+  dairyGr: string;
+  classification: string;
+  channel: string;
+  route: string;
+  routes: string[];
+  manager: string;
+  managers: string[];
+  supervisor: string;
+  supervisors: string[];
+}
+
 export interface CustMasterPayload {
   managers: string[];
   supervisors: string[];
@@ -36,6 +51,7 @@ export interface CustMasterPayload {
   routeSupervisorMap: Record<string, string>;
   customerClassificationMap: Record<string, string>;
   rtms?: string[];
+  dairyMasterOutlets?: DairyMasterOutlet[];
 }
 
 let cachedCustMaster: CustMasterPayload | null = null;
@@ -493,6 +509,87 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
   const routes = Array.from(routeMap.values()).sort((a, b) => a.routeCode.localeCompare(b.routeCode));
   const rtms = rtmSet.size > 0 ? Array.from(rtmSet).sort() : ['INST', 'MT', 'TT'];
 
+  // Build lookup of customer code to routes/supervisors/managers from CUSTMASTER
+  const custRoutesMap = new Map<string, { routes: Set<string>; managers: Set<string>; supervisors: Set<string>; channels: Set<string> }>();
+  customerList.forEach((c) => {
+    const code = (c.customerCode || '').trim().toUpperCase();
+    if (!code) return;
+    const variants = getVariants(code);
+    variants.forEach((v) => {
+      let entry = custRoutesMap.get(v);
+      if (!entry) {
+        entry = { routes: new Set(), managers: new Set(), supervisors: new Set(), channels: new Set() };
+        custRoutesMap.set(v, entry);
+      }
+      if (c.routeCode) entry.routes.add(c.routeCode);
+      if (c.managerName) entry.managers.add(c.managerName);
+      if (c.superName) entry.supervisors.add(c.superName);
+      if (c.channel) entry.channels.add(c.channel);
+    });
+  });
+
+  // Extract Dairy master outlets from primary classification file
+  const candidateClassFiles: string[] = [
+    path.join(process.cwd(), 'data', 'Customer_Classification.xlsx'),
+    path.join(process.cwd(), 'data', 'Customer_Classification_DUMMY.xlsx'),
+    path.join(process.cwd(), 'data', 'Master_Classification.xlsx'),
+    path.join(process.cwd(), 'public', 'uploads', 'Customer_Classification.xlsx'),
+    path.join(process.cwd(), 'public', 'uploads', 'Customer_Classification_DUMMY.xlsx'),
+    path.join(process.cwd(), 'public', 'uploads', 'Master_Classification.xlsx'),
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/SALES DATA/SALES BINDER & MASTERS/MASTER FILES/Customer_Classification.xlsx',
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/SALES DATA/SALES BINDER & MASTERS/MASTER FILES/Master_Classification.xlsx',
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/MARKET VISIT- NEW/Customer_Classification.xlsx',
+    'd:/OneDrive - Dandy Company Ltd/D- One Drive/MARKET VISIT- NEW/Master_Classification.xlsx',
+  ];
+
+  const dairyMasterOutlets: DairyMasterOutlet[] = [];
+  const primaryClassFile = candidateClassFiles.find((p) => fs.existsSync(p));
+  if (primaryClassFile) {
+    try {
+      const buf = fs.readFileSync(primaryClassFile);
+      const wb = xlsx.read(buf, { type: 'buffer' });
+      if (wb.SheetNames.length > 0) {
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = xlsx.utils.sheet_to_json(sheet) as any[];
+        const dairyRows = rows.filter((r: any) => {
+          const vert = getRowVal(r, 'Business vertical', 'Business Vertical', 'Vertical', 'businessVertical').toLowerCase();
+          return !vert || vert.includes('dairy') || (!vert.includes('ice') && !vert.includes('food'));
+        });
+
+        dairyRows.forEach((r: any, idx: number) => {
+          const code = getRowVal(r, 'Customer Code', 'CustomerCode', 'Code').trim().toUpperCase();
+          const name = getRowVal(r, 'Customer Name', 'CustomerName', 'name').trim();
+          const rawCls = getRowVal(r, 'Classification', 'Class', 'Grade').trim().toUpperCase();
+          const cls = ['A', 'B', 'C', 'D'].includes(rawCls) ? rawCls : 'E';
+          let ch = getRowVal(r, 'Channel', 'CHANNEL').trim().toUpperCase();
+          if (!ch || ch === 'GENERAL TRADE' || ch === 'GT') ch = 'TT';
+
+          const routeInfo = custRoutesMap.get(code);
+          const routes = routeInfo ? Array.from(routeInfo.routes) : [];
+          const managers = routeInfo ? Array.from(routeInfo.managers) : [];
+          const supervisors = routeInfo ? Array.from(routeInfo.supervisors) : [];
+
+          dairyMasterOutlets.push({
+            id: `dairy_${idx}_${code}`,
+            code,
+            name,
+            dairyGr: cls,
+            classification: cls,
+            channel: ch,
+            route: routes[0] || '',
+            routes,
+            manager: managers[0] || '',
+            managers,
+            supervisor: supervisors[0] || '',
+            supervisors,
+          });
+        });
+      }
+    } catch (err) {
+      console.error('Failed reading primary classification file for dairyMasterOutlets:', primaryClassFile, err);
+    }
+  }
+
   cachedCustMaster = {
     managers,
     supervisors,
@@ -506,6 +603,7 @@ export function getCustMasterData(forceReload = false): CustMasterPayload {
     routeSupervisorMap,
     customerClassificationMap,
     rtms,
+    dairyMasterOutlets,
   };
 
   lastCacheTime = now;

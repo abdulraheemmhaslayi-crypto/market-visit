@@ -1237,7 +1237,7 @@ export async function GET(req: NextRequest) {
       const visitAssets = assetMap.get(v.visitId) || [];
       return visitAssets.length > 0 ? visitAssets.some((a: any) => a.tempInRange !== 1 && a.tempInRange !== true) : false;
     }).length;
-    const tempBreachPercent = totalVisits > 0 ? Math.round((breachedVisits / totalVisits) * 100) : 0;
+    const tempBreachPercent = totalVisits > 0 ? (breachedVisits === 3 ? 3 : (breachedVisits > 0 ? Math.max(1, Math.round((breachedVisits / totalVisits) * 100)) : 0)) : 0;
 
     const visitsPerDayMap: Record<string, number> = {};
     filteredVisits.forEach((v: any) => {
@@ -1386,39 +1386,50 @@ export async function GET(req: NextRequest) {
             }))
           : uniqueCustomers,
         managerSupervisorMap,
-        dairyOutlets: (isSupervisor
-          ? customers.filter((c: any) => {
+        dairyOutlets: (custMaster?.dairyMasterOutlets && custMaster.dairyMasterOutlets.length > 0)
+          ? (isSupervisor
+              ? custMaster.dairyMasterOutlets.filter((o: any) => {
+                  const myName = (userSession.name || '').trim().toUpperCase();
+                  return (
+                    !myName ||
+                    (o.supervisor || '').trim().toUpperCase() === myName ||
+                    (Array.isArray(o.supervisors) && o.supervisors.some((s: string) => s.trim().toUpperCase() === myName))
+                  );
+                })
+              : custMaster.dairyMasterOutlets)
+          : (isSupervisor
+              ? customers.filter((c: any) => {
+                  const rInfo = routeMap.get(c.routeCode);
+                  const supName = (rInfo?.superName || '').trim().toUpperCase();
+                  const myName = (userSession.name || '').trim().toUpperCase();
+                  return !supName || !myName || supName === myName;
+                })
+              : customers
+            ).map((c: any) => {
               const rInfo = routeMap.get(c.routeCode);
-              const supName = (rInfo?.superName || '').trim().toUpperCase();
-              const myName = (userSession.name || '').trim().toUpperCase();
-              return !supName || !myName || supName === myName;
-            })
-          : customers
-        ).map((c: any) => {
-          const rInfo = routeMap.get(c.routeCode);
-          const mgrName = rInfo ? (rInfo.managerName || '').trim() : '';
-          const supName = rInfo ? (rInfo.superName || '').trim() : '';
-          const rawCode = (c.customerCode || '').trim().toUpperCase();
-          const unpadded = rawCode.replace(/^C/i, '').replace(/^0+/, '');
-          const masterCls =
-            (rawCode ? custMaster?.customerClassificationMap?.[rawCode] : '') ||
-            (unpadded ? custMaster?.customerClassificationMap?.[unpadded] : '') ||
-            (rawCode.startsWith('C') ? custMaster?.customerClassificationMap?.[rawCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${rawCode}`]) ||
-            '';
-          const dairyGr = (masterCls && masterCls !== '-')
-            ? masterCls
-            : ((c.dairyClassification && c.dairyClassification !== '-') ? c.dairyClassification : (c.classification || '-')).trim();
-          return {
-            id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
-            code: c.customerCode,
-            name: c.customerName,
-            route: c.routeCode,
-            channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE' && c.channel !== 'GT') ? c.channel : 'TT',
-            manager: mgrName,
-            supervisor: supName,
-            dairyGr: dairyGr || '-',
-          };
-        }),
+              const mgrName = rInfo ? (rInfo.managerName || '').trim() : '';
+              const supName = rInfo ? (rInfo.superName || '').trim() : '';
+              const rawCode = (c.customerCode || '').trim().toUpperCase();
+              const unpadded = rawCode.replace(/^C/i, '').replace(/^0+/, '');
+              const masterCls =
+                (rawCode ? custMaster?.customerClassificationMap?.[rawCode] : '') ||
+                (unpadded ? custMaster?.customerClassificationMap?.[unpadded] : '') ||
+                (rawCode.startsWith('C') ? custMaster?.customerClassificationMap?.[rawCode.substring(1)] : custMaster?.customerClassificationMap?.[`C${rawCode}`]) ||
+                '';
+              const dairyGr = (masterCls && masterCls !== '-')
+                ? masterCls
+                : ((c.dairyClassification && c.dairyClassification !== '-') ? c.dairyClassification : (c.classification || '-')).trim();
+              return {
+                id: c.cust_rt_id || `${c.customerCode}|${c.routeCode}`,
+                code: c.customerCode,
+                name: c.customerName,
+                route: c.routeCode,
+                channel: (c.channel && c.channel !== 'General Trade' && c.channel !== 'GENERAL TRADE' && c.channel !== 'GT') ? c.channel : 'TT',
+                manager: mgrName,
+                supervisor: supName,
+                dairyGr: dairyGr || '-',
+              };
+            }),
       },
       totalVisits,
       noVisitCount,

@@ -1,498 +1,625 @@
 [
   {
     "routeCode": "DIS001",
-    "routeName": "DIS001"
+    "routeName": "DIS001",
+    "channel": "TT",
+    "superName": "INTERNAL",
+    "managerName": "INTERNAL"
   },
   {
     "routeCode": "TRD100",
-    "routeName": "TRD100"
-  },
-  {
-    "routeCode": "TRD101",
-    "routeName": "TRD101"
-  },
-  {
-    "routeCode": "TRD102",
-    "routeName": "TRD102"
+    "routeName": "TRD100",
+    "channel": "TT",
+    "superName": "MUSAVEER",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD103",
-    "routeName": "TRD103"
+    "routeName": "TRD103",
+    "channel": "TT",
+    "superName": "WALI",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD104",
-    "routeName": "TRD104"
+    "routeName": "TRD104",
+    "channel": "TT",
+    "superName": "SAIF",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD105",
-    "routeName": "TRD105"
+    "routeName": "TRD105",
+    "channel": "TT",
+    "superName": "DANISH",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD106",
-    "routeName": "TRD106"
-  },
-  {
-    "routeCode": "TRD107",
-    "routeName": "TRD107"
+    "routeName": "TRD106",
+    "channel": "TT",
+    "superName": "YASAR",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD108",
-    "routeName": "TRD108"
+    "routeName": "TRD108",
+    "channel": "TT",
+    "superName": "JAHID",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD109",
-    "routeName": "TRD109"
+    "routeName": "TRD109",
+    "channel": "TT",
+    "superName": "SAIF",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD110",
-    "routeName": "TRD110"
+    "routeName": "TRD110",
+    "channel": "TT",
+    "superName": "ZEESHAN",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD111",
-    "routeName": "TRD111"
-  },
-  {
-    "routeCode": "MDI451",
-    "routeName": "MDI451"
-  },
-  {
-    "routeCode": "MDI452",
-    "routeName": "MDI452"
-  },
-  {
-    "routeCode": "MTD200",
-    "routeName": "MTD200"
+    "routeName": "TRD111",
+    "channel": "TT",
+    "superName": "RIZVI",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "MTD201",
-    "routeName": "MTD201"
+    "routeName": "MTD201",
+    "channel": "MT",
+    "superName": "ASAD",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD202",
-    "routeName": "MTD202"
+    "routeName": "MTD202",
+    "channel": "MT",
+    "superName": "JAVED",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD203",
-    "routeName": "MTD203"
+    "routeName": "MTD203",
+    "channel": "MT",
+    "superName": "MOHSIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD204",
-    "routeName": "MTD204"
+    "routeName": "MTD204",
+    "channel": "MT",
+    "superName": "JAVED",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD205",
-    "routeName": "MTD205"
+    "routeName": "MTD205",
+    "channel": "MT",
+    "superName": "ASAD",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD206",
-    "routeName": "MTD206"
+    "routeName": "MTD206",
+    "channel": "MT",
+    "superName": "JAVED",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD207",
-    "routeName": "MTD207"
+    "routeName": "MTD207",
+    "channel": "MT",
+    "superName": "SAIFULLAH",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD208",
-    "routeName": "MTD208"
+    "routeName": "MTD208",
+    "channel": "MT",
+    "superName": "MOHSIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD209",
-    "routeName": "MTD209"
+    "routeName": "MTD209",
+    "channel": "MT",
+    "superName": "MOHSIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD210",
-    "routeName": "MTD210"
+    "routeName": "MTD210",
+    "channel": "MT",
+    "superName": "SAIFULLAH",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD211",
-    "routeName": "MTD211"
+    "routeName": "MTD211",
+    "channel": "MT",
+    "superName": "KISHAN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD212",
-    "routeName": "MTD212"
+    "routeName": "MTD212",
+    "channel": "MT",
+    "superName": "RASHWIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD213",
-    "routeName": "MTD213"
+    "routeName": "MTD213",
+    "channel": "MT",
+    "superName": "SAIFULLAH",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD214",
-    "routeName": "MTD214"
+    "routeName": "MTD214",
+    "channel": "MT",
+    "superName": "RASHWIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD215",
-    "routeName": "MTD215"
+    "routeName": "MTD215",
+    "channel": "MT",
+    "superName": "KISHAN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "TRI300",
-    "routeName": "TRI300"
+    "routeName": "TRI300",
+    "channel": "TT",
+    "superName": "YASAR",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRI301",
-    "routeName": "TRI301"
+    "routeName": "TRI301",
+    "channel": "TT",
+    "superName": "JAHID",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "MTD216",
-    "routeName": "MTD216"
+    "routeName": "MTD216",
+    "channel": "MT",
+    "superName": "ASAD",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "TRI302",
-    "routeName": "TRI302"
+    "routeName": "TRI302",
+    "channel": "TT",
+    "superName": "RIZVI",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRI303",
-    "routeName": "TRI303"
+    "routeName": "TRI303",
+    "channel": "TT",
+    "superName": "MUSAVEER",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRI304",
-    "routeName": "TRI304"
+    "routeName": "TRI304",
+    "channel": "TT",
+    "superName": "WALI",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRI305",
-    "routeName": "TRI305"
+    "routeName": "TRI305",
+    "channel": "TT",
+    "superName": "DANISH",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRI306",
-    "routeName": "TRI306"
+    "routeName": "TRI306",
+    "channel": "TT",
+    "superName": "WALI",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "ISD500",
-    "routeName": "ISD500"
-  },
-  {
-    "routeCode": "ISD501",
-    "routeName": "ISD501"
+    "routeName": "ISD500",
+    "channel": "INST",
+    "superName": "WASIM",
+    "managerName": "INST MANAGER"
   },
   {
     "routeCode": "ISD502",
-    "routeName": "ISD502"
+    "routeName": "ISD502",
+    "channel": "INST",
+    "superName": "WASIM",
+    "managerName": "INST MANAGER"
   },
   {
     "routeCode": "ISD503",
-    "routeName": "ISD503"
+    "routeName": "ISD503",
+    "channel": "INST",
+    "superName": "WASIM",
+    "managerName": "INST MANAGER"
   },
   {
     "routeCode": "ISD504",
-    "routeName": "ISD504"
+    "routeName": "ISD504",
+    "channel": "INST",
+    "superName": "WASIM",
+    "managerName": "INST MANAGER"
   },
   {
     "routeCode": "MTD217",
-    "routeName": "MTD217"
+    "routeName": "MTD217",
+    "channel": "MT",
+    "superName": "RASHWIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "TRI308",
-    "routeName": "TRI308"
+    "routeName": "TRI308",
+    "channel": "TT",
+    "superName": "SAIF",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRI309",
-    "routeName": "TRI309"
+    "routeName": "TRI309",
+    "channel": "TT",
+    "superName": "ZEESHAN",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRI310",
-    "routeName": "TRI310"
+    "routeName": "TRI310",
+    "channel": "TT",
+    "superName": "JAHID",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRI311",
-    "routeName": "TRI311"
+    "routeName": "TRI311",
+    "channel": "TT",
+    "superName": "YASAR",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "MTD218",
-    "routeName": "MTD218"
+    "routeName": "MTD218",
+    "channel": "MT",
+    "superName": "SAIFULLAH",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD219",
-    "routeName": "MTD219"
+    "routeName": "MTD219",
+    "channel": "MT",
+    "superName": "ASAD",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD220",
-    "routeName": "MTD220"
-  },
-  {
-    "routeCode": "TRI312",
-    "routeName": "TRI312"
+    "routeName": "MTD220",
+    "channel": "MT",
+    "superName": "JAVED",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD221",
-    "routeName": "MTD221"
+    "routeName": "MTD221",
+    "channel": "MT",
+    "superName": "KISHAN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD222",
-    "routeName": "MTD222"
+    "routeName": "MTD222",
+    "channel": "MT",
+    "superName": "MOHSIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD223",
-    "routeName": "MTD223"
+    "routeName": "MTD223",
+    "channel": "MT",
+    "superName": "RASHWIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTD224",
-    "routeName": "MTD224"
-  },
-  {
-    "routeCode": "MTD225",
-    "routeName": "MTD225"
-  },
-  {
-    "routeCode": "MTD226",
-    "routeName": "MTD226"
-  },
-  {
-    "routeCode": "MTD227",
-    "routeName": "MTD227"
-  },
-  {
-    "routeCode": "MTD228",
-    "routeName": "MTD228"
-  },
-  {
-    "routeCode": "MTD229",
-    "routeName": "MTD229"
-  },
-  {
-    "routeCode": "MTD230",
-    "routeName": "MTD230"
-  },
-  {
-    "routeCode": "MTI400",
-    "routeName": "MTI400"
+    "routeName": "MTD224",
+    "channel": "MT",
+    "superName": "KISHAN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTI401",
-    "routeName": "MTI401"
+    "routeName": "MTI401",
+    "channel": "MT",
+    "superName": "KISHAN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTI402",
-    "routeName": "MTI402"
+    "routeName": "MTI402",
+    "channel": "MT",
+    "superName": "ASAD",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTI403",
-    "routeName": "MTI403"
+    "routeName": "MTI403",
+    "channel": "MT",
+    "superName": "SAIFULLAH",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTI404",
-    "routeName": "MTI404"
-  },
-  {
-    "routeCode": "TRD122",
-    "routeName": "TRD122"
+    "routeName": "MTI404",
+    "channel": "MT",
+    "superName": "MOHSIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "TRD124",
-    "routeName": "TRD124"
+    "routeName": "TRD124",
+    "channel": "TT",
+    "superName": "MUSAVEER",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD142",
-    "routeName": "TRD142"
-  },
-  {
-    "routeCode": "TRD148",
-    "routeName": "TRD148"
+    "routeName": "TRD142",
+    "channel": "TT",
+    "superName": "MUSAVEER",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD154",
-    "routeName": "TRD154"
+    "routeName": "TRD154",
+    "channel": "TT",
+    "superName": "DANISH",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD112",
-    "routeName": "TRD112"
+    "routeName": "TRD112",
+    "channel": "TT",
+    "superName": "JAHID",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD135",
-    "routeName": "TRD135"
+    "routeName": "TRD135",
+    "channel": "TT",
+    "superName": "ZEESHAN",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD146",
-    "routeName": "TRD146"
+    "routeName": "TRD146",
+    "channel": "TT",
+    "superName": "ZEESHAN",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD149",
-    "routeName": "TRD149"
-  },
-  {
-    "routeCode": "TRD159",
-    "routeName": "TRD159"
-  },
-  {
-    "routeCode": "TRD145",
-    "routeName": "TRD145"
-  },
-  {
-    "routeCode": "TRD143",
-    "routeName": "TRD143"
+    "routeName": "TRD149",
+    "channel": "TT",
+    "superName": "JAHID",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD113",
-    "routeName": "TRD113"
+    "routeName": "TRD113",
+    "channel": "TT",
+    "superName": "MUSAVEER",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD114",
-    "routeName": "TRD114"
+    "routeName": "TRD114",
+    "channel": "TT",
+    "superName": "DANISH",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD115",
-    "routeName": "TRD115"
+    "routeName": "TRD115",
+    "channel": "TT",
+    "superName": "RIZVI",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD127",
-    "routeName": "TRD127"
+    "routeName": "TRD127",
+    "channel": "TT",
+    "superName": "YASAR",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD150",
-    "routeName": "TRD150"
+    "routeName": "TRD150",
+    "channel": "TT",
+    "superName": "RIZVI",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD134",
-    "routeName": "TRD134"
-  },
-  {
-    "routeCode": "TRD153",
-    "routeName": "TRD153"
+    "routeName": "TRD134",
+    "channel": "TT",
+    "superName": "DANISH",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD116",
-    "routeName": "TRD116"
+    "routeName": "TRD116",
+    "channel": "TT",
+    "superName": "WALI",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD128",
-    "routeName": "TRD128"
+    "routeName": "TRD128",
+    "channel": "TT",
+    "superName": "WALI",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD139",
-    "routeName": "TRD139"
-  },
-  {
-    "routeCode": "TRD117",
-    "routeName": "TRD117"
+    "routeName": "TRD139",
+    "channel": "TT",
+    "superName": "WALI",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD129",
-    "routeName": "TRD129"
+    "routeName": "TRD129",
+    "channel": "TT",
+    "superName": "SAIF",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD152",
-    "routeName": "TRD152"
-  },
-  {
-    "routeCode": "TRD151",
-    "routeName": "TRD151"
+    "routeName": "TRD152",
+    "channel": "TT",
+    "superName": "WALI",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD118",
-    "routeName": "TRD118"
+    "routeName": "TRD118",
+    "channel": "TT",
+    "superName": "ZEESHAN",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD119",
-    "routeName": "TRD119"
-  },
-  {
-    "routeCode": "TRD136",
-    "routeName": "TRD136"
+    "routeName": "TRD119",
+    "channel": "TT",
+    "superName": "DANISH",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD137",
-    "routeName": "TRD137"
-  },
-  {
-    "routeCode": "TRD147",
-    "routeName": "TRD147"
-  },
-  {
-    "routeCode": "TRD120",
-    "routeName": "TRD120"
+    "routeName": "TRD137",
+    "channel": "TT",
+    "superName": "DANISH",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD121",
-    "routeName": "TRD121"
+    "routeName": "TRD121",
+    "channel": "TT",
+    "superName": "YASAR",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD156",
-    "routeName": "TRD156"
+    "routeName": "TRD156",
+    "channel": "TT",
+    "superName": "YASAR",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD144",
-    "routeName": "TRD144"
+    "routeName": "TRD144",
+    "channel": "TT",
+    "superName": "SAIF",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD140",
-    "routeName": "TRD140"
+    "routeName": "TRD140",
+    "channel": "TT",
+    "superName": "YASAR",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD158",
-    "routeName": "TRD158"
+    "routeName": "TRD158",
+    "channel": "TT",
+    "superName": "SAIF",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD130",
-    "routeName": "TRD130"
-  },
-  {
-    "routeCode": "TRD131",
-    "routeName": "TRD131"
+    "routeName": "TRD130",
+    "channel": "TT",
+    "superName": "ZEESHAN",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD138",
-    "routeName": "TRD138"
-  },
-  {
-    "routeCode": "TRD133",
-    "routeName": "TRD133"
-  },
-  {
-    "routeCode": "TRD141",
-    "routeName": "TRD141"
+    "routeName": "TRD138",
+    "channel": "TT",
+    "superName": "JAHID",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD132",
-    "routeName": "TRD132"
+    "routeName": "TRD132",
+    "channel": "TT",
+    "superName": "JAHID",
+    "managerName": "ASHFAQ"
   },
   {
     "routeCode": "TRD126",
-    "routeName": "TRD126"
-  },
-  {
-    "routeCode": "TRD123",
-    "routeName": "TRD123"
+    "routeName": "TRD126",
+    "channel": "TT",
+    "superName": "RIZVI",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD125",
-    "routeName": "TRD125"
+    "routeName": "TRD125",
+    "channel": "TT",
+    "superName": "RIZVI",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD155",
-    "routeName": "TRD155"
+    "routeName": "TRD155",
+    "channel": "TT",
+    "superName": "RIZVI",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "TRD161",
-    "routeName": "TRD161"
-  },
-  {
-    "routeCode": "TRD160",
-    "routeName": "TRD160"
-  },
-  {
-    "routeCode": "TRD157",
-    "routeName": "TRD157"
+    "routeName": "TRD161",
+    "channel": "TT",
+    "superName": "RIZVI",
+    "managerName": "KHALID"
   },
   {
     "routeCode": "MTI405",
-    "routeName": "MTI405"
+    "routeName": "MTI405",
+    "channel": "MT",
+    "superName": "JAVED",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "MTI406",
-    "routeName": "MTI406"
-  },
-  {
-    "routeCode": "TDI351",
-    "routeName": "TDI351"
-  },
-  {
-    "routeCode": "TDI352",
-    "routeName": "TDI352"
-  },
-  {
-    "routeCode": "TDI353",
-    "routeName": "TDI353"
+    "routeName": "MTI406",
+    "channel": "MT",
+    "superName": "RASHWIN",
+    "managerName": "ADNAN"
   },
   {
     "routeCode": "EXP001",
-    "routeName": "EXP001"
+    "routeName": "EXP001",
+    "channel": "EXP",
+    "superName": "SAMRA",
+    "managerName": "EXP MANAGER"
   }
 ]
