@@ -30,6 +30,19 @@ export function formatFriendlyError(rawError: unknown): FormattedError {
     };
   }
 
+  // 0. Server Action Invalidation / Application Redeployed
+  if (
+    errStr.includes('failed-to-find-server-action') ||
+    errStr.includes('was not found on the server') ||
+    (errStr.toLowerCase().includes('server action') && errStr.toLowerCase().includes('not found'))
+  ) {
+    return {
+      title: 'App Updated - Refresh Needed',
+      message: 'The application was recently updated on the server. Please reload the page to apply the latest version.',
+      actionHint: 'Please refresh the page (press F5 or Ctrl+F5) and try your change again.',
+    };
+  }
+
   // 1. Employee Code Duplicate Error
   if (errStr.includes('Employee Code') || errStr.includes('employeeCode')) {
     return {

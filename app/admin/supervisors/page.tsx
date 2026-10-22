@@ -4,12 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supervisorSchema, SupervisorInput } from '@/schemas/supervisor';
-import {
-  getSupervisorsAction,
-  createSupervisorAction,
-  updateSupervisorAction,
-  disableSupervisorAction,
-} from '@/actions/supervisor-actions';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmationDialog } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -60,7 +54,18 @@ export default function SupervisorsPage() {
   const fetchSupervisors = async () => {
     setLoading(true);
     try {
-      setSupervisors((await getSupervisorsAction()) as SupervisorVM[]);
+      const res = await fetch('/api/supervisors');
+      const text = await res.text();
+      let data: any = [];
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(text || `Failed to fetch supervisors (${res.status})`);
+      }
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to fetch supervisors (${res.status})`);
+      }
+      setSupervisors(data as SupervisorVM[]);
     } catch (err: any) {
       const formatted = formatFriendlyError(err);
       showToast(formatted.message, 'error', formatted.title);
@@ -92,26 +97,39 @@ export default function SupervisorsPage() {
     setSubmitting(true);
     setFormError(null);
     try {
-      let result;
-      if (editingSupervisor) {
-        result = await updateSupervisorAction(editingSupervisor.id, data);
-      } else {
-        if (!data.password?.trim()) {
-          const err = formatFriendlyError('Password is required for a new supervisor account.');
-          setFormError(err);
-          setError('password', { type: 'manual', message: err.message });
-          showToast(err.message, 'error', err.title);
-          setSubmitting(false);
-          return;
-        }
-        result = await createSupervisorAction(data);
+      const isEdit = Boolean(editingSupervisor);
+      if (!isEdit && !data.password?.trim()) {
+        const err = formatFriendlyError('Password is required for a new supervisor account.');
+        setFormError(err);
+        setError('password', { type: 'manual', message: err.message });
+        showToast(err.message, 'error', err.title);
+        setSubmitting(false);
+        return;
       }
 
-      if (!result.success) {
-        const formatted = formatFriendlyError(result.error);
+      const res = await fetch('/api/supervisors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          id: editingSupervisor?.id,
+        }),
+      });
+
+      const text = await res.text();
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error(text || `Server returned ${res.status}`);
+      }
+
+      if (!res.ok || result.error) {
+        const errMsg = typeof result.error === 'string' ? result.error : (Array.isArray(result.error) ? result.error.map((i: any) => i.message).join(', ') : (result.message || text || 'Failed to save supervisor'));
+        const formatted = formatFriendlyError(errMsg);
         setFormError(formatted);
-        if (result.field) {
-          setError(result.field as any, { type: 'manual', message: formatted.message });
+        if (result.field || formatted.field) {
+          setError((result.field || formatted.field) as any, { type: 'manual', message: formatted.message });
         }
         showToast(formatted.message, 'error', formatted.title);
         return;
@@ -119,7 +137,7 @@ export default function SupervisorsPage() {
 
       showToast(
         result.backfilledRoutes && result.backfilledRoutes > 0
-          ? `Supervisor created. Linked ${result.backfilledRoutes} previously-unmapped route(s) to this account.`
+          ? `Supervisor saved. Linked ${result.backfilledRoutes} previously-unmapped route(s) to this account.`
           : editingSupervisor ? 'Supervisor updated.' : 'Supervisor created.',
         'success'
       );
@@ -134,12 +152,23 @@ export default function SupervisorsPage() {
 
   const handleDisable = async () => {
     try {
-      const res = await disableSupervisorAction(disableDialog.id);
-      if (!res.success) {
-        const formatted = formatFriendlyError(res.error);
+      const res = await fetch(`/api/supervisors?id=${encodeURIComponent(disableDialog.id)}`, {
+        method: 'DELETE',
+      });
+      const text = await res.text();
+      let result: any = {};
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error(text || `Server returned ${res.status}`);
+      }
+
+      if (!res.ok || result.error) {
+        const formatted = formatFriendlyError(result.error || `Failed to disable supervisor (${res.status})`);
         showToast(formatted.message, 'error', formatted.title);
         return;
       }
+
       showToast(`Disabled: ${disableDialog.name}`, 'success');
       setDisableDialog({ open: false, id: '', name: '' });
       fetchSupervisors();
