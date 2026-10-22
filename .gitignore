@@ -44,3 +44,7 @@ next-env.d.ts
 .oldgit/
 *.sql
 
+# scratch scripts
+scratch/
+
+

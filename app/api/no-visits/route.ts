@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import pool from '@/lib/db';
 import { getDashboardScope } from '@/lib/roles';
+import { visitRepository } from '@/repositories/visit-repository';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,6 +14,8 @@ export async function GET(req: NextRequest) {
     const userSession = session.user as any;
     const role = userSession.role as string | undefined;
     const scope = getDashboardScope(role);
+
+    await visitRepository.ensureSchema().catch(() => {});
 
     // Build query with safe column handling
     let query = `

@@ -22,6 +22,11 @@ export interface AuditActionItem {
   deadline?: string;
   createdAt: string;
 
+  // Supervisor Acknowledgement
+  acknowledged?: boolean;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+
   // Supervisor Action & Proof
   actionStatus: 'PENDING' | 'SUBMITTED' | 'RESOLVED';
   supervisorComment?: string;
@@ -69,6 +74,16 @@ function writeLocalItems(items: AuditActionItem[]): void {
 
 let auditSchemaChecked = false;
 
+function mapRowToAuditAction(row: any): AuditActionItem {
+  if (!row) return row;
+  return {
+    ...row,
+    acknowledged: Boolean(row.acknowledged === 1 || row.acknowledged === true || row.acknowledged === '1'),
+    acknowledgedAt: row.acknowledgedAt || undefined,
+    acknowledgedBy: row.acknowledgedBy || undefined,
+  };
+}
+
 async function ensureAuditTable(): Promise<void> {
   if (auditSchemaChecked) return;
   try {
@@ -92,6 +107,9 @@ async function ensureAuditTable(): Promise<void> {
             [gmName] VARCHAR(191) NULL,
             [priority] VARCHAR(50) DEFAULT 'Normal',
             [deadline] VARCHAR(100) NULL,
+            [acknowledged] BIT DEFAULT 0,
+            [acknowledgedAt] VARCHAR(100) NULL,
+            [acknowledgedBy] VARCHAR(191) NULL,
             [actionStatus] VARCHAR(50) DEFAULT 'PENDING',
             [supervisorComment] NVARCHAR(MAX) NULL,
             [proofPhotoUrl] NVARCHAR(MAX) NULL,
@@ -129,6 +147,9 @@ async function ensureAuditTable(): Promise<void> {
           \`gmName\` VARCHAR(191) NULL,
           \`priority\` VARCHAR(50) DEFAULT 'Normal',
           \`deadline\` VARCHAR(100) NULL,
+          \`acknowledged\` TINYINT(1) DEFAULT 0,
+          \`acknowledgedAt\` VARCHAR(100) NULL,
+          \`acknowledgedBy\` VARCHAR(191) NULL,
           \`actionStatus\` VARCHAR(50) DEFAULT 'PENDING',
           \`supervisorComment\` TEXT NULL,
           \`proofPhotoUrl\` LONGTEXT NULL,
@@ -147,6 +168,17 @@ async function ensureAuditTable(): Promise<void> {
         MODIFY COLUMN \`proofPhotoUrl\` LONGTEXT NULL,
         MODIFY COLUMN \`originalPhotoUrl\` LONGTEXT NULL
       `).catch(() => {});
+
+      await pool.execute(`
+        ALTER TABLE \`AuditActionItem\`
+        ADD COLUMN IF NOT EXISTS \`acknowledged\` TINYINT(1) DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS \`acknowledgedAt\` VARCHAR(100) NULL,
+        ADD COLUMN IF NOT EXISTS \`acknowledgedBy\` VARCHAR(191) NULL
+      `).catch(async () => {
+        try { await pool.execute('ALTER TABLE `AuditActionItem` ADD COLUMN `acknowledged` TINYINT(1) DEFAULT 0'); } catch {}
+        try { await pool.execute('ALTER TABLE `AuditActionItem` ADD COLUMN `acknowledgedAt` VARCHAR(100) NULL'); } catch {}
+        try { await pool.execute('ALTER TABLE `AuditActionItem` ADD COLUMN `acknowledgedBy` VARCHAR(191) NULL'); } catch {}
+      });
     }
     auditSchemaChecked = true;
   } catch (err: any) {
@@ -175,6 +207,9 @@ async function syncToDbSafe(item: AuditActionItem): Promise<void> {
       item.gmName || 'General Manager',
       item.priority || 'Normal',
       item.deadline || null,
+      item.acknowledged ? 1 : 0,
+      item.acknowledgedAt || null,
+      item.acknowledgedBy || null,
       item.actionStatus || 'PENDING',
       item.supervisorComment || null,
       item.proofPhotoUrl || null,
@@ -191,6 +226,7 @@ async function syncToDbSafe(item: AuditActionItem): Promise<void> {
          USING (SELECT ? AS id, ? AS photoId, ? AS visitId, ? AS outlet, ? AS outletCode,
                        ? AS route, ? AS supervisor, ? AS manager, ? AS channel, ? AS category,
                        ? AS originalPhotoUrl, ? AS gmComment, ? AS gmName, ? AS priority, ? AS deadline,
+                       ? AS acknowledged, ? AS acknowledgedAt, ? AS acknowledgedBy,
                        ? AS actionStatus, ? AS supervisorComment, ? AS proofPhotoUrl, ? AS actionTakenAt,
                        ? AS gmVerifiedAt, ? AS gmResolutionNotes, ? AS createdAt, ? AS updatedAt) AS source
          ON target.id = source.id
@@ -210,6 +246,9 @@ async function syncToDbSafe(item: AuditActionItem): Promise<void> {
              target.gmName = source.gmName,
              target.priority = source.priority,
              target.deadline = source.deadline,
+             target.acknowledged = source.acknowledged,
+             target.acknowledgedAt = source.acknowledgedAt,
+             target.acknowledgedBy = source.acknowledgedBy,
              target.actionStatus = source.actionStatus,
              target.supervisorComment = source.supervisorComment,
              target.proofPhotoUrl = source.proofPhotoUrl,
@@ -220,12 +259,13 @@ async function syncToDbSafe(item: AuditActionItem): Promise<void> {
          WHEN NOT MATCHED THEN
            INSERT (
              id, photoId, visitId, outlet, outletCode, route, supervisor, manager, channel, category,
-             originalPhotoUrl, gmComment, gmName, priority, deadline, actionStatus, supervisorComment,
-             proofPhotoUrl, actionTakenAt, gmVerifiedAt, gmResolutionNotes, createdAt, updatedAt
+             originalPhotoUrl, gmComment, gmName, priority, deadline, acknowledged, acknowledgedAt, acknowledgedBy,
+             actionStatus, supervisorComment, proofPhotoUrl, actionTakenAt, gmVerifiedAt, gmResolutionNotes, createdAt, updatedAt
            ) VALUES (
              source.id, source.photoId, source.visitId, source.outlet, source.outletCode,
              source.route, source.supervisor, source.manager, source.channel, source.category,
              source.originalPhotoUrl, source.gmComment, source.gmName, source.priority, source.deadline,
+             source.acknowledged, source.acknowledgedAt, source.acknowledgedBy,
              source.actionStatus, source.supervisorComment, source.proofPhotoUrl, source.actionTakenAt,
              source.gmVerifiedAt, source.gmResolutionNotes, source.createdAt, source.updatedAt
            );`,
@@ -236,9 +276,10 @@ async function syncToDbSafe(item: AuditActionItem): Promise<void> {
         `INSERT INTO \`AuditActionItem\` (
            \`id\`, \`photoId\`, \`visitId\`, \`outlet\`, \`outletCode\`, \`route\`, \`supervisor\`,
            \`manager\`, \`channel\`, \`category\`, \`originalPhotoUrl\`, \`gmComment\`, \`gmName\`,
-           \`priority\`, \`deadline\`, \`actionStatus\`, \`supervisorComment\`, \`proofPhotoUrl\`,
+           \`priority\`, \`deadline\`, \`acknowledged\`, \`acknowledgedAt\`, \`acknowledgedBy\`,
+           \`actionStatus\`, \`supervisorComment\`, \`proofPhotoUrl\`,
            \`actionTakenAt\`, \`gmVerifiedAt\`, \`gmResolutionNotes\`, \`createdAt\`, \`updatedAt\`
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            \`photoId\` = VALUES(\`photoId\`),
            \`visitId\` = VALUES(\`visitId\`),
@@ -254,6 +295,9 @@ async function syncToDbSafe(item: AuditActionItem): Promise<void> {
            \`gmName\` = VALUES(\`gmName\`),
            \`priority\` = VALUES(\`priority\`),
            \`deadline\` = VALUES(\`deadline\`),
+           \`acknowledged\` = VALUES(\`acknowledged\`),
+           \`acknowledgedAt\` = VALUES(\`acknowledgedAt\`),
+           \`acknowledgedBy\` = VALUES(\`acknowledgedBy\`),
            \`actionStatus\` = VALUES(\`actionStatus\`),
            \`supervisorComment\` = VALUES(\`supervisorComment\`),
            \`proofPhotoUrl\` = VALUES(\`proofPhotoUrl\`),
@@ -283,9 +327,10 @@ export const auditActionRepository = {
       await ensureAuditTable();
       const [rows]: any = await pool.execute('SELECT * FROM `AuditActionItem` ORDER BY `createdAt` DESC');
       if (Array.isArray(rows) && rows.length > 0) {
+        const mapped = rows.map(mapRowToAuditAction);
         // Keep local cache synced with DB source of truth
-        writeLocalItems(rows as AuditActionItem[]);
-        return rows as AuditActionItem[];
+        writeLocalItems(mapped);
+        return mapped;
       }
     } catch (err) {
       // Fallback to local store
@@ -298,7 +343,7 @@ export const auditActionRepository = {
       await ensureAuditTable();
       const [rows]: any = await pool.execute('SELECT * FROM `AuditActionItem` WHERE `photoId` = ?', [photoId]);
       if (Array.isArray(rows) && rows.length > 0) {
-        return rows as AuditActionItem[];
+        return rows.map(mapRowToAuditAction);
       }
     } catch (err) {}
     const all = readLocalItems();
@@ -310,7 +355,7 @@ export const auditActionRepository = {
       await ensureAuditTable();
       const [rows]: any = await pool.execute('SELECT * FROM `AuditActionItem` WHERE `id` = ? OR `photoId` = ?', [id, id]);
       if (Array.isArray(rows) && rows.length > 0) {
-        return rows[0] as AuditActionItem;
+        return mapRowToAuditAction(rows[0]);
       }
     } catch (err) {}
     const all = readLocalItems();
@@ -332,6 +377,9 @@ export const auditActionRepository = {
     gmName?: string;
     priority?: 'Normal' | 'Urgent';
     deadline?: string;
+    acknowledged?: boolean;
+    acknowledgedAt?: string;
+    acknowledgedBy?: string;
   }): Promise<AuditActionItem> {
     const now = new Date().toISOString();
     const newItem: AuditActionItem = {
@@ -350,6 +398,9 @@ export const auditActionRepository = {
       gmName: data.gmName || 'General Manager',
       priority: data.priority || 'Normal',
       deadline: data.deadline,
+      acknowledged: Boolean(data.acknowledged),
+      acknowledgedAt: data.acknowledgedAt,
+      acknowledgedBy: data.acknowledgedBy,
       actionStatus: 'PENDING',
       createdAt: now,
       updatedAt: now,

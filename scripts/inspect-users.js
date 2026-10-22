@@ -1,5 +1,6 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+require('dotenv').config({ path: '.env.local' });
+require('dotenv').config({ path: '.env' });
 
 async function inspectUsers() {
   console.log("Connecting to DB:", process.env.DB_HOST, process.env.DB_PORT);
