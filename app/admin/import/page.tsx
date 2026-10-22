@@ -126,11 +126,16 @@ export default function MasterImportPage() {
         method: 'POST',
         body: fd,
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Validation server returned ${response.status}`);
+      const text = await response.text();
+      let res: any = {};
+      try {
+        res = JSON.parse(text);
+      } catch {
+        throw new Error(text || `Validation server returned ${response.status}`);
       }
-      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.error || text || `Validation server returned ${response.status}`);
+      }
       if (res.error) {
         throw new Error(res.error);
       }
@@ -180,11 +185,16 @@ export default function MasterImportPage() {
         method: 'POST',
         body: fd,
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Validation server returned ${response.status}`);
+      const text = await response.text();
+      let res: any = {};
+      try {
+        res = JSON.parse(text);
+      } catch {
+        throw new Error(text || `Validation server returned ${response.status}`);
       }
-      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.error || text || `Validation server returned ${response.status}`);
+      }
       if (res.error) {
         throw new Error(res.error);
       }
@@ -231,19 +241,19 @@ export default function MasterImportPage() {
         }),
       });
 
-      if (!response.ok) {
-        let errorMsg = `Server error (${response.status})`;
-        try {
-          const errData = await response.json();
-          if (errData.error) errorMsg = errData.error;
-        } catch {
-          const errText = await response.text();
-          if (errText) errorMsg = errText;
-        }
-        throw new Error(errorMsg);
+      const text = await response.text();
+      let summaryResult: any = {};
+      try {
+        summaryResult = JSON.parse(text);
+      } catch {
+        const errorExcerpt = text ? (text.length > 200 ? text.substring(0, 200) + '...' : text) : `Server error (${response.status})`;
+        throw new Error(errorExcerpt);
       }
 
-      const summaryResult = await response.json();
+      if (!response.ok) {
+        throw new Error(summaryResult.error || summaryResult.message || `Server error (${response.status})`);
+      }
+
       if (summaryResult.error) {
         throw new Error(summaryResult.error);
       }
