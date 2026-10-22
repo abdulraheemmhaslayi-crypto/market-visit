@@ -126,15 +126,21 @@ export default function MasterImportPage() {
         method: 'POST',
         body: fd,
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Validation server returned ${response.status}`);
+      const responseText = await response.text();
+      let res: any = null;
+      try {
+        res = JSON.parse(responseText);
+      } catch {
+        // Non-JSON response
       }
-      const res = await response.json();
-      if (res.error) {
+
+      if (!response.ok) {
+        throw new Error(res?.error || (responseText && responseText.length < 300 ? responseText : `Validation server returned ${response.status}`));
+      }
+      if (res?.error) {
         throw new Error(res.error);
       }
-      if (res.success) {
+      if (res?.success) {
         setCounts({
           routes: res.routesCount || 0,
           customers: res.customersCount || 0,
@@ -180,15 +186,21 @@ export default function MasterImportPage() {
         method: 'POST',
         body: fd,
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Validation server returned ${response.status}`);
+      const responseText = await response.text();
+      let res: any = null;
+      try {
+        res = JSON.parse(responseText);
+      } catch {
+        // Non-JSON response
       }
-      const res = await response.json();
-      if (res.error) {
+
+      if (!response.ok) {
+        throw new Error(res?.error || (responseText && responseText.length < 300 ? responseText : `Validation server returned ${response.status}`));
+      }
+      if (res?.error) {
         throw new Error(res.error);
       }
-      if (res.success) {
+      if (res?.success) {
         setCounts({
           routes: res.routesCount || 0,
           customers: res.customersCount || 0,
@@ -231,20 +243,20 @@ export default function MasterImportPage() {
         }),
       });
 
+      const responseText = await response.text();
+      let summaryResult: any = null;
+      try {
+        summaryResult = JSON.parse(responseText);
+      } catch {
+        // Non-JSON response
+      }
+
       if (!response.ok) {
-        let errorMsg = `Server error (${response.status})`;
-        try {
-          const errData = await response.json();
-          if (errData.error) errorMsg = errData.error;
-        } catch {
-          const errText = await response.text();
-          if (errText) errorMsg = errText;
-        }
+        const errorMsg = summaryResult?.error || (responseText && responseText.length < 300 ? responseText : `Server error (${response.status})`);
         throw new Error(errorMsg);
       }
 
-      const summaryResult = await response.json();
-      if (summaryResult.error) {
+      if (summaryResult?.error) {
         throw new Error(summaryResult.error);
       }
 

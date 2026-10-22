@@ -4,15 +4,10 @@ import bcrypt from 'bcryptjs';
 import { authConfig } from '@/auth.config';
 import { userRepository } from '@/repositories/user-repository';
 
-const azureHost =
-  process.env.WEBSITE_HOSTNAME ||
-  (process.env.NODE_ENV === 'production' && !process.env.AUTH_URL
-    ? 'fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net'
-    : null);
-
-if (azureHost) {
-  process.env.AUTH_URL = `https://${azureHost}`;
-  process.env.NEXTAUTH_URL = `https://${azureHost}`;
+if (process.env.AUTH_URL) {
+  process.env.NEXTAUTH_URL = process.env.AUTH_URL;
+} else if (process.env.NEXTAUTH_URL) {
+  process.env.AUTH_URL = process.env.NEXTAUTH_URL;
 }
 
 if (!process.env.AUTH_SECRET) {
@@ -45,7 +40,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         const loginInput = (credentials.email as string).trim();
         let user: any = null;
         try {
-          user = (await userRepository.getUserByEmail(loginInput)) || (await userRepository.getUserByEmployeeCode(loginInput));
+          user = await userRepository.findUserForLogin(loginInput);
         } catch (dbErr) {
           console.warn('DB error during login attempt:', dbErr);
         }
@@ -56,8 +51,12 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
             throw new Error('Your account is inactive. Please contact the administrator.');
           }
 
-          // Verify password
-          const isValid = await bcrypt.compare(credentials.password as string, user.passwordHash);
+          // Verify password (also checking trimmed in case mobile device appended whitespace)
+          const rawPassword = credentials.password as string;
+          let isValid = await bcrypt.compare(rawPassword, user.passwordHash);
+          if (!isValid && rawPassword.trim() !== rawPassword) {
+            isValid = await bcrypt.compare(rawPassword.trim(), user.passwordHash);
+          }
           if (isValid) {
             return {
               id: user.id,
