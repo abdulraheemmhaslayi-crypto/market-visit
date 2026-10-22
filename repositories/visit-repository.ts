@@ -533,7 +533,7 @@ export const visitRepository = {
         console.warn('Auto-ensuring Customer record for visit warning:', custErr);
       }
 
-      if (custCode && rtCode) {
+      if (!isMssql && custCode && rtCode) {
         try {
           await executor.execute(
             `INSERT IGNORE INTO \`CustomerRouteMapping\` (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) VALUES (?, ?, ?)`,

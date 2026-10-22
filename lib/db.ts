@@ -64,6 +64,11 @@ function transformQueryForMssql(query: string, params: any[] = []) {
     }
   }
 
+  // 8b. Add WITH (HOLDLOCK) to MERGE INTO target tables to prevent SQL Server deadlocks (error 1205)
+  if (/MERGE\s+INTO/i.test(q) && !/WITH\s*\(\s*HOLDLOCK\s*\)/i.test(q)) {
+    q = q.replace(/MERGE\s+INTO\s+(\[[^\]]+\]|\w+)\s+(AS\s+target)/gi, 'MERGE INTO $1 WITH (HOLDLOCK) $2');
+  }
+
   // 9. Convert positional ? parameters to named @p0, @p1, ...
   const requestInputs: { name: string; value: any }[] = [];
   if (params && params.length > 0) {
@@ -351,25 +356,35 @@ if (wantsMssql) {
       if (!pool.connected) {
         await pool.connect();
       }
-      const request = pool.request();
       const { q, requestInputs } = transformQueryForMssql(query, params);
 
-      for (const input of requestInputs) {
-        request.input(input.name, input.value);
-      }
-
-      try {
-        const result = await request.query(q);
-        const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
-        if (isSelect) {
-          return [result.recordset || [], null];
-        } else {
-          const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
-          return [{ affectedRows }, null];
+      const maxRetries = 3;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const request = pool.request();
+        for (const input of requestInputs) {
+          request.input(input.name, input.value);
         }
-      } catch (err: any) {
-        console.error('MSSQL execute error:', err.message, 'Query:', q);
-        throw err;
+
+        try {
+          const result = await request.query(q);
+          const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
+          if (isSelect) {
+            return [result.recordset || [], null];
+          } else {
+            const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
+            return [{ affectedRows }, null];
+          }
+        } catch (err: any) {
+          const isDeadlock = err?.number === 1205 || (err?.message && err.message.toLowerCase().includes('deadlock'));
+          if (isDeadlock && attempt < maxRetries) {
+            const delay = 150 * attempt + Math.floor(Math.random() * 100);
+            console.warn(`[MSSQL Deadlock] Process was chosen as deadlock victim. Retrying in ${delay}ms (attempt ${attempt}/${maxRetries})...`);
+            await new Promise((res) => setTimeout(res, delay));
+            continue;
+          }
+          console.error('MSSQL execute error:', err.message, 'Query:', q);
+          throw err;
+        }
       }
     };
 
@@ -405,25 +420,35 @@ if (wantsMssql) {
           // No-op for mssql wrapper
         },
         execute: async (query: string, params: any[] = []) => {
-          const request = activeRequest || pool.request();
           const { q, requestInputs } = transformQueryForMssql(query, params);
 
-          for (const input of requestInputs) {
-            request.input(input.name, input.value);
-          }
-
-          try {
-            const result = await request.query(q);
-            const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
-            if (isSelect) {
-              return [result.recordset || [], null];
-            } else {
-              const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
-              return [{ affectedRows }, null];
+          const maxRetries = 3;
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            const request = activeRequest || pool.request();
+            for (const input of requestInputs) {
+              request.input(input.name, input.value);
             }
-          } catch (err: any) {
-            console.error('MSSQL connection execute error:', err.message, 'Query:', q);
-            throw err;
+
+            try {
+              const result = await request.query(q);
+              const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
+              if (isSelect) {
+                return [result.recordset || [], null];
+              } else {
+                const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
+                return [{ affectedRows }, null];
+              }
+            } catch (err: any) {
+              const isDeadlock = err?.number === 1205 || (err?.message && err.message.toLowerCase().includes('deadlock'));
+              if (isDeadlock && attempt < maxRetries) {
+                const delay = 150 * attempt + Math.floor(Math.random() * 100);
+                console.warn(`[MSSQL Deadlock] Process was chosen as deadlock victim. Retrying in ${delay}ms (attempt ${attempt}/${maxRetries})...`);
+                await new Promise((res) => setTimeout(res, delay));
+                continue;
+              }
+              console.error('MSSQL connection execute error:', err.message, 'Query:', q);
+              throw err;
+            }
           }
         },
       };
