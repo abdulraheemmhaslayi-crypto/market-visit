@@ -46,6 +46,42 @@ export const userRepository = {
     return mapRowToUser(rows[0]);
   },
 
+  async findUserForLogin(identifier: string): Promise<User | null> {
+    const raw = (identifier || '').trim();
+    if (!raw) return null;
+    const lower = raw.toLowerCase();
+
+    // Auto-correct common domain typos (e.g. saif@marketvist.com -> saif@marketvisit.com)
+    let normalized = lower;
+    if (normalized.includes('@marketvist.com') || normalized.includes('@maketvisit.com') || normalized.includes('@markitvisit.com')) {
+      normalized = normalized.replace(/@(marketvist|maketvisit|markitvisit)\.com/, '@marketvisit.com');
+    }
+    if (normalized.includes('@marketvisit.qa') || normalized.includes('@dandy.qa')) {
+      normalized = normalized.replace(/@(marketvisit\.qa|dandy\.qa)/, '@marketvisit.com');
+    }
+
+    const usernamePrefix = lower.includes('@') ? lower.split('@')[0].trim() : lower;
+
+    const [rows]: any = await pool.execute(
+      `SELECT * FROM \`User\` 
+       WHERE LOWER(\`email\`) = ? 
+          OR LOWER(\`email\`) = ?
+          OR LOWER(\`employeeCode\`) = ?
+          OR \`employeeCode\` = ?
+          OR LOWER(\`name\`) = ?
+          OR LOWER(\`email\`) = CONCAT(?, '@marketvisit.com')
+          OR (LOWER(\`name\`) = ? AND ? != '')
+       ORDER BY (LOWER(\`email\`) = ?) DESC, (LOWER(\`email\`) = ?) DESC
+       LIMIT 1`,
+      [lower, normalized, lower, raw, lower, usernamePrefix, usernamePrefix, usernamePrefix, lower, normalized]
+    );
+
+    if (rows.length > 0) {
+      return mapRowToUser(rows[0]);
+    }
+    return null;
+  },
+
   async getUserById(id: string): Promise<User | null> {
     const [rows]: any = await pool.execute(
       'SELECT * FROM `User` WHERE `id` = ? LIMIT 1',

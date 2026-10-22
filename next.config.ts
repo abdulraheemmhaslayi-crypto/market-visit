@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['mssql', 'mysql2'],
   allowedDevOrigins: [
     "http://localhost:3000",
+    "dandyapp.tech",
+    "*.dandyapp.tech",
     "fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net",
   ],
   output: "standalone",
@@ -24,6 +26,8 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
       allowedOrigins: [
+        "dandyapp.tech",
+        "*.dandyapp.tech",
         "fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net",
         "*.azurewebsites.net",
         "localhost:3000",
