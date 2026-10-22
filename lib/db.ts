@@ -64,6 +64,13 @@ function transformQueryForMssql(query: string, params: any[] = []) {
     }
   }
 
+  // 8b. Add WITH (HOLDLOCK) to MERGE INTO statements to prevent deadlocks (Error 1205) in SQL Server
+  if (/MERGE\s+INTO\s+\[\w+\]\s+AS\s+target/i.test(q)) {
+    q = q.replace(/MERGE\s+INTO\s+(\[\w+\])\s+AS\s+target/gi, 'MERGE INTO $1 WITH (HOLDLOCK) AS target');
+  } else if (/MERGE\s+INTO\s+\w+\s+AS\s+target/i.test(q)) {
+    q = q.replace(/MERGE\s+INTO\s+(\w+)\s+AS\s+target/gi, 'MERGE INTO [$1] WITH (HOLDLOCK) AS target');
+  }
+
   // 9. Convert positional ? parameters to named @p0, @p1, ...
   const requestInputs: { name: string; value: any }[] = [];
   if (params && params.length > 0) {
@@ -347,29 +354,48 @@ if (wantsMssql) {
       pool = global.__mssqlPool;
     }
 
+    const isDeadlockError = (err: any) =>
+      err?.number === 1205 ||
+      (typeof err?.message === 'string' && (
+        err.message.includes('deadlock') ||
+        err.message.includes('deadlocked') ||
+        err.message.includes('deadlock victim')
+      ));
+
     pool.execute = async (query: string, params: any[] = []) => {
-      if (!pool.connected) {
-        await pool.connect();
-      }
-      const request = pool.request();
-      const { q, requestInputs } = transformQueryForMssql(query, params);
-
-      for (const input of requestInputs) {
-        request.input(input.name, input.value);
-      }
-
-      try {
-        const result = await request.query(q);
-        const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
-        if (isSelect) {
-          return [result.recordset || [], null];
-        } else {
-          const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
-          return [{ affectedRows }, null];
+      let attempts = 0;
+      const maxAttempts = 5;
+      while (true) {
+        attempts++;
+        if (!pool.connected) {
+          await pool.connect();
         }
-      } catch (err: any) {
-        console.error('MSSQL execute error:', err.message, 'Query:', q);
-        throw err;
+        const request = pool.request();
+        const { q, requestInputs } = transformQueryForMssql(query, params);
+
+        for (const input of requestInputs) {
+          request.input(input.name, input.value === undefined ? null : input.value);
+        }
+
+        try {
+          const result = await request.query(q);
+          const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
+          if (isSelect) {
+            return [result.recordset || [], null];
+          } else {
+            const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
+            return [{ affectedRows }, null];
+          }
+        } catch (err: any) {
+          if (isDeadlockError(err) && attempts < maxAttempts) {
+            const delay = 100 * Math.pow(2, attempts - 1) + Math.floor(Math.random() * 80);
+            console.warn(`[MSSQL Deadlock 1205] Retrying query attempt ${attempts}/${maxAttempts} in ${delay}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+          console.error('MSSQL execute error:', err.message, 'Query:', q);
+          throw err;
+        }
       }
     };
 
