@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Search, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { X, Search, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Maximize2, Minimize2 } from 'lucide-react';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
 
@@ -49,16 +49,33 @@ export default function InteractiveChartTableModal({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Reset page, search and sorting when modal opens with new data
+  // Reset page, search, fullscreen and sorting when modal opens with new data
   useEffect(() => {
     if (isOpen) {
       setSearch('');
       setPage(1);
       setSortField('createdAt');
       setSortOrder('desc');
+      setIsFullscreen(false);
     }
   }, [isOpen, data]);
+
+  // Keyboard shortcut: Escape exits fullscreen or closes modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isFullscreen, onClose]);
 
   // Search Filter
   const filteredData = useMemo(() => {
@@ -164,20 +181,29 @@ export default function InteractiveChartTableModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+    <div className={`fixed inset-0 z-50 flex ${isFullscreen ? 'p-0' : 'items-end md:items-center justify-center p-0 md:p-4'}`}>
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
-        onClick={onClose} 
+        onClick={() => {
+          setIsFullscreen(false);
+          onClose();
+        }} 
       />
 
       {/* Modal Container */}
       <div 
-        className="relative w-full md:max-w-5xl flex flex-col bg-[var(--surface)] md:rounded-2xl shadow-2xl overflow-hidden animate-slide-up"
+        className={`relative w-full flex flex-col bg-[var(--surface)] shadow-2xl overflow-hidden transition-all duration-200 ${
+          isFullscreen
+            ? 'w-screen h-screen max-w-none max-h-none rounded-none m-0 border-0'
+            : 'md:max-w-5xl md:rounded-2xl animate-slide-up'
+        }`}
         style={{ 
-          height: '85vh', 
-          maxHeight: '85vh', 
-          border: '1px solid var(--border)',
+          height: isFullscreen ? '100vh' : '85vh', 
+          maxHeight: isFullscreen ? '100vh' : '85vh', 
+          width: isFullscreen ? '100vw' : undefined,
+          maxWidth: isFullscreen ? '100vw' : undefined,
+          border: isFullscreen ? 'none' : '1px solid var(--border)',
           color: 'var(--text-primary)'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -192,9 +218,33 @@ export default function InteractiveChartTableModal({
           </div>
           <div className="flex items-center gap-2">
             <ExportButton onClick={handleExportModalData} label="Export to Excel" variant="compact" />
+            <button
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className="h-8 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-2)] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              type="button"
+              title={isFullscreen ? 'Exit Full Page View (Esc)' : 'Open in Full Page View'}
+              aria-label={isFullscreen ? 'Exit Full Page View' : 'Open in Full Page View'}
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="h-4 w-4 text-[var(--accent)]" />
+                  <span className="hidden sm:inline">Exit Full Page</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-4 w-4 text-[var(--accent)]" />
+                  <span className="hidden sm:inline">Full Page</span>
+                </>
+              )}
+            </button>
             <button 
-              onClick={onClose} 
+              onClick={() => {
+                setIsFullscreen(false);
+                onClose();
+              }} 
               className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-2)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+              title="Close (Esc)"
+              aria-label="Close"
             >
               <X className="h-4.5 w-4.5" />
             </button>
