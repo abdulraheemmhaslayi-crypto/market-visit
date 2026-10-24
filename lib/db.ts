@@ -64,11 +64,9 @@ function transformQueryForMssql(query: string, params: any[] = []) {
     }
   }
 
-  // 8b. Add WITH (HOLDLOCK) to MERGE INTO statements to prevent deadlocks (Error 1205) in SQL Server
-  if (/MERGE\s+INTO\s+\[\w+\]\s+AS\s+target/i.test(q)) {
-    q = q.replace(/MERGE\s+INTO\s+(\[\w+\])\s+AS\s+target/gi, 'MERGE INTO $1 WITH (HOLDLOCK) AS target');
-  } else if (/MERGE\s+INTO\s+\w+\s+AS\s+target/i.test(q)) {
-    q = q.replace(/MERGE\s+INTO\s+(\w+)\s+AS\s+target/gi, 'MERGE INTO [$1] WITH (HOLDLOCK) AS target');
+  // 8b. Add WITH (HOLDLOCK) to MERGE INTO target tables to prevent SQL Server deadlocks (error 1205)
+  if (/MERGE\s+INTO/i.test(q) && !/WITH\s*\(\s*HOLDLOCK\s*\)/i.test(q)) {
+    q = q.replace(/MERGE\s+INTO\s+(\[[^\]]+\]|\w+)\s+(AS\s+target)/gi, 'MERGE INTO $1 WITH (HOLDLOCK) $2');
   }
 
   // 9. Convert positional ? parameters to named @p0, @p1, ...
@@ -436,36 +434,47 @@ if (wantsMssql) {
           // No-op for mssql wrapper
         },
         execute: async (query: string, params: any[] = []) => {
-          // In node-mssql, each query requires a new sql.Request instance.
-          // Reset parameters dictionary and guard against duplicate parameter declarations.
-          const request = isTransactionActive
-            ? (typeof transaction.request === 'function' ? transaction.request() : new sql.Request(transaction))
-            : pool.request();
+          // In node-mssql, create a fresh Request bound to the active transaction or pool
           const { q, requestInputs } = transformQueryForMssql(query, params);
+          let attempts = 0;
+          const maxAttempts = 3;
 
-          if (request && request.parameters) {
-            request.parameters = {};
-          }
+          while (true) {
+            attempts++;
+            const request = isTransactionActive
+              ? (typeof transaction.request === 'function' ? transaction.request() : new sql.Request(transaction))
+              : pool.request();
 
-          for (const input of requestInputs) {
-            if (request.parameters && request.parameters[input.name]) {
-              delete request.parameters[input.name];
+            if (request && request.parameters) {
+              request.parameters = {};
             }
-            request.input(input.name, input.value === undefined ? null : input.value);
-          }
 
-          try {
-            const result = await request.query(q);
-            const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
-            if (isSelect) {
-              return [result.recordset || [], null];
-            } else {
-              const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
-              return [{ affectedRows }, null];
+            for (const input of requestInputs) {
+              if (request.parameters && request.parameters[input.name]) {
+                delete request.parameters[input.name];
+              }
+              request.input(input.name, input.value === undefined ? null : input.value);
             }
-          } catch (err: any) {
-            console.error('MSSQL connection execute error:', err.message, 'Query:', q);
-            throw err;
+
+            try {
+              const result = await request.query(q);
+              const isSelect = Array.isArray(result.recordsets) && result.recordsets.length > 0;
+              if (isSelect) {
+                return [result.recordset || [], null];
+              } else {
+                const affectedRows = result.rowsAffected ? result.rowsAffected.reduce((a: number, b: number) => a + b, 0) : 0;
+                return [{ affectedRows }, null];
+              }
+            } catch (err: any) {
+              if (isDeadlockError(err) && attempts < maxAttempts) {
+                const delay = 100 * Math.pow(2, attempts - 1) + Math.floor(Math.random() * 80);
+                console.warn(`[MSSQL Deadlock 1205] Retrying transaction query attempt ${attempts}/${maxAttempts} in ${delay}ms...`);
+                await new Promise((resolve) => setTimeout(resolve, delay));
+                continue;
+              }
+              console.error('MSSQL connection execute error:', err.message, 'Query:', q);
+              throw err;
+            }
           }
         },
       };

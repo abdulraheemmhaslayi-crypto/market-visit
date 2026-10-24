@@ -265,35 +265,63 @@ export const routeRepository = {
     let inserted = 0;
     let updated = 0;
 
-    for (const route of routes) {
-      const supervisorId = route.supervisorId || null;
-      const managerId = route.managerId || null;
-      const channel = route.channel || 'GT';
-      const superName = route.superName || null;
-
-      if (isMssql) {
-        const [res]: any = await pool.execute(
-          `MERGE INTO \`Route\` AS target
-           USING (SELECT ? AS routeCode, ? AS routeName, ? AS channel, ? AS supervisorId, ? AS managerId, ? AS superName) AS source
-           ON target.routeCode = source.routeCode
-           WHEN MATCHED THEN
-             UPDATE SET
-               \`routeName\` = source.routeName,
-               \`channel\` = source.channel,
-               \`supervisorId\` = source.supervisorId,
-               \`managerId\` = source.managerId,
-               \`superName\` = source.superName
-           WHEN NOT MATCHED THEN
-             INSERT (\`routeCode\`, \`routeName\`, \`channel\`, \`supervisorId\`, \`managerId\`, \`superName\`)
-             VALUES (source.routeCode, source.routeName, source.channel, source.supervisorId, source.managerId, source.superName);`,
-          [route.routeCode, route.routeName, channel, supervisorId, managerId, superName]
-        );
-        if (res.affectedRows === 1) {
-          inserted++;
-        } else {
-          updated++;
+    if (isMssql) {
+      const ROUTE_CHUNK = 50;
+      for (let i = 0; i < routes.length; i += ROUTE_CHUNK) {
+        const chunk = routes.slice(i, i + ROUTE_CHUNK);
+        // Deduplicate routes in chunk by routeCode
+        const chunkMap = new Map<string, Route>();
+        for (const r of chunk) {
+          if (r.routeCode) chunkMap.set(r.routeCode, r);
         }
-      } else {
+        const deduped = Array.from(chunkMap.values());
+        if (deduped.length === 0) continue;
+
+        const selectClauses = deduped.map(() => 
+          'SELECT ? AS routeCode, ? AS routeName, ? AS channel, ? AS supervisorId, ? AS managerId, ? AS superName'
+        ).join(' UNION ALL ');
+
+        const params: any[] = [];
+        for (const r of deduped) {
+          params.push(
+            r.routeCode,
+            r.routeName,
+            r.channel || 'GT',
+            r.supervisorId || null,
+            r.managerId || null,
+            r.superName || null
+          );
+        }
+
+        try {
+          const [res]: any = await pool.execute(
+            `MERGE INTO [Route] WITH (HOLDLOCK) AS target
+             USING (${selectClauses}) AS source
+             ON target.routeCode = source.routeCode
+             WHEN MATCHED THEN
+               UPDATE SET
+                 [routeName] = source.routeName,
+                 [channel] = source.channel,
+                 [supervisorId] = source.supervisorId,
+                 [managerId] = source.managerId,
+                 [superName] = source.superName
+             WHEN NOT MATCHED THEN
+               INSERT ([routeCode], [routeName], [channel], [supervisorId], [managerId], [superName])
+               VALUES (source.routeCode, source.routeName, source.channel, source.supervisorId, source.managerId, source.superName);`,
+            params
+          );
+          if (res?.affectedRows) inserted += res.affectedRows;
+        } catch (batchErr: any) {
+          console.warn('Batch upsertRoutes error MSSQL:', batchErr.message);
+        }
+      }
+    } else {
+      for (const route of routes) {
+        const supervisorId = route.supervisorId || null;
+        const managerId = route.managerId || null;
+        const channel = route.channel || 'GT';
+        const superName = route.superName || null;
+
         const [res]: any = await pool.execute(
           `INSERT INTO \`Route\` (\`routeCode\`, \`routeName\`, \`channel\`, \`supervisorId\`, \`managerId\`, \`superName\`)
            VALUES (?, ?, ?, ?, ?, ?)
@@ -353,10 +381,13 @@ export const routeRepository = {
       const chunk = toDelete.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => '?').join(',');
       try {
+        const crmCheck = isMssql
+          ? `AND [routeCode] NOT IN (SELECT DISTINCT [routeCode] FROM [Customer] WHERE [routeCode] IS NOT NULL)`
+          : `AND \`routeCode\` NOT IN (SELECT DISTINCT \`routeCode\` FROM \`CustomerRouteMapping\`)`;
         const [res]: any = await pool.execute(
           `DELETE FROM \`Route\` 
            WHERE \`routeCode\` IN (${placeholders})
-             AND \`routeCode\` NOT IN (SELECT DISTINCT \`routeCode\` FROM \`CustomerRouteMapping\`)
+             ${crmCheck}
              AND \`routeCode\` NOT IN (SELECT DISTINCT \`routeCode\` FROM \`Visit\`)`,
           chunk
         );
