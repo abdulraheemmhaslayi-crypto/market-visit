@@ -124,6 +124,32 @@ export async function validateExcelAction(formData: FormData) {
   };
 }
 
+async function executeWithRetry<T>(fn: () => Promise<T>, maxRetries = 3, label = 'operation'): Promise<T> {
+  let lastError: any;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      const isDeadlock =
+        err?.number === 1205 ||
+        (typeof err?.message === 'string' && (
+          err.message.includes('deadlock') ||
+          err.message.includes('deadlocked') ||
+          err.message.includes('victim')
+        ));
+      if (isDeadlock && attempt < maxRetries) {
+        const delay = 300 * attempt + Math.floor(Math.random() * 150);
+        console.warn(`[Deadlock Detected] Retrying ${label} (attempt ${attempt}/${maxRetries}) after ${delay}ms...`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 export async function importExcelAction(payload: {
   routes: Route[];
   customers: Customer[];
@@ -215,35 +241,35 @@ export async function importExcelAction(payload: {
         });
       }
 
-      const res = await routeRepository.upsertRoutes(routesToImport);
+      const res = await executeWithRetry(() => routeRepository.upsertRoutes(routesToImport), 3, 'Import Routes');
       inserted += res.inserted;
       updated += res.updated;
     }
 
     // 3. Import Customers
     if (customers.length > 0) {
-      const res = await customerRepository.upsertCustomers(customers);
+      const res = await executeWithRetry(() => customerRepository.upsertCustomers(customers), 3, 'Import Customers');
       inserted += res.inserted;
       updated += res.updated;
     }
 
     // 4. Import Customer-Route Mappings
     if (mappings.length > 0) {
-      const res = await customerRepository.upsertMappings(mappings);
+      const res = await executeWithRetry(() => customerRepository.upsertMappings(mappings), 3, 'Import Mappings');
       inserted += res.inserted;
       updated += res.updated;
     }
 
     // 5. Import SKUs
     if (skus.length > 0) {
-      const res = await skuRepository.upsertSkus(skus);
+      const res = await executeWithRetry(() => skuRepository.upsertSkus(skus), 3, 'Import SKUs');
       inserted += res.inserted;
       updated += res.updated;
     }
 
     // 6. Import Power SKUs
     if (powerSkus && powerSkus.length > 0) {
-      const res = await skuRepository.upsertPowerSkus(powerSkus);
+      const res = await executeWithRetry(() => skuRepository.upsertPowerSkus(powerSkus), 3, 'Import Power SKUs');
       inserted += res.inserted;
       updated += res.updated;
 
@@ -252,12 +278,20 @@ export async function importExcelAction(payload: {
       const activePowerSkuKeys = powerSkus.map(
         (ps) => `${ps.skuCode.trim().toUpperCase()}_${ps.channel.trim().toUpperCase()}`
       );
-      removed += await skuRepository.clearObsoletePowerSkus(activePowerSkuKeys, activeChannels);
+      removed += await executeWithRetry(
+        () => skuRepository.clearObsoletePowerSkus(activePowerSkuKeys, activeChannels),
+        3,
+        'Purge Obsolete Power SKUs'
+      );
     }
 
     // 7. Import Customer Classifications
     if (classifications && classifications.length > 0) {
-      const res = await customerRepository.upsertClassifications(classifications);
+      const res = await executeWithRetry(
+        () => customerRepository.upsertClassifications(classifications),
+        3,
+        'Import Classifications'
+      );
       inserted += res.inserted;
       updated += res.updated;
     }

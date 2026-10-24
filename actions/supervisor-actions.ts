@@ -55,24 +55,6 @@ export async function getSupervisorsAction(): Promise<any[]> {
       createdAt: u.createdAt,
     }));
 
-    // If there are master supervisors not yet in User table, merge them so admin can see all 15 supervisors
-    const existingNames = new Set(userList.map((u) => (u.name || '').toUpperCase().trim()));
-    for (const sName of masterSupervisors) {
-      const upper = sName.toUpperCase().trim();
-      if (upper && !existingNames.has(upper) && upper !== 'INTERNAL' && upper !== 'SAMRA') {
-        userList.push({
-          id: `master_${upper.toLowerCase()}`,
-          name: sName,
-          employeeCode: `SV-${upper}`,
-          email: `${upper.toLowerCase()}@marketvisit.com`,
-          mobile: '—',
-          role: 'Supervisor' as any,
-          status: 'Active' as any,
-          createdAt: new Date().toISOString(),
-        });
-      }
-    }
-
     return userList;
   } catch (error: any) {
     console.error('Failed to get supervisors:', error);
