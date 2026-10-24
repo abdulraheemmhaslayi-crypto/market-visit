@@ -373,7 +373,14 @@ if (wantsMssql) {
         const request = pool.request();
         const { q, requestInputs } = transformQueryForMssql(query, params);
 
+        if (request && request.parameters) {
+          request.parameters = {};
+        }
+
         for (const input of requestInputs) {
+          if (request.parameters && request.parameters[input.name]) {
+            delete request.parameters[input.name];
+          }
           request.input(input.name, input.value === undefined ? null : input.value);
         }
 
@@ -430,12 +437,21 @@ if (wantsMssql) {
         },
         execute: async (query: string, params: any[] = []) => {
           // In node-mssql, each query requires a new sql.Request instance.
-          // Reusing the same Request instance across queries causes duplicate parameter errors (@p0 already declared).
-          const request = isTransactionActive ? new sql.Request(transaction) : pool.request();
+          // Reset parameters dictionary and guard against duplicate parameter declarations.
+          const request = isTransactionActive
+            ? (typeof transaction.request === 'function' ? transaction.request() : new sql.Request(transaction))
+            : pool.request();
           const { q, requestInputs } = transformQueryForMssql(query, params);
 
+          if (request && request.parameters) {
+            request.parameters = {};
+          }
+
           for (const input of requestInputs) {
-            request.input(input.name, input.value);
+            if (request.parameters && request.parameters[input.name]) {
+              delete request.parameters[input.name];
+            }
+            request.input(input.name, input.value === undefined ? null : input.value);
           }
 
           try {

@@ -279,6 +279,7 @@ async function ensureVisitTableSchema(connection?: any): Promise<void> {
 }
 
 async function ensureVisitPhotoTableSchema(connection: mysql.Connection | mysql.PoolConnection): Promise<void> {
+  if (isMssql) return;
   try {
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS \`VisitPhoto\` (
@@ -509,36 +510,72 @@ export const visitRepository = {
       try {
         const custName = visit.customerName || custCode || 'Unknown Customer';
         const ch = (rtCode && rtCode.startsWith('MT')) ? 'MT' : (rtCode && rtCode.startsWith('IS') ? 'INST' : 'TT');
-        await executor.execute(
-          `INSERT INTO \`Customer\` (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
-             \`customerName\` = IF(VALUES(\`customerName\`) != '' AND VALUES(\`customerName\`) != 'Unknown Customer', VALUES(\`customerName\`), \`customerName\`),
-             \`dairyClassification\` = COALESCE(VALUES(\`dairyClassification\`), \`Customer\`.\`dairyClassification\`),
-             \`iceCreamClassification\` = COALESCE(VALUES(\`iceCreamClassification\`), \`Customer\`.\`iceCreamClassification\`),
-             \`channel\` = COALESCE(VALUES(\`channel\`), \`Customer\`.\`channel\`),
-             \`routeCode\` = COALESCE(VALUES(\`routeCode\`), \`Customer\`.\`routeCode\`)`,
-          [
-            visit.cust_rt_id,
-            custCode || visit.cust_rt_id,
-            custName,
-            visit.dairyClassification || visit.iceCreamClassification || 'C',
-            visit.dairyClassification || null,
-            visit.iceCreamClassification || null,
-            ch,
-            rtCode || null,
-          ]
-        );
+        if (isMssql) {
+          await executor.execute(
+            `MERGE INTO \`Customer\` AS target
+             USING (SELECT ? AS cust_rt_id, ? AS customerCode, ? AS customerName, ? AS classification, ? AS dairyClassification, ? AS iceCreamClassification, ? AS channel, ? AS routeCode) AS source
+             ON target.cust_rt_id = source.cust_rt_id
+             WHEN MATCHED THEN
+               UPDATE SET 
+                 \`customerName\` = CASE WHEN source.customerName != '' AND source.customerName != 'Unknown Customer' THEN source.customerName ELSE target.customerName END,
+                 \`dairyClassification\` = COALESCE(source.dairyClassification, target.dairyClassification),
+                 \`iceCreamClassification\` = COALESCE(source.iceCreamClassification, target.iceCreamClassification),
+                 \`channel\` = COALESCE(source.channel, target.channel),
+                 \`routeCode\` = COALESCE(source.routeCode, target.routeCode)
+             WHEN NOT MATCHED THEN
+               INSERT (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`) 
+               VALUES (source.cust_rt_id, source.customerCode, source.customerName, source.classification, source.dairyClassification, source.iceCreamClassification, source.channel, source.routeCode);`,
+            [
+              visit.cust_rt_id,
+              custCode || visit.cust_rt_id,
+              custName,
+              visit.dairyClassification || visit.iceCreamClassification || 'C',
+              visit.dairyClassification || null,
+              visit.iceCreamClassification || null,
+              ch,
+              rtCode || null,
+            ]
+          );
+        } else {
+          await executor.execute(
+            `INSERT INTO \`Customer\` (\`cust_rt_id\`, \`customerCode\`, \`customerName\`, \`classification\`, \`dairyClassification\`, \`iceCreamClassification\`, \`channel\`, \`routeCode\`)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               \`customerName\` = IF(VALUES(\`customerName\`) != '' AND VALUES(\`customerName\`) != 'Unknown Customer', VALUES(\`customerName\`), \`customerName\`),
+               \`dairyClassification\` = COALESCE(VALUES(\`dairyClassification\`), \`Customer\`.\`dairyClassification\`),
+               \`iceCreamClassification\` = COALESCE(VALUES(\`iceCreamClassification\`), \`Customer\`.\`iceCreamClassification\`),
+               \`channel\` = COALESCE(VALUES(\`channel\`), \`Customer\`.\`channel\`),
+               \`routeCode\` = COALESCE(VALUES(\`routeCode\`), \`Customer\`.\`routeCode\`)`,
+            [
+              visit.cust_rt_id,
+              custCode || visit.cust_rt_id,
+              custName,
+              visit.dairyClassification || visit.iceCreamClassification || 'C',
+              visit.dairyClassification || null,
+              visit.iceCreamClassification || null,
+              ch,
+              rtCode || null,
+            ]
+          );
+        }
       } catch (custErr) {
         console.warn('Auto-ensuring Customer record for visit warning:', custErr);
       }
 
       if (custCode && rtCode) {
         try {
-          await executor.execute(
-            `INSERT IGNORE INTO \`CustomerRouteMapping\` (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) VALUES (?, ?, ?)`,
-            [visit.cust_rt_id, custCode, rtCode]
-          );
+          if (isMssql) {
+            await executor.execute(
+              `IF NOT EXISTS (SELECT 1 FROM \`CustomerRouteMapping\` WHERE \`cust_rt_id\` = ? AND \`customerCode\` = ? AND \`routeCode\` = ?)
+               INSERT INTO \`CustomerRouteMapping\` (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) VALUES (?, ?, ?)`,
+              [visit.cust_rt_id, custCode, rtCode, visit.cust_rt_id, custCode, rtCode]
+            );
+          } else {
+            await executor.execute(
+              `INSERT IGNORE INTO \`CustomerRouteMapping\` (\`cust_rt_id\`, \`customerCode\`, \`routeCode\`) VALUES (?, ?, ?)`,
+              [visit.cust_rt_id, custCode, rtCode]
+            );
+          }
         } catch (crmErr) {}
       }
     }
