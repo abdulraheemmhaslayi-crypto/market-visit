@@ -782,9 +782,15 @@ export async function GET(req: NextRequest) {
           rawAvailPsku++;
         }
       });
-      const pskuAvailableCount = Math.min(rawAvailPsku, totalPskuCount);
+      const isNearExpiryChannel =
+        (ch || '').toUpperCase().trim() === 'NEAR EXPIRY' ||
+        (ch || '').toUpperCase().trim().includes('NEAR EXPIRY') ||
+        (cmCust?.channel || '').toUpperCase().trim() === 'NEAR EXPIRY' ||
+        (dbCust?.channel || '').toUpperCase().trim() === 'NEAR EXPIRY' ||
+        (v.channel || '').toUpperCase().trim() === 'NEAR EXPIRY';
+      const pskuAvailableCount = isNearExpiryChannel ? 0 : Math.min(rawAvailPsku, totalPskuCount);
       const hasAvail = rawAvailPsku > 0;
-      const psku = hasAvail ? 'A' : 'N';
+      const psku = isNearExpiryChannel ? 'N/A' : (hasAvail ? 'A' : 'N');
       const npdAvailableCount = visitNpd.filter((r: any) => r.status === 'Available' || r.status === 'YES' || r.status === 'A').length;
 
       const chillerAssets = visitAssets.filter((a: any) => (a.assetType || '').toLowerCase() === 'chiller');
@@ -980,8 +986,8 @@ export async function GET(req: NextRequest) {
           });
         }
 
-        // Populate PowerSKU Report Rows (Strictly 24 MT or 22 TT canonical SKUs matching Master List)
-        if (v.visit_type !== 'No Visit') {
+        // Populate PowerSKU Report Rows (Strictly 24 MT or 22 TT canonical SKUs matching Master List; exclude NEAR EXPIRY channel)
+        if (v.visit_type !== 'No Visit' && !isNearExpiryChannel) {
           const targetSkus = isMT ? MT_POWER_SKUS : TT_POWER_SKUS;
           const visitPskuMap = new Map<string, any>();
           visitPsku.forEach((item: any) => {

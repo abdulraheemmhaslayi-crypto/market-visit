@@ -31,6 +31,30 @@ export async function GET() {
       masterSupervisors = getCustMasterData().supervisors || [];
     } catch {}
 
+    // If there are master supervisors not yet in User table, create real DB records so they can log in
+    const existingNames = new Set(users.map((u) => (u.name || '').toUpperCase().trim()));
+    for (const sName of masterSupervisors) {
+      const upper = sName.toUpperCase().trim();
+      if (upper && !existingNames.has(upper) && upper !== 'INTERNAL' && upper !== 'SAMRA') {
+        const nextNum = users.length + 1;
+        const code = `SUP0${nextNum < 10 ? '0' + nextNum : nextNum}`;
+        const email = `${upper.toLowerCase()}@marketvisit.com`;
+        const pass = `${upper.toLowerCase()}@12345`;
+        const passwordHash = await bcrypt.hash(pass, 10);
+        const newUser = await userRepository.createUser({
+          name: sName,
+          employeeCode: code,
+          email,
+          mobile: '—',
+          role: 'Supervisor',
+          status: 'Active',
+          passwordHash,
+        });
+        users.push(newUser);
+        existingNames.add(upper);
+      }
+    }
+
     const userList = users.map((u) => ({
       id: u.id,
       name: u.name,
@@ -41,24 +65,6 @@ export async function GET() {
       status: u.status,
       createdAt: u.createdAt,
     }));
-
-    // If there are master supervisors not yet in User table, merge them so admin can see all supervisors
-    const existingNames = new Set(userList.map((u) => (u.name || '').toUpperCase().trim()));
-    for (const sName of masterSupervisors) {
-      const upper = sName.toUpperCase().trim();
-      if (upper && !existingNames.has(upper) && upper !== 'INTERNAL' && upper !== 'SAMRA') {
-        userList.push({
-          id: `master_${upper.toLowerCase()}`,
-          name: sName,
-          employeeCode: `SV-${upper}`,
-          email: `${upper.toLowerCase()}@marketvisit.com`,
-          mobile: '—',
-          role: 'Supervisor' as any,
-          status: 'Active' as any,
-          createdAt: new Date().toISOString(),
-        });
-      }
-    }
 
     return NextResponse.json(userList);
   } catch (error: any) {
