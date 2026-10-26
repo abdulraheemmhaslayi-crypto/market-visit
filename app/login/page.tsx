@@ -120,24 +120,35 @@ function LoginForm() {
     setLoading(true);
     setErrorMsg(null);
     try {
+      const loginIdentifier = (data.email || '').trim();
       const res = await signIn('credentials', {
-        email: data.email,
+        email: loginIdentifier,
         password: data.password,
         redirect: false,
       });
 
       if (res?.error) {
-        let msg = 'Invalid email or password.';
+        let msg = 'Invalid email, employee code, or password.';
         if (res.error.includes('inactive')) {
           msg = 'Your account is inactive. Please contact the administrator.';
         } else if (res.error.includes('No user found')) {
-          msg = 'No supervisor account matches this email.';
+          msg = 'No supervisor account matches this login identifier.';
         }
         setErrorMsg(msg);
         showToast(msg, 'error');
       } else {
         showToast('Login successful! Redirecting...', 'success');
-        router.push('/');
+        let callback = searchParams.get('callbackUrl') || '/';
+        try {
+          if (callback.startsWith('http')) {
+            const parsed = new URL(callback);
+            callback = parsed.pathname + parsed.search;
+          }
+        } catch {}
+        if (!callback.startsWith('/') || callback.startsWith('//') || callback === '/login') {
+          callback = '/';
+        }
+        router.push(callback);
         router.refresh();
       }
     } catch (err: any) {

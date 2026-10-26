@@ -1,15 +1,10 @@
 import type { NextAuthConfig } from 'next-auth';
 import { canAccessAdminRoute, canAccessSupervisorRoute, isFullAccessRole, isSupervisorRole } from '@/lib/roles';
 
-const azureHost =
-  process.env.WEBSITE_HOSTNAME ||
-  (process.env.NODE_ENV === 'production' && !process.env.AUTH_URL
-    ? 'fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net'
-    : null);
-
-if (azureHost) {
-  process.env.AUTH_URL = `https://${azureHost}`;
-  process.env.NEXTAUTH_URL = `https://${azureHost}`;
+if (process.env.AUTH_URL) {
+  process.env.NEXTAUTH_URL = process.env.AUTH_URL;
+} else if (process.env.NEXTAUTH_URL) {
+  process.env.AUTH_URL = process.env.NEXTAUTH_URL;
 }
 
 if (!process.env.AUTH_SECRET) {
@@ -23,14 +18,18 @@ process.env.AUTH_TRUST_HOST = 'true';
 function getTargetUrl(path: string, nextUrl: URL, request?: any) {
   let host =
     request?.headers?.get?.('x-forwarded-host') ||
-    azureHost ||
-    nextUrl.host;
+    request?.headers?.get?.('host') ||
+    nextUrl?.host ||
+    'dandyapp.tech';
   if (host && host.includes(',')) {
     host = host.split(',')[0].trim();
   }
+  if (host && host.includes('azurewebsites.net')) {
+    host = 'dandyapp.tech';
+  }
   let proto =
     request?.headers?.get?.('x-forwarded-proto') ||
-    (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
+    (host && (host.includes('localhost') || host.includes('127.0.0.1')) ? 'http' : 'https');
   if (proto && proto.includes(',')) {
     proto = proto.split(',')[0].trim();
   }
@@ -75,7 +74,11 @@ export const authConfig = {
       }
 
       if (!isLoggedIn) {
-        return false;
+        const loginUrl = getTargetUrl('/login', nextUrl, request);
+        if (nextUrl.pathname && nextUrl.pathname !== '/') {
+          loginUrl.searchParams.set('callbackUrl', nextUrl.pathname + nextUrl.search);
+        }
+        return Response.redirect(loginUrl);
       }
 
       if (user?.status !== 'Active') {

@@ -311,9 +311,14 @@ export default function GmExecutiveReportsPage() {
     const activeSups = new Set(filteredRows.map((r) => r.sup || r.supervisor).filter(Boolean)).size || stats?.totalSupervisors || 1;
     const avgPerSup = activeSups > 0 ? Math.round(totalAudits / activeSups) : totalAudits;
 
-    // Power SKU Availability (OSA)
-    const pskuRows = filteredRows.filter((r) => r.psku === 'Y' || r.psku === 'Compliant' || r.psku === 1 || r.psku === 'A');
-    const powerSkuOsa = totalAudits > 0 ? Math.round((pskuRows.length / totalAudits) * 100) : 89;
+    // Power SKU Availability (OSA) - Exclude NEAR EXPIRY channel where power sku is not applicable
+    const isNearExpiryChannel = (ch?: unknown) => {
+      const s = String(ch || '').toUpperCase().trim();
+      return s === 'NEAR EXPIRY' || s.includes('NEAR EXPIRY');
+    };
+    const validPskuVisits = filteredRows.filter((r) => !isNearExpiryChannel(r.ch || r.channel || r.rtm) && r.psku !== 'N/A');
+    const pskuRows = validPskuVisits.filter((r) => r.psku === 'Y' || r.psku === 'Compliant' || r.psku === 1 || r.psku === 'A');
+    const powerSkuOsa = validPskuVisits.length > 0 ? Math.round((pskuRows.length / validPskuVisits.length) * 100) : 89;
 
     // Directives Status
     const totalDirectives = auditActions.length;
@@ -391,8 +396,11 @@ export default function GmExecutiveReportsPage() {
       });
     }
 
-    // Category 2: Power SKU Availability & Distribution Voids
-    const pskuReportRows: any[] = stats?.reportRows?.psku || [];
+    // Category 2: Power SKU Availability & Distribution Voids (Exclude NEAR EXPIRY)
+    const pskuReportRows: any[] = (stats?.reportRows?.psku || []).filter((p: any) => {
+      const s = String(p.channel || p.ch || p.rtm || '').toUpperCase().trim();
+      return s !== 'NEAR EXPIRY' && !s.includes('NEAR EXPIRY');
+    });
     const voidSkusMap = new Map<string, number>();
     const routeVoidMap = new Map<string, number>();
 
@@ -621,7 +629,11 @@ export default function GmExecutiveReportsPage() {
       const uniqueOutlets = new Set(supRows.map((r) => r.outletCode || r.customerCode || r.cust)).size;
       const breaches = supRows.filter((r) => r.ok === false || r.tempOk === 'Breach').length;
       const complianceRate = visits > 0 ? Math.round(((visits - breaches) / visits) * 100) : 100;
-      const pskuRate = visits > 0 ? Math.round((supRows.filter((r) => r.psku === 'Y' || r.psku === 'A' || r.psku === 1).length / visits) * 100) : 0;
+      const eligiblePskuRows = supRows.filter((r) => {
+        const s = String(r.ch || r.channel || r.rtm || '').toUpperCase().trim();
+        return s !== 'NEAR EXPIRY' && !s.includes('NEAR EXPIRY') && r.psku !== 'N/A';
+      });
+      const pskuRate = eligiblePskuRows.length > 0 ? Math.round((eligiblePskuRows.filter((r) => r.psku === 'Y' || r.psku === 'A' || r.psku === 1).length / eligiblePskuRows.length) * 100) : 0;
       const compositeScore = Math.round(complianceRate * 0.4 + pskuRate * 0.4 + Math.min(100, (visits / 25) * 100) * 0.2);
 
       return {

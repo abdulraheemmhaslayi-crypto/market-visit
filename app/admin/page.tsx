@@ -539,9 +539,14 @@ export default function AdminDashboardPage() {
 
   // Power SKU rows matching all active filters (date, manager, supervisor, channel, classification, outlet, route, SKU, business vertical)
   const filteredPskuRows = useMemo(() => {
+    const isNearExpiry = (ch?: unknown) => {
+      const s = String(ch || '').toUpperCase().trim();
+      return s === 'NEAR EXPIRY' || s.includes('NEAR EXPIRY');
+    };
+
     const rawPsku = (reportRows.psku && reportRows.psku.length > 0)
       ? reportRows.psku
-      : rows.map((r: any) => {
+      : rows.filter((r: any) => !isNearExpiry(r.ch || r.channel) && r.psku !== 'N/A').map((r: any) => {
           const [cCode, rCode] = (r.cust_rt_id || '').split('|');
           const isAvail = r.psku === 'A' || r.psku === 'YES' || r.status === 'Available';
           const isNotAvail = r.psku === 'N' || r.psku === 'NO' || r.status === 'Not Available';
@@ -566,6 +571,7 @@ export default function AdminDashboardPage() {
         });
 
     return rawPsku.filter((r: any) => {
+      if (isNearExpiry(r.channel || r.ch || r.rtm)) return false;
       const rowDate = new Date(r.date);
       const from = normalizeDate(fFrom);
       const to = normalizeDate(fTo);
@@ -709,9 +715,13 @@ export default function AdminDashboardPage() {
     } else if (reportType === 'npd') {
       matched = filteredNpdRows.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
     } else if (reportType === 'psku') {
+      const isNearExpiry = (ch?: unknown) => {
+        const s = String(ch || '').toUpperCase().trim();
+        return s === 'NEAR EXPIRY' || s.includes('NEAR EXPIRY');
+      };
       const source = (filteredPskuRows && filteredPskuRows.length > 0)
         ? filteredPskuRows
-        : filtered.map((r: any) => {
+        : filtered.filter((r: any) => !isNearExpiry(r.ch || r.channel) && r.psku !== 'N/A').map((r: any) => {
             const [cCode, rCode] = (r.cust_rt_id || '').split('|');
             const isAvail = r.psku === 'A' || r.psku === 'YES' || r.status === 'Available';
             const isNotAvail = r.psku === 'N' || r.psku === 'NO' || r.status === 'Not Available';
@@ -733,7 +743,7 @@ export default function AdminDashboardPage() {
               psku: isAvail ? 'A' : 'N',
             };
           });
-      matched = source.filter((row: any) => filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
+      matched = source.filter((row: any) => !isNearExpiry(row.channel || row.ch || row.rtm) && filterFn(row) && (!row.visitId || visitLookup.has(row.visitId)));
     } else {
       matched = (reportRows[reportType] || []).filter((row: any) => {
         const visit = visitLookup.get(row.visitId);
@@ -756,9 +766,13 @@ export default function AdminDashboardPage() {
       return;
     }
     if (reportModalSource === 'psku') {
+      const isNearExpiry = (ch?: unknown) => {
+        const s = String(ch || '').toUpperCase().trim();
+        return s === 'NEAR EXPIRY' || s.includes('NEAR EXPIRY');
+      };
       const source = (filteredPskuRows && filteredPskuRows.length > 0)
         ? filteredPskuRows
-        : filtered.map((r: any) => {
+        : filtered.filter((r: any) => !isNearExpiry(r.ch || r.channel) && r.psku !== 'N/A').map((r: any) => {
             const [cCode, rCode] = (r.cust_rt_id || '').split('|');
             const isAvail = r.psku === 'A' || r.psku === 'YES' || r.status === 'Available';
             const isNotAvail = r.psku === 'N' || r.psku === 'NO' || r.status === 'Not Available';
@@ -780,7 +794,7 @@ export default function AdminDashboardPage() {
               psku: isAvail ? 'A' : 'N',
             };
           });
-      setReportModalRows(source.filter((r: any) => !r.visitId || visitLookup.has(r.visitId)));
+      setReportModalRows(source.filter((r: any) => !isNearExpiry(r.channel || r.ch || r.rtm) && (!r.visitId || visitLookup.has(r.visitId))));
       setReportFilterChip(null);
       return;
     }
@@ -1052,9 +1066,13 @@ export default function AdminDashboardPage() {
   };
 
   const handleExportPowerSkuChart = () => {
-    const dataToExport = filteredPskuRows.length > 0
+    const isNearExpiry = (ch?: unknown) => {
+      const s = String(ch || '').toUpperCase().trim();
+      return s === 'NEAR EXPIRY' || s.includes('NEAR EXPIRY');
+    };
+    const dataToExport = (filteredPskuRows.length > 0
       ? filteredPskuRows
-      : filtered.map((r) => {
+      : filtered.filter((r: any) => !isNearExpiry(r.ch || r.channel) && r.psku !== 'N/A').map((r) => {
           const [cCode, rCode] = (r.cust_rt_id || '').split('|');
           return {
             date: r.createdAt,
@@ -1069,7 +1087,8 @@ export default function AdminDashboardPage() {
             skuName: 'All Power SKUs',
             availability: r.psku === 'A' || r.psku === 'YES' ? 'YES' : 'NO',
           };
-        });
+        })
+    ).filter((r: any) => !isNearExpiry(r.channel || r.ch || r.rtm));
 
     exportToExcel({
       filename: `powersku_availability_${new Date().toISOString().slice(0, 10)}`,
@@ -1977,14 +1996,19 @@ export default function AdminDashboardPage() {
     // 6. Focus SKU Availability Bar Chart (percentage-based)
     if (canvasPskuRef.current) {
       if (chartsRef.current.cPsku) chartsRef.current.cPsku.destroy();
+      const isNearExpiry = (ch?: unknown) => {
+        const s = String(ch || '').toUpperCase().trim();
+        return s === 'NEAR EXPIRY' || s.includes('NEAR EXPIRY');
+      };
+      const pskuVisits = filtered.filter((r) => !isNearExpiry(r.ch || r.channel) && r.psku !== 'N/A');
       let availCount = 0;
       let notAvailCount = 0;
-      filtered.forEach((r) => {
+      pskuVisits.forEach((r) => {
         const isA = r.psku === 'A' || (r.status || r.availability || '').toUpperCase() === 'AVAILABLE' || (r.status || r.availability || '').toUpperCase() === 'YES';
         if (isA) availCount++;
         else notAvailCount++;
       });
-      const pskuTotal = filtered.length;
+      const pskuTotal = pskuVisits.length;
       const pskuPct = (count: number) => (pskuTotal ? Math.round((count / pskuTotal) * 100) : 0);
 
       chartsRef.current.cPsku = new Chart(canvasPskuRef.current, {
@@ -2023,6 +2047,7 @@ export default function AdminDashboardPage() {
                 'psku',
                 `Power SKU Availability · ${label}`,
                 (r: any) => {
+                  if (isNearExpiry(r.channel || r.ch || r.rtm)) return false;
                   const isA = r.psku === 'A' || (r.status || r.availability || '').toUpperCase() === 'AVAILABLE' || (r.status || r.availability || '').toUpperCase() === 'YES';
                   return pskuCode === 'A' ? isA : !isA;
                 },

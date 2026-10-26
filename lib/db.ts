@@ -352,17 +352,34 @@ if (wantsMssql) {
       pool = global.__mssqlPool;
     }
 
-    pool.execute = async (query: string, params: any[] = []) => {
-      if (!pool.connected) {
-        await pool.connect();
-      }
-      const { q, requestInputs } = transformQueryForMssql(query, params);
+    const isDeadlockError = (err: any) =>
+      err?.number === 1205 ||
+      (typeof err?.message === 'string' && (
+        err.message.includes('deadlock') ||
+        err.message.includes('deadlocked') ||
+        err.message.includes('deadlock victim')
+      ));
 
-      const maxRetries = 3;
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    pool.execute = async (query: string, params: any[] = []) => {
+      let attempts = 0;
+      const maxAttempts = 5;
+      while (true) {
+        attempts++;
+        if (!pool.connected) {
+          await pool.connect();
+        }
         const request = pool.request();
+        const { q, requestInputs } = transformQueryForMssql(query, params);
+
+        if (request && request.parameters) {
+          request.parameters = {};
+        }
+
         for (const input of requestInputs) {
-          request.input(input.name, input.value);
+          if (request.parameters && request.parameters[input.name]) {
+            delete request.parameters[input.name];
+          }
+          request.input(input.name, input.value === undefined ? null : input.value);
         }
 
         try {
@@ -375,11 +392,10 @@ if (wantsMssql) {
             return [{ affectedRows }, null];
           }
         } catch (err: any) {
-          const isDeadlock = err?.number === 1205 || (err?.message && err.message.toLowerCase().includes('deadlock'));
-          if (isDeadlock && attempt < maxRetries) {
-            const delay = 150 * attempt + Math.floor(Math.random() * 100);
-            console.warn(`[MSSQL Deadlock] Process was chosen as deadlock victim. Retrying in ${delay}ms (attempt ${attempt}/${maxRetries})...`);
-            await new Promise((res) => setTimeout(res, delay));
+          if (isDeadlockError(err) && attempts < maxAttempts) {
+            const delay = 100 * Math.pow(2, attempts - 1) + Math.floor(Math.random() * 80);
+            console.warn(`[MSSQL Deadlock 1205] Retrying query attempt ${attempts}/${maxAttempts} in ${delay}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
             continue;
           }
           console.error('MSSQL execute error:', err.message, 'Query:', q);
@@ -388,45 +404,56 @@ if (wantsMssql) {
       }
     };
 
+    pool.query = pool.execute;
+
     pool.getConnection = async () => {
       if (!pool.connected) {
         await pool.connect();
       }
       const transaction = new sql.Transaction(pool);
-      let activeRequest: any = null;
       let isTransactionActive = false;
 
-      return {
+      const connObj: any = {
         beginTransaction: async () => {
           await transaction.begin();
-          activeRequest = new sql.Request(transaction);
           isTransactionActive = true;
         },
         commit: async () => {
           if (isTransactionActive) {
             await transaction.commit();
             isTransactionActive = false;
-            activeRequest = null;
           }
         },
         rollback: async () => {
           if (isTransactionActive) {
             await transaction.rollback();
             isTransactionActive = false;
-            activeRequest = null;
           }
         },
         release: () => {
           // No-op for mssql wrapper
         },
         execute: async (query: string, params: any[] = []) => {
+          // In node-mssql, create a fresh Request bound to the active transaction or pool
           const { q, requestInputs } = transformQueryForMssql(query, params);
+          let attempts = 0;
+          const maxAttempts = 3;
 
-          const maxRetries = 3;
-          for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            const request = activeRequest || pool.request();
+          while (true) {
+            attempts++;
+            const request = isTransactionActive
+              ? (typeof transaction.request === 'function' ? transaction.request() : new sql.Request(transaction))
+              : pool.request();
+
+            if (request && request.parameters) {
+              request.parameters = {};
+            }
+
             for (const input of requestInputs) {
-              request.input(input.name, input.value);
+              if (request.parameters && request.parameters[input.name]) {
+                delete request.parameters[input.name];
+              }
+              request.input(input.name, input.value === undefined ? null : input.value);
             }
 
             try {
@@ -439,11 +466,10 @@ if (wantsMssql) {
                 return [{ affectedRows }, null];
               }
             } catch (err: any) {
-              const isDeadlock = err?.number === 1205 || (err?.message && err.message.toLowerCase().includes('deadlock'));
-              if (isDeadlock && attempt < maxRetries) {
-                const delay = 150 * attempt + Math.floor(Math.random() * 100);
-                console.warn(`[MSSQL Deadlock] Process was chosen as deadlock victim. Retrying in ${delay}ms (attempt ${attempt}/${maxRetries})...`);
-                await new Promise((res) => setTimeout(res, delay));
+              if (isDeadlockError(err) && attempts < maxAttempts) {
+                const delay = 100 * Math.pow(2, attempts - 1) + Math.floor(Math.random() * 80);
+                console.warn(`[MSSQL Deadlock 1205] Retrying transaction query attempt ${attempts}/${maxAttempts} in ${delay}ms...`);
+                await new Promise((resolve) => setTimeout(resolve, delay));
                 continue;
               }
               console.error('MSSQL connection execute error:', err.message, 'Query:', q);
@@ -452,6 +478,9 @@ if (wantsMssql) {
           }
         },
       };
+
+      connObj.query = connObj.execute;
+      return connObj;
     };
   } else {
     // If MSSQL driver failed to load, fall back cleanly to MySQL

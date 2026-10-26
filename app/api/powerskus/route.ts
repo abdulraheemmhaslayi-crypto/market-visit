@@ -30,6 +30,10 @@ export async function GET(req: NextRequest) {
     const cleanCust = (customerCode || '').toUpperCase().trim();
     const cleanChannel = rawChannel.toUpperCase().trim();
 
+    if (cleanChannel === 'NEAR EXPIRY' || cleanChannel.includes('NEAR EXPIRY')) {
+      return NextResponse.json([]);
+    }
+
     const isMT =
       cleanChannel === 'MT' ||
       cleanChannel.startsWith('MT') ||

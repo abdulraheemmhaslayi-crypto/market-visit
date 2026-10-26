@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { X, Search, Download, ArrowUpDown, ArrowUp, ArrowDown, FilterX } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { X, Search, Download, ArrowUpDown, ArrowUp, ArrowDown, FilterX, Maximize2, Minimize2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface DrilldownReportModalProps {
@@ -218,6 +218,7 @@ export default function DrilldownReportModal({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [fFrom, setFFrom] = useState('');
   const [fTo, setFTo] = useState('');
@@ -233,8 +234,43 @@ export default function DrilldownReportModal({
   const [fTempStatus, setFTempStatus] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
+  // Reset fullscreen and filters when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsFullscreen(false);
+      setShowFilters(false);
+    }
+  }, [isOpen]);
+
+  // Keyboard shortcut: Escape exits fullscreen or closes modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isFullscreen, onClose]);
+
   const normalizeDate = (value?: string) => (value ? new Date(`${value}T00:00:00`) : null);
 
+  const isNearExpiryChannel = (ch?: unknown) => {
+    const s = String(ch || '').toUpperCase().trim();
+    return s === 'NEAR EXPIRY' || s.includes('NEAR EXPIRY');
+  };
+
+  // Exclude 'NEAR EXPIRY' outlets from Power SKU Availability report
+  const effectiveRows = useMemo(() => {
+    if (reportType === 'psku') {
+      return rows.filter((r) => !isNearExpiryChannel(r.channel) && !isNearExpiryChannel(r.ch) && !isNearExpiryChannel(r.rtm));
+    }
+    return rows;
+  }, [rows, reportType]);
 
   const columns = REPORT_COLUMNS[reportType];
 
@@ -250,7 +286,7 @@ export default function DrilldownReportModal({
     const assetTypes = new Set<string>();
     const tempStatuses = new Set<string>();
 
-    rows.forEach((row: Record<string, unknown>) => {
+    effectiveRows.forEach((row: Record<string, unknown>) => {
       const channel = row.channel as string | undefined;
       const manager = row.manager as string | undefined;
       const supervisor = row.supervisor as string | undefined;
@@ -263,7 +299,11 @@ export default function DrilldownReportModal({
       const assetType = row.assetType as string | undefined;
       const tempStatus = (row.tempStatus as string | undefined) || (row.tempInRange !== undefined ? (getCellValue(row, 'tempStatus') as string) : undefined);
 
-      if (channel) channels.add(channel);
+      if (channel) {
+        if (reportType !== 'psku' || !isNearExpiryChannel(channel)) {
+          channels.add(channel);
+        }
+      }
       if (manager) managers.add(manager);
       if (supervisor && supervisor.toUpperCase() !== 'INTERNAL' && supervisor.toUpperCase() !== 'SAMRA') {
         supervisors.add(supervisor);
@@ -290,7 +330,7 @@ export default function DrilldownReportModal({
       assetTypes: Array.from(assetTypes).sort(),
       tempStatuses: Array.from(tempStatuses).sort(),
     };
-  }, [rows]);
+  }, [effectiveRows, reportType]);
 
   const resetAdvancedFilters = () => {
     setFFrom('');
@@ -308,7 +348,7 @@ export default function DrilldownReportModal({
   };
 
   const filteredData = useMemo(() => {
-    const filtered = rows.filter((row) => {
+    const filtered = effectiveRows.filter((row) => {
       const rowDate = normalizeDate(row.date as string | undefined) || normalizeDate(row.createdAt as string | undefined);
       const fromDate = normalizeDate(fFrom);
       const toDate = normalizeDate(fTo);
@@ -333,7 +373,7 @@ export default function DrilldownReportModal({
     return filtered.filter((row) =>
       columns.some((col) => String(getCellValue(row, col.key)).toLowerCase().includes(query))
     );
-  }, [rows, search, columns, fFrom, fTo, fChannel, fManager, fSupervisor, fRoute, fOutlet, fClassification, fVertical, fSku, fAssetType, fTempStatus]);
+  }, [effectiveRows, search, columns, fFrom, fTo, fChannel, fManager, fSupervisor, fRoute, fOutlet, fClassification, fVertical, fSku, fAssetType, fTempStatus]);
 
   const sortedData = useMemo(() => {
     const data = [...filteredData];
@@ -394,9 +434,24 @@ export default function DrilldownReportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full md:max-w-6xl flex flex-col bg-[var(--surface)] md:rounded-2xl shadow-2xl overflow-hidden animate-slide-up" style={{ height: '88vh', maxHeight: '88vh', border: '1px solid var(--border)', color: 'var(--text-primary)' }} onClick={(e) => e.stopPropagation()}>
+    <div className={`fixed inset-0 z-[60] flex ${isFullscreen ? 'p-0' : 'items-end md:items-center justify-center p-0 md:p-4'}`}>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setIsFullscreen(false); onClose(); }} />
+      <div
+        className={`relative w-full flex flex-col bg-[var(--surface)] shadow-2xl overflow-hidden transition-all duration-200 ${
+          isFullscreen
+            ? 'w-screen h-screen max-w-none max-h-none rounded-none m-0 border-0'
+            : 'md:max-w-6xl md:rounded-2xl animate-slide-up'
+        }`}
+        style={{
+          height: isFullscreen ? '100vh' : '88vh',
+          maxHeight: isFullscreen ? '100vh' : '88vh',
+          width: isFullscreen ? '100vw' : undefined,
+          maxWidth: isFullscreen ? '100vw' : undefined,
+          border: isFullscreen ? 'none' : '1px solid var(--border)',
+          color: 'var(--text-primary)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between px-5 py-4 border-b border-[var(--border-soft)] bg-[var(--surface)] flex-shrink-0">
           <div>
             <h3 className="text-[16px] font-bold text-[var(--text-primary)]">{title}</h3>
@@ -414,7 +469,32 @@ export default function DrilldownReportModal({
             <button onClick={() => setShowFilters((prev) => !prev)} className="h-8 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-2)] transition-colors" type="button">
               {showFilters ? 'Hide filters' : 'Show filters'}
             </button>
-            <button onClick={() => { setShowFilters(false); onClose(); }} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-2)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer" type="button">
+            <button
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className="h-8 px-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--surface-2)] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              type="button"
+              title={isFullscreen ? 'Exit Full Page View (Esc)' : 'Open in Full Page View'}
+              aria-label={isFullscreen ? 'Exit Full Page View' : 'Open in Full Page View'}
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="h-4 w-4 text-[var(--accent)]" />
+                  <span className="hidden sm:inline">Exit Full Page</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-4 w-4 text-[var(--accent)]" />
+                  <span className="hidden sm:inline">Full Page</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => { setShowFilters(false); setIsFullscreen(false); onClose(); }}
+              className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-[var(--surface-2)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+              type="button"
+              title="Close (Esc)"
+              aria-label="Close"
+            >
               <X className="h-4.5 w-4.5" />
             </button>
           </div>

@@ -3,11 +3,17 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 function getPublicOrigin(request: Request): string {
-  const host =
+  let host =
     request.headers.get('x-forwarded-host') ||
-    process.env.WEBSITE_HOSTNAME ||
     request.headers.get('host') ||
-    'fields-visit-system-bccyaue6cyadaeh9.centralindia-01.azurewebsites.net';
+    'dandyapp.tech';
+
+  if (host && host.includes(',')) {
+    host = host.split(',')[0].trim();
+  }
+  if (host && host.includes('azurewebsites.net')) {
+    host = 'dandyapp.tech';
+  }
 
   const proto =
     request.headers.get('x-forwarded-proto') ||
