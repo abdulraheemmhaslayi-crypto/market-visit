@@ -155,6 +155,16 @@ function transformMergeIntoForMysql(query: string): string {
 
   // 9. VisitAsset
   if (/MERGE\s+INTO\s+[`\[]?VisitAsset[`\]]?/i.test(query)) {
+    if (!query.includes('sizeModel')) {
+      return `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`) 
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON DUPLICATE KEY UPDATE
+                \`assetType\` = VALUES(\`assetType\`),
+                \`temperature\` = VALUES(\`temperature\`),
+                \`tempInRange\` = VALUES(\`tempInRange\`),
+                \`actionRequired\` = VALUES(\`actionRequired\`),
+                \`observation\` = VALUES(\`observation\`)`;
+    }
     return `INSERT INTO \`VisitAsset\` (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
