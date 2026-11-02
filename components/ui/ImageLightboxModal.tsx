@@ -135,6 +135,9 @@ export interface ImageLightboxModalProps {
   actionItems?: Record<string, AuditActionItem>;
   onActionUpdated?: () => void;
   supervisors?: string[];
+  initialSubmittingProof?: boolean;
+  initialProofPhotoUrl?: string;
+  initialMobileTab?: 'photo' | 'details';
 }
 
 export default function ImageLightboxModal({
@@ -148,6 +151,9 @@ export default function ImageLightboxModal({
   actionItems = {},
   onActionUpdated,
   supervisors = [],
+  initialSubmittingProof = false,
+  initialProofPhotoUrl = '',
+  initialMobileTab,
 }: ImageLightboxModalProps) {
   const total = photos.length;
   const current = photos[currentIndex] || null;
@@ -173,9 +179,9 @@ export default function ImageLightboxModal({
 
   // Supervisor Proof & Acknowledgement States
   const [isAcknowledging, setIsAcknowledging] = useState(false);
-  const [isSubmittingProof, setIsSubmittingProof] = useState(false);
+  const [isSubmittingProof, setIsSubmittingProof] = useState(Boolean(initialSubmittingProof || initialProofPhotoUrl));
   const [supervisorComment, setSupervisorComment] = useState('');
-  const [proofPhotoUrl, setProofPhotoUrl] = useState('');
+  const [proofPhotoUrl, setProofPhotoUrl] = useState(initialProofPhotoUrl || '');
   const [isSavingProof, setIsSavingProof] = useState(false);
 
   // GM Verification State
@@ -183,17 +189,30 @@ export default function ImageLightboxModal({
   const [activeTab, setActiveTab] = useState<'details' | 'before_after'>('details');
 
   // Mobile layout view switcher ('photo' | 'details')
-  const [mobileTab, setMobileTab] = useState<'photo' | 'details'>('photo');
+  const [mobileTab, setMobileTab] = useState<'photo' | 'details'>(initialMobileTab || 'photo');
 
   useEffect(() => {
-    setMobileTab('photo');
+    if (initialProofPhotoUrl) {
+      setProofPhotoUrl(initialProofPhotoUrl);
+      setIsSubmittingProof(true);
+      setActiveTab('details');
+      setMobileTab('details');
+    }
+  }, [initialProofPhotoUrl]);
+
+  useEffect(() => {
+    if (initialMobileTab) {
+      setMobileTab(initialMobileTab);
+    } else {
+      setMobileTab('photo');
+    }
     if (current?.supervisor && current.supervisor !== 'UNASSIGNED') {
       setSelectedAssignee(current.supervisor);
     } else {
       setSelectedAssignee(availableSupervisors[0] || 'Field Supervisor');
     }
     setIsReassigning(false);
-  }, [currentIndex, current?.photoId, current?.supervisor, availableSupervisors]);
+  }, [currentIndex, current?.photoId, current?.supervisor, availableSupervisors, initialMobileTab]);
 
   // Role Detection
   const { data: session } = useSession();
@@ -485,15 +504,15 @@ export default function ImageLightboxModal({
   useEffect(() => {
     setIsFlagging(false);
     setIsReassigning(false);
-    setIsSubmittingProof(false);
+    setIsSubmittingProof(Boolean(initialSubmittingProof || initialProofPhotoUrl));
     setGmComment('');
     setSupervisorComment('');
-    setProofPhotoUrl('');
+    setProofPhotoUrl(initialProofPhotoUrl || '');
     setZoom(1);
     setRotation(0);
     stopCamera();
-    setActiveTab(currentAction?.proofPhotoUrl ? 'before_after' : 'details');
-  }, [currentIndex, current?.photoId, currentAction?.proofPhotoUrl, stopCamera]);
+    setActiveTab(initialProofPhotoUrl ? 'details' : (currentAction?.proofPhotoUrl ? 'before_after' : 'details'));
+  }, [currentIndex, current?.photoId, currentAction?.proofPhotoUrl, stopCamera, initialSubmittingProof, initialProofPhotoUrl]);
 
   const handlePrev = useCallback(() => {
     if (hasPrev) {
@@ -702,7 +721,7 @@ export default function ImageLightboxModal({
     e.preventDefault();
 
     if (!proofPhotoUrl) {
-      alert('Please take a proof photo with your camera first.');
+      alert('Please take or select a proof photo first.');
       if (nativeCameraInputRef.current) {
         nativeCameraInputRef.current.click();
       } else {
@@ -1775,15 +1794,14 @@ export default function ImageLightboxModal({
                           <div className="space-y-2">
                             <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                               <Camera className="h-3.5 w-3.5 text-sky-400" />
-                              Proof Photo Attachment (Camera Only):
+                              Proof Photo Attachment:
                             </label>
 
-                            {/* Hidden File Input for native camera */}
+                            {/* Hidden File Input for camera and gallery */}
                             <input
                               ref={nativeCameraInputRef}
                               type="file"
                               accept="image/*"
-                              capture={facingMode}
                               className="hidden"
                               onChange={handleNativeCameraChange}
                             />
@@ -1882,13 +1900,10 @@ export default function ImageLightboxModal({
                                     <div className="flex items-center gap-1.5 mt-2">
                                       <button
                                         type="button"
-                                        onClick={() => {
-                                          setProofPhotoUrl('');
-                                          startCamera('environment');
-                                        }}
+                                        onClick={() => nativeCameraInputRef.current?.click()}
                                         className="text-[10px] font-semibold px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer flex items-center gap-1"
                                       >
-                                        <Camera className="h-3 w-3" /> Retake (Camera)
+                                        <Camera className="h-3 w-3" /> Change Photo
                                       </button>
                                       <button
                                         type="button"
@@ -1902,7 +1917,7 @@ export default function ImageLightboxModal({
                                 </div>
                               </div>
                             ) : (
-                              /* Camera-only capture options (Gallery upload removed per directive) */
+                              /* Camera and Gallery capture options */
                               <div className="space-y-2">
                                 <button
                                   type="button"
@@ -1914,10 +1929,10 @@ export default function ImageLightboxModal({
                                   </div>
                                   <div className="text-left">
                                     <span className="text-xs font-extrabold text-white block">
-                                      Take Proof Photo (Camera App)
+                                      Take Photo or Choose from Gallery
                                     </span>
                                     <span className="text-[10px] text-sky-200 block">
-                                      Tap to open device camera directly (Live Camera Only)
+                                      Tap to capture with camera or select from device gallery
                                     </span>
                                   </div>
                                 </button>
