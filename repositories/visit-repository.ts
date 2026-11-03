@@ -70,6 +70,8 @@ function mapRowToNpd(row: any): NPDResponse {
 
 let visitSchemaChecked = false;
 let visitSchemaPromise: Promise<void> | null = null;
+let visitAssetSchemaChecked = false;
+let visitAssetSchemaPromise: Promise<void> | null = null;
 
 async function ensureVisitTableSchema(connection?: any): Promise<void> {
   if (visitSchemaChecked) return;
@@ -108,6 +110,8 @@ async function ensureVisitTableSchema(connection?: any): Promise<void> {
             // Ignore if column already exists
           }
         }
+        await ensureVisitAssetTableSchema(conn);
+        await ensureVisitPhotoTableSchema(conn);
         return;
       }
 
@@ -116,149 +120,98 @@ async function ensureVisitTableSchema(connection?: any): Promise<void> {
       );
       const existingColumns = new Set((columnsResult as any[]).map((row: any) => row.COLUMN_NAME));
 
-  const migrations: string[] = [];
+      const migrations: string[] = [];
 
-  if (!existingColumns.has('visit_type')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `visit_type` ENUM('Visit','No Visit') NOT NULL DEFAULT 'Visit'");
-  }
-  if (!existingColumns.has('reason_category')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `reason_category` VARCHAR(191) NULL");
-  }
-  if (!existingColumns.has('reason')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `reason` TEXT NULL");
-  }
-  if (!existingColumns.has('observation')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `observation` TEXT NULL");
-  }
-  if (!existingColumns.has('sosAsPerBda')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `sosAsPerBda` TINYINT(1) NULL");
-  }
-  if (!existingColumns.has('visit_datetime')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `visit_datetime` DATETIME NULL");
-  }
-
-  if (!existingColumns.has('cust_rt_id')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `cust_rt_id` VARCHAR(191) NULL");
-  }
-  if (!existingColumns.has('dairyClassification')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `dairyClassification` VARCHAR(50) NULL");
-  }
-  if (!existingColumns.has('iceCreamClassification')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `iceCreamClassification` VARCHAR(50) NULL");
-  }
-  if (!existingColumns.has('routeCode')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `routeCode` VARCHAR(50) NULL");
-  }
-  if (!existingColumns.has('customerCode')) {
-    migrations.push("ALTER TABLE `Visit` ADD COLUMN `customerCode` VARCHAR(50) NULL");
-  }
-
-  const [custRtColumns]: any = await connection.execute("SHOW COLUMNS FROM `Visit` LIKE 'cust_rt_id'");
-  if (custRtColumns?.[0]?.Null === 'NO') {
-    migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `cust_rt_id` VARCHAR(191) NULL");
-  }
-
-  if (existingColumns.has('temperature')) {
-    migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `temperature` DOUBLE NULL");
-  }
-  if (existingColumns.has('assetType')) {
-    migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `assetType` VARCHAR(50) NULL");
-  }
-  if (existingColumns.has('tempInRange')) {
-    migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `tempInRange` TINYINT(1) NULL");
-  }
-  if (existingColumns.has('actionRequired')) {
-    migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `actionRequired` VARCHAR(50) NULL");
-  }
-  if (existingColumns.has('observation')) {
-    migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `observation` TEXT NULL");
-  }
-
-  for (const migration of migrations) {
-    try {
-      await connection.execute(migration);
-    } catch (error: any) {
-      if (!/duplicate column|already exists|doesn't exist|Unknown column/i.test(error.message || '')) {
-        throw error;
+      if (!existingColumns.has('visit_type')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `visit_type` ENUM('Visit','No Visit') NOT NULL DEFAULT 'Visit'");
       }
-    }
-  }
+      if (!existingColumns.has('reason_category')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `reason_category` VARCHAR(191) NULL");
+      }
+      if (!existingColumns.has('reason')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `reason` TEXT NULL");
+      }
+      if (!existingColumns.has('observation')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `observation` TEXT NULL");
+      }
+      if (!existingColumns.has('sosAsPerBda')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `sosAsPerBda` TINYINT(1) NULL");
+      }
+      if (!existingColumns.has('visit_datetime')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `visit_datetime` DATETIME NULL");
+      }
 
-  // Drop foreign key constraints on Visit(cust_rt_id) pointing to Customer
-  // to prevent visit audits from failing due to foreign key constraint violations
-  try {
-    const [fkRows]: any = await connection.execute(`
-      SELECT CONSTRAINT_NAME 
-      FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
-      WHERE TABLE_SCHEMA = DATABASE() 
-        AND TABLE_NAME = 'Visit' 
-        AND COLUMN_NAME = 'cust_rt_id'
-        AND REFERENCED_TABLE_NAME IS NOT NULL
-    `);
-    for (const row of (fkRows as any[] || [])) {
-      if (row.CONSTRAINT_NAME) {
+      if (!existingColumns.has('cust_rt_id')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `cust_rt_id` VARCHAR(191) NULL");
+      }
+      if (!existingColumns.has('dairyClassification')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `dairyClassification` VARCHAR(50) NULL");
+      }
+      if (!existingColumns.has('iceCreamClassification')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `iceCreamClassification` VARCHAR(50) NULL");
+      }
+      if (!existingColumns.has('routeCode')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `routeCode` VARCHAR(50) NULL");
+      }
+      if (!existingColumns.has('customerCode')) {
+        migrations.push("ALTER TABLE `Visit` ADD COLUMN `customerCode` VARCHAR(50) NULL");
+      }
+
+      const [custRtColumns]: any = await connection.execute("SHOW COLUMNS FROM `Visit` LIKE 'cust_rt_id'");
+      if (custRtColumns?.[0]?.Null === 'NO') {
+        migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `cust_rt_id` VARCHAR(191) NULL");
+      }
+
+      if (existingColumns.has('temperature')) {
+        migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `temperature` DOUBLE NULL");
+      }
+      if (existingColumns.has('assetType')) {
+        migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `assetType` VARCHAR(50) NULL");
+      }
+      if (existingColumns.has('tempInRange')) {
+        migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `tempInRange` TINYINT(1) NULL");
+      }
+      if (existingColumns.has('actionRequired')) {
+        migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `actionRequired` VARCHAR(50) NULL");
+      }
+      if (existingColumns.has('observation')) {
+        migrations.push("ALTER TABLE `Visit` MODIFY COLUMN `observation` TEXT NULL");
+      }
+
+      for (const migration of migrations) {
         try {
-          await connection.execute(`ALTER TABLE \`Visit\` DROP FOREIGN KEY \`${row.CONSTRAINT_NAME}\``);
-        } catch (e) {}
+          await connection.execute(migration);
+        } catch (error: any) {
+          if (!/duplicate column|already exists|doesn't exist|Unknown column/i.test(error.message || '')) {
+            throw error;
+          }
+        }
       }
-    }
-  } catch (fkErr) {}
 
-  try {
-    await connection.execute("ALTER TABLE `Visit` DROP FOREIGN KEY `fk_visit_cust_rt`");
-  } catch (e) {}
+      // Drop foreign key constraints on Visit(cust_rt_id) pointing to Customer
+      try {
+        const [fkRows]: any = await connection.execute(`
+          SELECT CONSTRAINT_NAME 
+          FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+          WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'Visit' 
+            AND COLUMN_NAME = 'cust_rt_id'
+            AND REFERENCED_TABLE_NAME IS NOT NULL
+        `);
+        for (const row of (fkRows as any[] || [])) {
+          if (row.CONSTRAINT_NAME) {
+            try {
+              await connection.execute(`ALTER TABLE \`Visit\` DROP FOREIGN KEY \`${row.CONSTRAINT_NAME}\``);
+            } catch (e) {}
+          }
+        }
+      } catch (fkErr) {}
 
-  // Ensure VisitAsset table exists and has all required columns
-  try {
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS \`VisitAsset\` (
-        \`assetId\` VARCHAR(191) PRIMARY KEY,
-        \`visitId\` VARCHAR(191) NOT NULL,
-        \`assetType\` VARCHAR(50) NOT NULL,
-        \`temperature\` DOUBLE NULL,
-        \`tempInRange\` TINYINT(1) NULL,
-        \`actionRequired\` VARCHAR(50) NULL,
-        \`observation\` TEXT NULL,
-        \`isFirstInFlow\` TINYINT(1) NULL DEFAULT 0,
-        \`fefoFollowed\` TINYINT(1) NULL DEFAULT 0,
-        INDEX \`idx_asset_visit\` (\`visitId\`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
+      try {
+        await connection.execute("ALTER TABLE `Visit` DROP FOREIGN KEY `fk_visit_cust_rt`");
+      } catch (e) {}
 
-    const [vaColumnsResult]: any = await connection.execute(
-      "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'VisitAsset'"
-    );
-    const existingVaColumns = new Set((vaColumnsResult as any[]).map((row: any) => row.COLUMN_NAME));
-
-    if (!existingVaColumns.has('assetId')) {
-      await connection.execute("ALTER TABLE `VisitAsset` ADD COLUMN `assetId` VARCHAR(191) NULL");
-    }
-    if (!existingVaColumns.has('isFirstInFlow')) {
-      await connection.execute("ALTER TABLE `VisitAsset` ADD COLUMN `isFirstInFlow` TINYINT(1) NULL DEFAULT 0");
-    }
-    if (!existingVaColumns.has('fefoFollowed')) {
-      await connection.execute("ALTER TABLE `VisitAsset` ADD COLUMN `fefoFollowed` TINYINT(1) NULL DEFAULT 0");
-    }
-    if (!existingVaColumns.has('sizeModel')) {
-      await connection.execute("ALTER TABLE `VisitAsset` ADD COLUMN `sizeModel` VARCHAR(255) NULL");
-    }
-
-    // Migrate PRIMARY KEY if table was created with legacy composite (visitId, assetType)
-    try {
-      const [pkColsResult]: any = await connection.execute(
-        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'VisitAsset' AND CONSTRAINT_NAME = 'PRIMARY'"
-      );
-      const pkCols = (pkColsResult as any[]).map((r: any) => r.COLUMN_NAME);
-      if (pkCols.includes('visitId') && pkCols.includes('assetType') && !pkCols.includes('assetId')) {
-        // Backfill assetId where null
-        await connection.execute("UPDATE `VisitAsset` SET `assetId` = CONCAT('ast_', `visitId`, '_', `assetType`) WHERE `assetId` IS NULL OR `assetId` = ''");
-        await connection.execute("ALTER TABLE `VisitAsset` DROP PRIMARY KEY, ADD PRIMARY KEY (`assetId`)");
-      }
-    } catch (pkErr) {}
-  } catch (e) {
-    // Non-blocking VisitAsset migration
-  }
-
+      await ensureVisitAssetTableSchema(connection);
       await ensureVisitPhotoTableSchema(connection);
 
       // Ensure NPDResponse and VisitPowerSkuResult support 'Not Applicable' status without enum restriction
@@ -278,10 +231,147 @@ async function ensureVisitTableSchema(connection?: any): Promise<void> {
   return visitSchemaPromise;
 }
 
-async function ensureVisitPhotoTableSchema(connection: mysql.Connection | mysql.PoolConnection): Promise<void> {
-  if (isMssql) return;
+async function ensureVisitAssetTableSchema(connection?: any): Promise<void> {
+  if (visitAssetSchemaChecked) return;
+  if (visitAssetSchemaPromise) return visitAssetSchemaPromise;
+
+  visitAssetSchemaChecked = true;
+  visitAssetSchemaPromise = (async () => {
+    try {
+      const conn = connection || pool;
+      if (isMssql) {
+        // 1. Ensure VisitAsset table exists on MSSQL
+        try {
+          await conn.execute(`
+            IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'VisitAsset')
+            BEGIN
+              CREATE TABLE [VisitAsset] (
+                [assetId] VARCHAR(191) NOT NULL PRIMARY KEY,
+                [visitId] VARCHAR(191) NOT NULL,
+                [assetType] VARCHAR(50) NOT NULL,
+                [temperature] FLOAT NULL,
+                [tempInRange] TINYINT NULL,
+                [actionRequired] VARCHAR(50) NULL,
+                [observation] NVARCHAR(MAX) NULL,
+                [isFirstInFlow] TINYINT NULL DEFAULT 0,
+                [fefoFollowed] TINYINT NULL DEFAULT 0,
+                [sizeModel] NVARCHAR(255) NULL
+              );
+              CREATE INDEX [idx_asset_visit] ON [VisitAsset] ([visitId]);
+            END
+          `);
+        } catch (tblErr) {
+          console.warn('ensureVisitAssetTableSchema table creation warning:', tblErr);
+        }
+
+        // 2. Ensure every column exists on MSSQL
+        const mssqlVaColumns = [
+          { name: 'assetId', type: 'VARCHAR(191) NULL' },
+          { name: 'isFirstInFlow', type: 'TINYINT NULL DEFAULT 0' },
+          { name: 'fefoFollowed', type: 'TINYINT NULL DEFAULT 0' },
+          { name: 'sizeModel', type: 'NVARCHAR(255) NULL' },
+          { name: 'actionRequired', type: 'VARCHAR(50) NULL' },
+          { name: 'observation', type: 'NVARCHAR(MAX) NULL' },
+          { name: 'tempInRange', type: 'TINYINT NULL' },
+          { name: 'temperature', type: 'FLOAT NULL' },
+        ];
+
+        for (const col of mssqlVaColumns) {
+          try {
+            await conn.execute(`
+              IF NOT EXISTS (
+                SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = 'VisitAsset' AND COLUMN_NAME = '${col.name}'
+              )
+              BEGIN
+                ALTER TABLE [VisitAsset] ADD [${col.name}] ${col.type};
+              END
+            `);
+          } catch (colErr) {
+            // Ignore if column already exists
+          }
+        }
+        return;
+      }
+
+      // MySQL implementation
+      try {
+        await conn.execute(`
+          CREATE TABLE IF NOT EXISTS \`VisitAsset\` (
+            \`assetId\` VARCHAR(191) PRIMARY KEY,
+            \`visitId\` VARCHAR(191) NOT NULL,
+            \`assetType\` VARCHAR(50) NOT NULL,
+            \`temperature\` DOUBLE NULL,
+            \`tempInRange\` TINYINT(1) NULL,
+            \`actionRequired\` VARCHAR(50) NULL,
+            \`observation\` TEXT NULL,
+            \`isFirstInFlow\` TINYINT(1) NULL DEFAULT 0,
+            \`fefoFollowed\` TINYINT(1) NULL DEFAULT 0,
+            \`sizeModel\` VARCHAR(255) NULL,
+            INDEX \`idx_asset_visit\` (\`visitId\`)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
+
+        const [vaColumnsResult]: any = await conn.execute(
+          "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'VisitAsset'"
+        );
+        const existingVaColumns = new Set((vaColumnsResult as any[]).map((row: any) => row.COLUMN_NAME));
+
+        if (!existingVaColumns.has('assetId')) {
+          await conn.execute("ALTER TABLE `VisitAsset` ADD COLUMN `assetId` VARCHAR(191) NULL");
+        }
+        if (!existingVaColumns.has('isFirstInFlow')) {
+          await conn.execute("ALTER TABLE `VisitAsset` ADD COLUMN `isFirstInFlow` TINYINT(1) NULL DEFAULT 0");
+        }
+        if (!existingVaColumns.has('fefoFollowed')) {
+          await conn.execute("ALTER TABLE `VisitAsset` ADD COLUMN `fefoFollowed` TINYINT(1) NULL DEFAULT 0");
+        }
+        if (!existingVaColumns.has('sizeModel')) {
+          await conn.execute("ALTER TABLE `VisitAsset` ADD COLUMN `sizeModel` VARCHAR(255) NULL");
+        }
+
+        // Migrate PRIMARY KEY if table was created with legacy composite (visitId, assetType)
+        try {
+          const [pkColsResult]: any = await conn.execute(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'VisitAsset' AND CONSTRAINT_NAME = 'PRIMARY'"
+          );
+          const pkCols = (pkColsResult as any[]).map((r: any) => r.COLUMN_NAME);
+          if (pkCols.includes('visitId') && pkCols.includes('assetType') && !pkCols.includes('assetId')) {
+            await conn.execute("UPDATE `VisitAsset` SET `assetId` = CONCAT('ast_', `visitId`, '_', `assetType`) WHERE `assetId` IS NULL OR `assetId` = ''");
+            await conn.execute("ALTER TABLE `VisitAsset` DROP PRIMARY KEY, ADD PRIMARY KEY (`assetId`)");
+          }
+        } catch (pkErr) {}
+      } catch (myErr) {
+        // Non-blocking
+      }
+    } catch (err) {
+      console.warn('ensureVisitAssetTableSchema warning:', err);
+    } finally {
+      visitAssetSchemaPromise = null;
+    }
+  })();
+
+  return visitAssetSchemaPromise;
+}
+
+async function ensureVisitPhotoTableSchema(connection?: any): Promise<void> {
+  const conn = connection || pool;
+  if (isMssql) {
+    try {
+      await conn.execute(`
+        IF NOT EXISTS (
+          SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+          WHERE TABLE_NAME = 'VisitPhoto' AND COLUMN_NAME = 'appName'
+        )
+        BEGIN
+          ALTER TABLE [VisitPhoto] ADD [appName] NVARCHAR(191) NULL DEFAULT 'Chrome';
+        END
+      `);
+    } catch (e) {}
+    return;
+  }
   try {
-    await connection.execute(`
+    await conn.execute(`
       CREATE TABLE IF NOT EXISTS \`VisitPhoto\` (
         \`photoId\` VARCHAR(191) PRIMARY KEY,
         \`visitId\` VARCHAR(191) NOT NULL,
@@ -294,58 +384,58 @@ async function ensureVisitPhotoTableSchema(connection: mysql.Connection | mysql.
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
-    const [vpColumnsResult]: any = await connection.execute(
+    const [vpColumnsResult]: any = await conn.execute(
       "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'VisitPhoto'"
     );
     const existingVpColumns = new Set((vpColumnsResult as any[]).map((row: any) => row.COLUMN_NAME));
 
     if (!existingVpColumns.has('photoId') && existingVpColumns.has('id')) {
-      await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `id` `photoId` VARCHAR(191) NOT NULL");
+      await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `id` `photoId` VARCHAR(191) NOT NULL");
     }
 
     if (!existingVpColumns.has('visitId') && existingVpColumns.has('visit_id')) {
-      await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `visit_id` `visitId` VARCHAR(191) NOT NULL");
+      await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `visit_id` `visitId` VARCHAR(191) NOT NULL");
     }
 
     if (!existingVpColumns.has('cloudinaryUrl')) {
       if (existingVpColumns.has('url')) {
-        await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `url` `cloudinaryUrl` TEXT NOT NULL");
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `url` `cloudinaryUrl` TEXT NOT NULL");
       } else if (existingVpColumns.has('photoUrl')) {
-        await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `photoUrl` `cloudinaryUrl` TEXT NOT NULL");
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `photoUrl` `cloudinaryUrl` TEXT NOT NULL");
       } else if (existingVpColumns.has('image_url')) {
-        await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `image_url` `cloudinaryUrl` TEXT NOT NULL");
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `image_url` `cloudinaryUrl` TEXT NOT NULL");
       } else {
-        await connection.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `cloudinaryUrl` TEXT NOT NULL");
+        await conn.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `cloudinaryUrl` TEXT NOT NULL");
       }
     }
 
     if (!existingVpColumns.has('publicId')) {
       if (existingVpColumns.has('public_id')) {
-        await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `public_id` `publicId` VARCHAR(191) NULL DEFAULT ''");
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `public_id` `publicId` VARCHAR(191) NULL DEFAULT ''");
       } else {
-        await connection.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `publicId` VARCHAR(191) NULL DEFAULT ''");
+        await conn.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `publicId` VARCHAR(191) NULL DEFAULT ''");
       }
     }
 
     if (!existingVpColumns.has('uploadedAt')) {
       if (existingVpColumns.has('createdAt')) {
-        await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `createdAt` `uploadedAt` DATETIME NOT NULL");
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `createdAt` `uploadedAt` DATETIME NOT NULL");
       } else if (existingVpColumns.has('created_at')) {
-        await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `created_at` `uploadedAt` DATETIME NOT NULL");
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `created_at` `uploadedAt` DATETIME NOT NULL");
       } else if (existingVpColumns.has('uploaded_at')) {
-        await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `uploaded_at` `uploadedAt` DATETIME NOT NULL");
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `uploaded_at` `uploadedAt` DATETIME NOT NULL");
       } else {
-        await connection.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `uploadedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
+        await conn.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `uploadedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
       }
     }
 
     if (!existingVpColumns.has('appName')) {
       if (existingVpColumns.has('app_name')) {
-        await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `app_name` `appName` VARCHAR(191) NULL DEFAULT 'Chrome'");
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `app_name` `appName` VARCHAR(191) NULL DEFAULT 'Chrome'");
       } else if (existingVpColumns.has('application')) {
-        await connection.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `application` `appName` VARCHAR(191) NULL DEFAULT 'Chrome'");
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `application` `appName` VARCHAR(191) NULL DEFAULT 'Chrome'");
       } else {
-        await connection.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `appName` VARCHAR(191) NULL DEFAULT 'Chrome'");
+        await conn.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `appName` VARCHAR(191) NULL DEFAULT 'Chrome'");
       }
     }
   } catch (e) {
@@ -760,7 +850,7 @@ export const visitRepository = {
           [p.photoId, p.visitId, p.category, p.cloudinaryUrl, publicIdVal, uploadedAtVal, appNameVal]
         );
       } catch (err: any) {
-        if (err.message && err.message.includes('Unknown column')) {
+        if (err.message && (err.message.includes('Unknown column') || err.message.includes('Invalid column name'))) {
           await ensureVisitPhotoTableSchema(executor);
           await executor.execute(
             `INSERT INTO \`VisitPhoto\` (\`photoId\`, \`visitId\`, \`category\`, \`cloudinaryUrl\`, \`publicId\`, \`uploadedAt\`, \`appName\`) 
@@ -796,28 +886,77 @@ export const visitRepository = {
 
   async insertAssets(assets: VisitAsset[], connection?: mysql.Connection | mysql.PoolConnection): Promise<void> {
     const executor = connection || pool;
+    await ensureVisitAssetTableSchema(executor);
     for (const ast of assets) {
       const assetIdVal = ast.assetId || `ast_${ast.visitId}_${ast.assetType}_${Math.random().toString(36).substring(2, 9)}`;
       if (isMssql) {
-        await executor.execute(
-          `MERGE INTO \`VisitAsset\` AS target
-           USING (SELECT ? AS assetId, ? AS visitId, ? AS assetType, ? AS temperature, ? AS tempInRange, ? AS actionRequired, ? AS observation, ? AS isFirstInFlow, ? AS fefoFollowed, ? AS sizeModel) AS source
-           ON target.assetId = source.assetId
-           WHEN MATCHED THEN
-             UPDATE SET
-               \`assetType\` = source.assetType,
-               \`temperature\` = source.temperature,
-               \`tempInRange\` = source.tempInRange,
-               \`actionRequired\` = source.actionRequired,
-               \`observation\` = source.observation,
-               \`isFirstInFlow\` = source.isFirstInFlow,
-               \`fefoFollowed\` = source.fefoFollowed,
-               \`sizeModel\` = source.sizeModel
-           WHEN NOT MATCHED THEN
-             INSERT (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`)
-             VALUES (source.assetId, source.visitId, source.assetType, source.temperature, source.tempInRange, source.actionRequired, source.observation, source.isFirstInFlow, source.fefoFollowed, source.sizeModel);`,
-          [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0, ast.sizeModel || null]
-        );
+        try {
+          await executor.execute(
+            `MERGE INTO \`VisitAsset\` AS target
+             USING (SELECT ? AS assetId, ? AS visitId, ? AS assetType, ? AS temperature, ? AS tempInRange, ? AS actionRequired, ? AS observation, ? AS isFirstInFlow, ? AS fefoFollowed, ? AS sizeModel) AS source
+             ON target.assetId = source.assetId
+             WHEN MATCHED THEN
+               UPDATE SET
+                 \`assetType\` = source.assetType,
+                 \`temperature\` = source.temperature,
+                 \`tempInRange\` = source.tempInRange,
+                 \`actionRequired\` = source.actionRequired,
+                 \`observation\` = source.observation,
+                 \`isFirstInFlow\` = source.isFirstInFlow,
+                 \`fefoFollowed\` = source.fefoFollowed,
+                 \`sizeModel\` = source.sizeModel
+             WHEN NOT MATCHED THEN
+               INSERT (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`)
+               VALUES (source.assetId, source.visitId, source.assetType, source.temperature, source.tempInRange, source.actionRequired, source.observation, source.isFirstInFlow, source.fefoFollowed, source.sizeModel);`,
+            [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0, ast.sizeModel || null]
+          );
+        } catch (err: any) {
+          const errMsg = err?.message || '';
+          if (errMsg.includes('sizeModel') || errMsg.includes('Invalid column name') || errMsg.includes('Unknown column')) {
+            visitAssetSchemaChecked = false;
+            await ensureVisitAssetTableSchema(executor);
+            try {
+              await executor.execute(
+                `MERGE INTO \`VisitAsset\` AS target
+                 USING (SELECT ? AS assetId, ? AS visitId, ? AS assetType, ? AS temperature, ? AS tempInRange, ? AS actionRequired, ? AS observation, ? AS isFirstInFlow, ? AS fefoFollowed, ? AS sizeModel) AS source
+                 ON target.assetId = source.assetId
+                 WHEN MATCHED THEN
+                   UPDATE SET
+                     \`assetType\` = source.assetType,
+                     \`temperature\` = source.temperature,
+                     \`tempInRange\` = source.tempInRange,
+                     \`actionRequired\` = source.actionRequired,
+                     \`observation\` = source.observation,
+                     \`isFirstInFlow\` = source.isFirstInFlow,
+                     \`fefoFollowed\` = source.fefoFollowed,
+                     \`sizeModel\` = source.sizeModel
+                 WHEN NOT MATCHED THEN
+                   INSERT (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`, \`isFirstInFlow\`, \`fefoFollowed\`, \`sizeModel\`)
+                   VALUES (source.assetId, source.visitId, source.assetType, source.temperature, source.tempInRange, source.actionRequired, source.observation, source.isFirstInFlow, source.fefoFollowed, source.sizeModel);`,
+                [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0, ast.sizeModel || null]
+              );
+            } catch (retryErr) {
+              await executor.execute(
+                `MERGE INTO \`VisitAsset\` AS target
+                 USING (SELECT ? AS assetId, ? AS visitId, ? AS assetType, ? AS temperature, ? AS tempInRange, ? AS actionRequired, ? AS observation) AS source
+                 ON target.assetId = source.assetId
+                 WHEN MATCHED THEN
+                   UPDATE SET
+                     \`assetType\` = source.assetType,
+                     \`temperature\` = source.temperature,
+                     \`tempInRange\` = source.tempInRange,
+                     \`actionRequired\` = source.actionRequired,
+                     \`observation\` = source.observation
+                 WHEN NOT MATCHED THEN
+                   INSERT (\`assetId\`, \`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`)
+                   VALUES (source.assetId, source.visitId, source.assetType, source.temperature, source.tempInRange, source.actionRequired, source.observation);`,
+                [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '']
+              );
+            }
+          } else {
+            throw err;
+          }
+        }
       } else {
         try {
           await executor.execute(
@@ -835,7 +974,9 @@ export const visitRepository = {
             [assetIdVal, ast.visitId, ast.assetType, ast.temperature ?? null, ast.tempInRange ? 1 : 0, ast.actionRequired, ast.observation || '', ast.isFirstInFlow ? 1 : 0, ast.fefoFollowed ? 1 : 0, ast.sizeModel || null]
           );
         } catch (err: any) {
-          if (err.message && err.message.includes('Unknown column')) {
+          if (err.message && (err.message.includes('Unknown column') || err.message.includes('Invalid column name'))) {
+            visitAssetSchemaChecked = false;
+            await ensureVisitAssetTableSchema(executor);
             await executor.execute(
               `INSERT INTO \`VisitAsset\` (\`visitId\`, \`assetType\`, \`temperature\`, \`tempInRange\`, \`actionRequired\`, \`observation\`) 
                VALUES (?, ?, ?, ?, ?, ?)
@@ -879,6 +1020,8 @@ export const visitRepository = {
     const connection = await pool.getConnection();
     try {
       await ensureVisitTableSchema(connection);
+      await ensureVisitAssetTableSchema(connection);
+      await ensureVisitPhotoTableSchema(connection);
       await connection.beginTransaction();
 
       await this.saveVisitRecord(visit, connection);
