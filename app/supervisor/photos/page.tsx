@@ -133,6 +133,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
   const [lightboxInitialProofUrl, setLightboxInitialProofUrl] = useState<string>('');
   const [lightboxInitialSubmittingProof, setLightboxInitialSubmittingProof] = useState<boolean>(false);
   const [lightboxInitialMobileTab, setLightboxInitialMobileTab] = useState<'photo' | 'details' | undefined>(undefined);
+  const [lightboxCameraOnly, setLightboxCameraOnly] = useState<boolean>(false);
 
   const [pagination, setPagination] = useState({
     totalCount: 0,
@@ -381,6 +382,37 @@ export default function SupervisorAuditPhotoGalleryPage() {
 
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  const handleTakeCorrectiveAction = (item: AuditActionItem) => {
+    setIsActionDrawerOpen(false);
+    setLightboxInitialProofUrl('');
+    setLightboxInitialSubmittingProof(true);
+    setLightboxInitialMobileTab('details');
+    setLightboxCameraOnly(true);
+
+    const existingIdx = displayedPhotos.findIndex((p) => p.photoId === item.photoId);
+    if (existingIdx !== -1) {
+      setLightboxIndex(existingIdx);
+    } else {
+      const syntheticPhoto: AuditPhoto = {
+        photoId: item.photoId,
+        visitId: item.visitId || 'VISIT-REF',
+        category: (item.category as any) || 'Audit Photo',
+        cloudinaryUrl: item.originalPhotoUrl,
+        publicId: item.photoId,
+        uploadedAt: item.createdAt || new Date().toISOString(),
+        appName: 'Field Audit',
+        outlet: item.outlet,
+        outletCode: item.outletCode || '',
+        route: item.route,
+        supervisor: item.supervisor || 'Field Supervisor',
+        manager: item.manager || '',
+        channel: item.channel || 'GT',
+      };
+      setPhotos((prev) => [syntheticPhoto, ...prev.filter((p) => p.photoId !== item.photoId)]);
+      setLightboxIndex(0);
+    }
   };
 
   const handleInspectAction = (item: AuditActionItem) => {
@@ -1110,20 +1142,14 @@ export default function SupervisorAuditPhotoGalleryPage() {
                         )}
 
                         {item.actionStatus === 'PENDING' ? (
-                          <label
-                            htmlFor={`directive-file-${item.id}`}
-                            className="w-full py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-semibold select-none"
+                          <button
+                            type="button"
+                            onClick={() => handleTakeCorrectiveAction(item)}
+                            className="w-full py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-semibold select-none active:scale-[0.98]"
                           >
-                            <Camera className="h-3.5 w-3.5 pointer-events-none" />
-                            <span className="pointer-events-none">Take Corrective Action & Submit Proof</span>
-                            <input
-                              id={`directive-file-${item.id}`}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => handleDirectiveProofPhotoSelected(item, e)}
-                            />
-                          </label>
+                            <Camera className="h-3.5 w-3.5" />
+                            <span>Take Corrective Action & Submit Proof</span>
+                          </button>
                         ) : (
                           <button
                             type="button"
@@ -1154,10 +1180,12 @@ export default function SupervisorAuditPhotoGalleryPage() {
           setLightboxInitialProofUrl('');
           setLightboxInitialSubmittingProof(false);
           setLightboxInitialMobileTab(undefined);
+          setLightboxCameraOnly(false);
         }}
         onNavigate={(newIdx) => setLightboxIndex(newIdx)}
         title="Supervisor Audit Photo Gallery"
         userRole="Supervisor"
+        cameraOnly={lightboxCameraOnly}
         actionItems={actionItemsMap}
         initialSubmittingProof={lightboxInitialSubmittingProof}
         initialProofPhotoUrl={lightboxInitialProofUrl}
