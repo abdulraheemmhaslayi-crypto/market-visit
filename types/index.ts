@@ -243,6 +243,7 @@ export interface VisitWizardState {
   assetBrandingRequired?: 'YES' | 'NO';
   brandingScope?: string;
   brandingNotes?: string;
+  brandingPhotoUrl?: string;
 }
 
 // Excel Import wizard status

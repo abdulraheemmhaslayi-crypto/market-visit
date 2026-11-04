@@ -19,6 +19,10 @@ import {
   History,
   Store,
   Check,
+  Camera,
+  ExternalLink,
+  Layers,
+  Maximize2,
 } from 'lucide-react';
 import { exportToExcel } from '@/utils/excelExport';
 import { ExportButton } from '@/components/ui/ExportButton';
@@ -44,6 +48,7 @@ export default function AssetBrandingRequestsPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<string>('all');
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>('all');
+  const [selectedClassification, setSelectedClassification] = useState<string>('all');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
 
@@ -52,6 +57,7 @@ export default function AssetBrandingRequestsPage() {
   const [outletHistory, setOutletHistory] = useState<AssetBrandingRequest[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [isAcknowledging, setIsAcknowledging] = useState<boolean>(false);
+  const [fullPhotoViewer, setFullPhotoViewer] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -62,6 +68,7 @@ export default function AssetBrandingRequestsPage() {
       if (statusFilter === 'acknowledged') params.set('status', 'Acknowledged');
       if (selectedRoute !== 'all') params.set('routeCode', selectedRoute);
       if (selectedSupervisor !== 'all') params.set('supervisorName', selectedSupervisor);
+      if (selectedClassification !== 'all') params.set('classification', selectedClassification);
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
       if (fromDate) params.set('fromDate', fromDate);
       if (toDate) params.set('toDate', toDate);
@@ -79,7 +86,7 @@ export default function AssetBrandingRequestsPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [statusFilter, selectedRoute, selectedSupervisor, searchQuery, fromDate, toDate]);
+  }, [statusFilter, selectedRoute, selectedSupervisor, selectedClassification, searchQuery, fromDate, toDate]);
 
   useEffect(() => {
     fetchRequests(false);
@@ -138,17 +145,18 @@ export default function AssetBrandingRequestsPage() {
         throw new Error(data.error || 'Failed to acknowledge request');
       }
 
-      // Update in-memory lists
+      // Update state locally
       setRequests((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ...data.request } : r))
+        prev.map((r) => (r.id === id || r.requestNumber === id ? data.request : r))
       );
-      if (activeRequest && activeRequest.id === id) {
-        setActiveRequest({ ...activeRequest, ...data.request });
+      if (activeRequest && (activeRequest.id === id || activeRequest.requestNumber === id)) {
+        setActiveRequest(data.request);
       }
-
-      // Refresh counts
-      fetchRequests(true);
-      alert('Asset Branding Request acknowledged successfully.');
+      setCounts((prev) => ({
+        ...prev,
+        pending: Math.max(0, prev.pending - 1),
+        acknowledged: prev.acknowledged + 1,
+      }));
     } catch (err: any) {
       alert(err.message || 'Error acknowledging request');
     } finally {
@@ -156,72 +164,76 @@ export default function AssetBrandingRequestsPage() {
     }
   };
 
+  const handleResetFilters = () => {
+    setStatusFilter('all');
+    setSelectedRoute('all');
+    setSelectedSupervisor('all');
+    setSelectedClassification('all');
+    setSearchQuery('');
+    setFromDate('');
+    setToDate('');
+  };
+
   const handleExportExcel = () => {
     exportToExcel({
-      filename: `asset_branding_requests_${new Date().toISOString().slice(0, 10)}`,
-      sheetName: 'Branding Requests',
-      title: 'Asset Branding Requirements Log',
-      filterSummary: `Status: ${statusFilter} | Route: ${selectedRoute} | Supervisor: ${selectedSupervisor} | Search: "${searchQuery}"`,
+      filename: `Asset_Branding_Requests_${new Date().toISOString().split('T')[0]}`,
+      title: 'Asset Branding Requests Log',
+      filterSummary: `Status: ${statusFilter} | Classification: ${selectedClassification} | Route: ${selectedRoute} | Supervisor: ${selectedSupervisor} | Search: "${searchQuery}"`,
       columns: [
         { header: 'Request ID', key: 'requestNumber' },
         { header: 'Outlet Code', key: 'outletCode' },
         { header: 'Outlet Name', key: 'outletName' },
-        { header: 'Route Code', key: 'routeCode' },
-        { header: 'Supervisor Name', key: 'supervisorName' },
-        { header: 'Branding Scope', key: 'brandingScope' },
+        { header: 'Route', key: 'routeCode' },
+        { header: 'Classification', key: 'classification', formatter: (val: any) => val ? `Class ${val}` : 'Class C' },
+        { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
+        { header: 'Supervisor', key: 'supervisorName' },
+        { header: 'Condition Photo URL', key: 'photoUrl', formatter: (val: any) => val || 'No Photo' },
+        { header: 'Supervisor Notes', key: 'notes', formatter: (val: any, row: any) => val || row.brandingScope || '—' },
+        { header: 'Requested Date', key: 'createdAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
         { header: 'Status', key: 'status' },
-        { header: 'Request Date', key: 'createdAt', formatter: (val) => (val ? new Date(val).toLocaleString() : '—') },
-        { header: 'Acknowledged By', key: 'acknowledgedByName', formatter: (val) => val || '—' },
-        { header: 'Acknowledged Date', key: 'acknowledgedAt', formatter: (val) => (val ? new Date(val).toLocaleString() : '—') },
+        { header: 'Acknowledged By', key: 'acknowledgedByName', formatter: (val: any) => val || '—' },
+        { header: 'Acknowledged Date', key: 'acknowledgedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
       ],
       data: requests,
     });
   };
 
-  const handleResetFilters = () => {
-    setStatusFilter('all');
-    setSearchQuery('');
-    setSelectedRoute('all');
-    setSelectedSupervisor('all');
-    setFromDate('');
-    setToDate('');
-  };
-
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-sm">
-        <div className="flex items-center gap-3.5">
-          <div className="h-12 w-12 rounded-xl bg-white dark:bg-slate-800 p-1 flex items-center justify-center shadow-xs border border-[var(--border)] flex-shrink-0">
-            <img src="/images/dandy-logo.png" alt="Dandy Logo" className="h-full w-auto object-contain" />
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-200">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+            <Tag className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-              Asset Branding Requests
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black text-[var(--text-primary)]">Asset Branding Requests</h1>
+              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
                 Official Module
               </span>
-            </h1>
+            </div>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
               Review field asset branding requirements submitted by supervisors and record administrative acknowledgements.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 self-start md:self-auto">
-          <ExportButton onClick={handleExportExcel} label="Export Log" variant="outline" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <ExportButton onClick={handleExportExcel} disabled={requests.length === 0} />
           <button
+            type="button"
             onClick={() => fetchRequests(true)}
             disabled={isRefreshing}
-            className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] border border-[var(--border)] transition-all cursor-pointer"
+            className="btn-ghost flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl border border-[var(--border)] cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
+      {/* KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-xs flex items-center justify-between">
           <div>
@@ -295,13 +307,34 @@ export default function AssetBrandingRequestsPage() {
           </button>
         </div>
 
-        {/* Detailed Controls */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <div className="relative">
+        {/* Classification Slicer */}
+        <div className="flex items-center gap-1.5 flex-wrap pt-1 pb-1">
+          <span className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider mr-1 flex items-center gap-1">
+            <Layers className="h-3.5 w-3.5 text-[var(--accent)]" /> Classification Slicer:
+          </span>
+          {['all', 'A', 'B', 'C', 'D', 'E'].map((cls) => (
+            <button
+              key={cls}
+              type="button"
+              onClick={() => setSelectedClassification(cls)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                selectedClassification === cls
+                  ? 'bg-purple-600 text-white shadow-xs font-extrabold'
+                  : 'bg-[var(--surface-2)] text-[var(--text-secondary)] hover:border-purple-400 border border-[var(--border)]'
+              }`}
+            >
+              {cls === 'all' ? 'All Classes' : `Class ${cls}`}
+            </button>
+          ))}
+        </div>
+
+        {/* Detailed Controls Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+          <div className="relative lg:col-span-2">
             <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
               type="text"
-              placeholder="Search outlet, code, ID..."
+              placeholder="Search outlet, code, ID, notes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
@@ -332,13 +365,13 @@ export default function AssetBrandingRequestsPage() {
               <option value="all">All Supervisors</option>
               {availableSupervisors.map((s) => (
                 <option key={s} value={s}>
-                  Supervisor: {s}
+                  {s}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <input
               type="date"
               value={fromDate}
@@ -346,6 +379,7 @@ export default function AssetBrandingRequestsPage() {
               className="w-full px-2 py-1.5 text-xs rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)]"
               title="From Date"
             />
+            <span className="text-[var(--text-muted)] text-xs">-</span>
             <input
               type="date"
               value={toDate}
@@ -378,7 +412,7 @@ export default function AssetBrandingRequestsPage() {
           <div className="py-20 text-center space-y-2">
             <Tag className="h-8 w-8 mx-auto text-[var(--text-muted)] opacity-50" />
             <p className="text-sm font-semibold text-[var(--text-primary)]">No asset branding requests found</p>
-            <p className="text-xs text-[var(--text-muted)]">Try adjusting your filters or search terms.</p>
+            <p className="text-xs text-[var(--text-muted)]">Try adjusting your classification, route, or search filters.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -388,8 +422,10 @@ export default function AssetBrandingRequestsPage() {
                   <th className="py-3 px-4">Request ID</th>
                   <th className="py-3 px-4">Outlet Name & Code</th>
                   <th className="py-3 px-4">Route</th>
+                  <th className="py-3 px-4">Class</th>
                   <th className="py-3 px-4">Supervisor</th>
-                  <th className="py-3 px-4">Branding Scope</th>
+                  <th className="py-3 px-4">Asset Photo</th>
+                  <th className="py-3 px-4">Supervisor Notes</th>
                   <th className="py-3 px-4">Requested Date</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Acknowledgement</th>
@@ -407,8 +443,31 @@ export default function AssetBrandingRequestsPage() {
                         <div className="text-[10px] font-mono text-[var(--text-muted)]">{r.outletCode}</div>
                       </td>
                       <td className="py-3 px-4 font-mono">{r.routeCode}</td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                          Class {r.classification || 'C'}
+                        </span>
+                      </td>
                       <td className="py-3 px-4 font-semibold text-[var(--text-secondary)]">{r.supervisorName}</td>
-                      <td className="py-3 px-4 max-w-xs truncate text-[var(--text-secondary)]">{r.brandingScope || 'General Asset'}</td>
+                      <td className="py-3 px-4">
+                        {r.photoUrl ? (
+                          <div
+                            onClick={() => handleOpenDetails(r)}
+                            className="relative h-11 w-16 rounded-lg overflow-hidden border border-[var(--border)] bg-black cursor-pointer group shadow-xs"
+                            title="Click to view full photo and shop details"
+                          >
+                            <img src={r.photoUrl} alt="Asset condition" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <Eye className="h-3.5 w-3.5 text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-[var(--text-muted)] italic">No Photo</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 max-w-xs truncate text-[var(--text-secondary)]" title={r.notes || r.brandingScope}>
+                        {r.notes || r.brandingScope || '—'}
+                      </td>
                       <td className="py-3 px-4 text-[var(--text-muted)]">
                         {new Date(r.createdAt).toLocaleDateString()}
                         <div className="text-[10px]">{new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
@@ -443,20 +502,22 @@ export default function AssetBrandingRequestsPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenDetails(r)}
-                            className="p-1.5 rounded-lg bg-[var(--surface-2)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
-                            title="View Request Details & Outlet History"
+                            className="p-1.5 rounded-lg bg-[var(--surface-2)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-xs"
+                            title="View Full Shop Details & Submitted Photo"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
+
                           {isPending && canAcknowledge && (
                             <button
                               type="button"
+                              disabled={isAcknowledging}
                               onClick={() => handleAcknowledge(r.id)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
                               title="Acknowledge Request"
                             >
-                              <Check className="h-3 w-3" />
-                              Acknowledge
+                              <Check className="h-3.5 w-3.5" />
+                              <span>Acknowledge</span>
                             </button>
                           )}
                         </div>
@@ -470,152 +531,297 @@ export default function AssetBrandingRequestsPage() {
         )}
       </div>
 
-      {/* Request Details & History Modal */}
+      {/* Full-Page Shop Details & Photo Modal (Requirement 3) */}
       {activeRequest && (
-        <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-2xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-5xl bg-[var(--surface)] border border-[var(--border)] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
             {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-[var(--border-soft)] pb-4">
-              <div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20 uppercase tracking-wider">
-                  Request {activeRequest.requestNumber}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)] bg-[var(--surface-2)]/60">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono font-black px-3 py-1 rounded-full bg-[var(--accent)] text-white shadow-xs uppercase tracking-wider">
+                  {activeRequest.requestNumber}
                 </span>
-                <h3 className="text-base font-bold text-[var(--text-primary)] mt-1.5 flex items-center gap-2">
-                  <Store className="h-4 w-4 text-amber-500" />
-                  {activeRequest.outletName}
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] font-mono">
-                  Outlet Code: {activeRequest.outletCode} • Route: {activeRequest.routeCode}
-                </p>
+                <div>
+                  <h3 className="text-lg font-black text-[var(--text-primary)] flex items-center gap-2">
+                    <Store className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                    <span>{activeRequest.outletName}</span>
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] font-mono mt-0.5 flex-wrap">
+                    <span>Outlet: <strong className="text-[var(--text-primary)]">{activeRequest.outletCode}</strong></span>
+                    <span>•</span>
+                    <span>Route: <strong className="text-[var(--text-primary)]">{activeRequest.routeCode}</strong></span>
+                    <span>•</span>
+                    <span className="px-1.5 py-0.2 rounded font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20">
+                      Class {activeRequest.classification || 'C'}
+                    </span>
+                    <span>•</span>
+                    <span>Channel: {activeRequest.channel || 'GT'}</span>
+                  </div>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setActiveRequest(null)}
-                className="p-1.5 rounded-xl hover:bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
+
+              <div className="flex items-center gap-2">
+                {activeRequest.status === 'Pending Acknowledgement' ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
+                    Pending Acknowledgement
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Acknowledged
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveRequest(null)}
+                  className="p-2 rounded-xl hover:bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                  title="Close Dialog"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
-            {/* Request Details Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)]">
-                <span className="text-[10px] text-[var(--text-muted)] block uppercase font-bold">Request Date & Time</span>
-                <span className="font-semibold text-[var(--text-primary)] mt-0.5 block">
-                  {new Date(activeRequest.createdAt).toLocaleString()}
-                </span>
-              </div>
+            {/* Modal Body: 2 Columns for full visibility of Shop Details & Photo */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left Column: Submitted Photo (Prominent & High-Res) */}
+                <div className="lg:col-span-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                      <Camera className="h-4 w-4 text-[var(--accent)]" />
+                      <span>Asset Condition Photo Submitted by Supervisor</span>
+                    </h4>
+                    {activeRequest.photoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setFullPhotoViewer(activeRequest.photoUrl || null)}
+                        className="text-[11px] font-bold text-[var(--accent)] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Maximize2 className="h-3 w-3" /> Full Size
+                      </button>
+                    )}
+                  </div>
 
-              <div className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)]">
-                <span className="text-[10px] text-[var(--text-muted)] block uppercase font-bold">Requesting Supervisor</span>
-                <span className="font-semibold text-[var(--text-primary)] mt-0.5 block flex items-center gap-1">
-                  <User className="h-3 w-3 text-sky-400" />
-                  {activeRequest.supervisorName}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)]">
-                <span className="text-[10px] text-[var(--text-muted)] block uppercase font-bold">Branding Requirement</span>
-                <span className="font-bold text-amber-500 mt-0.5 block">YES</span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] col-span-2 sm:col-span-3">
-                <span className="text-[10px] text-[var(--text-muted)] block uppercase font-bold">Branding Scope & Notes</span>
-                <p className="text-[var(--text-primary)] mt-0.5 italic">
-                  "{activeRequest.brandingScope || 'General Asset Branding Requirement'}"
-                </p>
-              </div>
-
-              <div className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] col-span-2 sm:col-span-3">
-                <span className="text-[10px] text-[var(--text-muted)] block uppercase font-bold">Current Status</span>
-                <div className="mt-1 flex items-center justify-between">
-                  {activeRequest.status === 'Pending Acknowledgement' ? (
-                    <span className="text-amber-500 font-bold flex items-center gap-1.5">
-                      <Clock className="h-4 w-4" /> Pending Administrative Acknowledgement
-                    </span>
+                  {activeRequest.photoUrl ? (
+                    <div className="relative aspect-4/3 w-full rounded-2xl overflow-hidden border-2 border-[var(--border)] bg-black shadow-lg group">
+                      <img
+                        src={activeRequest.photoUrl}
+                        alt="Asset condition"
+                        className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-102"
+                        onClick={() => setFullPhotoViewer(activeRequest.photoUrl || null)}
+                      />
+                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 text-white text-xs">
+                        <p className="font-semibold flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                          Photo Captured by {activeRequest.supervisorName}
+                        </p>
+                        <p className="text-[10px] text-slate-300">
+                          {new Date(activeRequest.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
                   ) : (
-                    <div className="text-emerald-500 font-bold space-y-0.5">
-                      <span className="flex items-center gap-1.5">
-                        <CheckCircle2 className="h-4 w-4" /> Acknowledged by {activeRequest.acknowledgedByName}
-                      </span>
-                      <span className="text-[10px] text-[var(--text-muted)] font-normal block">
-                        Acknowledged on: {activeRequest.acknowledgedAt ? new Date(activeRequest.acknowledgedAt).toLocaleString() : '—'}
-                      </span>
+                    <div className="aspect-4/3 w-full rounded-2xl border-2 border-dashed border-[var(--border)] flex flex-col items-center justify-center p-6 text-center space-y-2 bg-[var(--surface-2)]">
+                      <Camera className="h-10 w-10 text-[var(--text-muted)] opacity-40" />
+                      <p className="text-xs font-bold text-[var(--text-primary)]">No Condition Photo Attached</p>
+                      <p className="text-[11px] text-[var(--text-muted)] max-w-xs">
+                        This request was submitted without an attached condition photo.
+                      </p>
                     </div>
                   )}
                 </div>
+
+                {/* Right Column: Comprehensive Shop & Request Details */}
+                <div className="lg:col-span-6 space-y-4">
+                  {/* Shop Details Card */}
+                  <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--border)] space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-1.5">
+                      <Store className="h-4 w-4 text-amber-500" />
+                      <span>Shop & Outlet Information</span>
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Outlet Name</span>
+                        <span className="font-bold text-[var(--text-primary)] block mt-0.5">{activeRequest.outletName}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Outlet Code</span>
+                        <span className="font-mono font-bold text-[var(--accent)] block mt-0.5">{activeRequest.outletCode}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Assigned Route</span>
+                        <span className="font-mono font-semibold text-[var(--text-primary)] block mt-0.5">{activeRequest.routeCode}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Classification & Channel</span>
+                        <span className="font-semibold text-[var(--text-primary)] block mt-0.5">
+                          Class {activeRequest.classification || 'C'} • {activeRequest.channel || 'GT'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Supervisor Submission Details */}
+                  <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--border)] space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-1.5">
+                      <User className="h-4 w-4 text-sky-400" />
+                      <span>Supervisor Submission</span>
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Requesting Supervisor</span>
+                        <span className="font-semibold text-[var(--text-primary)] block mt-0.5">{activeRequest.supervisorName}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Submission Date & Time</span>
+                        <span className="font-semibold text-[var(--text-primary)] block mt-0.5">
+                          {new Date(activeRequest.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Supervisor Comments / Notes</span>
+                        <p className="text-xs text-[var(--text-primary)] bg-[var(--surface)] p-3 rounded-xl border border-[var(--border-soft)] mt-1 italic">
+                          "{activeRequest.notes || activeRequest.brandingScope || 'Asset branding required'}"
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Administrative Acknowledgement Card */}
+                  <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--border)] space-y-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                      <span>Administrative Acknowledgement</span>
+                    </h4>
+                    {activeRequest.status === 'Pending Acknowledgement' ? (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 space-y-1">
+                        <p className="font-bold flex items-center gap-1.5">
+                          <Clock className="h-4 w-4" /> Status: Pending Administrative Acknowledgement
+                        </p>
+                        <p className="text-[11px] text-amber-300/80">
+                          This request has not yet been acknowledged. Admin or Sub-Admin can click "Acknowledge Request" below.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 space-y-1">
+                        <p className="font-bold flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4" /> Acknowledged by {activeRequest.acknowledgedByName}
+                        </p>
+                        <p className="text-[11px] text-emerald-300/80">
+                          Confirmed on: {activeRequest.acknowledgedAt ? new Date(activeRequest.acknowledgedAt).toLocaleString() : '—'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Outlet Branding History */}
+              <div className="space-y-3 border-t border-[var(--border-soft)] pt-5">
+                <h4 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5 uppercase tracking-wider">
+                  <History className="h-4 w-4 text-amber-500" /> Outlet Branding History ({activeRequest.outletName})
+                </h4>
+                {loadingHistory ? (
+                  <div className="py-4 text-center text-xs text-[var(--text-muted)]">Loading outlet history...</div>
+                ) : outletHistory.length <= 1 ? (
+                  <p className="text-xs text-[var(--text-muted)] italic">
+                    This is the first asset branding request logged for this outlet.
+                  </p>
+                ) : (
+                  <div className="rounded-xl border border-[var(--border)] overflow-hidden">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[var(--surface-2)] text-[10px] uppercase font-bold text-[var(--text-muted)]">
+                        <tr>
+                          <th className="py-2.5 px-3">Req ID</th>
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Notes</th>
+                          <th className="py-2.5 px-3">Photo</th>
+                          <th className="py-2.5 px-3">Status</th>
+                          <th className="py-2.5 px-3">Acknowledged By</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-soft)]">
+                        {outletHistory.map((h) => (
+                          <tr key={h.id} className={h.id === activeRequest.id ? 'bg-amber-500/10 font-semibold' : ''}>
+                            <td className="py-2.5 px-3 font-mono font-bold text-[var(--accent)]">{h.requestNumber}</td>
+                            <td className="py-2.5 px-3 text-[var(--text-muted)]">{new Date(h.createdAt).toLocaleDateString()}</td>
+                            <td className="py-2.5 px-3 truncate max-w-xs">{h.notes || h.brandingScope || '—'}</td>
+                            <td className="py-2.5 px-3">
+                              {h.photoUrl ? (
+                                <span className="text-[10px] text-emerald-400 font-bold">Attached</span>
+                              ) : (
+                                <span className="text-[10px] text-[var(--text-muted)]">—</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className={h.status === 'Acknowledged' ? 'text-emerald-500 font-bold' : 'text-amber-500 font-bold'}>
+                                {h.status}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-[var(--text-muted)]">{h.acknowledgedByName || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Previous Request History for this Outlet (Section 8) */}
-            <div className="space-y-2 border-t border-[var(--border-soft)] pt-4">
-              <h4 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5 uppercase tracking-wider">
-                <History className="h-3.5 w-3.5 text-amber-500" /> Outlet Branding History
-              </h4>
-              {loadingHistory ? (
-                <div className="py-4 text-center text-xs text-[var(--text-muted)]">Loading history...</div>
-              ) : outletHistory.length <= 1 ? (
-                <p className="text-[11px] text-[var(--text-muted)] italic">
-                  This is the first asset branding request logged for this outlet.
-                </p>
-              ) : (
-                <div className="rounded-xl border border-[var(--border)] overflow-hidden">
-                  <table className="w-full text-left text-[11px]">
-                    <thead className="bg-[var(--surface-2)] text-[10px] uppercase font-bold text-[var(--text-muted)]">
-                      <tr>
-                        <th className="py-2 px-3">Req ID</th>
-                        <th className="py-2 px-3">Date</th>
-                        <th className="py-2 px-3">Scope</th>
-                        <th className="py-2 px-3">Status</th>
-                        <th className="py-2 px-3">Acknowledged By</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--border-soft)]">
-                      {outletHistory.map((h) => (
-                        <tr key={h.id} className={h.id === activeRequest.id ? 'bg-amber-500/10' : ''}>
-                          <td className="py-2 px-3 font-mono font-bold">{h.requestNumber}</td>
-                          <td className="py-2 px-3 text-[var(--text-muted)]">{new Date(h.createdAt).toLocaleDateString()}</td>
-                          <td className="py-2 px-3 truncate max-w-[150px]">{h.brandingScope}</td>
-                          <td className="py-2 px-3">
-                            <span className={h.status === 'Acknowledged' ? 'text-emerald-500 font-bold' : 'text-amber-500 font-bold'}>
-                              {h.status}
-                            </span>
-                          </td>
-                          <td className="py-2 px-3 text-[var(--text-muted)]">{h.acknowledgedByName || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--border-soft)] bg-[var(--surface-2)]/60">
+              <span className="text-xs font-mono text-[var(--text-muted)]">
+                Record ID: {activeRequest.id}
+              </span>
 
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 border-t border-[var(--border-soft)] pt-4">
-              <button
-                type="button"
-                onClick={() => setActiveRequest(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--surface-2)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] transition-all cursor-pointer"
-              >
-                Close
-              </button>
-
-              {activeRequest.status === 'Pending Acknowledgement' && canAcknowledge && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  disabled={isAcknowledging}
-                  onClick={() => handleAcknowledge(activeRequest.id)}
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  onClick={() => setActiveRequest(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] border border-[var(--border)] transition-all cursor-pointer"
                 >
-                  <Check className="h-4 w-4" />
-                  {isAcknowledging ? 'Acknowledging...' : 'Acknowledge Request'}
+                  Close
                 </button>
-              )}
+
+                {activeRequest.status === 'Pending Acknowledgement' && canAcknowledge && (
+                  <button
+                    type="button"
+                    disabled={isAcknowledging}
+                    onClick={() => handleAcknowledge(activeRequest.id)}
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Check className="h-4 w-4" />
+                    {isAcknowledging ? 'Acknowledging...' : 'Acknowledge Request'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Full Size Image Lightbox Modal */}
+      {fullPhotoViewer && (
+        <div
+          className="fixed inset-0 z-60 bg-black/95 flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-150"
+          onClick={() => setFullPhotoViewer(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setFullPhotoViewer(null)}
+            className="absolute top-4 right-4 p-2.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={fullPhotoViewer}
+            alt="Asset condition full size"
+            className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+          />
         </div>
       )}
     </div>
   );
 }
-

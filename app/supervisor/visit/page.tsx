@@ -121,6 +121,8 @@ function VisitWizardContent() {
   const [assetBrandingRequired, setAssetBrandingRequired] = useState<'YES' | 'NO' | null>(null);
   const [brandingScope, setBrandingScope] = useState('Full Cooler Branding');
   const [brandingNotes, setBrandingNotes] = useState('');
+  const [brandingPhotoUrl, setBrandingPhotoUrl] = useState<string>('');
+  const [uploadingBrandingPhoto, setUploadingBrandingPhoto] = useState<boolean>(false);
   const [brandingPendingInfo, setBrandingPendingInfo] = useState<any | null>(null);
   const [brandingAcknowledgedInfo, setBrandingAcknowledgedInfo] = useState<any | null>(null);
   const [checkingBranding, setCheckingBranding] = useState(false);
@@ -239,6 +241,7 @@ function VisitWizardContent() {
         if (localMatch.assetBrandingRequired) setAssetBrandingRequired(localMatch.assetBrandingRequired);
         if (localMatch.brandingScope) setBrandingScope(localMatch.brandingScope);
         if (localMatch.brandingNotes) setBrandingNotes(localMatch.brandingNotes);
+        if (localMatch.brandingPhotoUrl) setBrandingPhotoUrl(localMatch.brandingPhotoUrl);
         setCurrentStep(localMatch.currentStep || 0);
       } else {
         setVisitId(generateVisitId());
@@ -323,6 +326,7 @@ function VisitWizardContent() {
         assetBrandingRequired: assetBrandingRequired || undefined,
         brandingScope: brandingScope || undefined,
         brandingNotes: brandingNotes || undefined,
+        brandingPhotoUrl: brandingPhotoUrl || undefined,
         currentStep: stepIndex,
         status: 'Draft',
       };
@@ -463,6 +467,54 @@ function VisitWizardContent() {
     showToast('Photo removed.', 'info');
   };
 
+  const handleBrandingPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingBrandingPhoto(true);
+    try {
+      const compressed = await compressImage(file);
+      const ext = compressed.mimeType === 'image/webp' ? 'webp' : 'jpg';
+
+      const formData = new FormData();
+      formData.append(
+        'file',
+        compressed.blob,
+        `branding_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`
+      );
+      formData.append('category', 'Vegetables');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          setBrandingPhotoUrl(data.url);
+          showToast('Asset condition photo attached.', 'success');
+        } else if (compressed.base64) {
+          setBrandingPhotoUrl(compressed.base64);
+          showToast('Asset condition photo attached.', 'success');
+        }
+      } else {
+        if (compressed.base64) {
+          setBrandingPhotoUrl(compressed.base64);
+          showToast('Asset condition photo attached.', 'success');
+        } else {
+          showToast('Failed to upload photo. Please try again.', 'error');
+        }
+      }
+    } catch (err) {
+      console.error('Error uploading branding photo:', err);
+      showToast('Error processing branding photo.', 'error');
+    } finally {
+      setUploadingBrandingPhoto(false);
+      e.target.value = '';
+    }
+  };
+
   const nextStep = () => {
     if (currentStep === 0) {
       if (!selectedRoute) {
@@ -490,6 +542,11 @@ function VisitWizardContent() {
 
     if (currentStep === 2 && npdSkus.length > 0 && !npdSkus.every((s) => npdResponses[s.skuCode])) {
       showToast('Please respond to every item in the NPD Checklist before continuing.', 'warning');
+      return;
+    }
+
+    if (currentStep === 4 && assetBrandingRequired === 'YES' && !brandingPendingInfo && !brandingPhotoUrl) {
+      showToast('Please upload or capture a photo of the asset showing its condition for the branding request.', 'warning');
       return;
     }
 
@@ -571,6 +628,11 @@ function VisitWizardContent() {
       showToast('Please select both a route and a customer before submitting.', 'warning');
       return;
     }
+
+    if (assetBrandingRequired === 'YES' && !brandingPendingInfo && !brandingPhotoUrl) {
+      showToast('Please upload or capture a photo of the asset showing its condition for the branding request.', 'warning');
+      return;
+    }
     // Auto-default any unselected Power SKU or NPD checklist items to 'Not Available' ONLY for regular visits
     const finalPowerSkuResults = visitType === 'No Visit' ? {} : { ...powerSkuResults };
     if (visitType !== 'No Visit') {
@@ -647,7 +709,10 @@ function VisitWizardContent() {
               supervisorId: (session?.user as any)?.id || 'supervisor',
               supervisorName: session?.user?.name || 'Supervisor',
               visitId,
-              brandingScope: brandingScope || 'Asset Branding Required',
+              brandingScope: brandingNotes || 'Asset Branding Required',
+              photoUrl: brandingPhotoUrl || undefined,
+              classification: activeCustomer?.classification || activeCustomer?.dairyClassification || activeCustomer?.iceCreamClassification || 'C',
+              channel: activeCustomer?.channel || 'GT',
               notes: brandingNotes || undefined,
             }),
           });
@@ -1550,44 +1615,128 @@ function VisitWizardContent() {
                         </div>
                       )}
 
-                      {/* Case 3: New Request Form */}
-                      <div className="p-3 rounded-xl space-y-2.5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                        <div>
-                          <label className="text-[11px] font-semibold block mb-1" style={{ color: 'var(--text-secondary)' }}>
-                            Select Branding Scope:
-                          </label>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                            {['Full Cooler Branding', 'Door Stickers', 'Side Panels', 'Chiller Decal Replacement', 'Canopy Branding', 'Other Asset Branding'].map((scope) => (
-                              <button
-                                key={scope}
-                                type="button"
-                                onClick={() => setBrandingScope(scope)}
-                                className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold border transition-all text-left truncate cursor-pointer ${
-                                  brandingScope === scope
-                                    ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm'
-                                    : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent-soft)]'
-                                }`}
-                              >
-                                {scope}
-                              </button>
-                            ))}
+                      {/* Case 3: New Request Form - Mandatory Condition Photo & Additional Notes */}
+                      <div className="p-3.5 rounded-xl space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                        {/* Mandatory Photo Upload */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <label className="text-[11.5px] font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                              <Camera className="h-4 w-4" style={{ color: 'var(--accent)' }} />
+                              <span>Asset Condition Photo <span className="text-red-500 font-extrabold">*</span></span>
+                            </label>
+                            <span className="text-[10.5px] font-semibold text-amber-500">
+                              (Required to explain asset condition)
+                            </span>
                           </div>
+
+                          {brandingPhotoUrl ? (
+                            /* Attached Photo Preview */
+                            <div className="p-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/5 space-y-2">
+                              <div className="flex items-center gap-3">
+                                <div className="relative h-20 w-28 rounded-lg overflow-hidden border border-[var(--border)] bg-black flex-shrink-0">
+                                  <img
+                                    src={brandingPhotoUrl}
+                                    alt="Asset condition"
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-500">
+                                    <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                                    <span>Condition Photo Attached</span>
+                                  </div>
+                                  <p className="text-[10px] text-[var(--text-muted)] truncate">
+                                    Asset photo ready for management review.
+                                  </p>
+                                  <div className="flex items-center gap-2 pt-1">
+                                    <label className="btn-ghost text-[10px] py-1 px-2.5 rounded cursor-pointer border border-[var(--border)] flex items-center gap-1">
+                                      <Camera className="h-3 w-3" />
+                                      <span>Change</span>
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture={isMobileDevice ? 'environment' : undefined}
+                                        disabled={uploadingBrandingPhoto}
+                                        onChange={handleBrandingPhotoUpload}
+                                        className="hidden"
+                                      />
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => setBrandingPhotoUrl('')}
+                                      className="text-[10px] py-1 px-2.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30 cursor-pointer"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Photo Capture / Upload Buttons */
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <label className="p-3 rounded-xl border-2 border-dashed border-[var(--accent)] bg-[var(--accent-light)] hover:bg-[var(--accent-soft)] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all text-center">
+                                  <Camera className="h-5 w-5" style={{ color: 'var(--accent)' }} />
+                                  <span className="text-[11px] font-bold" style={{ color: 'var(--accent)' }}>
+                                    {isMobileDevice ? 'Take Camera Photo' : 'Capture Photo'}
+                                  </span>
+                                  <span className="text-[9.5px] text-[var(--text-muted)]">
+                                    Live camera capture
+                                  </span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    disabled={uploadingBrandingPhoto}
+                                    onChange={handleBrandingPhotoUpload}
+                                    className="hidden"
+                                  />
+                                </label>
+                                <label className="p-3 rounded-xl border-2 border-dashed border-[var(--border)] hover:border-[var(--accent)] bg-[var(--surface-2)] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all text-center">
+                                  <Plus className="h-5 w-5 text-[var(--text-secondary)]" />
+                                  <span className="text-[11px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                                    Device Gallery
+                                  </span>
+                                  <span className="text-[9.5px] text-[var(--text-muted)]">
+                                    Select existing image
+                                  </span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    disabled={uploadingBrandingPhoto}
+                                    onChange={handleBrandingPhotoUpload}
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
+                              {uploadingBrandingPhoto && (
+                                <div className="flex items-center justify-center gap-2 p-2 rounded-lg bg-[var(--accent-light)] text-[var(--accent)] text-[11px] font-bold animate-pulse">
+                                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                  <span>Compressing & uploading condition photo...</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
+
+                        {/* Additional Notes (Optional) */}
                         <div>
                           <label className="text-[11px] font-semibold block mb-1" style={{ color: 'var(--text-secondary)' }}>
                             Additional Notes (Optional):
                           </label>
-                          <input
-                            type="text"
+                          <textarea
+                            rows={2}
                             value={brandingNotes}
                             onChange={(e) => setBrandingNotes(e.target.value)}
-                            placeholder="Specific chiller / freezer asset or location notes..."
+                            placeholder="Add comments on asset condition (e.g., damaged canopy, peeling sticker, broken door frame)..."
                             className="w-full text-xs p-2 rounded-lg bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
                           />
                         </div>
+
                         <p className="text-[10px] flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
                           <Info className="h-3 w-3" />
-                          A new branding request will be automatically dispatched to Admin upon saving this market visit.
+                          The condition photo and notes will be submitted to Admin with this visit.
                         </p>
                       </div>
                     </>
