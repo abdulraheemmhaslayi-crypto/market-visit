@@ -19,11 +19,16 @@ export interface AssetBrandingRequest {
   classification?: string;
   channel?: string;
   notes?: string;
-  status: 'Pending Acknowledgement' | 'Acknowledged';
+  status: 'Pending Acknowledgement' | 'Acknowledged' | 'Approved' | 'Rejected';
   createdAt: string;
   acknowledgedBy?: string;
   acknowledgedByName?: string;
   acknowledgedAt?: string;
+  decision?: 'Approved' | 'Rejected';
+  decisionBy?: string;
+  decisionByName?: string;
+  decisionAt?: string;
+  adminComment?: string;
   updatedAt: string;
 }
 
@@ -124,6 +129,11 @@ async function ensureBrandingTable(): Promise<void> {
             [acknowledgedBy] VARCHAR(191) NULL,
             [acknowledgedByName] NVARCHAR(255) NULL,
             [acknowledgedAt] DATETIME NULL,
+            [decision] VARCHAR(50) NULL,
+            [decisionBy] VARCHAR(191) NULL,
+            [decisionByName] NVARCHAR(255) NULL,
+            [decisionAt] DATETIME NULL,
+            [adminComment] NVARCHAR(MAX) NULL,
             [updatedAt] DATETIME DEFAULT GETDATE()
           );
           CREATE INDEX [IX_Branding_Outlet] ON [Asset_Branding_Requests]([outletCode]);
@@ -154,6 +164,11 @@ async function ensureBrandingTable(): Promise<void> {
           \`acknowledgedBy\` VARCHAR(191) NULL,
           \`acknowledgedByName\` VARCHAR(255) NULL,
           \`acknowledgedAt\` DATETIME NULL,
+          \`decision\` VARCHAR(50) NULL,
+          \`decisionBy\` VARCHAR(191) NULL,
+          \`decisionByName\` VARCHAR(255) NULL,
+          \`decisionAt\` DATETIME NULL,
+          \`adminComment\` TEXT NULL,
           \`updatedAt\` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX \`idx_branding_outlet\` (\`outletCode\`),
           INDEX \`idx_branding_status\` (\`status\`)
@@ -172,6 +187,21 @@ async function ensureBrandingTable(): Promise<void> {
       } catch {}
       try {
         await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `notes` TEXT NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `decision` VARCHAR(50) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `decisionBy` VARCHAR(191) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `decisionByName` VARCHAR(255) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `decisionAt` DATETIME NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `adminComment` TEXT NULL');
       } catch {}
     }
     brandingTableChecked = true;
@@ -204,6 +234,11 @@ function mapRowToBrandingRequest(row: any): AssetBrandingRequest {
     acknowledgedBy: row.acknowledgedBy || undefined,
     acknowledgedByName: row.acknowledgedByName || undefined,
     acknowledgedAt: row.acknowledgedAt instanceof Date ? row.acknowledgedAt.toISOString() : (row.acknowledgedAt || undefined),
+    decision: row.decision || (row.status === 'Approved' ? 'Approved' : row.status === 'Rejected' ? 'Rejected' : undefined),
+    decisionBy: row.decisionBy || undefined,
+    decisionByName: row.decisionByName || undefined,
+    decisionAt: row.decisionAt instanceof Date ? row.decisionAt.toISOString() : (row.decisionAt || undefined),
+    adminComment: row.adminComment || undefined,
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : (row.updatedAt || new Date().toISOString()),
   };
 }
@@ -248,7 +283,11 @@ export const assetBrandingRepository = {
     if (filters) {
       if (filters.status && filters.status !== 'all') {
         const normStatus = filters.status.trim().toLowerCase();
-        items = items.filter((i) => i.status.toLowerCase().includes(normStatus));
+        items = items.filter((i) => {
+          const s = (i.status || '').toLowerCase();
+          const d = (i.decision || '').toLowerCase();
+          return s.includes(normStatus) || d.includes(normStatus);
+        });
       }
       if (filters.outletCode && filters.outletCode !== 'all') {
         items = items.filter((i) => i.outletCode.toLowerCase() === filters.outletCode!.toLowerCase());
@@ -272,7 +311,8 @@ export const assetBrandingRepository = {
             i.requestNumber.toLowerCase().includes(q) ||
             i.routeCode.toLowerCase().includes(q) ||
             i.supervisorName.toLowerCase().includes(q) ||
-            (i.notes && i.notes.toLowerCase().includes(q))
+            (i.notes && i.notes.toLowerCase().includes(q)) ||
+            (i.adminComment && i.adminComment.toLowerCase().includes(q))
         );
       }
       if (filters.fromDate) {
@@ -363,14 +403,20 @@ export const assetBrandingRepository = {
     total: number;
     pending: number;
     acknowledged: number;
+    approved: number;
+    rejected: number;
   }> {
     const all = await this.getAll(filters);
     const pending = all.filter((i) => i.status === 'Pending Acknowledgement').length;
     const acknowledged = all.filter((i) => i.status === 'Acknowledged').length;
+    const approved = all.filter((i) => i.status === 'Approved' || i.decision === 'Approved').length;
+    const rejected = all.filter((i) => i.status === 'Rejected' || i.decision === 'Rejected').length;
     return {
       total: all.length,
       pending,
       acknowledged,
+      approved,
+      rejected,
     };
   },
 
@@ -505,5 +551,78 @@ export const assetBrandingRepository = {
     }
 
     return updated;
+  },
+
+  async recordDecision(
+    id: string,
+    decision: 'Approved' | 'Rejected',
+    adminComment: string,
+    decisionBy: string,
+    decisionByName: string
+  ): Promise<AssetBrandingRequest | null> {
+    const nowIso = new Date().toISOString();
+    let updated: AssetBrandingRequest | null = null;
+
+    try {
+      await ensureBrandingTable();
+      await pool.execute(
+        `UPDATE \`Asset_Branding_Requests\`
+         SET \`status\` = ?, \`decision\` = ?, \`decisionBy\` = ?, \`decisionByName\` = ?, \`decisionAt\` = ?, \`adminComment\` = ?, \`updatedAt\` = ?
+         WHERE \`id\` = ? OR \`requestNumber\` = ?`,
+        [decision, decision, decisionBy, decisionByName, new Date(nowIso), adminComment || null, new Date(nowIso), id, id]
+      );
+
+      const [rows]: any = await pool.execute(
+        'SELECT * FROM `Asset_Branding_Requests` WHERE `id` = ? OR `requestNumber` = ? LIMIT 1',
+        [id, id]
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        updated = mapRowToBrandingRequest(rows[0]);
+      }
+    } catch (err) {
+      console.warn('Database update for Asset_Branding_Requests decision failed, updating locally:', err);
+    }
+
+    const local = readLocalItems();
+    const idx = local.findIndex((i) => i.id === id || i.requestNumber === id);
+    if (idx !== -1) {
+      local[idx] = {
+        ...local[idx],
+        status: decision,
+        decision,
+        decisionBy,
+        decisionByName,
+        decisionAt: nowIso,
+        adminComment: adminComment || undefined,
+        updatedAt: nowIso,
+      };
+      writeLocalItems(local);
+      if (!updated) updated = local[idx];
+    }
+
+    return updated;
+  },
+
+  async delete(id: string): Promise<boolean> {
+    let deleted = false;
+    try {
+      await ensureBrandingTable();
+      await pool.execute(
+        'DELETE FROM `Asset_Branding_Requests` WHERE `id` = ? OR `requestNumber` = ?',
+        [id, id]
+      );
+      deleted = true;
+    } catch (err) {
+      console.warn('Database delete failed, deleting locally:', err);
+    }
+
+    const local = readLocalItems();
+    const initialLength = local.length;
+    const filtered = local.filter((i) => i.id !== id && i.requestNumber !== id);
+    if (filtered.length !== initialLength) {
+      writeLocalItems(filtered);
+      deleted = true;
+    }
+    return deleted;
   },
 };

@@ -27,6 +27,9 @@ import {
   Download,
   Presentation,
   FileSpreadsheet,
+  Trash2,
+  MessageSquare,
+  XCircle,
 } from 'lucide-react';
 import { exportToExcel } from '@/utils/excelExport';
 import {
@@ -42,16 +45,24 @@ export default function AssetBrandingRequestsPage() {
   const canAcknowledge = !isSupervisorRole(userRole) && isFullAccessRole(userRole);
 
   const [requests, setRequests] = useState<AssetBrandingRequest[]>([]);
-  const [counts, setCounts] = useState<{ total: number; pending: number; acknowledged: number }>({
+  const [counts, setCounts] = useState<{
+    total: number;
+    pending: number;
+    acknowledged: number;
+    approved?: number;
+    rejected?: number;
+  }>({
     total: 0,
     pending: 0,
     acknowledged: 0,
+    approved: 0,
+    rejected: 0,
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'acknowledged'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'acknowledged' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<string>('all');
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>('all');
@@ -76,6 +87,16 @@ export default function AssetBrandingRequestsPage() {
   const [isAcknowledging, setIsAcknowledging] = useState<boolean>(false);
   const [fullPhotoViewer, setFullPhotoViewer] = useState<string | null>(null);
 
+  // Decision Modal State (Approve / Reject with Comments)
+  const [decisionModalRequest, setDecisionModalRequest] = useState<AssetBrandingRequest | null>(null);
+  const [decisionType, setDecisionType] = useState<'Approved' | 'Rejected'>('Approved');
+  const [decisionComment, setDecisionComment] = useState<string>('');
+  const [isSubmittingDecision, setIsSubmittingDecision] = useState<boolean>(false);
+
+  // Delete Confirmation Modal State
+  const [deleteConfirmRequest, setDeleteConfirmRequest] = useState<AssetBrandingRequest | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
   // Close export dropdown on click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -94,6 +115,8 @@ export default function AssetBrandingRequestsPage() {
       const params = new URLSearchParams();
       if (statusFilter === 'pending') params.set('status', 'Pending Acknowledgement');
       if (statusFilter === 'acknowledged') params.set('status', 'Acknowledged');
+      if (statusFilter === 'approved') params.set('status', 'Approved');
+      if (statusFilter === 'rejected') params.set('status', 'Rejected');
       if (selectedRoute !== 'all') params.set('routeCode', selectedRoute);
       if (selectedSupervisor !== 'all') params.set('supervisorName', selectedSupervisor);
       if (selectedClassification !== 'all') params.set('classification', selectedClassification);
@@ -120,20 +143,21 @@ export default function AssetBrandingRequestsPage() {
     fetchRequests(false);
   }, [fetchRequests]);
 
+  // Distinct Route and Supervisor lists for filters
   const availableRoutes = useMemo(() => {
-    const set = new Set<string>();
+    const s = new Set<string>();
     requests.forEach((r) => {
-      if (r.routeCode && r.routeCode !== 'N/A') set.add(r.routeCode);
+      if (r.routeCode && r.routeCode !== 'N/A') s.add(r.routeCode);
     });
-    return Array.from(set).sort();
+    return Array.from(s).sort();
   }, [requests]);
 
   const availableSupervisors = useMemo(() => {
-    const set = new Set<string>();
+    const s = new Set<string>();
     requests.forEach((r) => {
-      if (r.supervisorName) set.add(r.supervisorName);
+      if (r.supervisorName) s.add(r.supervisorName);
     });
-    return Array.from(set).sort();
+    return Array.from(s).sort();
   }, [requests]);
 
   const handleOpenDetails = async (reqItem: AssetBrandingRequest) => {
@@ -143,24 +167,60 @@ export default function AssetBrandingRequestsPage() {
       const res = await fetch(`/api/branding-requests?outletCode=${encodeURIComponent(reqItem.outletCode)}&history=true`);
       if (res.ok) {
         const data = await res.json();
-        setOutletHistory(data.history || []);
+        if (data.success) setOutletHistory(data.history || []);
       }
     } catch (err) {
-      console.error('Failed to load outlet branding history:', err);
+      console.error('Failed to load outlet history:', err);
     } finally {
       setLoadingHistory(false);
     }
   };
 
-  const handleAcknowledge = async (id: string) => {
-    if (!canAcknowledge) {
-      alert('You are not authorized to acknowledge branding requests.');
-      return;
-    }
-    if (!confirm('Acknowledge this Asset Branding Request? This confirms administrative receipt of the requirement.')) {
-      return;
-    }
+  const handleOpenDecisionModal = (reqItem: AssetBrandingRequest) => {
+    setDecisionModalRequest(reqItem);
+    setDecisionType(reqItem.decision || (reqItem.status === 'Approved' ? 'Approved' : reqItem.status === 'Rejected' ? 'Rejected' : 'Approved'));
+    setDecisionComment(reqItem.adminComment || '');
+  };
 
+  const handleSubmitDecision = async () => {
+    if (!decisionModalRequest) return;
+    if (decisionType === 'Rejected' && !decisionComment.trim()) {
+      alert('Please write the reason for rejecting this branding request.');
+      return;
+    }
+    setIsSubmittingDecision(true);
+    try {
+      const res = await fetch('/api/branding-requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: decisionModalRequest.id,
+          action: 'decision',
+          decision: decisionType,
+          adminComment: decisionComment.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to submit decision');
+      }
+      const data = await res.json();
+      if (data.success) {
+        if (activeRequest && (activeRequest.id === decisionModalRequest.id || activeRequest.requestNumber === decisionModalRequest.requestNumber)) {
+          setActiveRequest(data.request);
+        }
+        setDecisionModalRequest(null);
+        await fetchRequests(true);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error recording decision');
+    } finally {
+      setIsSubmittingDecision(false);
+    }
+  };
+
+  const handleAcknowledge = async (id: string) => {
+    if (!canAcknowledge) return;
     setIsAcknowledging(true);
     try {
       const res = await fetch('/api/branding-requests', {
@@ -168,23 +228,17 @@ export default function AssetBrandingRequestsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to acknowledge request');
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to acknowledge');
       }
-
-      // Update state locally
-      setRequests((prev) =>
-        prev.map((r) => (r.id === id || r.requestNumber === id ? data.request : r))
-      );
-      if (activeRequest && (activeRequest.id === id || activeRequest.requestNumber === id)) {
-        setActiveRequest(data.request);
+      const data = await res.json();
+      if (data.success) {
+        if (activeRequest && activeRequest.id === id) {
+          setActiveRequest(data.request);
+        }
+        await fetchRequests(true);
       }
-      setCounts((prev) => ({
-        ...prev,
-        pending: Math.max(0, prev.pending - 1),
-        acknowledged: prev.acknowledged + 1,
-      }));
     } catch (err: any) {
       alert(err.message || 'Error acknowledging request');
     } finally {
@@ -192,153 +246,171 @@ export default function AssetBrandingRequestsPage() {
     }
   };
 
-  const handleResetFilters = () => {
-    setStatusFilter('all');
-    setSelectedRoute('all');
-    setSelectedSupervisor('all');
-    setSelectedClassification('all');
-    setSearchQuery('');
-    setFromDate('');
-    setToDate('');
+  const handleDeleteRequest = async () => {
+    if (!deleteConfirmRequest) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/branding-requests?id=${encodeURIComponent(deleteConfirmRequest.id)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to delete branding request');
+      }
+      const data = await res.json();
+      if (data.success) {
+        if (activeRequest && (activeRequest.id === deleteConfirmRequest.id || activeRequest.requestNumber === deleteConfirmRequest.requestNumber)) {
+          setActiveRequest(null);
+        }
+        setDeleteConfirmRequest(null);
+        await fetchRequests(true);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error deleting request');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
-  // Standard Excel (Table Only)
-  const handleExportExcelTable = () => {
+  // Export Handlers
+  const handleExportExcelWithPhotos = async () => {
+    setExportMenuOpen(false);
+    try {
+      setExportProgress({
+        isExporting: true,
+        message: 'Initializing Excel Export...',
+        current: 0,
+        total: requests.length,
+      });
+
+      await exportBrandingToExcelWithPhotos(requests, {
+        filename: `Asset_Branding_Requests_With_Photos_${new Date().toISOString().split('T')[0]}.xlsx`,
+        filterSummary: `Dandy Field Visit System • Generated: ${new Date().toLocaleString()} • Filter: ${statusFilter.toUpperCase()} • Classification: ${selectedClassification.toUpperCase()} • Records: ${requests.length}`,
+        onProgress: (current, total, message) => {
+          setExportProgress({ isExporting: true, message, current, total });
+        },
+      });
+    } catch (err: any) {
+      console.error('Excel Export Failed:', err);
+      alert('Failed to generate Excel file with photos: ' + (err.message || 'Unknown error'));
+    } finally {
+      setExportProgress(null);
+    }
+  };
+
+  const handleExportPowerPoint = async () => {
+    setExportMenuOpen(false);
+    try {
+      setExportProgress({
+        isExporting: true,
+        message: 'Initializing PowerPoint Slides...',
+        current: 0,
+        total: requests.length,
+      });
+
+      await exportBrandingToPowerPoint(requests, {
+        filename: `Asset_Branding_Presentation_${new Date().toISOString().split('T')[0]}.pptx`,
+        onProgress: (current, total, message) => {
+          setExportProgress({ isExporting: true, message, current, total });
+        },
+      });
+    } catch (err: any) {
+      console.error('PowerPoint Export Failed:', err);
+      alert('Failed to generate PowerPoint presentation: ' + (err.message || 'Unknown error'));
+    } finally {
+      setExportProgress(null);
+    }
+  };
+
+  const handleExportFastTable = () => {
+    setExportMenuOpen(false);
     exportToExcel({
-      filename: `Asset_Branding_Requests_${new Date().toISOString().split('T')[0]}`,
-      title: 'Asset Branding Requests Log',
-      filterSummary: `Status: ${statusFilter} | Classification: ${selectedClassification} | Route: ${selectedRoute} | Supervisor: ${selectedSupervisor} | Search: "${searchQuery}"`,
+      filename: `Asset_Branding_Requests_Table_${new Date().toISOString().split('T')[0]}`,
+      sheetName: 'Branding Requests',
       columns: [
         { header: 'Request ID', key: 'requestNumber' },
-        { header: 'Outlet Code', key: 'outletCode' },
         { header: 'Outlet Name', key: 'outletName' },
+        { header: 'Outlet Code', key: 'outletCode' },
         { header: 'Route', key: 'routeCode' },
-        { header: 'Classification', key: 'classification', formatter: (val: any) => val ? `Class ${val}` : 'Class C' },
-        { header: 'Channel', key: 'channel', formatter: (val: any) => val || 'GT' },
+        { header: 'Classification', key: 'classification', formatter: (val) => val ? `Class ${val}` : 'Class C' },
+        { header: 'Channel', key: 'channel' },
         { header: 'Supervisor', key: 'supervisorName' },
-        { header: 'Condition Photo URL', key: 'photoUrl', formatter: (val: any) => val || 'No Photo' },
-        { header: 'Supervisor Notes', key: 'notes', formatter: (val: any, row: any) => val || row.brandingScope || '—' },
-        { header: 'Requested Date', key: 'createdAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Condition Photo URL', key: 'photoUrl', formatter: (val) => val || 'No Photo' },
+        { header: 'Supervisor Notes', key: 'notes', formatter: (val, row) => val || row.brandingScope || '—' },
+        { header: 'Requested Date', key: 'createdAt', formatter: (val) => new Date(val).toLocaleString() },
         { header: 'Status', key: 'status' },
-        { header: 'Acknowledged By', key: 'acknowledgedByName', formatter: (val: any) => val || '—' },
-        { header: 'Acknowledged Date', key: 'acknowledgedAt', formatter: (val: any) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Acknowledged By', key: 'acknowledgedByName', formatter: (val) => val || 'Awaiting Admin' },
+        { header: 'Acknowledged Date', key: 'acknowledgedAt', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
+        { header: 'Admin Decision', key: 'decision', formatter: (val, row) => val || (row.status === 'Approved' ? 'Approved' : row.status === 'Rejected' ? 'Rejected' : row.status === 'Pending Acknowledgement' ? 'Pending' : 'Under Review') },
+        { header: 'Admin Comments / Reason', key: 'adminComment', formatter: (val) => val || '—' },
       ],
       data: requests,
     });
   };
 
-  // Export With Photos (Excel or PPT)
-  const handleExportWithPhotos = async (type: 'excel' | 'pptx') => {
-    setExportMenuOpen(false);
-    if (requests.length === 0) return;
-
-    setExportProgress({
-      isExporting: true,
-      message: type === 'excel' ? 'Preparing Excel workbook with embedded photos...' : 'Generating PowerPoint presentation deck...',
-      current: 0,
-      total: requests.length,
-    });
-
-    try {
-      const dateStr = new Date().toISOString().split('T')[0];
-      const filterSummary = `Status: ${statusFilter} | Classification: ${selectedClassification} | Route: ${selectedRoute} | Supervisor: ${selectedSupervisor} | Total Records: ${requests.length}`;
-
-      if (type === 'excel') {
-        await exportBrandingToExcelWithPhotos(requests, {
-          filename: `Asset_Branding_Requests_With_Photos_${dateStr}.xlsx`,
-          filterSummary,
-          onProgress: (current, total, message) => {
-            setExportProgress({ isExporting: true, current, total, message });
-          },
-        });
-      } else {
-        await exportBrandingToPowerPoint(requests, {
-          filename: `Asset_Branding_Report_${dateStr}.pptx`,
-          filterSummary,
-          onProgress: (current, total, message) => {
-            setExportProgress({ isExporting: true, current, total, message });
-          },
-        });
-      }
-    } catch (err: any) {
-      console.error('Export failed:', err);
-      alert('Failed to generate export file: ' + (err.message || 'Unknown error'));
-    } finally {
-      setTimeout(() => setExportProgress(null), 800);
-    }
-  };
-
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-200">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
-            <Tag className="h-6 w-6" />
+    <div className="space-y-6">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-xs">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-black tracking-tight text-[var(--text-primary)]">
+              Asset Branding Requests
+            </h2>
+            <span className="badge badge-accent">Official Module</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-[var(--text-primary)]">Asset Branding Requests</h1>
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                Official Module
-              </span>
-            </div>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              Review field asset branding requirements submitted by supervisors and record administrative acknowledgements.
-            </p>
-          </div>
+          <p className="text-xs text-[var(--text-muted)] mt-1">
+            Review field asset branding requirements, manage administrative acknowledgements, approve or reject with comments, and export reports.
+          </p>
         </div>
 
-        {/* Export & Actions Button Bar */}
-        <div className="flex items-center gap-2 flex-wrap relative" ref={exportMenuRef}>
-          {/* Export Dropdown with Excel & PPT Options */}
-          <div className="relative">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Export Report Dropdown */}
+          <div className="relative" ref={exportMenuRef}>
             <button
               type="button"
-              disabled={requests.length === 0}
               onClick={() => setExportMenuOpen(!exportMenuOpen)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl bg-[var(--accent)] text-white hover:opacity-90 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary flex items-center gap-2 text-xs py-2 px-3.5 rounded-xl shadow-xs cursor-pointer"
             >
               <Download className="h-4 w-4" />
               <span>Export Report</span>
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${exportMenuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className="h-3.5 w-3.5 opacity-80" />
             </button>
 
-            {/* Dropdown Menu Popover */}
             {exportMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-2xl p-2 z-40 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 mt-2 w-72 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-xl z-50 p-2 animate-in fade-in slide-in-from-top-2 duration-150 space-y-1">
                 <button
                   type="button"
-                  onClick={() => handleExportWithPhotos('excel')}
-                  className="w-full p-2.5 rounded-xl hover:bg-[var(--surface-2)] text-left transition-colors flex items-start gap-3 cursor-pointer group"
+                  onClick={handleExportExcelWithPhotos}
+                  className="w-full text-left p-2.5 rounded-xl hover:bg-[var(--surface-2)] flex items-start gap-3 transition-colors cursor-pointer group"
                 >
-                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 group-hover:scale-105 transition-transform">
-                    <FileSpreadsheet className="h-4 w-4" />
+                  <div className="h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <FileSpreadsheet className="h-5 w-5" />
                   </div>
                   <div>
                     <span className="text-xs font-bold text-[var(--text-primary)] block">
                       Excel (.xlsx) with Photos
                     </span>
-                    <span className="text-[10px] text-[var(--text-muted)] block mt-0.5">
-                      Spreadsheet with photos embedded in each row
+                    <span className="text-[10.5px] text-[var(--text-muted)] block mt-0.5">
+                      Formatted spreadsheet with condition photos embedded in cells.
                     </span>
                   </div>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleExportWithPhotos('pptx')}
-                  className="w-full p-2.5 rounded-xl hover:bg-[var(--surface-2)] text-left transition-colors flex items-start gap-3 cursor-pointer group"
+                  onClick={handleExportPowerPoint}
+                  className="w-full text-left p-2.5 rounded-xl hover:bg-[var(--surface-2)] flex items-start gap-3 transition-colors cursor-pointer group"
                 >
-                  <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500 group-hover:scale-105 transition-transform">
-                    <Presentation className="h-4 w-4" />
+                  <div className="h-9 w-9 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <Presentation className="h-5 w-5" />
                   </div>
                   <div>
                     <span className="text-xs font-bold text-[var(--text-primary)] block">
                       PowerPoint (.pptx) with Photos
                     </span>
-                    <span className="text-[10px] text-[var(--text-muted)] block mt-0.5">
-                      Executive slide deck with full photos & shop profile
+                    <span className="text-[10.5px] text-[var(--text-muted)] block mt-0.5">
+                      16:9 executive deck with shop cards, large photos, and status.
                     </span>
                   </div>
                 </button>
@@ -347,18 +419,11 @@ export default function AssetBrandingRequestsPage() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setExportMenuOpen(false);
-                    handleExportExcelTable();
-                  }}
-                  className="w-full p-2 rounded-xl hover:bg-[var(--surface-2)] text-left transition-colors flex items-center gap-3 cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  onClick={handleExportFastTable}
+                  className="w-full text-left p-2 rounded-xl hover:bg-[var(--surface-2)] flex items-center gap-2.5 transition-colors cursor-pointer text-xs text-[var(--text-secondary)]"
                 >
-                  <div className="p-1.5 rounded-lg bg-slate-500/10 text-slate-400">
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
-                  </div>
-                  <span className="text-xs font-semibold">
-                    Excel Table Only (No Photos)
-                  </span>
+                  <Download className="h-4 w-4 text-[var(--text-muted)]" />
+                  <span>Excel Table Only (No Photos)</span>
                 </button>
               </div>
             )}
@@ -377,34 +442,54 @@ export default function AssetBrandingRequestsPage() {
       </div>
 
       {/* KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Total Requests</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Total Requests</p>
             <p className="text-2xl font-black text-[var(--text-primary)] mt-1">{counts.total}</p>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-slate-500/10 text-slate-400 flex items-center justify-center">
-            <Tag className="h-5 w-5" />
+          <div className="h-9 w-9 rounded-xl bg-slate-500/10 text-slate-400 flex items-center justify-center">
+            <Tag className="h-4.5 w-4.5" />
           </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-[var(--surface)] border border-amber-500/30 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-500">Pending Acknowledgement</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Pending</p>
             <p className="text-2xl font-black text-amber-500 mt-1">{counts.pending}</p>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-            <Clock className="h-5 w-5" />
+          <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <Clock className="h-4.5 w-4.5" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-[var(--surface)] border border-teal-500/30 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-teal-400">Acknowledged</p>
+            <p className="text-2xl font-black text-teal-400 mt-1">{counts.acknowledged}</p>
+          </div>
+          <div className="h-9 w-9 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center">
+            <ShieldCheck className="h-4.5 w-4.5" />
           </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-[var(--surface)] border border-emerald-500/30 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-500">Acknowledged</p>
-            <p className="text-2xl font-black text-emerald-500 mt-1">{counts.acknowledged}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Approved</p>
+            <p className="text-2xl font-black text-emerald-500 mt-1">{counts.approved || 0}</p>
           </div>
-          <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-            <CheckCircle2 className="h-5 w-5" />
+          <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+            <CheckCircle2 className="h-4.5 w-4.5" />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-[var(--surface)] border border-rose-500/30 shadow-xs flex items-center justify-between col-span-2 sm:col-span-1">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500">Rejected</p>
+            <p className="text-2xl font-black text-rose-500 mt-1">{counts.rejected || 0}</p>
+          </div>
+          <div className="h-9 w-9 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
+            <XCircle className="h-4.5 w-4.5" />
           </div>
         </div>
       </div>
@@ -434,19 +519,43 @@ export default function AssetBrandingRequestsPage() {
             }`}
           >
             <Clock className="h-3.5 w-3.5" />
-            Pending Acknowledgement ({counts.pending})
+            Pending ({counts.pending})
           </button>
           <button
             type="button"
             onClick={() => setStatusFilter('acknowledged')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               statusFilter === 'acknowledged'
-                ? 'bg-emerald-500 text-white shadow-xs font-extrabold'
+                ? 'bg-teal-600 text-white shadow-xs font-extrabold'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
+            }`}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Acknowledged ({counts.acknowledged})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('approved')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              statusFilter === 'approved'
+                ? 'bg-emerald-600 text-white shadow-xs font-extrabold'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
             }`}
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Acknowledged ({counts.acknowledged})
+            Approved ({counts.approved || 0})
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('rejected')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              statusFilter === 'rejected'
+                ? 'bg-rose-600 text-white shadow-xs font-extrabold'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
+            }`}
+          >
+            <XCircle className="h-3.5 w-3.5" />
+            Rejected ({counts.rejected || 0})
           </button>
         </div>
 
@@ -477,7 +586,7 @@ export default function AssetBrandingRequestsPage() {
             <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
             <input
               type="text"
-              placeholder="Search outlet, code, ID, notes..."
+              placeholder="Search outlet, code, ID, notes, comments..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
@@ -519,33 +628,42 @@ export default function AssetBrandingRequestsPage() {
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="w-full px-2 py-1.5 text-xs rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)]"
-              title="From Date"
+              className="w-full px-2.5 py-2 text-xs rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+              title="From date"
             />
-            <span className="text-[var(--text-muted)] text-xs">-</span>
+          </div>
+
+          <div className="flex items-center gap-2">
             <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="w-full px-2 py-1.5 text-xs rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)]"
-              title="To Date"
+              className="w-full px-2.5 py-2 text-xs rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+              title="To date"
             />
-          </div>
-
-          <div>
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-[var(--surface-2)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] border border-[var(--border)] transition-all cursor-pointer"
-            >
-              Reset Filters
-            </button>
+            {(searchQuery || selectedRoute !== 'all' || selectedSupervisor !== 'all' || selectedClassification !== 'all' || fromDate || toDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedRoute('all');
+                  setSelectedSupervisor('all');
+                  setSelectedClassification('all');
+                  setFromDate('');
+                  setToDate('');
+                  setStatusFilter('all');
+                }}
+                className="px-2.5 py-2 rounded-xl text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] bg-[var(--surface-2)] border border-[var(--border)] cursor-pointer whitespace-nowrap"
+              >
+                Reset
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Main Requests Table */}
-      <div className="rounded-2xl bg-[var(--surface)] border border-[var(--border)] overflow-hidden shadow-xs">
+      {/* Branding Requests Table */}
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-xs overflow-hidden">
         {isLoading ? (
           <div className="py-20 text-center space-y-3">
             <RefreshCw className="h-6 w-6 animate-spin mx-auto text-[var(--accent)]" />
@@ -572,12 +690,15 @@ export default function AssetBrandingRequestsPage() {
                   <th className="py-3 px-4">Requested Date</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Acknowledgement</th>
+                  <th className="py-3 px-4">Admin Remarks & Decision</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-soft)]">
                 {requests.map((r) => {
                   const isPending = r.status === 'Pending Acknowledgement';
+                  const isApproved = r.decision === 'Approved' || r.status === 'Approved';
+                  const isRejected = r.decision === 'Rejected' || r.status === 'Rejected';
                   return (
                     <tr key={r.id} className="hover:bg-[var(--surface-2)]/50 transition-colors">
                       <td className="py-3 px-4 font-mono font-bold text-[var(--accent)]">{r.requestNumber}</td>
@@ -616,14 +737,24 @@ export default function AssetBrandingRequestsPage() {
                         <div className="text-[10px]">{new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
                       <td className="py-3 px-4">
-                        {isPending ? (
+                        {isApproved ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Approved
+                          </span>
+                        ) : isRejected ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/30">
+                            <XCircle className="h-3 w-3" />
+                            Rejected
+                          </span>
+                        ) : isPending ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
                             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                             Pending
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                            <CheckCircle2 className="h-3 w-3" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/10 text-teal-400 border border-teal-500/30">
+                            <ShieldCheck className="h-3 w-3" />
                             Acknowledged
                           </span>
                         )}
@@ -640,8 +771,38 @@ export default function AssetBrandingRequestsPage() {
                           <span className="text-[var(--text-muted)] italic">Awaiting Admin</span>
                         )}
                       </td>
+                      {/* Admin Remarks & Decision Column */}
+                      <td className="py-3 px-4">
+                        {r.decision || r.adminComment ? (
+                          <div className="space-y-1 max-w-xs">
+                            {r.decision && (
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  r.decision === 'Approved'
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                }`}
+                              >
+                                {r.decision === 'Approved' ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                {r.decision}
+                              </span>
+                            )}
+                            {r.adminComment ? (
+                              <p className="text-[11px] text-[var(--text-primary)] italic truncate" title={r.adminComment}>
+                                "{r.adminComment}"
+                              </p>
+                            ) : (
+                              <span className="text-[10px] text-[var(--text-muted)] italic">No comments</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-[var(--text-muted)] italic">—</span>
+                        )}
+                      </td>
+                      {/* Actions Column */}
                       <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {/* 1. View Details Button */}
                           <button
                             type="button"
                             onClick={() => handleOpenDetails(r)}
@@ -651,16 +812,48 @@ export default function AssetBrandingRequestsPage() {
                             <Eye className="h-4 w-4" />
                           </button>
 
+                          {/* 2. Acknowledge Button (if pending) */}
                           {isPending && canAcknowledge && (
                             <button
                               type="button"
                               disabled={isAcknowledging}
                               onClick={() => handleAcknowledge(r.id)}
-                              className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              className="px-2.5 py-1 rounded-lg text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-all shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
                               title="Acknowledge Request"
                             >
                               <Check className="h-3.5 w-3.5" />
                               <span>Acknowledge</span>
+                            </button>
+                          )}
+
+                          {/* 3. Decision Button: Request Approved Or Rejected (Once acknowledged or to edit decision) */}
+                          {!isPending && canAcknowledge && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDecisionModal(r)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer ${
+                                r.decision === 'Approved'
+                                  ? 'bg-emerald-700/80 hover:bg-emerald-600 text-white'
+                                  : r.decision === 'Rejected'
+                                  ? 'bg-rose-700/80 hover:bg-rose-600 text-white'
+                                  : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                              }`}
+                              title="Request Approved Or Rejected"
+                            >
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              <span>{r.decision ? `${r.decision} (Edit)` : 'Approve / Reject'}</span>
+                            </button>
+                          )}
+
+                          {/* 4. Delete Entry Button (Admin Only) */}
+                          {canAcknowledge && (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmRequest(r)}
+                              className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 hover:text-rose-400 border border-rose-500/20 transition-all cursor-pointer shadow-xs"
+                              title="Delete Asset Branding Request"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           )}
                         </div>
@@ -704,14 +897,24 @@ export default function AssetBrandingRequestsPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                {activeRequest.status === 'Pending Acknowledgement' ? (
+                {activeRequest.decision === 'Approved' || activeRequest.status === 'Approved' ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Approved
+                  </span>
+                ) : activeRequest.decision === 'Rejected' || activeRequest.status === 'Rejected' ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1.5">
+                    <XCircle className="h-3.5 w-3.5" />
+                    Rejected
+                  </span>
+                ) : activeRequest.status === 'Pending Acknowledgement' ? (
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
                     <Clock className="h-3.5 w-3.5" />
                     Pending Acknowledgement
                   </span>
                 ) : (
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5" />
                     Acknowledged
                   </span>
                 )}
@@ -832,28 +1035,65 @@ export default function AssetBrandingRequestsPage() {
                     </div>
                   </div>
 
-                  {/* Administrative Acknowledgement Card */}
+                  {/* Management Decision & Comments Card */}
                   <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--border)] space-y-2">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-1.5">
-                      <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                      <span>Administrative Acknowledgement</span>
+                      <ShieldCheck className="h-4 w-4 text-[var(--accent)]" />
+                      <span>Management Decision & Administrative Review</span>
                     </h4>
-                    {activeRequest.status === 'Pending Acknowledgement' ? (
-                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 space-y-1">
+
+                    {activeRequest.decision ? (
+                      <div
+                        className={`p-3.5 rounded-xl border space-y-2 ${
+                          activeRequest.decision === 'Approved'
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                            : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold flex items-center gap-1.5 text-xs">
+                            {activeRequest.decision === 'Approved' ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-rose-400" />
+                            )}
+                            Decision: {activeRequest.decision.toUpperCase()}
+                          </span>
+                          <span className="text-[10px] opacity-80">
+                            {activeRequest.decisionAt ? new Date(activeRequest.decisionAt).toLocaleString() : ''}
+                          </span>
+                        </div>
+                        <p className="text-[11px] opacity-90">
+                          Decided by: <strong>{activeRequest.decisionByName || activeRequest.acknowledgedByName || 'Admin'}</strong>
+                        </p>
+                        {activeRequest.adminComment && (
+                          <div className="bg-[var(--surface)]/80 p-2.5 rounded-lg border border-[var(--border-soft)] mt-1">
+                            <span className="text-[9.5px] uppercase font-bold text-[var(--text-muted)] block">Admin Remarks:</span>
+                            <p className="text-xs text-[var(--text-primary)] italic mt-0.5">
+                              "{activeRequest.adminComment}"
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : activeRequest.status === 'Acknowledged' ? (
+                      <div className="p-3.5 rounded-xl bg-teal-500/10 border border-teal-500/30 text-xs text-teal-400 space-y-1.5">
+                        <p className="font-bold flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4" /> Acknowledged by {activeRequest.acknowledgedByName}
+                        </p>
+                        <p className="text-[11px] text-teal-300/80">
+                          Confirmed on: {activeRequest.acknowledgedAt ? new Date(activeRequest.acknowledgedAt).toLocaleString() : '—'}
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)] italic">
+                          Awaiting formal approval or rejection decision from Admin/Sub-Admin.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 space-y-1">
                         <p className="font-bold flex items-center gap-1.5">
                           <Clock className="h-4 w-4" /> Status: Pending Administrative Acknowledgement
                         </p>
                         <p className="text-[11px] text-amber-300/80">
                           This request has not yet been acknowledged. Admin or Sub-Admin can click "Acknowledge Request" below.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 space-y-1">
-                        <p className="font-bold flex items-center gap-1.5">
-                          <CheckCircle2 className="h-4 w-4" /> Acknowledged by {activeRequest.acknowledgedByName}
-                        </p>
-                        <p className="text-[11px] text-emerald-300/80">
-                          Confirmed on: {activeRequest.acknowledgedAt ? new Date(activeRequest.acknowledgedAt).toLocaleString() : '—'}
                         </p>
                       </div>
                     )}
@@ -882,6 +1122,7 @@ export default function AssetBrandingRequestsPage() {
                           <th className="py-2.5 px-3">Notes</th>
                           <th className="py-2.5 px-3">Photo</th>
                           <th className="py-2.5 px-3">Status</th>
+                          <th className="py-2.5 px-3">Decision / Remarks</th>
                           <th className="py-2.5 px-3">Acknowledged By</th>
                         </tr>
                       </thead>
@@ -899,9 +1140,22 @@ export default function AssetBrandingRequestsPage() {
                               )}
                             </td>
                             <td className="py-2.5 px-3">
-                              <span className={h.status === 'Acknowledged' ? 'text-emerald-500 font-bold' : 'text-amber-500 font-bold'}>
-                                {h.status}
+                              <span
+                                className={
+                                  h.decision === 'Approved' || h.status === 'Approved'
+                                    ? 'text-emerald-500 font-bold'
+                                    : h.decision === 'Rejected' || h.status === 'Rejected'
+                                    ? 'text-rose-500 font-bold'
+                                    : h.status === 'Acknowledged'
+                                    ? 'text-teal-400 font-bold'
+                                    : 'text-amber-500 font-bold'
+                                }
+                              >
+                                {h.decision || h.status}
                               </span>
+                            </td>
+                            <td className="py-2.5 px-3 truncate max-w-xs text-[var(--text-secondary)] italic">
+                              {h.adminComment || '—'}
                             </td>
                             <td className="py-2.5 px-3 text-[var(--text-muted)]">{h.acknowledgedByName || '—'}</td>
                           </tr>
@@ -915,9 +1169,24 @@ export default function AssetBrandingRequestsPage() {
 
             {/* Modal Footer */}
             <div className="flex items-center justify-between px-6 py-4 border-t border-[var(--border-soft)] bg-[var(--surface-2)]/60">
-              <span className="text-xs font-mono text-[var(--text-muted)]">
-                Record ID: {activeRequest.id}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono text-[var(--text-muted)]">
+                  Record ID: {activeRequest.id}
+                </span>
+
+                {canAcknowledge && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteConfirmRequest(activeRequest);
+                    }}
+                    className="text-xs font-bold text-rose-500 hover:text-rose-400 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Entry</span>
+                  </button>
+                )}
+              </div>
 
               <div className="flex items-center gap-2">
                 <button
@@ -933,13 +1202,199 @@ export default function AssetBrandingRequestsPage() {
                     type="button"
                     disabled={isAcknowledging}
                     onClick={() => handleAcknowledge(activeRequest.id)}
-                    className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <Check className="h-4 w-4" />
                     {isAcknowledging ? 'Acknowledging...' : 'Acknowledge Request'}
                   </button>
                 )}
+
+                {activeRequest.status !== 'Pending Acknowledgement' && canAcknowledge && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenDecisionModal(activeRequest)}
+                    className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer text-white ${
+                      activeRequest.decision === 'Approved'
+                        ? 'bg-emerald-600 hover:bg-emerald-500'
+                        : activeRequest.decision === 'Rejected'
+                        ? 'bg-rose-600 hover:bg-rose-500'
+                        : 'bg-indigo-600 hover:bg-indigo-500'
+                    }`}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Request Approved Or Rejected</span>
+                  </button>
+                )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request Approved Or Rejected Decision Modal */}
+      {decisionModalRequest && (
+        <div className="fixed inset-0 z-60 overflow-y-auto flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-[var(--surface)] border border-[var(--border)] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)] bg-[var(--surface-2)]/60">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-[var(--accent)]" />
+                <h3 className="text-base font-black text-[var(--text-primary)]">
+                  Request Approved Or Rejected
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDecisionModalRequest(null)}
+                className="p-1.5 rounded-xl hover:bg-[var(--surface-2)] text-[var(--text-muted)] cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Outlet details banner */}
+              <div className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border-soft)] space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-[var(--accent)]">{decisionModalRequest.requestNumber}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400">
+                    Class {decisionModalRequest.classification || 'C'}
+                  </span>
+                </div>
+                <p className="font-bold text-[var(--text-primary)]">{decisionModalRequest.outletName}</p>
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  Code: <strong className="text-[var(--text-secondary)]">{decisionModalRequest.outletCode}</strong> • Route: {decisionModalRequest.routeCode} • Supervisor: {decisionModalRequest.supervisorName}
+                </p>
+                {decisionModalRequest.notes && (
+                  <p className="text-[11px] text-[var(--text-secondary)] italic pt-1 border-t border-[var(--border-soft)]">
+                    Supervisor Note: "{decisionModalRequest.notes}"
+                  </p>
+                )}
+              </div>
+
+              {/* Decision Selector */}
+              <div>
+                <label className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider block mb-2">
+                  Select Decision:
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDecisionType('Approved')}
+                    className={`p-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                      decisionType === 'Approved'
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md scale-[1.02]'
+                        : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:border-emerald-500/50'
+                    }`}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Approve Request</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDecisionType('Rejected')}
+                    className={`p-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                      decisionType === 'Rejected'
+                        ? 'bg-rose-600 text-white border-rose-500 shadow-md scale-[1.02]'
+                        : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:border-rose-500/50'
+                    }`}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    <span>Reject Request</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Comments / Reason Textarea */}
+              <div>
+                <label className="text-xs font-bold text-[var(--text-primary)] block mb-1">
+                  Reason & Administrative Comments {decisionType === 'Rejected' ? <span className="text-rose-500 font-bold">* (Required for rejection)</span> : <span className="text-[var(--text-muted)] font-normal">(Optional remarks)</span>}:
+                </label>
+                <textarea
+                  rows={3}
+                  value={decisionComment}
+                  onChange={(e) => setDecisionComment(e.target.value)}
+                  placeholder={
+                    decisionType === 'Rejected'
+                      ? 'Write the exact reason for rejecting this request (e.g. Chiller already branded in Q3, outlet scheduled for relocation)...'
+                      : 'Add comments (e.g. Approved for door decals and canopy replacement in next branding schedule)...'
+                  }
+                  className="w-full text-xs p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--border-soft)] bg-[var(--surface-2)]/60">
+              <button
+                type="button"
+                onClick={() => setDecisionModalRequest(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] border border-[var(--border)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingDecision || (decisionType === 'Rejected' && !decisionComment.trim())}
+                onClick={handleSubmitDecision}
+                className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                  decisionType === 'Approved' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'
+                }`}
+              >
+                <Check className="h-4 w-4" />
+                <span>{isSubmittingDecision ? 'Submitting...' : `Confirm ${decisionType}`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmRequest && (
+        <div className="fixed inset-0 z-60 overflow-y-auto flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-[var(--surface)] border border-rose-500/30 rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)] bg-rose-500/10">
+              <div className="flex items-center gap-2 text-rose-500">
+                <Trash2 className="h-5 w-5" />
+                <h3 className="text-base font-black">Delete Branding Request</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmRequest(null)}
+                className="p-1.5 rounded-xl hover:bg-[var(--surface-2)] text-[var(--text-muted)] cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-3">
+              <p className="text-xs text-[var(--text-primary)]">
+                Are you sure you want to permanently delete branding request <strong className="font-mono text-rose-400">{deleteConfirmRequest.requestNumber}</strong>?
+              </p>
+              <div className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border-soft)] text-xs space-y-1">
+                <p className="font-bold text-[var(--text-primary)]">{deleteConfirmRequest.outletName}</p>
+                <p className="text-[11px] text-[var(--text-muted)]">Code: {deleteConfirmRequest.outletCode} • Supervisor: {deleteConfirmRequest.supervisorName}</p>
+              </div>
+              <p className="text-[11px] text-rose-400 font-semibold bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
+                ⚠ This entry will be permanently removed from both the Admin Console and the Supervisor Portal.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--border-soft)] bg-[var(--surface-2)]/60">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmRequest(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--border-soft)] text-[var(--text-secondary)] border border-[var(--border)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteRequest}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>{isDeleting ? 'Deleting...' : 'Delete Permanently'}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -981,24 +1436,22 @@ export default function AssetBrandingRequestsPage() {
                 {exportProgress.message}
               </p>
             </div>
-            {exportProgress.total > 0 && (
-              <div className="space-y-1.5">
-                <div className="w-full bg-[var(--surface-2)] h-2 rounded-full overflow-hidden border border-[var(--border-soft)]">
-                  <div
-                    className="bg-[var(--accent)] h-full transition-all duration-300"
-                    style={{
-                      width: `${Math.round((exportProgress.current / exportProgress.total) * 100)}%`,
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] text-[var(--text-muted)] font-mono">
-                  <span>Record {exportProgress.current} of {exportProgress.total}</span>
-                  <span>{Math.round((exportProgress.current / exportProgress.total) * 100)}%</span>
-                </div>
-              </div>
-            )}
-            <p className="text-[10px] text-[var(--text-muted)] italic">
-              Embedding photos into document... your download will start automatically once ready.
+
+            {/* Progress Bar */}
+            <div className="w-full bg-[var(--surface-2)] rounded-full h-2.5 overflow-hidden border border-[var(--border)]">
+              <div
+                className="bg-[var(--accent)] h-full transition-all duration-200 rounded-full"
+                style={{
+                  width: `${
+                    exportProgress.total > 0
+                      ? Math.min(100, Math.round((exportProgress.current / exportProgress.total) * 100))
+                      : 10
+                  }%`,
+                }}
+              />
+            </div>
+            <p className="text-[11px] font-mono text-[var(--text-muted)]">
+              {exportProgress.current} / {exportProgress.total} records processed
             </p>
           </div>
         </div>
