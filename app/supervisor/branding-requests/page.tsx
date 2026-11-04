@@ -212,7 +212,7 @@ export default function SupervisorBrandingRequestsPage() {
         { header: 'Classification', key: 'classification', formatter: (val) => val ? `Class ${val}` : 'Class C' },
         { header: 'Channel', key: 'channel' },
         { header: 'Supervisor', key: 'supervisorName' },
-        { header: 'Asset Model / Size', key: 'assetModel', formatter: (val, row) => [row.assetType, val || row.sizeModel].filter(Boolean).join(' - ') || '—' },
+        { header: 'Asset Model / Size', key: 'assetModel', formatter: (val, row) => [row.assetType, val || row.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door' },
         { header: 'Condition Photo URL', key: 'photoUrl', formatter: (val) => val || 'No Photo' },
         { header: 'Supervisor Notes', key: 'notes', formatter: (val, row) => val || row.brandingScope || '—' },
         { header: 'Requested Date', key: 'createdAt', formatter: (val) => new Date(val).toLocaleString() },
@@ -577,24 +577,9 @@ export default function SupervisorBrandingRequestsPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        {r.assetModel || r.sizeModel ? (
-                          <div className="space-y-0.5">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 whitespace-nowrap">
-                              {r.assetModel || r.sizeModel}
-                            </span>
-                            {r.assetType && (
-                              <div className="text-[10px] text-[var(--text-muted)] font-medium">
-                                {r.assetType}
-                              </div>
-                            )}
-                          </div>
-                        ) : r.assetType ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                            {r.assetType}
-                          </span>
-                        ) : (
-                          <span className="text-[10.5px] text-[var(--text-muted)] italic">—</span>
-                        )}
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 whitespace-nowrap shadow-xs">
+                          {[r.assetType, r.assetModel || r.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door'}
+                        </span>
                       </td>
                       <td className="py-3 px-4">
                         {r.photoUrl ? (
@@ -730,7 +715,7 @@ export default function SupervisorBrandingRequestsPage() {
                       <>
                         <span>•</span>
                         <span className="px-1.5 py-0.2 rounded font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20">
-                          Asset: {[activeRequest.assetType, activeRequest.assetModel || activeRequest.sizeModel].filter(Boolean).join(' - ')}
+                          Asset: {[activeRequest.assetType, activeRequest.assetModel || activeRequest.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door'}
                         </span>
                       </>
                     )}
@@ -856,7 +841,7 @@ export default function SupervisorBrandingRequestsPage() {
                         <div>
                           <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Asset Model / Size</span>
                           <span className="font-bold text-blue-500 block mt-0.5">
-                            {[activeRequest.assetType, activeRequest.assetModel || activeRequest.sizeModel].filter(Boolean).join(' - ') || 'Not specified'}
+                            {[activeRequest.assetType, activeRequest.assetModel || activeRequest.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door'}
                           </span>
                         </div>
                         <div>

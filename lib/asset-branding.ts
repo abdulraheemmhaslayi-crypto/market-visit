@@ -71,7 +71,16 @@ function readLocalItems(): AssetBrandingRequest[] {
   ensureFile();
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(raw);
+    const items = JSON.parse(raw);
+    if (Array.isArray(items)) {
+      return items.map((i) => ({
+        ...i,
+        assetType: i.assetType || 'Chiller',
+        assetModel: i.assetModel || i.sizeModel || 'Single Door',
+        sizeModel: i.sizeModel || i.assetModel || 'Single Door',
+      }));
+    }
+    return [];
   } catch (err) {
     console.error('Error reading asset-branding-requests.json:', err);
     return [];
@@ -224,6 +233,11 @@ async function ensureBrandingTable(): Promise<void> {
       try {
         await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `adminComment` TEXT NULL');
       } catch {}
+      try {
+        await pool.execute(
+          "UPDATE `Asset_Branding_Requests` SET `assetType` = 'Chiller', `assetModel` = 'Single Door', `sizeModel` = 'Single Door' WHERE `assetModel` IS NULL OR `assetModel` = '' OR `assetModel` = '—'"
+        );
+      } catch {}
     }
     brandingTableChecked = true;
   } catch (err) {
@@ -291,17 +305,17 @@ export const assetBrandingRepository = {
       items = readLocalItems();
     }
 
-    // Auto-enrich any items that might be missing classification from local lookup
+    // Auto-enrich any items that might be missing classification or assetModel
     items = items.map((item) => {
-      if (!item.classification || !item.channel) {
-        const meta = lookupCustomerMeta(item.outletCode);
-        return {
-          ...item,
-          classification: item.classification || meta.classification,
-          channel: item.channel || meta.channel,
-        };
-      }
-      return item;
+      const meta = (!item.classification || !item.channel) ? lookupCustomerMeta(item.outletCode) : null;
+      return {
+        ...item,
+        classification: item.classification || meta?.classification || 'C',
+        channel: item.channel || meta?.channel || 'GT',
+        assetType: item.assetType || 'Chiller',
+        assetModel: item.assetModel || item.sizeModel || 'Single Door',
+        sizeModel: item.sizeModel || item.assetModel || 'Single Door',
+      };
     });
 
     if (filters) {
@@ -421,9 +435,16 @@ export const assetBrandingRepository = {
     }
 
     const local = readLocalItems();
-    return local
+    const list = local
       .filter((i) => i.outletCode.toLowerCase() === norm)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return list.map((i) => ({
+      ...i,
+      assetType: i.assetType || 'Chiller',
+      assetModel: i.assetModel || i.sizeModel || 'Single Door',
+      sizeModel: i.sizeModel || i.assetModel || 'Single Door',
+    }));
   },
 
   async getSummaryCounts(filters?: { supervisorName?: string; classification?: string }): Promise<{

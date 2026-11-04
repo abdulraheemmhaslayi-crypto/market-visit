@@ -236,7 +236,7 @@ export async function exportBrandingToExcelWithPhotos(
 
     const isPending = req.status === 'Pending Acknowledgement';
     const decisionVal = req.decision || (req.status === 'Approved' ? 'Approved' : req.status === 'Rejected' ? 'Rejected' : isPending ? 'Pending' : 'Under Review');
-    const assetModelVal = [req.assetType, req.assetModel || req.sizeModel].filter(Boolean).join(' - ') || '—';
+    const assetModelVal = [req.assetType, req.assetModel || req.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door';
 
     const rowData = [
       req.requestNumber,
@@ -681,7 +681,7 @@ export async function exportBrandingToPowerPoint(
       ],
       [
         { text: 'Asset Model / Size: ', options: { bold: true, color: '64748B' } },
-        { text: [req.assetType, req.assetModel || req.sizeModel].filter(Boolean).join(' - ') || 'N/A', options: { bold: true, color: '0284C7' } },
+        { text: [req.assetType, req.assetModel || req.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door', options: { bold: true, color: '0284C7' } },
       ],
       [
         { text: 'Channel / RTM: ', options: { bold: true, color: '64748B' } },
