@@ -156,7 +156,8 @@ export async function exportBrandingToExcelWithPhotos(
     { key: 'classification', width: 12 },
     { key: 'channel', width: 10 },
     { key: 'supervisorName', width: 20 },
-    { key: 'photo', width: 28 }, // Photo Column (Width ~ 180px)
+    { key: 'assetModel', width: 22 },
+    { key: 'photo', width: 28 }, // Photo Column (Width ~ 180px, Col I)
     { key: 'notes', width: 34 },
     { key: 'createdAt', width: 20 },
     { key: 'status', width: 20 },
@@ -169,7 +170,7 @@ export async function exportBrandingToExcelWithPhotos(
   // Title Banner
   const titleRow = worksheet.addRow(['DANDY FIELD VISIT SYSTEM - ASSET BRANDING REQUESTS REPORT']);
   titleRow.height = 30;
-  worksheet.mergeCells('A1:O1');
+  worksheet.mergeCells('A1:P1');
   const titleCell = worksheet.getCell('A1');
   titleCell.font = { name: 'Segoe UI', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // Dark Slate
@@ -180,7 +181,7 @@ export async function exportBrandingToExcelWithPhotos(
     options.filterSummary || `Generated on: ${new Date().toLocaleString()} | Total Records: ${requests.length}`,
   ]);
   subRow.height = 20;
-  worksheet.mergeCells('A2:O2');
+  worksheet.mergeCells('A2:P2');
   const subCell = worksheet.getCell('A2');
   subCell.font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF64748B' } };
   subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
@@ -198,6 +199,7 @@ export async function exportBrandingToExcelWithPhotos(
     'Class',
     'Channel',
     'Supervisor',
+    'Asset Model / Size',
     'Asset Condition Photo',
     'Supervisor Notes',
     'Requested Date',
@@ -234,6 +236,7 @@ export async function exportBrandingToExcelWithPhotos(
 
     const isPending = req.status === 'Pending Acknowledgement';
     const decisionVal = req.decision || (req.status === 'Approved' ? 'Approved' : req.status === 'Rejected' ? 'Rejected' : isPending ? 'Pending' : 'Under Review');
+    const assetModelVal = [req.assetType, req.assetModel || req.sizeModel].filter(Boolean).join(' - ') || '—';
 
     const rowData = [
       req.requestNumber,
@@ -243,7 +246,8 @@ export async function exportBrandingToExcelWithPhotos(
       req.classification ? `Class ${req.classification}` : 'Class C',
       req.channel || 'GT',
       req.supervisorName,
-      '', // Placeholder for photo in Column H (Index 8 / Column 7 in 0-indexed)
+      assetModelVal,
+      '', // Placeholder for photo in Column I (Index 9 / Column 8 in 0-indexed)
       req.notes || req.brandingScope || '—',
       new Date(req.createdAt).toLocaleString(),
       req.status,
@@ -259,7 +263,7 @@ export async function exportBrandingToExcelWithPhotos(
     // Cell Styling
     row.eachCell((cell, colNumber) => {
       cell.font = { name: 'Segoe UI', size: 9.5 };
-      cell.alignment = { vertical: 'middle', horizontal: colNumber === 2 || colNumber === 9 || colNumber === 15 ? 'left' : 'center', wrapText: true };
+      cell.alignment = { vertical: 'middle', horizontal: colNumber === 2 || colNumber === 10 || colNumber === 16 ? 'left' : 'center', wrapText: true };
       cell.border = {
         top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
         left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
@@ -277,8 +281,8 @@ export async function exportBrandingToExcelWithPhotos(
         cell.font = { name: 'Segoe UI', size: 9.5, bold: true, color: { argb: 'FF2563EB' } };
       }
 
-      // Status coloring
-      if (colNumber === 11) {
+      // Status coloring (Col L / 12)
+      if (colNumber === 12) {
         cell.font = {
           name: 'Segoe UI',
           size: 9.5,
@@ -289,8 +293,8 @@ export async function exportBrandingToExcelWithPhotos(
         };
       }
 
-      // Decision coloring
-      if (colNumber === 14) {
+      // Decision coloring (Col O / 15)
+      if (colNumber === 15) {
         cell.font = {
           name: 'Segoe UI',
           size: 9.5,
@@ -312,9 +316,9 @@ export async function exportBrandingToExcelWithPhotos(
             extension: photoData.extension,
           });
 
-          // Place inside Column H (Column Index 7 in 0-based), Row currentRowIndex
+          // Place inside Column I (Column Index 8 in 0-based), Row currentRowIndex
           worksheet.addImage(imageId, {
-            tl: { col: 7.15, row: currentRowIndex - 0.92 },
+            tl: { col: 8.15, row: currentRowIndex - 0.92 },
             ext: { width: 140, height: 110 },
             editAs: 'oneCell',
           });
@@ -323,10 +327,10 @@ export async function exportBrandingToExcelWithPhotos(
         console.warn('Failed to embed photo in row:', currentRowIndex, err);
       }
     } else {
-      const cellH = worksheet.getCell(`H${currentRowIndex}`);
-      cellH.value = 'No Photo Attached';
-      cellH.font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF94A3B8' } };
-      cellH.alignment = { vertical: 'middle', horizontal: 'center' };
+      const cellI = worksheet.getCell(`I${currentRowIndex}`);
+      cellI.value = 'No Photo Attached';
+      cellI.font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF94A3B8' } };
+      cellI.alignment = { vertical: 'middle', horizontal: 'center' };
     }
 
     currentRowIndex++;
@@ -643,7 +647,7 @@ export async function exportBrandingToPowerPoint(
       x: 7.3,
       y: 1.3,
       w: 5.5,
-      h: 2.1,
+      h: 2.15,
       fill: { color: 'FFFFFF' },
       line: { color: 'CBD5E1', width: 1 },
       rectRadius: 0.15,
@@ -676,12 +680,16 @@ export async function exportBrandingToPowerPoint(
         { text: req.classification ? `Class ${req.classification}` : 'Class C', options: { bold: true, color: '7C3AED' } },
       ],
       [
+        { text: 'Asset Model / Size: ', options: { bold: true, color: '64748B' } },
+        { text: [req.assetType, req.assetModel || req.sizeModel].filter(Boolean).join(' - ') || 'N/A', options: { bold: true, color: '0284C7' } },
+      ],
+      [
         { text: 'Channel / RTM: ', options: { bold: true, color: '64748B' } },
         { text: req.channel || 'GT', options: { color: '0F172A' } },
       ],
     ];
 
-    let startY = 1.75;
+    let startY = 1.68;
     infoRows.forEach((r) => {
       slide.addText(r, {
         x: 7.5,
@@ -690,7 +698,7 @@ export async function exportBrandingToPowerPoint(
         fontSize: 9.5,
         fontFace: 'Segoe UI',
       });
-      startY += 0.26;
+      startY += 0.23;
     });
 
     // Card 2: Supervisor Notes & Reason for Branding

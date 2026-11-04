@@ -335,6 +335,7 @@ export default function AssetBrandingRequestsPage() {
         { header: 'Classification', key: 'classification', formatter: (val) => val ? `Class ${val}` : 'Class C' },
         { header: 'Channel', key: 'channel' },
         { header: 'Supervisor', key: 'supervisorName' },
+        { header: 'Asset Model / Size', key: 'assetModel', formatter: (val, row) => [row.assetType, val || row.sizeModel].filter(Boolean).join(' - ') || '—' },
         { header: 'Condition Photo URL', key: 'photoUrl', formatter: (val) => val || 'No Photo' },
         { header: 'Supervisor Notes', key: 'notes', formatter: (val, row) => val || row.brandingScope || '—' },
         { header: 'Requested Date', key: 'createdAt', formatter: (val) => new Date(val).toLocaleString() },
@@ -685,6 +686,7 @@ export default function AssetBrandingRequestsPage() {
                   <th className="py-3 px-4">Route</th>
                   <th className="py-3 px-4">Class</th>
                   <th className="py-3 px-4">Supervisor</th>
+                  <th className="py-3 px-4">Asset Model / Size</th>
                   <th className="py-3 px-4">Asset Photo</th>
                   <th className="py-3 px-4">Supervisor Notes</th>
                   <th className="py-3 px-4">Requested Date</th>
@@ -713,6 +715,26 @@ export default function AssetBrandingRequestsPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 font-semibold text-[var(--text-secondary)]">{r.supervisorName}</td>
+                      <td className="py-3 px-4">
+                        {r.assetModel || r.sizeModel ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 whitespace-nowrap">
+                              {r.assetModel || r.sizeModel}
+                            </span>
+                            {r.assetType && (
+                              <div className="text-[10px] text-[var(--text-muted)] font-medium">
+                                {r.assetType}
+                              </div>
+                            )}
+                          </div>
+                        ) : r.assetType ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                            {r.assetType}
+                          </span>
+                        ) : (
+                          <span className="text-[10.5px] text-[var(--text-muted)] italic">—</span>
+                        )}
+                      </td>
                       <td className="py-3 px-4">
                         {r.photoUrl ? (
                           <div
@@ -892,6 +914,14 @@ export default function AssetBrandingRequestsPage() {
                     </span>
                     <span>•</span>
                     <span>Channel: {activeRequest.channel || 'GT'}</span>
+                    {(activeRequest.assetModel || activeRequest.sizeModel || activeRequest.assetType) && (
+                      <>
+                        <span>•</span>
+                        <span className="px-1.5 py-0.2 rounded font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20">
+                          Asset: {[activeRequest.assetType, activeRequest.assetModel || activeRequest.sizeModel].filter(Boolean).join(' - ')}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1015,10 +1045,16 @@ export default function AssetBrandingRequestsPage() {
                       <User className="h-4 w-4 text-sky-400" />
                       <span>Supervisor Submission</span>
                     </h4>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                       <div>
                         <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Requesting Supervisor</span>
                         <span className="font-semibold text-[var(--text-primary)] block mt-0.5">{activeRequest.supervisorName}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Asset Model / Size</span>
+                        <span className="font-bold text-blue-500 block mt-0.5">
+                          {[activeRequest.assetType, activeRequest.assetModel || activeRequest.sizeModel].filter(Boolean).join(' - ') || 'Not specified'}
+                        </span>
                       </div>
                       <div>
                         <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Submission Date & Time</span>
@@ -1026,7 +1062,7 @@ export default function AssetBrandingRequestsPage() {
                           {new Date(activeRequest.createdAt).toLocaleString()}
                         </span>
                       </div>
-                      <div className="col-span-2">
+                      <div className="col-span-2 sm:col-span-3">
                         <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold block">Supervisor Comments / Notes</span>
                         <p className="text-xs text-[var(--text-primary)] bg-[var(--surface)] p-3 rounded-xl border border-[var(--border-soft)] mt-1 italic">
                           "{activeRequest.notes || activeRequest.brandingScope || 'Asset branding required'}"
@@ -1119,6 +1155,7 @@ export default function AssetBrandingRequestsPage() {
                         <tr>
                           <th className="py-2.5 px-3">Req ID</th>
                           <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Asset Model/Size</th>
                           <th className="py-2.5 px-3">Notes</th>
                           <th className="py-2.5 px-3">Photo</th>
                           <th className="py-2.5 px-3">Status</th>
@@ -1131,6 +1168,9 @@ export default function AssetBrandingRequestsPage() {
                           <tr key={h.id} className={h.id === activeRequest.id ? 'bg-amber-500/10 font-semibold' : ''}>
                             <td className="py-2.5 px-3 font-mono font-bold text-[var(--accent)]">{h.requestNumber}</td>
                             <td className="py-2.5 px-3 text-[var(--text-muted)]">{new Date(h.createdAt).toLocaleDateString()}</td>
+                            <td className="py-2.5 px-3 text-[11px] font-mono text-blue-400">
+                              {[h.assetType, h.assetModel || h.sizeModel].filter(Boolean).join(' - ') || '—'}
+                            </td>
                             <td className="py-2.5 px-3 truncate max-w-xs">{h.notes || h.brandingScope || '—'}</td>
                             <td className="py-2.5 px-3">
                               {h.photoUrl ? (

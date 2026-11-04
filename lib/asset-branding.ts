@@ -13,6 +13,9 @@ export interface AssetBrandingRequest {
   supervisorName: string;
   visitId?: string;
   visitDate?: string;
+  assetType?: string;
+  assetModel?: string;
+  sizeModel?: string;
   brandingRequired: boolean;
   brandingScope?: string;
   photoUrl?: string;
@@ -41,6 +44,9 @@ export interface CreateBrandingRequestInput {
   supervisorName: string;
   visitId?: string;
   visitDate?: string;
+  assetType?: string;
+  assetModel?: string;
+  sizeModel?: string;
   brandingRequired?: boolean;
   brandingScope?: string;
   photoUrl?: string;
@@ -118,6 +124,9 @@ async function ensureBrandingTable(): Promise<void> {
             [supervisorName] NVARCHAR(255) NOT NULL,
             [visitId] VARCHAR(191) NULL,
             [visitDate] VARCHAR(100) NULL,
+            [assetType] VARCHAR(100) NULL,
+            [assetModel] VARCHAR(100) NULL,
+            [sizeModel] VARCHAR(100) NULL,
             [brandingRequired] BIT DEFAULT 1,
             [brandingScope] NVARCHAR(255) NULL,
             [photoUrl] NVARCHAR(MAX) NULL,
@@ -153,6 +162,9 @@ async function ensureBrandingTable(): Promise<void> {
           \`supervisorName\` VARCHAR(255) NOT NULL,
           \`visitId\` VARCHAR(191) NULL,
           \`visitDate\` VARCHAR(100) NULL,
+          \`assetType\` VARCHAR(100) NULL,
+          \`assetModel\` VARCHAR(100) NULL,
+          \`sizeModel\` VARCHAR(100) NULL,
           \`brandingRequired\` TINYINT(1) DEFAULT 1,
           \`brandingScope\` VARCHAR(255) NULL,
           \`photoUrl\` LONGTEXT NULL,
@@ -184,6 +196,15 @@ async function ensureBrandingTable(): Promise<void> {
       } catch {}
       try {
         await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `channel` VARCHAR(100) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `assetType` VARCHAR(100) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `assetModel` VARCHAR(100) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `sizeModel` VARCHAR(100) NULL');
       } catch {}
       try {
         await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `notes` TEXT NULL');
@@ -223,6 +244,9 @@ function mapRowToBrandingRequest(row: any): AssetBrandingRequest {
     supervisorName: row.supervisorName,
     visitId: row.visitId || undefined,
     visitDate: row.visitDate || undefined,
+    assetType: row.assetType || 'Chiller',
+    assetModel: row.assetModel || row.sizeModel || 'Single Door',
+    sizeModel: row.sizeModel || row.assetModel || 'Single Door',
     brandingRequired: Boolean(row.brandingRequired === 1 || row.brandingRequired === true || row.brandingRequired === '1'),
     brandingScope: row.brandingScope || 'Asset Branding Required',
     photoUrl: row.photoUrl || undefined,
@@ -311,6 +335,9 @@ export const assetBrandingRepository = {
             i.requestNumber.toLowerCase().includes(q) ||
             i.routeCode.toLowerCase().includes(q) ||
             i.supervisorName.toLowerCase().includes(q) ||
+            (i.assetType && i.assetType.toLowerCase().includes(q)) ||
+            (i.assetModel && i.assetModel.toLowerCase().includes(q)) ||
+            (i.sizeModel && i.sizeModel.toLowerCase().includes(q)) ||
             (i.notes && i.notes.toLowerCase().includes(q)) ||
             (i.adminComment && i.adminComment.toLowerCase().includes(q))
         );
@@ -443,6 +470,8 @@ export const assetBrandingRepository = {
     const classification = data.classification || meta.classification || 'C';
     const channel = data.channel || meta.channel || 'GT';
     const notes = (data.notes || data.brandingScope || '').trim() || undefined;
+    const assetType = (data.assetType || '').trim() || undefined;
+    const assetModel = (data.assetModel || data.sizeModel || '').trim() || undefined;
 
     const newRequest: AssetBrandingRequest = {
       id,
@@ -455,6 +484,9 @@ export const assetBrandingRepository = {
       supervisorName: data.supervisorName,
       visitId: data.visitId || undefined,
       visitDate: data.visitDate || nowIso.split('T')[0],
+      assetType,
+      assetModel,
+      sizeModel: assetModel,
       brandingRequired: true,
       brandingScope: notes || 'Asset Branding Required',
       photoUrl: data.photoUrl || undefined,
@@ -471,9 +503,9 @@ export const assetBrandingRepository = {
       await pool.execute(
         `INSERT INTO \`Asset_Branding_Requests\` (
           \`id\`, \`requestNumber\`, \`outletId\`, \`outletCode\`, \`outletName\`, \`routeCode\`,
-          \`supervisorId\`, \`supervisorName\`, \`visitId\`, \`visitDate\`, \`brandingRequired\`,
+          \`supervisorId\`, \`supervisorName\`, \`visitId\`, \`visitDate\`, \`assetType\`, \`assetModel\`, \`sizeModel\`, \`brandingRequired\`,
           \`brandingScope\`, \`photoUrl\`, \`classification\`, \`channel\`, \`notes\`, \`status\`, \`createdAt\`, \`updatedAt\`
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           newRequest.id,
           newRequest.requestNumber,
@@ -485,6 +517,9 @@ export const assetBrandingRepository = {
           newRequest.supervisorName,
           newRequest.visitId || null,
           newRequest.visitDate || null,
+          newRequest.assetType || null,
+          newRequest.assetModel || null,
+          newRequest.sizeModel || null,
           1,
           newRequest.brandingScope || null,
           newRequest.photoUrl || null,

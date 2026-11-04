@@ -244,6 +244,8 @@ export interface VisitWizardState {
   brandingScope?: string;
   brandingNotes?: string;
   brandingPhotoUrl?: string;
+  brandingAssetType?: string;
+  brandingAssetModel?: string;
 }
 
 // Excel Import wizard status

@@ -25,6 +25,7 @@ import {
   Tag,
   Clock,
   CheckCircle2,
+  Layers,
 } from 'lucide-react';
 import { Route, Customer, SKU, PowerSKU, VisitWizardState, VisitPhoto, VisitAsset } from '@/types';
 
@@ -122,6 +123,8 @@ function VisitWizardContent() {
   const [brandingScope, setBrandingScope] = useState('Full Cooler Branding');
   const [brandingNotes, setBrandingNotes] = useState('');
   const [brandingPhotoUrl, setBrandingPhotoUrl] = useState<string>('');
+  const [brandingAssetType, setBrandingAssetType] = useState<string>('Chiller');
+  const [brandingAssetModel, setBrandingAssetModel] = useState<string>('Single Door');
   const [uploadingBrandingPhoto, setUploadingBrandingPhoto] = useState<boolean>(false);
   const [brandingPendingInfo, setBrandingPendingInfo] = useState<any | null>(null);
   const [brandingAcknowledgedInfo, setBrandingAcknowledgedInfo] = useState<any | null>(null);
@@ -242,6 +245,8 @@ function VisitWizardContent() {
         if (localMatch.brandingScope) setBrandingScope(localMatch.brandingScope);
         if (localMatch.brandingNotes) setBrandingNotes(localMatch.brandingNotes);
         if (localMatch.brandingPhotoUrl) setBrandingPhotoUrl(localMatch.brandingPhotoUrl);
+        if (localMatch.brandingAssetType) setBrandingAssetType(localMatch.brandingAssetType);
+        if (localMatch.brandingAssetModel) setBrandingAssetModel(localMatch.brandingAssetModel);
         setCurrentStep(localMatch.currentStep || 0);
       } else {
         setVisitId(generateVisitId());
@@ -327,6 +332,8 @@ function VisitWizardContent() {
         brandingScope: brandingScope || undefined,
         brandingNotes: brandingNotes || undefined,
         brandingPhotoUrl: brandingPhotoUrl || undefined,
+        brandingAssetType: brandingAssetType || undefined,
+        brandingAssetModel: brandingAssetModel || undefined,
         currentStep: stepIndex,
         status: 'Draft',
       };
@@ -709,6 +716,9 @@ function VisitWizardContent() {
               supervisorId: (session?.user as any)?.id || 'supervisor',
               supervisorName: session?.user?.name || 'Supervisor',
               visitId,
+              assetType: brandingAssetType || assets[0]?.assetType || 'Chiller',
+              assetModel: brandingAssetModel || assets[0]?.sizeModel || 'Single Door',
+              sizeModel: brandingAssetModel || assets[0]?.sizeModel || 'Single Door',
               brandingScope: brandingNotes || 'Asset Branding Required',
               photoUrl: brandingPhotoUrl || undefined,
               classification: activeCustomer?.classification || activeCustomer?.dairyClassification || activeCustomer?.iceCreamClassification || 'C',
@@ -858,7 +868,7 @@ function VisitWizardContent() {
                 }}
                 title={STEP_NAMES[i]}
               >
-                {isCompleted ? '✓' : i + 1}
+                {isCompleted ? 'âœ“' : i + 1}
               </button>
             );
           })}
@@ -906,9 +916,9 @@ function VisitWizardContent() {
               onChange={(e) => { setSelectedRoute(e.target.value); setSelectedCustomer(''); }}
               className="form-input"
             >
-              <option value="">— Choose Route —</option>
+              <option value="">â€” Choose Route â€”</option>
               {routes.map((r) => (
-                <option key={r.routeCode} value={r.routeCode}>{r.routeCode} – {r.routeName} ({r.channel})</option>
+                <option key={r.routeCode} value={r.routeCode}>{r.routeCode} â€“ {r.routeName} ({r.channel})</option>
               ))}
             </select>
           </div>
@@ -945,7 +955,7 @@ function VisitWizardContent() {
                     onClick={() => setSelectedCustomer('')}
                     className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
                   >
-                    ✕ Clear Selection
+                    âœ• Clear Selection
                   </button>
                 )}
               </div>
@@ -984,21 +994,21 @@ function VisitWizardContent() {
                             </span>
                             {c.dairyClassification ? (
                               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
-                                {c.dairyClassification === '-' ? 'Not classified' : `Class ${c.dairyClassification}`} · Dairy
+                                {c.dairyClassification === '-' ? 'Not classified' : `Class ${c.dairyClassification}`} Â· Dairy
                               </span>
                             ) : c.classification ? (
                               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-solid border-emerald-100">
-                                {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Dairy
+                                {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} Â· Dairy
                               </span>
                             ) : null}
 
                             {c.iceCreamClassification ? (
                               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
-                                {c.iceCreamClassification === '-' ? 'Not classified' : `Class ${c.iceCreamClassification}`} · Ice Cream
+                                {c.iceCreamClassification === '-' ? 'Not classified' : `Class ${c.iceCreamClassification}`} Â· Ice Cream
                               </span>
                             ) : c.classification && !c.dairyClassification ? (
                               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 border border-solid border-pink-100">
-                                {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} · Ice Cream
+                                {c.classification === '-' ? 'Not classified' : `Class ${c.classification}`} Â· Ice Cream
                               </span>
                             ) : null}
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-solid border-blue-100">
@@ -1015,7 +1025,7 @@ function VisitWizardContent() {
                             borderColor: isSelected ? 'var(--accent)' : 'var(--border)',
                           }}
                         >
-                          {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
+                          {isSelected && <span className="text-white text-[10px] font-bold">âœ“</span>}
                         </div>
                       </button>
                     );
@@ -1034,12 +1044,12 @@ function VisitWizardContent() {
                       {activeCustomer.customerName}
                     </h3>
                     <p className="text-[11.5px] text-[var(--text-secondary)]">
-                      Code: <b>{activeCustomer.customerCode}</b> · Channel: <b>{activeCustomer.channel}</b>
+                      Code: <b>{activeCustomer.customerCode}</b> Â· Channel: <b>{activeCustomer.channel}</b>
                       {(activeCustomer.dairyClassification || activeCustomer.classification) && (
-                        <>{' '}· Classification: <b>{(activeCustomer.dairyClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.dairyClassification || activeCustomer.classification}`} · Dairy</b></>
+                        <>{' '}Â· Classification: <b>{(activeCustomer.dairyClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.dairyClassification || activeCustomer.classification}`} Â· Dairy</b></>
                       )}
                       {(activeCustomer.iceCreamClassification || activeCustomer.classification) && (
-                        <>{' '}· Classification: <b>{(activeCustomer.iceCreamClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.iceCreamClassification || activeCustomer.classification}`} · Ice Cream</b></>
+                        <>{' '}Â· Classification: <b>{(activeCustomer.iceCreamClassification || activeCustomer.classification) === '-' ? 'Not classified' : `Class ${activeCustomer.iceCreamClassification || activeCustomer.classification}`} Â· Ice Cream</b></>
                       )}
                     </p>
                   </div>
@@ -1069,7 +1079,7 @@ function VisitWizardContent() {
                       onChange={(e) => setReasonCategory(e.target.value)}
                       className="form-input h-9 text-[12px]"
                     >
-                      <option value="">— Select Reason Category —</option>
+                      <option value="">â€” Select Reason Category â€”</option>
                       <option value="Outlet Closed">Outlet Closed</option>
                       <option value="No Permission">No Permission</option>
                       <option value="Customer Absent">Customer Absent</option>
@@ -1284,7 +1294,7 @@ function VisitWizardContent() {
                               border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
                             }}
                           >
-                            {modelOption} {isSelected ? '✓' : ''}
+                            {modelOption} {isSelected ? 'âœ“' : ''}
                           </button>
                         );
                       })}
@@ -1293,7 +1303,7 @@ function VisitWizardContent() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="form-label mb-1 font-bold text-black" style={{ color: '#000000', fontWeight: 700 }}>Temp (°C)</label>
+                      <label className="form-label mb-1 font-bold text-black" style={{ color: '#000000', fontWeight: 700 }}>Temp (Â°C)</label>
                       <div className="flex gap-1.5 items-center">
                         <input
                           type="text"
@@ -1336,7 +1346,7 @@ function VisitWizardContent() {
                             onClick={() => updateAssetField(ast.assetId, 'temperature', String(tempVal))}
                             className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all cursor-pointer"
                           >
-                            {tempVal > 0 ? `+${tempVal}` : tempVal}°C
+                            {tempVal > 0 ? `+${tempVal}` : tempVal}Â°C
                           </button>
                         ))}
                       </div>
@@ -1356,7 +1366,7 @@ function VisitWizardContent() {
 
                   <div>
                     <label className="form-label mb-1 font-bold text-black" style={{ color: '#000000', fontWeight: 700 }}>Observations / Notes (Optional)</label>
-                    <input type="text" placeholder="Write observation details…" value={ast.observation}
+                    <input type="text" placeholder="Write observation detailsâ€¦" value={ast.observation}
                       onChange={(e) => updateAssetField(ast.assetId, 'observation', e.target.value)}
                       className="form-input h-9 text-[12px]" />
                   </div>
@@ -1421,7 +1431,7 @@ function VisitWizardContent() {
                       <AlertTriangle className="h-4 w-4 text-[var(--danger)] mt-0.5" />
                       <div>
                         <p className="text-[11px] font-bold" style={{ color: 'var(--danger)' }}>Temperature Breach Warning</p>
-                        <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Rule: Chiller [0 to 8°C] | Freezer [Below -15°C]</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Rule: Chiller [0 to 8Â°C] | Freezer [Below -15Â°C]</p>
                       </div>
                     </div>
                   )}
@@ -1431,7 +1441,7 @@ function VisitWizardContent() {
           </div>
 
           <div className="p-3 rounded-xl text-[11px]" style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border-soft)' }}>
-            <strong style={{ color: 'var(--text-primary)' }}>Range Rules:</strong> Chiller: <span style={{ color: 'var(--accent)' }}>0°C to 8°C</span> · Freezer: <span style={{ color: '#7C3AED' }}>Below -15°C</span>
+            <strong style={{ color: 'var(--text-primary)' }}>Range Rules:</strong> Chiller: <span style={{ color: 'var(--accent)' }}>0Â°C to 8Â°C</span> Â· Freezer: <span style={{ color: '#7C3AED' }}>Below -15Â°C</span>
           </div>
 
           {/* Moved + Add Asset Button to Bottom */}
@@ -1558,6 +1568,95 @@ function VisitWizardContent() {
 
                       {/* Case 3: New Request Form - Mandatory Condition Photo & Additional Notes */}
                       <div className="p-3.5 rounded-xl space-y-3" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                        {/* Asset Model / Size Selection */}
+                        <div className="space-y-2 pb-2.5 border-b border-[var(--border)]">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <label className="text-[11.5px] font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                              <Layers className="h-4 w-4" style={{ color: 'var(--accent)' }} />
+                              <span>Asset Model / Size <span className="text-red-500 font-extrabold">*</span></span>
+                            </label>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--accent-light)] text-[var(--accent)] font-bold">
+                              {brandingAssetType} • {brandingAssetModel || 'Select Size/Model'}
+                            </span>
+                          </div>
+
+                          {/* Quick selection from currently inspected assets */}
+                          {assets.length > 0 && (
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-semibold text-[var(--text-muted)]">Select from inspected shop assets:</span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {assets.map((ast, idx) => {
+                                  const isSelected = brandingAssetType === ast.assetType && brandingAssetModel === (ast.sizeModel || '');
+                                  return (
+                                    <button
+                                      key={ast.assetId || idx}
+                                      type="button"
+                                      onClick={() => {
+                                        setBrandingAssetType(ast.assetType || 'Chiller');
+                                        setBrandingAssetModel(ast.sizeModel || 'Single Door');
+                                      }}
+                                      className={`text-[10.5px] font-semibold px-2.5 py-1 rounded-lg transition-all cursor-pointer border ${
+                                        isSelected
+                                          ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-xs'
+                                          : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent)]'
+                                      }`}
+                                    >
+                                      Asset #{idx + 1}: {ast.assetType} ({ast.sizeModel || 'Standard'}) {isSelected ? '✓' : ''}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Category Toggle: Chiller / Freezer */}
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            {(['Chiller', 'Freezer'] as const).map((type) => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => {
+                                  setBrandingAssetType(type);
+                                  const available = getSizeModelsForCategory(type);
+                                  if (!available.includes(brandingAssetModel)) {
+                                    setBrandingAssetModel(type === 'Chiller' ? 'Single Door' : '400');
+                                  }
+                                }}
+                                className={`h-8 text-[11px] font-bold rounded-lg transition-all cursor-pointer border ${
+                                  brandingAssetType === type
+                                    ? 'bg-[var(--accent-light)] text-[var(--accent)] border-[var(--accent)]'
+                                    : 'bg-[var(--surface-2)] text-[var(--text-muted)] border-[var(--border)]'
+                                }`}
+                              >
+                                {type}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Size / Model Options */}
+                          <div>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {getSizeModelsForCategory(brandingAssetType || 'Chiller').map((modelOption) => {
+                                const isSelected = brandingAssetModel === modelOption;
+                                return (
+                                  <button
+                                    key={modelOption}
+                                    type="button"
+                                    onClick={() => setBrandingAssetModel(modelOption)}
+                                    className={`text-[10.5px] font-semibold px-2.5 py-1 rounded-lg transition-all cursor-pointer border ${
+                                      isSelected
+                                        ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-xs'
+                                        : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--accent)]'
+                                    }`}
+                                  >
+                                    {modelOption} {isSelected ? '✓' : ''}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Mandatory Photo Upload */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1762,23 +1861,23 @@ function VisitWizardContent() {
           <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
             {[
               ['Route Code', selectedRoute, 'mono'],
-              ['Customer Outlet', activeCustomer ? `${activeCustomer.customerCode} - ${activeCustomer.customerName}` : '—', 'bold'],
+              ['Customer Outlet', activeCustomer ? `${activeCustomer.customerCode} - ${activeCustomer.customerName}` : 'â€”', 'bold'],
               ['Classification', [
-                activeCustomer?.dairyClassification ? (activeCustomer.dairyClassification === '-' ? 'Not classified · Dairy' : `Class ${activeCustomer.dairyClassification} · Dairy`) : null,
-                activeCustomer?.iceCreamClassification ? (activeCustomer.iceCreamClassification === '-' ? 'Not classified · Ice Cream' : `Class ${activeCustomer.iceCreamClassification} · Ice Cream`) : null,
-              ].filter(Boolean).join(', ') || '—', 'accent'],
-              ['Channel', activeCustomer?.channel || '—', 'accent'],
+                activeCustomer?.dairyClassification ? (activeCustomer.dairyClassification === '-' ? 'Not classified Â· Dairy' : `Class ${activeCustomer.dairyClassification} Â· Dairy`) : null,
+                activeCustomer?.iceCreamClassification ? (activeCustomer.iceCreamClassification === '-' ? 'Not classified Â· Ice Cream' : `Class ${activeCustomer.iceCreamClassification} Â· Ice Cream`) : null,
+              ].filter(Boolean).join(', ') || 'â€”', 'accent'],
+              ['Channel', activeCustomer?.channel || 'â€”', 'accent'],
               ['Assets Monitored', `${assets.length} items`, 'bold'],
               ...assets.flatMap((ast, idx) => [
-                [`Asset #${idx + 1} (${ast.assetType})`, `${ast.temperature}°C (${getTempInRange(ast.assetType, Number(ast.temperature)) ? 'OK' : 'Breach'})`, getTempInRange(ast.assetType, Number(ast.temperature)) ? 'success' : 'danger'],
+                [`Asset #${idx + 1} (${ast.assetType})`, `${ast.temperature}Â°C (${getTempInRange(ast.assetType, Number(ast.temperature)) ? 'OK' : 'Breach'})`, getTempInRange(ast.assetType, Number(ast.temperature)) ? 'success' : 'danger'],
                 [`Asset #${idx + 1} Flow / FEFO`, `Flow: ${ast.isFirstInFlow ? 'Yes' : 'No'} | FEFO: ${ast.fefoFollowed ? 'Yes' : 'No'}`, 'mono']
               ]),
-              ['GPS Status', latitude ? `Acquired (${latitude.toFixed(4)}, ${longitude?.toFixed(4)})` : (gpsLoading ? 'Acquiring...' : 'Not Acquired ⚠'), latitude ? 'success' : 'danger'],
+              ['GPS Status', latitude ? `Acquired (${latitude.toFixed(4)}, ${longitude?.toFixed(4)})` : (gpsLoading ? 'Acquiring...' : 'Not Acquired âš '), latitude ? 'success' : 'danger'],
               ['Photos Captured', `${photos.length} images`, 'bold'],
-              ['Asset Branding Required', assetBrandingRequired === 'YES' ? (brandingPendingInfo ? `YES (Existing ${brandingPendingInfo.requestId} Pending)` : `YES (${brandingScope})`) : (assetBrandingRequired === 'NO' ? 'NO' : 'Not Specified'), assetBrandingRequired === 'YES' ? 'accent' : 'mono'],
+              ['Asset Branding Required', assetBrandingRequired === 'YES' ? (brandingPendingInfo ? `YES (Existing ${brandingPendingInfo.requestId} Pending)` : `YES (${brandingAssetType} - ${brandingAssetModel || 'Standard'})`) : (assetBrandingRequired === 'NO' ? 'NO' : 'Not Specified'), assetBrandingRequired === 'YES' ? 'accent' : 'mono'],
               ['Power SKUs checked', `${Object.keys(powerSkuResults).length} items`, 'mono'],
               ['NPD SKUs checked', `${Object.keys(npdResponses).length} items`, 'mono'],
-              ...(activeCustomer?.channel.toUpperCase() === 'MT' ? [['SOS Compliant', sosAsPerBda === null ? '—' : (sosAsPerBda ? 'Yes ✓' : 'No ⚠'), sosAsPerBda ? 'success' : 'danger']] : [])
+              ...(activeCustomer?.channel.toUpperCase() === 'MT' ? [['SOS Compliant', sosAsPerBda === null ? 'â€”' : (sosAsPerBda ? 'Yes âœ“' : 'No âš '), sosAsPerBda ? 'success' : 'danger']] : [])
             ].map(([label, value, style], i, arr) => (
               <div key={label as string} className="flex items-center justify-between px-4 py-3"
                 style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border-soft)' : 'none', background: i % 2 === 0 ? 'transparent' : 'var(--surface-2)' }}>
@@ -1801,7 +1900,7 @@ function VisitWizardContent() {
             </label>
             <textarea
               rows={3}
-              placeholder="Write observation & action details before final submission…"
+              placeholder="Write observation & action details before final submissionâ€¦"
               value={visitObservation}
               onChange={(e) => setVisitObservation(e.target.value)}
               className="form-input text-xs w-full p-2.5 rounded-xl border border-solid border-[var(--border-soft)]"
@@ -1819,7 +1918,7 @@ function VisitWizardContent() {
             }}
           >
             {submittingVisit ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4.5 w-4.5" />}
-            {submittingVisit ? 'Submitting…' : 'Submit Final Audit'}
+            {submittingVisit ? 'Submittingâ€¦' : 'Submit Final Audit'}
           </button>
         </div>
       )}
@@ -1866,7 +1965,7 @@ export default function VisitWizardPage() {
   return (
     <Suspense fallback={
       <div className="card p-10 text-center max-w-md mx-auto my-12 animate-pulse" style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-        Initializing Audit Wizard…
+        Initializing Audit Wizardâ€¦
       </div>
     }>
       <VisitWizardContent />
