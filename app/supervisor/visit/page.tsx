@@ -545,7 +545,7 @@ function VisitWizardContent() {
       return;
     }
 
-    if (currentStep === 4 && assetBrandingRequired === 'YES' && !brandingPendingInfo && !brandingPhotoUrl) {
+    if (currentStep === 3 && assetBrandingRequired === 'YES' && !brandingPendingInfo && !brandingPhotoUrl) {
       showToast('Please upload or capture a photo of the asset showing its condition for the branding request.', 'warning');
       return;
     }
@@ -1482,65 +1482,6 @@ function VisitWizardContent() {
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* STEP 5: CAPTURE PHOTOS */}
-      {currentStep === 4 && (
-        <div className="card p-5 space-y-4 animate-slide-up">
-          <span className="badge badge-accent">Camera Capture</span>
-          <div className="space-y-3">
-            {(['Dairy', 'Beverages', 'Ice Cream', 'Vegetables'] as const).map((cat) => {
-              const catPhotos = photos.filter((p) => p.category === cat);
-              const displayName = cat === 'Vegetables' ? 'Assets' : cat;
-              return (
-                <div key={cat} className="p-4 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)' }}>
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-[12px] font-bold uppercase" style={{ color: 'var(--text-primary)' }}>{displayName}</span>
-                    <div className="flex items-center gap-2">
-                      <label className="btn-ghost cursor-pointer" style={{ height: '32px', padding: '0 12px' }}>
-                        <Camera className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
-                        <span>{isMobileDevice ? 'Camera' : 'Add Photos'}</span>
-                        <input type="file" accept="image/*" capture={isMobileDevice ? 'environment' : undefined} multiple disabled={uploadingPhoto} onChange={(e) => handlePhotoUpload(e, cat)} className="hidden" />
-                      </label>
-                      <label className="btn-ghost cursor-pointer" style={{ height: '32px', padding: '0 12px' }}>
-                        <Camera className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
-                        <span>Gallery</span>
-                        <input type="file" accept="image/*" multiple disabled={uploadingPhoto} onChange={(e) => handlePhotoUpload(e, cat)} className="hidden" />
-                      </label>
-                    </div>
-                  </div>
-                  {catPhotos.length === 0 ? (
-                    <div className="border-2 border-dashed rounded-xl p-4 text-center" style={{ borderColor: 'var(--border)' }}>
-                      <p className="text-[11px] italic" style={{ color: 'var(--text-muted)' }}>No photos for {displayName} yet.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-3 gap-2">
-                      {catPhotos.map((p) => (
-                        <div key={p.photoId} className="relative aspect-square rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                          <img src={p.cloudinaryUrl} alt="captured" className="h-full w-full object-cover" />
-                          <button onClick={() => handleRemovePhoto(p.photoId)}
-                            className="absolute top-1 right-1 p-1.5 rounded-lg cursor-pointer"
-                            style={{ background: 'var(--danger)', color: 'white' }}>
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {uploadingPhoto && (
-              <div className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl text-[12px] font-bold animate-pulse" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid var(--accent-soft)' }}>
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>{photoProcessingStatus || 'Optimizing & uploading photo...'}</span>
-                </div>
-                <p className="text-[10.5px] font-normal opacity-80">Images are compressed on-device before uploading to minimize data usage.</p>
-              </div>
-            )}
-
             {/* IS ASSET BRANDING REQUIRED? */}
             <div className="p-4 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)' }}>
               <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1750,6 +1691,65 @@ function VisitWizardContent() {
                 </p>
               )}
             </div>
+        </div>
+      )}
+
+      {/* STEP 5: CAPTURE PHOTOS */}
+      {currentStep === 4 && (
+        <div className="card p-5 space-y-4 animate-slide-up">
+          <span className="badge badge-accent">Camera Capture</span>
+          <div className="space-y-3">
+            {(['Dairy', 'Beverages', 'Ice Cream', 'Vegetables'] as const).map((cat) => {
+              const catPhotos = photos.filter((p) => p.category === cat);
+              const displayName = cat === 'Vegetables' ? 'Assets' : cat;
+              return (
+                <div key={cat} className="p-4 rounded-xl space-y-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-soft)' }}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[12px] font-bold uppercase" style={{ color: 'var(--text-primary)' }}>{displayName}</span>
+                    <div className="flex items-center gap-2">
+                      <label className="btn-ghost cursor-pointer" style={{ height: '32px', padding: '0 12px' }}>
+                        <Camera className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
+                        <span>{isMobileDevice ? 'Camera' : 'Add Photos'}</span>
+                        <input type="file" accept="image/*" capture={isMobileDevice ? 'environment' : undefined} multiple disabled={uploadingPhoto} onChange={(e) => handlePhotoUpload(e, cat)} className="hidden" />
+                      </label>
+                      <label className="btn-ghost cursor-pointer" style={{ height: '32px', padding: '0 12px' }}>
+                        <Camera className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
+                        <span>Gallery</span>
+                        <input type="file" accept="image/*" multiple disabled={uploadingPhoto} onChange={(e) => handlePhotoUpload(e, cat)} className="hidden" />
+                      </label>
+                    </div>
+                  </div>
+                  {catPhotos.length === 0 ? (
+                    <div className="border-2 border-dashed rounded-xl p-4 text-center" style={{ borderColor: 'var(--border)' }}>
+                      <p className="text-[11px] italic" style={{ color: 'var(--text-muted)' }}>No photos for {displayName} yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {catPhotos.map((p) => (
+                        <div key={p.photoId} className="relative aspect-square rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                          <img src={p.cloudinaryUrl} alt="captured" className="h-full w-full object-cover" />
+                          <button onClick={() => handleRemovePhoto(p.photoId)}
+                            className="absolute top-1 right-1 p-1.5 rounded-lg cursor-pointer"
+                            style={{ background: 'var(--danger)', color: 'white' }}>
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {uploadingPhoto && (
+              <div className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-xl text-[12px] font-bold animate-pulse" style={{ background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid var(--accent-soft)' }}>
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>{photoProcessingStatus || 'Optimizing & uploading photo...'}</span>
+                </div>
+                <p className="text-[10.5px] font-normal opacity-80">Images are compressed on-device before uploading to minimize data usage.</p>
+              </div>
+            )}
+
           </div>
         </div>
       )}

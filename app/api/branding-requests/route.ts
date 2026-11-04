@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
       const pendingRequest = await assetBrandingRepository.getPendingForOutlet(outletCode);
       const latest = await assetBrandingRepository.getLatestForOutlet(outletCode);
       const latestAcknowledged =
-        latest && latest.status === 'Acknowledged' ? latest : null;
+        latest && (latest.status === 'Acknowledged' || latest.status === 'Approved' || latest.status === 'Rejected')
+          ? latest
+          : null;
 
       return NextResponse.json({
         success: true,
@@ -159,16 +161,16 @@ export async function PATCH(req: NextRequest) {
 
     const userRole = String((session.user as any)?.role || '');
 
-    // Mandatory Backend Authorization: Only Admin and authorized Sub-Admin can acknowledge
+    // Mandatory Backend Authorization: Only Admin and authorized Sub-Admin can acknowledge or decide
     if (isSupervisorRole(userRole) || !isFullAccessRole(userRole)) {
       return NextResponse.json(
-        { error: 'Forbidden: Supervisors are not authorized to acknowledge branding requests' },
+        { error: 'Forbidden: Supervisors are not authorized to update branding requests' },
         { status: 403 }
       );
     }
 
     const body = await req.json();
-    const { id } = body;
+    const { id, action, decision, adminComment } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Request ID is required' }, { status: 400 });
@@ -177,6 +179,44 @@ export async function PATCH(req: NextRequest) {
     const adminId = (session.user as any).id || (session.user as any).employeeCode || 'ADMIN';
     const adminName = session.user.name || 'Administrator';
 
+    // 1. Decision Action (Approved / Rejected with comments/reason)
+    if (action === 'decision' || decision) {
+      const validDecision = decision === 'Approved' ? 'Approved' : decision === 'Rejected' ? 'Rejected' : null;
+      if (!validDecision) {
+        return NextResponse.json(
+          { error: "Invalid decision. Must be either 'Approved' or 'Rejected'." },
+          { status: 400 }
+        );
+      }
+
+      const commentStr = (adminComment || '').trim();
+      if (validDecision === 'Rejected' && !commentStr) {
+        return NextResponse.json(
+          { error: 'A reason or comment is required when rejecting a branding request.' },
+          { status: 400 }
+        );
+      }
+
+      const updated = await assetBrandingRepository.recordDecision(
+        id,
+        validDecision,
+        commentStr,
+        adminId,
+        adminName
+      );
+
+      if (!updated) {
+        return NextResponse.json({ error: 'Branding request not found' }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        request: updated,
+        message: `Branding request marked as ${validDecision} successfully.`,
+      });
+    }
+
+    // 2. Default Action: Acknowledge
     const updated = await assetBrandingRepository.acknowledge(id, adminId, adminName);
     if (!updated) {
       return NextResponse.json({ error: 'Branding request not found' }, { status: 404 });
@@ -188,7 +228,52 @@ export async function PATCH(req: NextRequest) {
       message: 'Branding request acknowledged successfully.',
     });
   } catch (err: any) {
-    console.error('Error acknowledging branding request:', err);
-    return NextResponse.json({ error: err.message || 'Failed to acknowledge branding request' }, { status: 500 });
+    console.error('Error updating branding request:', err);
+    return NextResponse.json({ error: err.message || 'Failed to update branding request' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userRole = String((session.user as any)?.role || '');
+
+    // Mandatory Authorization: Only Admin / Full Access roles can delete branding requests
+    if (isSupervisorRole(userRole) || !isFullAccessRole(userRole)) {
+      return NextResponse.json(
+        { error: 'Forbidden: Only Admin is authorized to delete branding requests' },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = req.nextUrl;
+    let id = searchParams.get('id') || searchParams.get('requestId') || '';
+    if (!id) {
+      try {
+        const body = await req.json();
+        id = body?.id || body?.requestId || '';
+      } catch {}
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: 'Request ID is required for deletion' }, { status: 400 });
+    }
+
+    const deleted = await assetBrandingRepository.delete(id);
+    if (!deleted) {
+      return NextResponse.json({ error: 'Branding request not found or already deleted' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Asset Branding Request deleted successfully from both Admin and Supervisor portals.',
+    });
+  } catch (err: any) {
+    console.error('Error deleting branding request:', err);
+    return NextResponse.json({ error: err.message || 'Failed to delete branding request' }, { status: 500 });
   }
 }
