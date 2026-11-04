@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   Tag,
@@ -23,9 +23,16 @@ import {
   ExternalLink,
   Layers,
   Maximize2,
+  ChevronDown,
+  Download,
+  Presentation,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { exportToExcel } from '@/utils/excelExport';
-import { ExportButton } from '@/components/ui/ExportButton';
+import {
+  exportBrandingToExcelWithPhotos,
+  exportBrandingToPowerPoint,
+} from '@/utils/brandingExport';
 import { AssetBrandingRequest } from '@/lib/asset-branding';
 import { isFullAccessRole, isSupervisorRole } from '@/lib/roles';
 
@@ -52,12 +59,33 @@ export default function AssetBrandingRequestsPage() {
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
 
+  // Export State & Progress
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{
+    isExporting: boolean;
+    message: string;
+    current: number;
+    total: number;
+  } | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
   // Details Modal
   const [activeRequest, setActiveRequest] = useState<AssetBrandingRequest | null>(null);
   const [outletHistory, setOutletHistory] = useState<AssetBrandingRequest[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [isAcknowledging, setIsAcknowledging] = useState<boolean>(false);
   const [fullPhotoViewer, setFullPhotoViewer] = useState<string | null>(null);
+
+  // Close export dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchRequests = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -174,7 +202,8 @@ export default function AssetBrandingRequestsPage() {
     setToDate('');
   };
 
-  const handleExportExcel = () => {
+  // Standard Excel (Table Only)
+  const handleExportExcelTable = () => {
     exportToExcel({
       filename: `Asset_Branding_Requests_${new Date().toISOString().split('T')[0]}`,
       title: 'Asset Branding Requests Log',
@@ -198,6 +227,47 @@ export default function AssetBrandingRequestsPage() {
     });
   };
 
+  // Export With Photos (Excel or PPT)
+  const handleExportWithPhotos = async (type: 'excel' | 'pptx') => {
+    setExportMenuOpen(false);
+    if (requests.length === 0) return;
+
+    setExportProgress({
+      isExporting: true,
+      message: type === 'excel' ? 'Preparing Excel workbook with embedded photos...' : 'Generating PowerPoint presentation deck...',
+      current: 0,
+      total: requests.length,
+    });
+
+    try {
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filterSummary = `Status: ${statusFilter} | Classification: ${selectedClassification} | Route: ${selectedRoute} | Supervisor: ${selectedSupervisor} | Total Records: ${requests.length}`;
+
+      if (type === 'excel') {
+        await exportBrandingToExcelWithPhotos(requests, {
+          filename: `Asset_Branding_Requests_With_Photos_${dateStr}.xlsx`,
+          filterSummary,
+          onProgress: (current, total, message) => {
+            setExportProgress({ isExporting: true, current, total, message });
+          },
+        });
+      } else {
+        await exportBrandingToPowerPoint(requests, {
+          filename: `Asset_Branding_Report_${dateStr}.pptx`,
+          filterSummary,
+          onProgress: (current, total, message) => {
+            setExportProgress({ isExporting: true, current, total, message });
+          },
+        });
+      }
+    } catch (err: any) {
+      console.error('Export failed:', err);
+      alert('Failed to generate export file: ' + (err.message || 'Unknown error'));
+    } finally {
+      setTimeout(() => setExportProgress(null), 800);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-200">
       {/* Page Header */}
@@ -219,8 +289,81 @@ export default function AssetBrandingRequestsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <ExportButton onClick={handleExportExcel} disabled={requests.length === 0} />
+        {/* Export & Actions Button Bar */}
+        <div className="flex items-center gap-2 flex-wrap relative" ref={exportMenuRef}>
+          {/* Export Dropdown with Excel & PPT Options */}
+          <div className="relative">
+            <button
+              type="button"
+              disabled={requests.length === 0}
+              onClick={() => setExportMenuOpen(!exportMenuOpen)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl bg-[var(--accent)] text-white hover:opacity-90 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export Report</span>
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${exportMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu Popover */}
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-2xl p-2 z-40 space-y-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                <button
+                  type="button"
+                  onClick={() => handleExportWithPhotos('excel')}
+                  className="w-full p-2.5 rounded-xl hover:bg-[var(--surface-2)] text-left transition-colors flex items-start gap-3 cursor-pointer group"
+                >
+                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 group-hover:scale-105 transition-transform">
+                    <FileSpreadsheet className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-[var(--text-primary)] block">
+                      Excel (.xlsx) with Photos
+                    </span>
+                    <span className="text-[10px] text-[var(--text-muted)] block mt-0.5">
+                      Spreadsheet with photos embedded in each row
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleExportWithPhotos('pptx')}
+                  className="w-full p-2.5 rounded-xl hover:bg-[var(--surface-2)] text-left transition-colors flex items-start gap-3 cursor-pointer group"
+                >
+                  <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500 group-hover:scale-105 transition-transform">
+                    <Presentation className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-[var(--text-primary)] block">
+                      PowerPoint (.pptx) with Photos
+                    </span>
+                    <span className="text-[10px] text-[var(--text-muted)] block mt-0.5">
+                      Executive slide deck with full photos & shop profile
+                    </span>
+                  </div>
+                </button>
+
+                <div className="border-t border-[var(--border-soft)] my-1" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExportMenuOpen(false);
+                    handleExportExcelTable();
+                  }}
+                  className="w-full p-2 rounded-xl hover:bg-[var(--surface-2)] text-left transition-colors flex items-center gap-3 cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  <div className="p-1.5 rounded-lg bg-slate-500/10 text-slate-400">
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-xs font-semibold">
+                    Excel Table Only (No Photos)
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={() => fetchRequests(true)}
@@ -531,7 +674,7 @@ export default function AssetBrandingRequestsPage() {
         )}
       </div>
 
-      {/* Full-Page Shop Details & Photo Modal (Requirement 3) */}
+      {/* Full-Page Shop Details & Photo Modal */}
       {activeRequest && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="w-full max-w-5xl bg-[var(--surface)] border border-[var(--border)] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
@@ -583,10 +726,10 @@ export default function AssetBrandingRequestsPage() {
               </div>
             </div>
 
-            {/* Modal Body: 2 Columns for full visibility of Shop Details & Photo */}
+            {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left Column: Submitted Photo (Prominent & High-Res) */}
+                {/* Left Column: Submitted Photo */}
                 <div className="lg:col-span-6 space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
@@ -820,6 +963,44 @@ export default function AssetBrandingRequestsPage() {
             alt="Asset condition full size"
             className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
           />
+        </div>
+      )}
+
+      {/* Export Progress Notification Modal */}
+      {exportProgress && exportProgress.isExporting && (
+        <div className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-center">
+            <div className="h-12 w-12 rounded-full bg-[var(--accent-light)] text-[var(--accent)] flex items-center justify-center mx-auto animate-pulse">
+              <RefreshCw className="h-6 w-6 animate-spin" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-[var(--text-primary)]">
+                Exporting Report with Photos
+              </h4>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                {exportProgress.message}
+              </p>
+            </div>
+            {exportProgress.total > 0 && (
+              <div className="space-y-1.5">
+                <div className="w-full bg-[var(--surface-2)] h-2 rounded-full overflow-hidden border border-[var(--border-soft)]">
+                  <div
+                    className="bg-[var(--accent)] h-full transition-all duration-300"
+                    style={{
+                      width: `${Math.round((exportProgress.current / exportProgress.total) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-[var(--text-muted)] font-mono">
+                  <span>Record {exportProgress.current} of {exportProgress.total}</span>
+                  <span>{Math.round((exportProgress.current / exportProgress.total) * 100)}%</span>
+                </div>
+              </div>
+            )}
+            <p className="text-[10px] text-[var(--text-muted)] italic">
+              Embedding photos into document... your download will start automatically once ready.
+            </p>
+          </div>
         </div>
       )}
     </div>
