@@ -28,6 +28,7 @@ import {
   Camera,
   AlertTriangle,
   Sparkles,
+  Tag,
 } from 'lucide-react';
 
 const navGroups = [
@@ -43,6 +44,7 @@ const navGroups = [
     label: 'Analytics',
     items: [
       { name: 'Audit Photo Gallery', path: '/admin/photos', icon: Camera },
+      { name: 'Asset Branding Requests', path: '/admin/branding-requests', icon: Tag },
       { name: 'AI Dashboard', path: '/admin/reports', icon: Sparkles },
       { name: 'Routes', path: '/admin/routes', icon: Map },
     ],
@@ -75,6 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const adminNavActions = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { name: 'Audit Photo Gallery', path: '/admin/photos', icon: Camera },
+    { name: 'Asset Branding Requests', path: '/admin/branding-requests', icon: Tag },
     { name: 'Visits Log', path: '/admin/visits', icon: CalendarCheck },
     { name: 'No Visits', path: '/admin/no-visits', icon: AlertTriangle },
     { name: 'AI Dashboard', path: '/admin/reports', icon: Sparkles },
