@@ -15,6 +15,10 @@ export interface AssetBrandingRequest {
   visitDate?: string;
   brandingRequired: boolean;
   brandingScope?: string;
+  photoUrl?: string;
+  classification?: string;
+  channel?: string;
+  notes?: string;
   status: 'Pending Acknowledgement' | 'Acknowledged';
   createdAt: string;
   acknowledgedBy?: string;
@@ -34,6 +38,10 @@ export interface CreateBrandingRequestInput {
   visitDate?: string;
   brandingRequired?: boolean;
   brandingScope?: string;
+  photoUrl?: string;
+  classification?: string;
+  channel?: string;
+  notes?: string;
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -68,6 +76,23 @@ function writeLocalItems(items: AssetBrandingRequest[]): void {
   }
 }
 
+function lookupCustomerMeta(code: string): { classification?: string; channel?: string } {
+  try {
+    const custFile = path.join(DATA_DIR, 'customers.json');
+    if (fs.existsSync(custFile)) {
+      const custs = JSON.parse(fs.readFileSync(custFile, 'utf8'));
+      const found = custs.find((c: any) => c.customerCode === code || c.cust_rt_id === code);
+      if (found) {
+        return {
+          classification: found.classification || found.dairyClassification || found.iceCreamClassification || 'C',
+          channel: found.channel || 'GT',
+        };
+      }
+    }
+  } catch {}
+  return { classification: 'C', channel: 'GT' };
+}
+
 let brandingTableChecked = false;
 
 async function ensureBrandingTable(): Promise<void> {
@@ -90,6 +115,10 @@ async function ensureBrandingTable(): Promise<void> {
             [visitDate] VARCHAR(100) NULL,
             [brandingRequired] BIT DEFAULT 1,
             [brandingScope] NVARCHAR(255) NULL,
+            [photoUrl] NVARCHAR(MAX) NULL,
+            [classification] VARCHAR(100) NULL,
+            [channel] VARCHAR(100) NULL,
+            [notes] NVARCHAR(MAX) NULL,
             [status] VARCHAR(50) DEFAULT 'Pending Acknowledgement',
             [createdAt] DATETIME DEFAULT GETDATE(),
             [acknowledgedBy] VARCHAR(191) NULL,
@@ -116,6 +145,10 @@ async function ensureBrandingTable(): Promise<void> {
           \`visitDate\` VARCHAR(100) NULL,
           \`brandingRequired\` TINYINT(1) DEFAULT 1,
           \`brandingScope\` VARCHAR(255) NULL,
+          \`photoUrl\` LONGTEXT NULL,
+          \`classification\` VARCHAR(100) NULL,
+          \`channel\` VARCHAR(100) NULL,
+          \`notes\` TEXT NULL,
           \`status\` VARCHAR(50) DEFAULT 'Pending Acknowledgement',
           \`createdAt\` DATETIME DEFAULT CURRENT_TIMESTAMP,
           \`acknowledgedBy\` VARCHAR(191) NULL,
@@ -126,6 +159,20 @@ async function ensureBrandingTable(): Promise<void> {
           INDEX \`idx_branding_status\` (\`status\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
+
+      // Add missing columns if table already existed
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `photoUrl` LONGTEXT NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `classification` VARCHAR(100) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `channel` VARCHAR(100) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `notes` TEXT NULL');
+      } catch {}
     }
     brandingTableChecked = true;
   } catch (err) {
@@ -147,7 +194,11 @@ function mapRowToBrandingRequest(row: any): AssetBrandingRequest {
     visitId: row.visitId || undefined,
     visitDate: row.visitDate || undefined,
     brandingRequired: Boolean(row.brandingRequired === 1 || row.brandingRequired === true || row.brandingRequired === '1'),
-    brandingScope: row.brandingScope || 'General Asset Branding',
+    brandingScope: row.brandingScope || 'Asset Branding Required',
+    photoUrl: row.photoUrl || undefined,
+    classification: row.classification || undefined,
+    channel: row.channel || undefined,
+    notes: row.notes || row.brandingScope || undefined,
     status: row.status as any,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : (row.createdAt || new Date().toISOString()),
     acknowledgedBy: row.acknowledgedBy || undefined,
@@ -164,6 +215,7 @@ export const assetBrandingRepository = {
     supervisorName?: string;
     status?: string;
     search?: string;
+    classification?: string;
     fromDate?: string;
     toDate?: string;
   }): Promise<AssetBrandingRequest[]> {
@@ -180,6 +232,19 @@ export const assetBrandingRepository = {
       items = readLocalItems();
     }
 
+    // Auto-enrich any items that might be missing classification from local lookup
+    items = items.map((item) => {
+      if (!item.classification || !item.channel) {
+        const meta = lookupCustomerMeta(item.outletCode);
+        return {
+          ...item,
+          classification: item.classification || meta.classification,
+          channel: item.channel || meta.channel,
+        };
+      }
+      return item;
+    });
+
     if (filters) {
       if (filters.status && filters.status !== 'all') {
         const normStatus = filters.status.trim().toLowerCase();
@@ -194,6 +259,10 @@ export const assetBrandingRepository = {
       if (filters.supervisorName && filters.supervisorName !== 'all') {
         items = items.filter((i) => i.supervisorName.toLowerCase() === filters.supervisorName!.toLowerCase());
       }
+      if (filters.classification && filters.classification !== 'all') {
+        const targetCls = filters.classification.trim().toUpperCase();
+        items = items.filter((i) => (i.classification || '').trim().toUpperCase() === targetCls);
+      }
       if (filters.search && filters.search.trim()) {
         const q = filters.search.toLowerCase().trim();
         items = items.filter(
@@ -202,7 +271,8 @@ export const assetBrandingRepository = {
             i.outletCode.toLowerCase().includes(q) ||
             i.requestNumber.toLowerCase().includes(q) ||
             i.routeCode.toLowerCase().includes(q) ||
-            i.supervisorName.toLowerCase().includes(q)
+            i.supervisorName.toLowerCase().includes(q) ||
+            (i.notes && i.notes.toLowerCase().includes(q))
         );
       }
       if (filters.fromDate) {
@@ -289,8 +359,12 @@ export const assetBrandingRepository = {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
-  async getSummaryCounts(): Promise<{ total: number; pending: number; acknowledged: number }> {
-    const all = await this.getAll();
+  async getSummaryCounts(filters?: { supervisorName?: string; classification?: string }): Promise<{
+    total: number;
+    pending: number;
+    acknowledged: number;
+  }> {
+    const all = await this.getAll(filters);
     const pending = all.filter((i) => i.status === 'Pending Acknowledgement').length;
     const acknowledged = all.filter((i) => i.status === 'Acknowledged').length;
     return {
@@ -306,7 +380,7 @@ export const assetBrandingRepository = {
       throw new Error('Outlet code is required');
     }
 
-    // Atomic duplicate prevention check (Rule A)
+    // Atomic duplicate prevention check
     const existingPending = await this.getPendingForOutlet(outletCode);
     if (existingPending) {
       return { request: existingPending, isDuplicate: true };
@@ -318,6 +392,11 @@ export const assetBrandingRepository = {
     const requestNumber = `BR-${String(nextSeq).padStart(3, '0')}`;
     const id = `br_req_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const nowIso = new Date().toISOString();
+
+    const meta = lookupCustomerMeta(outletCode);
+    const classification = data.classification || meta.classification || 'C';
+    const channel = data.channel || meta.channel || 'GT';
+    const notes = (data.notes || data.brandingScope || '').trim() || undefined;
 
     const newRequest: AssetBrandingRequest = {
       id,
@@ -331,7 +410,11 @@ export const assetBrandingRepository = {
       visitId: data.visitId || undefined,
       visitDate: data.visitDate || nowIso.split('T')[0],
       brandingRequired: true,
-      brandingScope: data.brandingScope || 'General Asset Branding',
+      brandingScope: notes || 'Asset Branding Required',
+      photoUrl: data.photoUrl || undefined,
+      classification,
+      channel,
+      notes,
       status: 'Pending Acknowledgement',
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -343,8 +426,8 @@ export const assetBrandingRepository = {
         `INSERT INTO \`Asset_Branding_Requests\` (
           \`id\`, \`requestNumber\`, \`outletId\`, \`outletCode\`, \`outletName\`, \`routeCode\`,
           \`supervisorId\`, \`supervisorName\`, \`visitId\`, \`visitDate\`, \`brandingRequired\`,
-          \`brandingScope\`, \`status\`, \`createdAt\`, \`updatedAt\`
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          \`brandingScope\`, \`photoUrl\`, \`classification\`, \`channel\`, \`notes\`, \`status\`, \`createdAt\`, \`updatedAt\`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           newRequest.id,
           newRequest.requestNumber,
@@ -358,6 +441,10 @@ export const assetBrandingRepository = {
           newRequest.visitDate || null,
           1,
           newRequest.brandingScope || null,
+          newRequest.photoUrl || null,
+          newRequest.classification || null,
+          newRequest.channel || null,
+          newRequest.notes || null,
           newRequest.status,
           new Date(newRequest.createdAt),
           new Date(newRequest.updatedAt),
@@ -420,4 +507,3 @@ export const assetBrandingRepository = {
     return updated;
   },
 };
-

@@ -29,6 +29,7 @@ import {
   Sparkles,
   LayoutDashboard,
   CalendarCheck,
+  Tag,
 } from 'lucide-react';
 import { isFleetRole } from '@/lib/roles';
 
@@ -55,6 +56,7 @@ const navGroups = [
     label: 'Analytics',
     items: [
       { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
+      { name: 'Asset Branding Requests', path: '/supervisor/branding-requests', icon: Tag },
       { name: 'AI Dashboard', path: '/supervisor/reports', icon: Sparkles },
     ],
   },
@@ -88,6 +90,7 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
     { name: 'New Audit', path: '/supervisor/visit', icon: PlusCircle },
     { name: 'No Visits', path: '/supervisor/no-visits', icon: AlertTriangle },
     { name: 'Audit Photo Gallery', path: '/supervisor/photos', icon: Camera },
+    { name: 'Asset Branding Requests', path: '/supervisor/branding-requests', icon: Tag },
     { name: 'AI Dashboard', path: '/supervisor/reports', icon: Sparkles },
     { name: 'Data Usage Tracker', path: '/supervisor/data-usage', icon: Activity },
     { name: 'Profile', path: '/supervisor/profile', icon: User },
