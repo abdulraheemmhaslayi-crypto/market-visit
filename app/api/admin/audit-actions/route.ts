@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { auditActionRepository } from '@/lib/audit-actions';
+import { isFullAccessRole, isSupervisorRole } from '@/lib/roles';
 
 export async function GET(req: NextRequest) {
   try {
@@ -179,8 +180,15 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // When GM verifies:
+    // When Admin / Sub-Admin verifies and approves:
     if (actionStatus === 'RESOLVED') {
+      const userRole = String((session?.user as any)?.role || '');
+      if (isSupervisorRole(userRole) || !isFullAccessRole(userRole)) {
+        return NextResponse.json(
+          { error: 'Forbidden: Supervisors are not authorized to approve and close action directives' },
+          { status: 403 }
+        );
+      }
       updates.gmVerifiedAt = new Date().toISOString();
       if (gmResolutionNotes !== undefined) updates.gmResolutionNotes = gmResolutionNotes;
     }

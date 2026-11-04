@@ -240,6 +240,9 @@ export interface VisitWizardState {
   visit_type?: "Visit" | "No Visit";
   reason_category?: string;
   reason?: string;
+  assetBrandingRequired?: 'YES' | 'NO';
+  brandingScope?: string;
+  brandingNotes?: string;
 }
 
 // Excel Import wizard status
