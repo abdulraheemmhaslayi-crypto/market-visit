@@ -1271,98 +1271,189 @@ export default function AssetBrandingRequestsPage() {
         </div>
       )}
 
-      {/* Request Approved Or Rejected Decision Modal */}
+      {/* Request Approved Or Rejected Decision Modal - Full View with Photo & Shop Details */}
       {decisionModalRequest && (
-        <div className="fixed inset-0 z-60 overflow-y-auto flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-[var(--surface)] border border-[var(--border)] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)] bg-[var(--surface-2)]/60">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-[var(--accent)]" />
-                <h3 className="text-base font-black text-[var(--text-primary)]">
-                  Request Approved Or Rejected
-                </h3>
+        <div className="fixed inset-0 z-60 overflow-y-auto flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-5xl bg-[var(--surface)] border border-[var(--border)] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh] animate-slide-up">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)] bg-[var(--surface-2)]/70">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono font-black px-3 py-1 rounded-full bg-[var(--accent)] text-white shadow-xs uppercase tracking-wider">
+                  {decisionModalRequest.requestNumber}
+                </span>
+                <div>
+                  <h3 className="text-base font-black text-[var(--text-primary)] flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-[var(--accent)]" />
+                    <span>Review Asset Condition & Decide Request</span>
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] font-mono mt-0.5 flex-wrap">
+                    <span>Outlet: <strong className="text-[var(--text-primary)]">{decisionModalRequest.outletCode}</strong></span>
+                    <span>•</span>
+                    <span>Route: <strong className="text-[var(--text-primary)]">{decisionModalRequest.routeCode}</strong></span>
+                    <span>•</span>
+                    <span className="px-1.5 py-0.2 rounded font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20">
+                      Class {decisionModalRequest.classification || 'C'}
+                    </span>
+                    {(decisionModalRequest.assetModel || decisionModalRequest.sizeModel || decisionModalRequest.assetType) && (
+                      <>
+                        <span>•</span>
+                        <span className="px-1.5 py-0.2 rounded font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20">
+                          Asset: {[decisionModalRequest.assetType, decisionModalRequest.assetModel || decisionModalRequest.sizeModel].filter(Boolean).join(' - ')}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setDecisionModalRequest(null)}
-                className="p-1.5 rounded-xl hover:bg-[var(--surface-2)] text-[var(--text-muted)] cursor-pointer"
+                className="p-2 rounded-xl hover:bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                title="Close"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              {/* Outlet details banner */}
-              <div className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border-soft)] space-y-1 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-[var(--accent)]">{decisionModalRequest.requestNumber}</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400">
-                    Class {decisionModalRequest.classification || 'C'}
-                  </span>
-                </div>
-                <p className="font-bold text-[var(--text-primary)]">{decisionModalRequest.outletName}</p>
-                <p className="text-[11px] text-[var(--text-muted)]">
-                  Code: <strong className="text-[var(--text-secondary)]">{decisionModalRequest.outletCode}</strong> • Route: {decisionModalRequest.routeCode} • Supervisor: {decisionModalRequest.supervisorName}
-                </p>
-                {decisionModalRequest.notes && (
-                  <p className="text-[11px] text-[var(--text-secondary)] italic pt-1 border-t border-[var(--border-soft)]">
-                    Supervisor Note: "{decisionModalRequest.notes}"
-                  </p>
-                )}
-              </div>
+            {/* Modal Body - 2 Columns (Photo on Left, Details & Decision on Right) */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left Column: Asset Condition Photo (Full Size) */}
+                <div className="lg:col-span-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                      <Camera className="h-4 w-4 text-[var(--accent)]" />
+                      <span>Asset Condition Photo</span>
+                    </h4>
+                    {decisionModalRequest.photoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setFullPhotoViewer(decisionModalRequest.photoUrl || null)}
+                        className="text-[11px] font-bold text-[var(--accent)] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Maximize2 className="h-3.5 w-3.5" /> Full Size
+                      </button>
+                    )}
+                  </div>
 
-              {/* Decision Selector */}
-              <div>
-                <label className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider block mb-2">
-                  Select Decision:
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setDecisionType('Approved')}
-                    className={`p-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
-                      decisionType === 'Approved'
-                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md scale-[1.02]'
-                        : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:border-emerald-500/50'
-                    }`}
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Approve Request</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDecisionType('Rejected')}
-                    className={`p-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
-                      decisionType === 'Rejected'
-                        ? 'bg-rose-600 text-white border-rose-500 shadow-md scale-[1.02]'
-                        : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:border-rose-500/50'
-                    }`}
-                  >
-                    <XCircle className="h-4 w-4" />
-                    <span>Reject Request</span>
-                  </button>
-                </div>
-              </div>
+                  {decisionModalRequest.photoUrl ? (
+                    <div className="relative aspect-4/3 w-full rounded-2xl overflow-hidden border-2 border-[var(--border)] bg-black shadow-lg group">
+                      <img
+                        src={decisionModalRequest.photoUrl}
+                        alt="Asset condition"
+                        className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-102"
+                        onClick={() => setFullPhotoViewer(decisionModalRequest.photoUrl || null)}
+                      />
+                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-3 text-white text-xs">
+                        <p className="font-semibold flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                          Photo Captured by {decisionModalRequest.supervisorName}
+                        </p>
+                        <p className="text-[10px] text-slate-300">
+                          {new Date(decisionModalRequest.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="aspect-4/3 w-full rounded-2xl border-2 border-dashed border-[var(--border)] flex flex-col items-center justify-center p-6 text-center space-y-2 bg-[var(--surface-2)]">
+                      <Camera className="h-10 w-10 text-[var(--text-muted)] opacity-40" />
+                      <p className="text-xs font-bold text-[var(--text-primary)]">No Condition Photo Attached</p>
+                      <p className="text-[11px] text-[var(--text-muted)] max-w-xs">
+                        This request was submitted without an attached condition photo.
+                      </p>
+                    </div>
+                  )}
 
-              {/* Comments / Reason Textarea */}
-              <div>
-                <label className="text-xs font-bold text-[var(--text-primary)] block mb-1">
-                  Reason & Administrative Comments {decisionType === 'Rejected' ? <span className="text-rose-500 font-bold">* (Required for rejection)</span> : <span className="text-[var(--text-muted)] font-normal">(Optional remarks)</span>}:
-                </label>
-                <textarea
-                  rows={3}
-                  value={decisionComment}
-                  onChange={(e) => setDecisionComment(e.target.value)}
-                  placeholder={
-                    decisionType === 'Rejected'
-                      ? 'Write the exact reason for rejecting this request (e.g. Chiller already branded in Q3, outlet scheduled for relocation)...'
-                      : 'Add comments (e.g. Approved for door decals and canopy replacement in next branding schedule)...'
-                  }
-                  className="w-full text-xs p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
-                />
+                  {/* Shop & Asset Summary Card */}
+                  <div className="p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--border-soft)] space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[var(--text-primary)]">{decisionModalRequest.outletName}</span>
+                      <span className="text-[10.5px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20">
+                        {[decisionModalRequest.assetType, decisionModalRequest.assetModel || decisionModalRequest.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-[var(--text-muted)]">
+                      <div>Outlet Code: <strong className="text-[var(--text-primary)] font-mono">{decisionModalRequest.outletCode}</strong></div>
+                      <div>Route: <strong className="text-[var(--text-primary)] font-mono">{decisionModalRequest.routeCode}</strong></div>
+                      <div>Supervisor: <strong className="text-[var(--text-primary)]">{decisionModalRequest.supervisorName}</strong></div>
+                      <div>Classification: <strong className="text-purple-400">Class {decisionModalRequest.classification || 'C'}</strong></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Supervisor Notes, Decision Selector & Reason/Comments */}
+                <div className="lg:col-span-6 space-y-4">
+                  {/* Supervisor Observations & Condition Notes */}
+                  <div className="p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--border-soft)] space-y-1.5">
+                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+                      Supervisor Condition Report & Notes
+                    </span>
+                    <p className="text-xs text-[var(--text-primary)] bg-[var(--surface)] p-3 rounded-xl border border-[var(--border-soft)] italic">
+                      "{decisionModalRequest.notes || decisionModalRequest.brandingScope || 'Asset branding required'}"
+                    </p>
+                  </div>
+
+                  {/* Decision Selection Card */}
+                  <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--border-soft)] space-y-3">
+                    <label className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider block">
+                      Select Decision:
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setDecisionType('Approved')}
+                        className={`p-3.5 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                          decisionType === 'Approved'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md scale-[1.02]'
+                            : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-emerald-500/50'
+                        }`}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>Approve Request</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDecisionType('Rejected')}
+                        className={`p-3.5 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                          decisionType === 'Rejected'
+                            ? 'bg-rose-600 text-white border-rose-500 shadow-md scale-[1.02]'
+                            : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-rose-500/50'
+                        }`}
+                      >
+                        <XCircle className="h-4 w-4" />
+                        <span>Reject Request</span>
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-[var(--text-muted)] italic">
+                      {decisionType === 'Approved'
+                        ? 'Approving marks this branding request as approved and notifies the supervisor with your remarks.'
+                        : 'Rejecting requires a clear reason to explain why branding was declined (e.g. recent branding, relocation).'}
+                    </p>
+                  </div>
+
+                  {/* Comments / Reason Textarea */}
+                  <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--border-soft)] space-y-2">
+                    <label className="text-xs font-bold text-[var(--text-primary)] block">
+                      Reason & Administrative Comments {decisionType === 'Rejected' ? <span className="text-rose-500 font-bold">* (Required for rejection)</span> : <span className="text-[var(--text-muted)] font-normal">(Optional remarks)</span>}:
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={decisionComment}
+                      onChange={(e) => setDecisionComment(e.target.value)}
+                      placeholder={
+                        decisionType === 'Rejected'
+                          ? 'Write the exact reason for rejecting this request (e.g. Asset was branded in Q3, store is scheduled for remodel, budget cap reached)...'
+                          : 'Add remarks for supervisor (e.g. Approved. Door decals and canopy replacement scheduled with vendor next Monday)...'
+                      }
+                      className="w-full text-xs p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
+            {/* Modal Footer */}
             <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[var(--border-soft)] bg-[var(--surface-2)]/60">
               <button
                 type="button"
@@ -1375,7 +1466,7 @@ export default function AssetBrandingRequestsPage() {
                 type="button"
                 disabled={isSubmittingDecision || (decisionType === 'Rejected' && !decisionComment.trim())}
                 onClick={handleSubmitDecision}
-                className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
                   decisionType === 'Approved' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'
                 }`}
               >
