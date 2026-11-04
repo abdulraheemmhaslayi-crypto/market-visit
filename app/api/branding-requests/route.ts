@@ -176,7 +176,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, action, decision, adminComment } = body;
+    const { id, action, decision, adminComment, assetType, assetModel } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Request ID is required' }, { status: 400 });
@@ -184,6 +184,20 @@ export async function PATCH(req: NextRequest) {
 
     const adminId = (session.user as any).id || (session.user as any).employeeCode || 'ADMIN';
     const adminName = session.user.name || 'Administrator';
+
+    
+    // Asset Type & Model Update
+    if (action === 'update_asset' || (assetType && assetModel && !decision && action !== 'acknowledge')) {
+      const updated = await assetBrandingRepository.updateAssetInfo(id, assetType, assetModel);
+      if (!updated) {
+        return NextResponse.json({ error: 'Branding request not found' }, { status: 404 });
+      }
+      return NextResponse.json({
+        success: true,
+        request: updated,
+        message: 'Asset Model / Size updated successfully.',
+      });
+    }
 
     // 1. Decision Action (Approved / Rejected with comments/reason)
     if (action === 'decision' || decision) {
@@ -203,6 +217,9 @@ export async function PATCH(req: NextRequest) {
         );
       }
 
+      if (assetType && assetModel) {
+        await assetBrandingRepository.updateAssetInfo(id, assetType, assetModel);
+      }
       const updated = await assetBrandingRepository.recordDecision(
         id,
         validDecision,

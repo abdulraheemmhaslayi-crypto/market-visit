@@ -1504,7 +1504,13 @@ function VisitWizardContent() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setAssetBrandingRequired('YES')}
+                    onClick={() => {
+                      setAssetBrandingRequired('YES');
+                      if (assets.length > 0 && assets[0]?.assetType) {
+                        setBrandingAssetType(assets[0].assetType);
+                        setBrandingAssetModel(assets[0].sizeModel || (assets[0].assetType === 'Freezer' ? '400' : 'Single Door'));
+                      }
+                    }}
                     className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       assetBrandingRequired === 'YES'
                         ? 'bg-[var(--accent)] text-white shadow-sm'

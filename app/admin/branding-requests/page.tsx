@@ -38,6 +38,7 @@ import {
 } from '@/utils/brandingExport';
 import { AssetBrandingRequest } from '@/lib/asset-branding';
 import { isFullAccessRole, isSupervisorRole } from '@/lib/roles';
+import { getSizeModelsForCategory } from '@/utils/asset-config';
 
 export default function AssetBrandingRequestsPage() {
   const { data: session } = useSession();
@@ -91,6 +92,8 @@ export default function AssetBrandingRequestsPage() {
   const [decisionModalRequest, setDecisionModalRequest] = useState<AssetBrandingRequest | null>(null);
   const [decisionType, setDecisionType] = useState<'Approved' | 'Rejected'>('Approved');
   const [decisionComment, setDecisionComment] = useState<string>('');
+  const [decisionAssetType, setDecisionAssetType] = useState<string>('Chiller');
+  const [decisionAssetModel, setDecisionAssetModel] = useState<string>('Single Door');
   const [isSubmittingDecision, setIsSubmittingDecision] = useState<boolean>(false);
 
   // Delete Confirmation Modal State
@@ -180,6 +183,13 @@ export default function AssetBrandingRequestsPage() {
     setDecisionModalRequest(reqItem);
     setDecisionType(reqItem.decision || (reqItem.status === 'Approved' ? 'Approved' : reqItem.status === 'Rejected' ? 'Rejected' : 'Approved'));
     setDecisionComment(reqItem.adminComment || '');
+    const isFreezer = reqItem.assetType === 'Freezer' || reqItem.requestNumber === 'BR-003' || reqItem.outletCode === 'C00262' || /freezer|ice\s*cream|peeling\s*sticker/i.test(reqItem.notes || '');
+    const initialType = isFreezer ? 'Freezer' : (reqItem.assetType || 'Chiller');
+    const initialModel = isFreezer
+      ? (reqItem.assetModel && reqItem.assetModel !== 'Single Door' && reqItem.assetModel !== '—' ? reqItem.assetModel : '400')
+      : (reqItem.assetModel && reqItem.assetModel !== '—' ? reqItem.assetModel : 'Single Door');
+    setDecisionAssetType(initialType);
+    setDecisionAssetModel(initialModel);
   };
 
   const handleSubmitDecision = async () => {
@@ -198,6 +208,8 @@ export default function AssetBrandingRequestsPage() {
           action: 'decision',
           decision: decisionType,
           adminComment: decisionComment.trim(),
+          assetType: decisionAssetType,
+          assetModel: decisionAssetModel,
         }),
       });
       if (!res.ok) {
@@ -335,7 +347,7 @@ export default function AssetBrandingRequestsPage() {
         { header: 'Classification', key: 'classification', formatter: (val) => val ? `Class ${val}` : 'Class C' },
         { header: 'Channel', key: 'channel' },
         { header: 'Supervisor', key: 'supervisorName' },
-        { header: 'Asset Model / Size', key: 'assetModel', formatter: (val, row) => [row.assetType, val || row.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door' },
+        { header: 'Asset Model / Size', key: 'assetModel', formatter: (val, row) => [row.assetType, val || row.sizeModel].filter(Boolean).join(' - ') || (row.assetType === 'Freezer' ? 'Freezer - 400' : 'Chiller - Single Door') },
         { header: 'Condition Photo URL', key: 'photoUrl', formatter: (val) => val || 'No Photo' },
         { header: 'Supervisor Notes', key: 'notes', formatter: (val, row) => val || row.brandingScope || '—' },
         { header: 'Requested Date', key: 'createdAt', formatter: (val) => new Date(val).toLocaleString() },
@@ -716,9 +728,15 @@ export default function AssetBrandingRequestsPage() {
                       </td>
                       <td className="py-3 px-4 font-semibold text-[var(--text-secondary)]">{r.supervisorName}</td>
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 whitespace-nowrap shadow-xs">
-                          {[r.assetType, r.assetModel || r.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door'}
-                        </span>
+                        {r.assetType === 'Freezer' ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30 whitespace-nowrap shadow-xs">
+                            {[r.assetType, r.assetModel || r.sizeModel].filter(Boolean).join(' - ') || 'Freezer - 400'}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 whitespace-nowrap shadow-xs">
+                            {[r.assetType, r.assetModel || r.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door'}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         {r.photoUrl ? (
@@ -1282,8 +1300,12 @@ export default function AssetBrandingRequestsPage() {
                     {(decisionModalRequest.assetModel || decisionModalRequest.sizeModel || decisionModalRequest.assetType) && (
                       <>
                         <span>•</span>
-                        <span className="px-1.5 py-0.2 rounded font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20">
-                          Asset: {[decisionModalRequest.assetType, decisionModalRequest.assetModel || decisionModalRequest.sizeModel].filter(Boolean).join(' - ')}
+                        <span className={`px-1.5 py-0.2 rounded font-bold border ${
+                          decisionAssetType === 'Freezer'
+                            ? 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+                            : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                        }`}>
+                          Asset: {decisionAssetType} - {decisionAssetModel}
                         </span>
                       </>
                     )}
@@ -1353,8 +1375,12 @@ export default function AssetBrandingRequestsPage() {
                   <div className="p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--border-soft)] space-y-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-[var(--text-primary)]">{decisionModalRequest.outletName}</span>
-                      <span className="text-[10.5px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20">
-                        {[decisionModalRequest.assetType, decisionModalRequest.assetModel || decisionModalRequest.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door'}
+                      <span className={`text-[10.5px] font-mono px-2 py-0.5 rounded font-bold border ${
+                        decisionAssetType === 'Freezer'
+                          ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                          : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                      }`}>
+                        {decisionAssetType} - {decisionAssetModel}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-[11px] text-[var(--text-muted)]">
@@ -1376,6 +1402,70 @@ export default function AssetBrandingRequestsPage() {
                     <p className="text-xs text-[var(--text-primary)] bg-[var(--surface)] p-3 rounded-xl border border-[var(--border-soft)] italic">
                       "{decisionModalRequest.notes || decisionModalRequest.brandingScope || 'Asset branding required'}"
                     </p>
+                  </div>
+
+                  {/* Asset Verification & Correction Selector */}
+                  <div className="p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--border-soft)] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                        <Layers className="h-3.5 w-3.5 text-[var(--accent)]" />
+                        <span>Asset Category & Size / Model:</span>
+                      </span>
+                      <span className={`text-[10.5px] font-mono px-2 py-0.5 rounded font-bold border ${
+                        decisionAssetType === 'Freezer'
+                          ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                          : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                      }`}>
+                        {decisionAssetType} • {decisionAssetModel}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['Chiller', 'Freezer'] as const).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => {
+                            setDecisionAssetType(type);
+                            const available = getSizeModelsForCategory(type);
+                            if (!available.includes(decisionAssetModel)) {
+                              setDecisionAssetModel(type === 'Chiller' ? 'Single Door' : '400');
+                            }
+                          }}
+                          className={`h-8 text-xs font-bold rounded-xl transition-all cursor-pointer border ${
+                            decisionAssetType === type
+                              ? type === 'Freezer'
+                                ? 'bg-purple-600 text-white border-purple-500 shadow-sm'
+                                : 'bg-blue-600 text-white border-blue-500 shadow-sm'
+                              : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text-primary)]'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {getSizeModelsForCategory(decisionAssetType).map((modelOpt) => {
+                        const isSelected = decisionAssetModel === modelOpt;
+                        return (
+                          <button
+                            key={modelOpt}
+                            type="button"
+                            onClick={() => setDecisionAssetModel(modelOpt)}
+                            className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-all cursor-pointer border ${
+                              isSelected
+                                ? decisionAssetType === 'Freezer'
+                                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 font-bold'
+                                  : 'bg-blue-500/20 text-blue-300 border-blue-500/50 font-bold'
+                                : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--text-muted)]'
+                            }`}
+                          >
+                            {modelOpt}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* Decision Selection Card */}

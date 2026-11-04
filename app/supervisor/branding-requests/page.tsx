@@ -212,7 +212,7 @@ export default function SupervisorBrandingRequestsPage() {
         { header: 'Classification', key: 'classification', formatter: (val) => val ? `Class ${val}` : 'Class C' },
         { header: 'Channel', key: 'channel' },
         { header: 'Supervisor', key: 'supervisorName' },
-        { header: 'Asset Model / Size', key: 'assetModel', formatter: (val, row) => [row.assetType, val || row.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door' },
+        { header: 'Asset Model / Size', key: 'assetModel', formatter: (val, row) => [row.assetType, val || row.sizeModel].filter(Boolean).join(' - ') || (row.assetType === 'Freezer' ? 'Freezer - 400' : 'Chiller - Single Door') },
         { header: 'Condition Photo URL', key: 'photoUrl', formatter: (val) => val || 'No Photo' },
         { header: 'Supervisor Notes', key: 'notes', formatter: (val, row) => val || row.brandingScope || '—' },
         { header: 'Requested Date', key: 'createdAt', formatter: (val) => new Date(val).toLocaleString() },
@@ -715,7 +715,7 @@ export default function SupervisorBrandingRequestsPage() {
                       <>
                         <span>•</span>
                         <span className="px-1.5 py-0.2 rounded font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20">
-                          Asset: {[activeRequest.assetType, activeRequest.assetModel || activeRequest.sizeModel].filter(Boolean).join(' - ') || 'Chiller - Single Door'}
+                          Asset: {[activeRequest.assetType, activeRequest.assetModel || activeRequest.sizeModel].filter(Boolean).join(' - ') || (activeRequest.assetType === 'Freezer' ? 'Freezer - 400' : 'Chiller - Single Door')}
                         </span>
                       </>
                     )}
