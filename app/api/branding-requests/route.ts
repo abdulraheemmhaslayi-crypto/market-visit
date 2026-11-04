@@ -10,6 +10,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const userRole = String((session.user as any)?.role || '');
+    const isSupervisor = isSupervisorRole(userRole);
+    const loggedInSupervisorName = (session.user.name || '').trim();
+
     const { searchParams } = req.nextUrl;
     const outletCode = searchParams.get('outletCode') || '';
     const checkOnly = searchParams.get('check') === 'true';
@@ -36,25 +40,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, history });
     }
 
-    // 3. Admin / Sub-Admin dashboard query with filters
+    // 3. Dashboard queries with filters
     const status = searchParams.get('status') || undefined;
     const routeCode = searchParams.get('routeCode') || undefined;
-    const supervisorName = searchParams.get('supervisorName') || undefined;
+    const classification = searchParams.get('classification') || undefined;
+    let supervisorName = searchParams.get('supervisorName') || undefined;
     const search = searchParams.get('search') || undefined;
     const fromDate = searchParams.get('fromDate') || undefined;
     const toDate = searchParams.get('toDate') || undefined;
 
+    // Strict supervisor scoping: If requester is a Supervisor in supervisor portal, default to their own requests
+    const isSupervisorPortal = searchParams.get('portal') === 'supervisor' || isSupervisor;
+    if (isSupervisorPortal && isSupervisor && loggedInSupervisorName) {
+      supervisorName = loggedInSupervisorName;
+    }
+
+    const filters = {
+      outletCode: outletCode || undefined,
+      routeCode,
+      supervisorName,
+      classification,
+      status,
+      search,
+      fromDate,
+      toDate,
+    };
+
     const [requests, counts] = await Promise.all([
-      assetBrandingRepository.getAll({
-        outletCode: outletCode || undefined,
-        routeCode,
-        supervisorName,
-        status,
-        search,
-        fromDate,
-        toDate,
-      }),
-      assetBrandingRepository.getSummaryCounts(),
+      assetBrandingRepository.getAll(filters),
+      assetBrandingRepository.getSummaryCounts(
+        supervisorName ? { supervisorName, classification } : { classification }
+      ),
     ]);
 
     return NextResponse.json({
@@ -84,6 +100,10 @@ export async function POST(req: NextRequest) {
       visitId,
       visitDate,
       brandingScope,
+      photoUrl,
+      classification,
+      channel,
+      notes,
     } = body;
 
     if (!outletCode || !outletName) {
@@ -106,7 +126,11 @@ export async function POST(req: NextRequest) {
       visitId: visitId || undefined,
       visitDate: visitDate || undefined,
       brandingRequired: true,
-      brandingScope: brandingScope || 'General Asset Branding',
+      brandingScope: notes || brandingScope || 'Asset Branding Required',
+      photoUrl: photoUrl || undefined,
+      classification: classification || undefined,
+      channel: channel || undefined,
+      notes: notes || undefined,
     });
 
     return NextResponse.json(
@@ -168,4 +192,3 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: err.message || 'Failed to acknowledge branding request' }, { status: 500 });
   }
 }
-
