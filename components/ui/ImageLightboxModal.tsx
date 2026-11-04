@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { AuditActionItem } from '@/lib/audit-actions';
+import { isFullAccessRole, isSupervisorRole } from '@/lib/roles';
 
 export interface LightboxItem {
   photoId?: string;
@@ -135,6 +136,10 @@ export interface ImageLightboxModalProps {
   actionItems?: Record<string, AuditActionItem>;
   onActionUpdated?: () => void;
   supervisors?: string[];
+  initialSubmittingProof?: boolean;
+  initialProofPhotoUrl?: string;
+  initialMobileTab?: 'photo' | 'details';
+  cameraOnly?: boolean;
 }
 
 export default function ImageLightboxModal({
@@ -148,6 +153,10 @@ export default function ImageLightboxModal({
   actionItems = {},
   onActionUpdated,
   supervisors = [],
+  initialSubmittingProof = false,
+  initialProofPhotoUrl = '',
+  initialMobileTab,
+  cameraOnly = false,
 }: ImageLightboxModalProps) {
   const total = photos.length;
   const current = photos[currentIndex] || null;
@@ -173,9 +182,9 @@ export default function ImageLightboxModal({
 
   // Supervisor Proof & Acknowledgement States
   const [isAcknowledging, setIsAcknowledging] = useState(false);
-  const [isSubmittingProof, setIsSubmittingProof] = useState(false);
+  const [isSubmittingProof, setIsSubmittingProof] = useState(Boolean(initialSubmittingProof || initialProofPhotoUrl));
   const [supervisorComment, setSupervisorComment] = useState('');
-  const [proofPhotoUrl, setProofPhotoUrl] = useState('');
+  const [proofPhotoUrl, setProofPhotoUrl] = useState(initialProofPhotoUrl || '');
   const [isSavingProof, setIsSavingProof] = useState(false);
 
   // GM Verification State
@@ -183,17 +192,30 @@ export default function ImageLightboxModal({
   const [activeTab, setActiveTab] = useState<'details' | 'before_after'>('details');
 
   // Mobile layout view switcher ('photo' | 'details')
-  const [mobileTab, setMobileTab] = useState<'photo' | 'details'>('photo');
+  const [mobileTab, setMobileTab] = useState<'photo' | 'details'>(initialMobileTab || 'photo');
 
   useEffect(() => {
-    setMobileTab('photo');
+    if (initialProofPhotoUrl) {
+      setProofPhotoUrl(initialProofPhotoUrl);
+      setIsSubmittingProof(true);
+      setActiveTab('details');
+      setMobileTab('details');
+    }
+  }, [initialProofPhotoUrl]);
+
+  useEffect(() => {
+    if (initialMobileTab) {
+      setMobileTab(initialMobileTab);
+    } else {
+      setMobileTab('photo');
+    }
     if (current?.supervisor && current.supervisor !== 'UNASSIGNED') {
       setSelectedAssignee(current.supervisor);
     } else {
       setSelectedAssignee(availableSupervisors[0] || 'Field Supervisor');
     }
     setIsReassigning(false);
-  }, [currentIndex, current?.photoId, current?.supervisor, availableSupervisors]);
+  }, [currentIndex, current?.photoId, current?.supervisor, availableSupervisors, initialMobileTab]);
 
   // Role Detection
   const { data: session } = useSession();
@@ -373,14 +395,24 @@ export default function ImageLightboxModal({
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: mode },
-          width: { ideal: 1920, min: 1280 },
-          height: { ideal: 1080, min: 720 },
-        },
-        audio: false,
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: mode },
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+          },
+          audio: false,
+        });
+      } catch (constraintErr) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: mode },
+          },
+          audio: false,
+        });
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -388,9 +420,20 @@ export default function ImageLightboxModal({
       }
     } catch (err: any) {
       console.warn('getUserMedia error:', err);
-      setCameraError('Direct camera stream unavailable or blocked. Please use your device camera app.');
+      setCameraError(
+        cameraOnly
+          ? 'Live camera access is unavailable or blocked. Please enable camera permissions to capture proof.'
+          : 'Direct camera stream unavailable or blocked. Please use your device camera app.'
+      );
     }
   };
+
+  // Auto-start camera when cameraOnly is active
+  useEffect(() => {
+    if (isOpen && cameraOnly && isSubmittingProof && !proofPhotoUrl && !isCameraActive) {
+      startCamera('environment');
+    }
+  }, [isOpen, cameraOnly, isSubmittingProof, proofPhotoUrl, isCameraActive]);
 
   const toggleCameraFacingMode = () => {
     const nextMode = facingMode === 'environment' ? 'user' : 'environment';
@@ -485,15 +528,15 @@ export default function ImageLightboxModal({
   useEffect(() => {
     setIsFlagging(false);
     setIsReassigning(false);
-    setIsSubmittingProof(false);
+    setIsSubmittingProof(Boolean(initialSubmittingProof || initialProofPhotoUrl));
     setGmComment('');
     setSupervisorComment('');
-    setProofPhotoUrl('');
+    setProofPhotoUrl(initialProofPhotoUrl || '');
     setZoom(1);
     setRotation(0);
     stopCamera();
-    setActiveTab(currentAction?.proofPhotoUrl ? 'before_after' : 'details');
-  }, [currentIndex, current?.photoId, currentAction?.proofPhotoUrl, stopCamera]);
+    setActiveTab(initialProofPhotoUrl ? 'details' : (currentAction?.proofPhotoUrl ? 'before_after' : 'details'));
+  }, [currentIndex, current?.photoId, currentAction?.proofPhotoUrl, stopCamera, initialSubmittingProof, initialProofPhotoUrl]);
 
   const handlePrev = useCallback(() => {
     if (hasPrev) {
@@ -702,7 +745,7 @@ export default function ImageLightboxModal({
     e.preventDefault();
 
     if (!proofPhotoUrl) {
-      alert('Please take a proof photo with your camera first.');
+      alert('Please take or select a proof photo first.');
       if (nativeCameraInputRef.current) {
         nativeCameraInputRef.current.click();
       } else {
@@ -778,9 +821,9 @@ export default function ImageLightboxModal({
     }
   };
 
-  // Handle GM Verification (Approve & Close only - Reopen option disabled)
+  // Handle GM / Admin Verification (Approve & Close only - Reopen option disabled)
   const handleVerifyAction = async (status: 'RESOLVED') => {
-    if (!currentAction?.id) return;
+    if (!currentAction?.id || isSupervisor || !isFullAccessRole(effectiveRole)) return;
     setIsVerifying(true);
     try {
       const res = await fetch('/api/admin/audit-actions', {
@@ -1718,8 +1761,8 @@ export default function ImageLightboxModal({
                         />
                       </div>
 
-                      {/* Closure Action Button (Re-open option disabled) */}
-                      {currentAction.actionStatus !== 'RESOLVED' && (
+                      {/* Closure Action Button (Admin & Sub-Admin Only) */}
+                      {currentAction.actionStatus !== 'RESOLVED' && !isSupervisor && isFullAccessRole(effectiveRole) && (
                         <div className="flex items-center gap-2 pt-1">
                           <button
                             type="button"
@@ -1729,6 +1772,11 @@ export default function ImageLightboxModal({
                           >
                             <Check className="h-3.5 w-3.5" /> {isVerifying ? 'Saving...' : 'Approve & Close'}
                           </button>
+                        </div>
+                      )}
+                      {currentAction.actionStatus !== 'RESOLVED' && isSupervisor && (
+                        <div className="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[11px] font-semibold text-emerald-300">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Proof Submitted – Awaiting Management Review
                         </div>
                       )}
                     </div>
@@ -1775,32 +1823,33 @@ export default function ImageLightboxModal({
                           <div className="space-y-2">
                             <label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                               <Camera className="h-3.5 w-3.5 text-sky-400" />
-                              Proof Photo Attachment (Camera Only):
+                              Proof Photo Attachment:
                             </label>
 
-                            {/* Hidden File Input for native camera */}
-                            <input
-                              ref={nativeCameraInputRef}
-                              type="file"
-                              accept="image/*"
-                              capture={facingMode}
-                              className="hidden"
-                              onChange={handleNativeCameraChange}
-                            />
+                            {/* Hidden File Input (only when not strictly cameraOnly) */}
+                            {!cameraOnly && (
+                              <input
+                                ref={nativeCameraInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleNativeCameraChange}
+                              />
+                            )}
 
                             {/* Viewfinder when in-app camera is active */}
                             {isCameraActive ? (
-                              <div className="rounded-xl overflow-hidden bg-black border border-sky-500/50 p-2 space-y-2 animate-in fade-in duration-200">
+                              <div className="rounded-xl overflow-hidden bg-black border border-amber-500/50 p-2 space-y-2 animate-in fade-in duration-200">
                                 <div className="flex items-center justify-between px-1">
-                                  <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1">
-                                    <span className="h-2 w-2 rounded-full bg-sky-400 animate-pulse" />
-                                    {facingMode === 'environment' ? 'Rear Camera (Back)' : 'Front Camera (Selfie)'}
+                                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                                    <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                                    {facingMode === 'environment' ? 'Rear Camera (Environment)' : 'Front Camera'}
                                   </span>
                                   <div className="flex items-center gap-1.5">
                                     <button
                                       type="button"
                                       onClick={toggleCameraFacingMode}
-                                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 text-[11px] font-bold flex items-center gap-1 border border-slate-700 transition-all cursor-pointer"
+                                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-bold flex items-center gap-1 border border-slate-700 transition-all cursor-pointer"
                                       title="Switch between front and back camera"
                                     >
                                       <FlipHorizontal className="h-3.5 w-3.5" />
@@ -1820,13 +1869,23 @@ export default function ImageLightboxModal({
                                 {cameraError ? (
                                   <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-lg text-[11px] text-red-200 space-y-2">
                                     <p>{cameraError}</p>
-                                    <button
-                                      type="button"
-                                      onClick={() => nativeCameraInputRef.current?.click()}
-                                      className="w-full py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs cursor-pointer"
-                                    >
-                                      Open Device Camera App
-                                    </button>
+                                    {cameraOnly ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => startCamera(facingMode)}
+                                        className="w-full py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs cursor-pointer shadow"
+                                      >
+                                        Retry Camera Access
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => nativeCameraInputRef.current?.click()}
+                                        className="w-full py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs cursor-pointer"
+                                      >
+                                        Open Device Camera App
+                                      </button>
+                                    )}
                                   </div>
                                 ) : (
                                   <div className="relative rounded-lg overflow-hidden bg-slate-950 aspect-video flex items-center justify-center">
@@ -1842,17 +1901,23 @@ export default function ImageLightboxModal({
 
                                 {!cameraError && (
                                   <div className="flex items-center justify-between pt-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => nativeCameraInputRef.current?.click()}
-                                      className="text-[10px] text-slate-400 hover:text-sky-300 underline cursor-pointer"
-                                    >
-                                      Use Native Camera App
-                                    </button>
+                                    {cameraOnly ? (
+                                      <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
+                                        <Camera className="h-3 w-3" /> Live Camera Only
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => nativeCameraInputRef.current?.click()}
+                                        className="text-[10px] text-slate-400 hover:text-sky-300 underline cursor-pointer"
+                                      >
+                                        Use Native Camera App
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={takePhotoSnapshot}
-                                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/30 cursor-pointer active:scale-95 transition-all"
+                                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/30 cursor-pointer active:scale-95 transition-all"
                                     >
                                       <Camera className="h-4 w-4" />
                                       Capture Photo
@@ -1874,25 +1939,38 @@ export default function ImageLightboxModal({
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-400">
                                       <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
-                                      Proof Photo Ready
+                                      Proof Photo Captured
                                     </div>
                                     <p className="text-[10px] text-slate-400 mt-0.5 truncate">
                                       Ready to submit with resolution notes.
                                     </p>
                                     <div className="flex items-center gap-1.5 mt-2">
+                                      {cameraOnly ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setProofPhotoUrl('');
+                                            startCamera('environment');
+                                          }}
+                                          className="text-[10px] font-semibold px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 cursor-pointer flex items-center gap-1"
+                                        >
+                                          <Camera className="h-3 w-3" /> Retake Photo
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => nativeCameraInputRef.current?.click()}
+                                          className="text-[10px] font-semibold px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer flex items-center gap-1"
+                                        >
+                                          <Camera className="h-3 w-3" /> Change Photo
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
                                         onClick={() => {
                                           setProofPhotoUrl('');
-                                          startCamera('environment');
+                                          if (cameraOnly) startCamera('environment');
                                         }}
-                                        className="text-[10px] font-semibold px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 cursor-pointer flex items-center gap-1"
-                                      >
-                                        <Camera className="h-3 w-3" /> Retake (Camera)
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setProofPhotoUrl('')}
                                         className="text-[10px] font-semibold px-2.5 py-1 rounded bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/40 cursor-pointer"
                                       >
                                         Remove
@@ -1901,8 +1979,29 @@ export default function ImageLightboxModal({
                                   </div>
                                 </div>
                               </div>
+                            ) : cameraOnly ? (
+                              /* Camera Only - Strict Live Viewfinder Opener */
+                              <div className="space-y-2">
+                                <button
+                                  type="button"
+                                  onClick={() => startCamera('environment')}
+                                  className="w-full p-3.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/30 hover:from-amber-500/30 hover:to-amber-600/40 border-2 border-amber-400 flex items-center justify-center gap-3 transition-all cursor-pointer group shadow-lg active:scale-98"
+                                >
+                                  <div className="p-2 rounded-full bg-amber-400 text-black group-hover:scale-110 transition-all shadow-md">
+                                    <Camera className="h-5 w-5" />
+                                  </div>
+                                  <div className="text-left">
+                                    <span className="text-xs font-extrabold text-white block">
+                                      Open Rear Camera to Capture Proof
+                                    </span>
+                                    <span className="text-[10px] text-amber-200 block">
+                                      Direct live camera capture only (Gallery selection disabled)
+                                    </span>
+                                  </div>
+                                </button>
+                              </div>
                             ) : (
-                              /* Camera-only capture options (Gallery upload removed per directive) */
+                              /* Camera and Gallery capture options (Fallback for non-camera-only) */
                               <div className="space-y-2">
                                 <button
                                   type="button"
@@ -1914,10 +2013,10 @@ export default function ImageLightboxModal({
                                   </div>
                                   <div className="text-left">
                                     <span className="text-xs font-extrabold text-white block">
-                                      Take Proof Photo (Camera App)
+                                      Take Photo or Choose from Gallery
                                     </span>
                                     <span className="text-[10px] text-sky-200 block">
-                                      Tap to open device camera directly (Live Camera Only)
+                                      Tap to capture with camera or select from device gallery
                                     </span>
                                   </div>
                                 </button>

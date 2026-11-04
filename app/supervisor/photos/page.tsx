@@ -130,6 +130,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [lightboxInitialProofUrl, setLightboxInitialProofUrl] = useState<string>('');
+  const [lightboxInitialSubmittingProof, setLightboxInitialSubmittingProof] = useState<boolean>(false);
+  const [lightboxInitialMobileTab, setLightboxInitialMobileTab] = useState<'photo' | 'details' | undefined>(undefined);
+  const [lightboxCameraOnly, setLightboxCameraOnly] = useState<boolean>(false);
 
   const [pagination, setPagination] = useState({
     totalCount: 0,
@@ -297,6 +301,119 @@ export default function SupervisorAuditPhotoGalleryPage() {
       return syntheticPhoto;
     });
   }, [actionFilter, photos, pendingActionItems]);
+
+  const handleDirectiveProofPhotoSelected = (
+    item: AuditActionItem,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawUrl = event.target?.result as string;
+      if (!rawUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1920;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        let compressed = rawUrl;
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          compressed = canvas.toDataURL('image/jpeg', 0.86);
+        }
+
+        setLightboxInitialProofUrl(compressed);
+        setLightboxInitialSubmittingProof(true);
+        setLightboxInitialMobileTab('details');
+
+        const existingIdx = displayedPhotos.findIndex((p) => p.photoId === item.photoId);
+        if (existingIdx !== -1) {
+          setIsActionDrawerOpen(false);
+          setLightboxIndex(existingIdx);
+        } else {
+          const syntheticPhoto: AuditPhoto = {
+            photoId: item.photoId,
+            visitId: item.visitId || 'VISIT-REF',
+            category: (item.category as any) || 'Audit Photo',
+            cloudinaryUrl: item.originalPhotoUrl,
+            publicId: item.photoId,
+            uploadedAt: item.createdAt || new Date().toISOString(),
+            appName: 'Field Audit',
+            outlet: item.outlet,
+            outletCode: item.outletCode || '',
+            route: item.route,
+            supervisor: item.supervisor || 'Field Supervisor',
+            manager: item.manager || '',
+            channel: item.channel || 'GT',
+          };
+          setPhotos((prev) => [syntheticPhoto, ...prev.filter((p) => p.photoId !== item.photoId)]);
+          setIsActionDrawerOpen(false);
+          setLightboxIndex(0);
+        }
+      };
+
+      img.onerror = () => {
+        setLightboxInitialProofUrl(rawUrl);
+        setLightboxInitialSubmittingProof(true);
+        setLightboxInitialMobileTab('details');
+        handleInspectAction(item);
+      };
+
+      img.src = rawUrl;
+    };
+
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleTakeCorrectiveAction = (item: AuditActionItem) => {
+    setIsActionDrawerOpen(false);
+    setLightboxInitialProofUrl('');
+    setLightboxInitialSubmittingProof(true);
+    setLightboxInitialMobileTab('details');
+    setLightboxCameraOnly(true);
+
+    const existingIdx = displayedPhotos.findIndex((p) => p.photoId === item.photoId);
+    if (existingIdx !== -1) {
+      setLightboxIndex(existingIdx);
+    } else {
+      const syntheticPhoto: AuditPhoto = {
+        photoId: item.photoId,
+        visitId: item.visitId || 'VISIT-REF',
+        category: (item.category as any) || 'Audit Photo',
+        cloudinaryUrl: item.originalPhotoUrl,
+        publicId: item.photoId,
+        uploadedAt: item.createdAt || new Date().toISOString(),
+        appName: 'Field Audit',
+        outlet: item.outlet,
+        outletCode: item.outletCode || '',
+        route: item.route,
+        supervisor: item.supervisor || 'Field Supervisor',
+        manager: item.manager || '',
+        channel: item.channel || 'GT',
+      };
+      setPhotos((prev) => [syntheticPhoto, ...prev.filter((p) => p.photoId !== item.photoId)]);
+      setLightboxIndex(0);
+    }
+  };
 
   const handleInspectAction = (item: AuditActionItem) => {
     setIsActionDrawerOpen(false);
@@ -1024,14 +1141,25 @@ export default function SupervisorAuditPhotoGalleryPage() {
                           </div>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={() => handleInspectAction(item)}
-                          className="w-full py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-semibold"
-                        >
-                          <Camera className="h-3.5 w-3.5" />
-                          {item.actionStatus === 'PENDING' ? 'Take Corrective Action & Submit Proof' : 'View Corrective Action'}
-                        </button>
+                        {item.actionStatus === 'PENDING' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleTakeCorrectiveAction(item)}
+                            className="w-full py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-semibold select-none active:scale-[0.98]"
+                          >
+                            <Camera className="h-3.5 w-3.5" />
+                            <span>Take Corrective Action & Submit Proof</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleInspectAction(item)}
+                            className="w-full py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-semibold"
+                          >
+                            <Camera className="h-3.5 w-3.5" />
+                            View Corrective Action
+                          </button>
+                        )}
                       </div>
                     ))
                   )}
@@ -1047,11 +1175,21 @@ export default function SupervisorAuditPhotoGalleryPage() {
         photos={displayedPhotos}
         currentIndex={lightboxIndex ?? 0}
         isOpen={lightboxIndex !== null}
-        onClose={() => setLightboxIndex(null)}
+        onClose={() => {
+          setLightboxIndex(null);
+          setLightboxInitialProofUrl('');
+          setLightboxInitialSubmittingProof(false);
+          setLightboxInitialMobileTab(undefined);
+          setLightboxCameraOnly(false);
+        }}
         onNavigate={(newIdx) => setLightboxIndex(newIdx)}
         title="Supervisor Audit Photo Gallery"
         userRole="Supervisor"
+        cameraOnly={lightboxCameraOnly}
         actionItems={actionItemsMap}
+        initialSubmittingProof={lightboxInitialSubmittingProof}
+        initialProofPhotoUrl={lightboxInitialProofUrl}
+        initialMobileTab={lightboxInitialMobileTab}
         onActionUpdated={() => {
           fetchActionItems();
           fetchPhotos(true);
