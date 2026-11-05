@@ -25,6 +25,7 @@ import {
   Tag,
   Clock,
   CheckCircle2,
+  MessageSquare,
   Layers,
   Check,
   X,
@@ -85,6 +86,28 @@ function VisitWizardContent() {
 
   // Photos category split
   const [photos, setPhotos] = useState<VisitPhoto[]>([]);
+  // Category-specific comments for Dairy, Beverages, Ice Cream, Assets
+  const [categoryComments, setCategoryComments] = useState<{
+    Dairy: string;
+    Beverages: string;
+    'Ice Cream': string;
+    Vegetables: string;
+  }>({
+    Dairy: '',
+    Beverages: '',
+    'Ice Cream': '',
+    Vegetables: '',
+  });
+
+  const handleCategoryCommentChange = (cat: 'Dairy' | 'Beverages' | 'Ice Cream' | 'Vegetables', comment: string) => {
+    setCategoryComments((prev) => ({
+      ...prev,
+      [cat]: comment,
+    }));
+    setPhotos((prev) =>
+      prev.map((p) => (p.category === cat ? { ...p, comment } : p))
+    );
+  };
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoProcessingStatus, setPhotoProcessingStatus] = useState<string | null>(null);
 
@@ -229,6 +252,22 @@ function VisitWizardContent() {
         setVisitObservation(localMatch.observation || '');
         setAssets((localMatch.assets || []).map((a: any) => ({ ...a, visitId: resumeId })));
         setPhotos((localMatch.photos || []).map((p: any) => ({ ...p, visitId: resumeId })));
+        if (localMatch.categoryComments) {
+          setCategoryComments({
+            Dairy: localMatch.categoryComments.Dairy || '',
+            Beverages: localMatch.categoryComments.Beverages || '',
+            'Ice Cream': localMatch.categoryComments['Ice Cream'] || '',
+            Vegetables: localMatch.categoryComments.Vegetables || (localMatch.categoryComments as any).Assets || '',
+          });
+        } else if (localMatch.photos && Array.isArray(localMatch.photos)) {
+          const loadedComments = { Dairy: '', Beverages: '', 'Ice Cream': '', Vegetables: '' };
+          localMatch.photos.forEach((p: any) => {
+            if (p.category && p.comment && !loadedComments[p.category as keyof typeof loadedComments]) {
+              loadedComments[p.category as keyof typeof loadedComments] = p.comment;
+            }
+          });
+          setCategoryComments(loadedComments);
+        }
         const cleanPowerSku: Record<string, string> = {};
         Object.entries(localMatch.powerSkuResults || {}).forEach(([k, v]) => {
           const val = String(v);
@@ -327,6 +366,7 @@ function VisitWizardContent() {
         customerName: activeCustomer?.customerName || '',
         assets,
         photos,
+        categoryComments,
         powerSkuResults,
         npdResponses,
         sosAsPerBda,
@@ -596,7 +636,8 @@ function VisitWizardContent() {
           temperature: Number(a.temperature) || 0,
           tempInRange: getTempInRange(a.assetType, Number(a.temperature))
         })),
-        photos,
+        photos: photos.map((p) => ({ ...p, comment: p.comment || categoryComments[p.category] || '' })),
+        categoryComments,
         powerSkuResults,
         npdResponses,
         sosAsPerBda,
@@ -683,7 +724,7 @@ function VisitWizardContent() {
         customerCode: activeCustomer?.customerCode || '',
         customerName: activeCustomer?.customerName || (visitType === 'No Visit' ? 'Route No Visit' : ''),
         assets: validAssets,
-        photos,
+        photos: photos.map((p) => ({ ...p, comment: p.comment || categoryComments[p.category] || '' })),
         powerSkuResults: finalPowerSkuResults,
         npdResponses: finalNpdResponses,
         sosAsPerBda,
@@ -1882,6 +1923,13 @@ function VisitWizardContent() {
               ]),
               ['GPS Status', latitude ? `Acquired (${latitude.toFixed(4)}, ${longitude?.toFixed(4)})` : (gpsLoading ? 'Acquiring...' : 'Not Acquired ⚠️'), latitude ? 'success' : 'danger'],
               ['Photos Captured', `${photos.length} images`, 'bold'],
+              ...Object.entries(categoryComments)
+                .filter(([_, note]) => note && note.trim())
+                .map(([cat, note]) => [
+                  `${cat === 'Vegetables' ? 'Assets' : cat} Observation`,
+                  note.trim(),
+                  'mono'
+                ]),
               ['Asset Branding Required', assetBrandingRequired === 'YES' ? (brandingPendingInfo ? `YES (Existing ${brandingPendingInfo.requestId} Pending)` : `YES (${brandingAssetType} - ${brandingAssetModel || 'Standard'})`) : (assetBrandingRequired === 'NO' ? 'NO' : 'Not Specified'), assetBrandingRequired === 'YES' ? 'accent' : 'mono'],
               ['Power SKUs checked', `${Object.keys(powerSkuResults).length} items`, 'mono'],
               ['NPD SKUs checked', `${Object.keys(npdResponses).length} items`, 'mono'],

@@ -6,6 +6,7 @@ export const visitPhotoSchema = z.object({
   cloudinaryUrl: z.string().min(1, { message: 'Photo URL is required' }),
   publicId: z.string(),
   uploadedAt: z.string(),
+  comment: z.string().optional().default(''),
 });
 
 export const visitAssetSchema = z.object({
