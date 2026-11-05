@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sales Managers & Supervisors Operational Sign-Off Certificate - Field Visit System</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 9mm 10mm 9mm 10mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #0f172a;
+      background-color: #ffffff;
+      margin: 0;
+      padding: 0;
+      font-size: 8.2pt;
+      line-height: 1.34;
+    }
+    .header-table {
+      width: 100%;
+      border-bottom: 2.5px solid #1e3a8a;
+      padding-bottom: 6px;
+      margin-bottom: 9px;
+    }
+    .brand {
+      font-size: 15.5pt;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      margin: 0;
+      line-height: 1.15;
+    }
+    .subtitle {
+      font-size: 9.2pt;
+      font-weight: 700;
+      color: #2563eb;
+      margin: 2px 0 0 0;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .meta-box {
+      text-align: right;
+      font-size: 7.6pt;
+      color: #475569;
+      line-height: 1.28;
+    }
+    .meta-box strong { color: #0f172a; }
+    .mandate-banner {
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      border-left: 5px solid #16a34a;
+      padding: 8px 12px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+    .mandate-banner h2 {
+      margin: 0 0 3px 0;
+      font-size: 10.2pt;
+      color: #15803d;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .mandate-banner p {
+      margin: 0;
+      font-size: 8.0pt;
+      color: #166534;
+      line-height: 1.36;
+    }
+    h3.sec-title {
+      font-size: 9.5pt;
+      color: #0f172a;
+      border-bottom: 1.5px solid #cbd5e1;
+      padding-bottom: 2.5px;
+      margin-top: 9px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 7.7pt;
+      margin-bottom: 8px;
+    }
+    table.data-table th {
+      background-color: #0f172a;
+      color: #ffffff;
+      text-align: left;
+      padding: 4px 6px;
+      font-weight: 700;
+      font-size: 7.2pt;
+      letter-spacing: 0.2px;
+    }
+    table.data-table td {
+      padding: 3.8px 6px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+      line-height: 1.28;
+    }
+    table.data-table tr:nth-child(even) td {
+      background-color: #f8fafc;
+    }
+    table.data-table tr {
+      page-break-inside: avoid;
+    }
+    table.sign-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 7.6pt;
+      margin-bottom: 8px;
+    }
+    table.sign-table th {
+      background-color: #1e293b;
+      color: #ffffff;
+      text-align: left;
+      padding: 4px 6px;
+      font-weight: 700;
+      font-size: 7.2pt;
+    }
+    table.sign-table td {
+      padding: 4.5px 6px;
+      border-bottom: 1px solid #cbd5e1;
+      vertical-align: middle;
+      line-height: 1.25;
+    }
+    table.sign-table tr:nth-child(even) td {
+      background-color: #f8fafc;
+    }
+    table.sign-table tr {
+      page-break-inside: avoid;
+    }
+    .sign-line {
+      border-bottom: 1px dashed #94a3b8;
+      height: 16px;
+      width: 100%;
+    }
+    .page-break { page-break-before: always; }
+    .footer-note {
+      margin-top: 6px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 4px;
+      font-size: 6.8pt;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+    }
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 9px;
+    }
+    .kpi-card {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 5px 6px;
+      text-align: center;
+    }
+    .kpi-card .val {
+      font-size: 13pt;
+      font-weight: 800;
+      color: #1e3a8a;
+      line-height: 1.1;
+    }
+    .kpi-card .lbl {
+      font-size: 6.4pt;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      margin-top: 1.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== PAGE 1 ==================== -->
+  <table class="header-table">
+    <tr>
+      <td style="vertical-align: middle;">
+        <h1 class="brand">DANDY COMPANY LLC</h1>
+        <div class="subtitle">Official Operational Acceptance, Rollout & Compliance Sign-Off Certificate</div>
+      </td>
+      <td class="meta-box" style="vertical-align: middle;">
+        <div><strong>Document Ref:</strong> DND-FVS-SIGNOFF-2026-v3.2</div>
+        <div><strong>Effective Date:</strong> November 05, 2026</div>
+        <div><strong>Target System:</strong> Field Visit & Market Execution Platform (v3.2)</div>
+        <div><strong>Authority:</strong> General Management & Commercial Directorate</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- EXECUTIVE MANDATE BANNER -->
+  <div class="mandate-banner">
+    <h2>Commercial Policy & Operational Rollout Mandate</h2>
+    <p>
+      This official document serves as the binding operational sign-off and mutual commitment agreement between <strong>Commercial Sales Leadership (Sales Managers)</strong> and the <strong>Field Operations Team (Territory Supervisors)</strong> of <strong>Dandy Company LLC</strong>.
+      By signing below, each manager and supervisor confirms that they have received comprehensive platform training, have verified their territory accounts, routes, and credentials, and formally commit to executing 100% of retail store audits through the <strong>Field Visit & Market Execution Platform (v3.2)</strong> in strict accordance with the operational standards outlined herein.
+    </p>
+  </div>
+
+  <!-- OPERATIONAL KPIS -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="val">2,535 Outlets</div>
+      <div class="lbl">Commercial Store Universe</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val">24 MT / 27 TT</div>
+      <div class="lbl">Mandatory Power SKUs</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val">100% Purity</div>
+      <div class="lbl">Company Cooler Standard</div>
+    </div>
+    <div class="kpi-card">
+      <div class="val">24–48 Hours</div>
+      <div class="lbl">GM Directive Resolution SLA</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: MANDATED OPERATIONAL STANDARDS -->
+  <h3 class="sec-title">1. Summary of Mandated Field Audit Compliance Standards</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 24%;">Compliance Standard</th>
+        <th style="width: 46%;">Mandated In-Store Operational Procedure</th>
+        <th style="width: 30%;">Enforcement & Verification Mechanism</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>1. Live In-Store Verification</strong></td>
+        <td>Every audit must be conducted physically inside the retail outlet. Supervisors must log GPS coordinates, timestamp, and live store photo.</td>
+        <td>Strictly camera-only capture; photo gallery uploads are blocked by system policy. GPS radius validation.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Power SKU On-Shelf Availability</strong></td>
+        <td>Supervisors must inspect and record stock availability for canonical revenue drivers: <strong>24 Modern Trade SKUs</strong> and <strong>27 Traditional Trade SKUs</strong>.</td>
+        <td>Dynamic availability scoring on executive dashboards; immediate out-of-stock alert dispatch to van sales reps.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Asset Purity & Cold Chain</strong></td>
+        <td>Verify 100% brand purity in company chillers and freezers. Zero tolerance for competitor items or warm operating temperatures.</td>
+        <td>Mandatory temperature probe recording (-18°C for Ice Cream, 0°C–8°C for Dairy); flagged breach alerts to Fleet team.</td>
+      </tr>
+      <tr>
+        <td><strong>4. Asset Branding & Damage Reporting</strong></td>
+        <td>Inspect condition of cooler decals, canopy lightbox, and exterior paint. Log branding requests with mandatory condition photos.</td>
+        <td>Dedicated Admin review portal; automatic PowerPoint (.pptx) and Excel (.xlsx) work orders generated for branding vendors.</td>
+      </tr>
+      <tr>
+        <td><strong>5. GM Corrective Directives</strong></td>
+        <td>When leadership flags a merchandising flaw, assigned supervisor must acknowledge the directive and submit camera photo proof of resolution.</td>
+        <td>Mandatory 24–48 hour resolution SLA; issues cannot be closed without verified photographic proof.</td>
+      </tr>
+      <tr>
+        <td><strong>6. Tiered Visit Frequency SLAs</strong></td>
+        <td>Execute route schedules per classification SOP: <strong>Class A: 4 visits/month</strong> (bi-weekly minimum), <strong>Class B: 2 visits/month</strong>, <strong>Class C: 1 visit/month</strong>, Class D: per PJP.</td>
+        <td>Automated frequency tracker banner on Admin Dashboard; alerts management to under-visited high-volume accounts.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 2: SALES MANAGERS FORMAL ACCEPTANCE -->
+  <h3 class="sec-title">2. Sales Division Managers Acceptance & Rollout Commitment</h3>
+  <p style="font-size: 7.7pt; color: #475569; margin: 0 0 5px 0;">
+    The undersigned Sales Managers formally accept the Field Visit Platform as the official operating standard for their respective sales divisions, guaranteeing 100% team participation and daily directive governance:
+  </p>
+  <table class="sign-table">
+    <thead>
+      <tr>
+        <th style="width: 25%;">Sales Division / Channel</th>
+        <th style="width: 22%;">Sales Manager Name</th>
+        <th style="width: 15%;">Employee Code</th>
+        <th style="width: 26%;">Official Acceptance Signature</th>
+        <th style="width: 12%;">Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Modern Trade (MT) & Hypermarkets</strong></td>
+        <td><strong>ADNAN</strong></td>
+        <td>MGR-MT01</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td><strong>Traditional Trade (TT) & Groceries</strong></td>
+        <td><strong>ASHFAQ</strong></td>
+        <td>MGR-TT02</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td><strong>Food Service, Hotels & Institutions (INST)</strong></td>
+        <td><strong>INSTITUTIONAL SALES MANAGER</strong></td>
+        <td>MGR-INST03</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td><strong>Regional Distribution & Wholesale</strong></td>
+        <td><strong>WHOLESALE & REGIONAL MANAGER</strong></td>
+        <td>MGR-REG04</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer-note">
+    <span>Field Visit System — Operational Sign-Off Certificate & Compliance Mandate</span>
+    <span>Page 1 of 2 · Ref: DND-FVS-SIGNOFF-2026-v3.2</span>
+  </div>
+
+  <!-- ==================== PAGE 2 ==================== -->
+  <div class="page-break"></div>
+
+  <!-- SECTION 3: FIELD SUPERVISORS FORMAL ACCEPTANCE -->
+  <h3 class="sec-title" style="margin-top: 0;">3. Field Territory Supervisors Acceptance & Individual Compliance Sign-Off</h3>
+  <p style="font-size: 7.7pt; color: #475569; margin: 0 0 5px 0;">
+    Each territory field supervisor listed below formally certifies that they have verified their assigned retail routes, understand all audit compliance requirements, and agree to conduct daily store audits exclusively through the mobile platform:
+  </p>
+  <table class="sign-table">
+    <thead>
+      <tr>
+        <th style="width: 4%;">#</th>
+        <th style="width: 20%;">Supervisor Name</th>
+        <th style="width: 14%;">Emp Code</th>
+        <th style="width: 28%;">Territory / Route Coverage Scope</th>
+        <th style="width: 22%;">Individual Signature</th>
+        <th style="width: 12%;">Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td><strong>ASAD</strong></td>
+        <td>SUP0061</td>
+        <td>Modern Trade & Traditional Routes (MTD216, MTI402)</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><strong>DANISH</strong></td>
+        <td>Sup002</td>
+        <td>Traditional Trade Central & Groceries</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><strong>JAHID</strong></td>
+        <td>SUP003</td>
+        <td>Traditional Trade North & Convenience Outlets</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><strong>JAVED</strong></td>
+        <td>SUP004</td>
+        <td>Modern Trade & Hypermarkets (MTI405)</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td><strong>KISHAN</strong></td>
+        <td>SUP005</td>
+        <td>Modern Trade A-Class Accounts (MTI404)</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td><strong>MOHSIN</strong></td>
+        <td>SUP012</td>
+        <td>Modern Trade Key Supermarkets (MTI401)</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td><strong>MUSAVEER</strong></td>
+        <td>SUP006</td>
+        <td>Traditional Trade South & Urban Groceries</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td><strong>RASHWIN</strong></td>
+        <td>SUP015</td>
+        <td>Modern Trade & Express Supermarkets (MTI406)</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td><strong>RIZVI</strong></td>
+        <td>SUP011</td>
+        <td>Traditional Trade Wholesale & High-Volume B/C Stores</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td><strong>SAIF</strong></td>
+        <td>SUP008</td>
+        <td>Traditional Trade Dedicated Routes (Manager: Ashfaq)</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>11</td>
+        <td><strong>SAIFULLAH</strong></td>
+        <td>SUP014</td>
+        <td>Modern Trade Dedicated Routes (Manager: Adnan, MTI403)</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>12</td>
+        <td><strong>WALI</strong></td>
+        <td>SUP007</td>
+        <td>Traditional Trade Regional & Suburban Retail Outlets</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>13</td>
+        <td><strong>WASIM</strong></td>
+        <td>SUP016</td>
+        <td>Traditional Trade Distribution & Wholesale Groceries</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>14</td>
+        <td><strong>YASAR</strong></td>
+        <td>SUP009</td>
+        <td>Traditional Trade East & Commercial Outlets</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>15</td>
+        <td><strong>ZEESHAN</strong></td>
+        <td>SUP010</td>
+        <td>Traditional Trade West & Key Accounts</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>16</td>
+        <td><strong>MANSOOR</strong></td>
+        <td>SUP0015</td>
+        <td>Fleet Operations & Cold-Chain Asset Maintenance</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>17</td>
+        <td><strong>JUNED</strong></td>
+        <td>SUP0016</td>
+        <td>Fleet Operations & Refrigeration Asset Verification</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>18</td>
+        <td><strong>SUPERVISOR 18</strong></td>
+        <td>SUP018</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>19</td>
+        <td><strong>SUPERVISOR 19</strong></td>
+        <td>SUP019</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>20</td>
+        <td><strong>SUPERVISOR 20</strong></td>
+        <td>SUP020</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>21</td>
+        <td><strong>SUPERVISOR 21</strong></td>
+        <td>SUP021</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>22</td>
+        <td><strong>SUPERVISOR 22</strong></td>
+        <td>SUP022</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>23</td>
+        <td><strong>SUPERVISOR 23</strong></td>
+        <td>SUP023</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>24</td>
+        <td><strong>SUPERVISOR 24</strong></td>
+        <td>SUP024</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>25</td>
+        <td><strong>SUPERVISOR 25</strong></td>
+        <td>SUP025</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>26</td>
+        <td><strong>SUPERVISOR 26</strong></td>
+        <td>SUP026</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>27</td>
+        <td><strong>SUPERVISOR 27</strong></td>
+        <td>SUP027</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+      <tr>
+        <td>28</td>
+        <td><strong>SUPERVISOR 28</strong></td>
+        <td>SUP028</td>
+        <td>Territory Sales & Regional Outlets Audit Scope</td>
+        <td><div class="sign-line"></div></td>
+        <td>__ / __ / 2026</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 4: EXECUTIVE AUTHORIZATION & COUNTERSIGNATURE -->
+  <h3 class="sec-title">4. Commercial Directorate Final Executive Authorization</h3>
+  <table style="width: 100%; border-collapse: collapse; margin-top: 4px;">
+    <tr>
+      <td style="width: 50%; vertical-align: top; padding-right: 8px;">
+        <div style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; background: #f8fafc;">
+          <div style="font-size: 7.0pt; color: #64748b; text-transform: uppercase; font-weight: 700;">Executive Verification & Countersignature:</div>
+          <div style="font-size: 9.5pt; font-weight: 800; color: #0f172a; margin-top: 2px;">Head of Commercial Operations</div>
+          <div style="font-size: 7.2pt; color: #475569;">Commercial Leadership Directorate</div>
+          <div style="margin-top: 14px; font-size: 7.2pt; color: #64748b;">
+            Signature: __________________________ &nbsp; Date: __ / __ / 2026
+          </div>
+        </div>
+      </td>
+      <td style="width: 50%; vertical-align: top; padding-left: 8px;">
+        <div style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; background: #f8fafc;">
+          <div style="font-size: 7.0pt; color: #64748b; text-transform: uppercase; font-weight: 700;">Final Executive Rollout Seal & Authorization:</div>
+          <div style="font-size: 9.5pt; font-weight: 800; color: #1e3a8a; margin-top: 2px;">General Manager (GM)</div>
+          <div style="font-size: 7.2pt; color: #475569;">Dandy Company LLC</div>
+          <div style="margin-top: 14px; font-size: 7.2pt; color: #64748b;">
+            Signature: __________________________ &nbsp; Date: __ / __ / 2026
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="footer-note">
+    <span>Field Visit System — Operational Sign-Off Certificate & Compliance Mandate</span>
+    <span>Page 2 of 2 · Ref: DND-FVS-SIGNOFF-2026-v3.2 · Confidential Official Record</span>
+  </div>
+
+</body>
+</html>
