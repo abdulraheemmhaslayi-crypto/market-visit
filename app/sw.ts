@@ -1,10 +1,10 @@
-import { 
-  CacheFirst, 
-  NetworkFirst, 
-  StaleWhileRevalidate, 
+import {
+  CacheFirst,
+  NetworkFirst,
+  StaleWhileRevalidate,
   NetworkOnly,
   Serwist,
-  ExpirationPlugin 
+  ExpirationPlugin,
 } from "serwist";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 
@@ -55,7 +55,8 @@ const serwist = new Serwist({
     },
     // 3. Static Assets (CSS, JS) -> Cache First
     {
-      matcher: ({ request }) => request.destination === "script" || request.destination === "style",
+      matcher: ({ request }) =>
+        request.destination === "script" || request.destination === "style",
       handler: new CacheFirst({
         cacheName: CACHE_NAMES.static,
         plugins: [
@@ -78,7 +79,8 @@ const serwist = new Serwist({
     },
     // 5. General API GET requests -> Network First
     {
-      matcher: ({ url, request }) => url.pathname.startsWith("/api/") && request.method === "GET",
+      matcher: ({ url, request }) =>
+        url.pathname.startsWith("/api/") && request.method === "GET",
       handler: new NetworkFirst({
         cacheName: CACHE_NAMES.api,
         plugins: [
@@ -91,7 +93,8 @@ const serwist = new Serwist({
     },
     // 6. HTML pages -> Network First (ensures latest build assets, falls back to cache when offline)
     {
-      matcher: ({ request, url }) => request.destination === "document" && !url.pathname.startsWith("/api/"),
+      matcher: ({ request, url }) =>
+        request.destination === "document" && !url.pathname.startsWith("/api/"),
       handler: new NetworkFirst({
         cacheName: CACHE_NAMES.pages,
         networkTimeoutSeconds: 3,
