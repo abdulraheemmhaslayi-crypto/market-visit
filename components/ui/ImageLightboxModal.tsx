@@ -49,6 +49,9 @@ export interface LightboxItem {
   manager?: string;
   route?: string;
   channel?: string;
+  rtm?: string;
+  classification?: string;
+  comment?: string;
   uploadedAt?: string;
   visitId?: string;
   appName?: string;
@@ -1311,7 +1314,7 @@ export default function ImageLightboxModal({
                     </div>
                   ) : hasAssets ? (
                     <p className="text-[11px] text-slate-400 italic md:text-right">
-                      No observation notes recorded for {targetAssetType || 'this asset'}.
+                      No observation notes recorded for {current.category || 'this photo'}.
                     </p>
                   ) : isLoadingObservations ? (
                     <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 md:justify-end">

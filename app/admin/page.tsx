@@ -1650,29 +1650,66 @@ export default function AdminDashboardPage() {
       });
     }
 
-    // 3. Supervisor Scorecard Bar Chart (Total Visits count)
+    // 3. Supervisor Scorecard Bar Chart (Total Visits count - All Supervisors)
     if (canvasSuperRef.current) {
       if (chartsRef.current.cSuper) chartsRef.current.cSuper.destroy();
-      const sc = countFreq(filtered, (r) => r.sup);
-      const topSup = Object.entries(sc)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8);
+
+      // Collect all supervisors: from supOptions (master list matching active filter) + any in filtered records
+      const supSet = new Set<string>();
+
+      if (fSuper && fSuper.length > 0) {
+        // If specific supervisors are selected in the MultiSelect filter, show only those
+        fSuper.forEach((s) => {
+          if (s && s !== 'INTERNAL') supSet.add(s.trim());
+        });
+      } else {
+        // Otherwise, show all supervisors from supOptions (master list) + any found in filtered visits
+        if (Array.isArray(supOptions) && supOptions.length > 0) {
+          supOptions.forEach((s) => {
+            if (s && s !== 'INTERNAL') supSet.add(s.trim());
+          });
+        }
+        filtered.forEach((r: any) => {
+          const s = (r.sup || r.supervisor || '').toString().trim();
+          if (s && s !== 'INTERNAL') supSet.add(s);
+        });
+
+        if (supSet.size === 0) {
+          if (masters?.supervisors && Array.isArray(masters.supervisors)) {
+            masters.supervisors.forEach((s: string) => {
+              if (s && s !== 'INTERNAL') supSet.add(s.trim());
+            });
+          }
+          rows.forEach((r: any) => {
+            const s = (r.sup || r.supervisor || '').toString().trim();
+            if (s && s !== 'INTERNAL') supSet.add(s);
+          });
+        }
+      }
+
+      const sc = countFreq(filtered, (r) => (r.sup || r.supervisor || '').toString().trim());
+
+      // Include all supervisors without slicing or cutting off at 8
+      const allSup = Array.from(supSet)
+        .map((name) => [name, sc[name] || 0] as [string, number])
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
       const superTotal = filtered.length;
 
       chartsRef.current.cSuper = new Chart(canvasSuperRef.current, {
         type: 'bar',
         data: {
-          labels: topSup.map((x) => x[0]),
+          labels: allSup.map((x) => x[0]),
           datasets: [
             {
               label: 'Total Visits',
-              data: topSup.map((x) => x[1]),
+              data: allSup.map((x) => x[1]),
               backgroundColor: '#6366f1',
               hoverBackgroundColor: '#4f46e5',
               borderColor: '#818cf8',
               borderWidth: 1.5,
               borderRadius: 8,
-              maxBarThickness: 48,
+              maxBarThickness: allSup.length > 15 ? 32 : 44,
             },
           ],
         },
@@ -1689,7 +1726,7 @@ export default function AdminDashboardPage() {
           onClick: (e, el, chart) => {
             if (el.length > 0) {
               const label = (chart.data.labels?.[el[0].index] ?? '') as string;
-              handleChartClick(`Visits for Supervisor ${label}`, (r) => r.sup === label);
+              handleChartClick(`Visits for Supervisor ${label}`, (r) => (r.sup || r.supervisor) === label);
             }
           },
           onHover: (e, el, chart) => {
@@ -1699,8 +1736,15 @@ export default function AdminDashboardPage() {
             x: {
               grid: { display: false },
               ticks: {
+                autoSkip: false,
+                maxRotation: allSup.length > 8 ? 45 : 0,
+                minRotation: allSup.length > 8 ? 45 : 0,
                 color: textColor,
-                font: { family: 'Inter, sans-serif', weight: 'bold', size: 12.5 },
+                font: {
+                  family: 'Inter, sans-serif',
+                  weight: 'bold',
+                  size: allSup.length > 16 ? 10 : allSup.length > 10 ? 11 : 12.5,
+                },
               },
             },
             y: {
@@ -2360,7 +2404,7 @@ export default function AdminDashboardPage() {
       });
     }
     */
-  }, [filtered, filteredForClassCharts, filteredNpdRows, filteredColdChainRows, reportRows, isLoading, theme, masters, fMgr, fSuper, fChannel, fRoute, fCust]);
+  }, [filtered, filteredForClassCharts, filteredNpdRows, filteredColdChainRows, reportRows, isLoading, theme, masters, supOptions, fMgr, fSuper, fChannel, fRoute, fCust]);
 
   return (
     <div className="dandy-dashboard-body">
@@ -3069,8 +3113,10 @@ export default function AdminDashboardPage() {
               </div>
               <ExportButton onClick={handleExportSupervisorChart} label="Export" variant="compact" />
             </div>
-            <div className="chart-box">
-              <canvas ref={canvasSuperRef}></canvas>
+            <div className="chart-box" style={{ height: '230px', overflowX: 'auto', overflowY: 'hidden' }}>
+              <div style={{ minWidth: supOptions && supOptions.length > 14 ? `${supOptions.length * 40}px` : '100%', width: '100%', height: '100%' }}>
+                <canvas ref={canvasSuperRef}></canvas>
+              </div>
             </div>
           </div>
           <div className="panel">
@@ -3081,7 +3127,7 @@ export default function AdminDashboardPage() {
               </div>
               <ExportButton onClick={handleExportColdChainChart} label="Export" variant="compact" />
             </div>
-            <div className="chart-sm">
+            <div className="chart-sm" style={{ height: '230px' }}>
               <canvas ref={canvasTempRef}></canvas>
             </div>
           </div>

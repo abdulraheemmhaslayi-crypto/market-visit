@@ -33,6 +33,8 @@ export interface DashboardPhoto {
   route: string;
   channel: string;
   rtm?: string;
+  classification?: string;
+  comment?: string;
   observation?: string;
   observations?: string | string[];
   notes?: string;

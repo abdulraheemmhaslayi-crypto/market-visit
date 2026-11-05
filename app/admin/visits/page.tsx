@@ -249,33 +249,84 @@ export default function VisitLogsPage() {
   }, [visits, masterRoutes]);
 
   const supervisorOptions = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; count: number }>();
-    for (const v of visits) {
-      const id = v.supervisorId || v.createdBy;
-      if (!id) continue;
-      const existing = map.get(id);
-      if (existing) {
-        existing.count += 1;
-        if ((!existing.name || existing.name === existing.id) && v.supervisorName) {
-          existing.name = v.supervisorName;
-        }
-      } else {
-        map.set(id, {
-          id,
-          name: v.supervisorName || id,
-          count: 1,
-        });
-      }
-    }
-    for (const s of masterSupervisors) {
-      if (!map.has(s)) {
-        map.set(s, {
-          id: s,
-          name: s,
+    // Deduplicate and aggregate supervisors by clean supervisor name
+    const map = new Map<string, { id: string; name: string; count: number; ids: Set<string> }>();
+
+    // 1. Initialize from masterSupervisors
+    for (const raw of masterSupervisors) {
+      const name = (raw || '').trim();
+      if (!name) continue;
+      const key = name.toUpperCase();
+      if (!map.has(key)) {
+        map.set(key, {
+          id: name,
+          name,
           count: 0,
+          ids: new Set([name, key]),
         });
       }
     }
+
+    // 2. Aggregate visits into the map
+    for (const v of visits) {
+      const supName = (v.supervisorName || '').trim();
+      const supId = (v.supervisorId || '').trim();
+      const createdBy = (v.createdBy || '').trim();
+
+      // Find existing entry by supervisorName first
+      let entry = supName ? map.get(supName.toUpperCase()) : undefined;
+
+      // If not found by name, check if any existing entry has matching ID or createdBy
+      if (!entry && supId) {
+        for (const item of map.values()) {
+          if (item.ids.has(supId) || item.ids.has(supId.toUpperCase())) {
+            entry = item;
+            break;
+          }
+        }
+      }
+      if (!entry && createdBy) {
+        for (const item of map.values()) {
+          if (item.ids.has(createdBy) || item.ids.has(createdBy.toUpperCase())) {
+            entry = item;
+            break;
+          }
+        }
+      }
+
+      // If still not found, create a new entry
+      if (!entry) {
+        const displayName = supName || supId || createdBy || 'Unknown';
+        const key = displayName.toUpperCase();
+        entry = {
+          id: displayName,
+          name: displayName,
+          count: 0,
+          ids: new Set([displayName, key]),
+        };
+        map.set(key, entry);
+      }
+
+      // Register all identifiers so filter matching is 100% robust
+      if (supName) {
+        entry.ids.add(supName);
+        entry.ids.add(supName.toUpperCase());
+        if (!entry.name || entry.name === entry.id) {
+          entry.name = supName;
+        }
+      }
+      if (supId) {
+        entry.ids.add(supId);
+        entry.ids.add(supId.toUpperCase());
+      }
+      if (createdBy) {
+        entry.ids.add(createdBy);
+        entry.ids.add(createdBy.toUpperCase());
+      }
+
+      entry.count += 1;
+    }
+
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [visits, masterSupervisors]);
 
@@ -395,10 +446,20 @@ export default function VisitLogsPage() {
 
       // 6. Supervisor Slicer
       if (selectedSupervisor) {
-        const sMatch =
-          v.supervisorId === selectedSupervisor ||
-          v.createdBy === selectedSupervisor ||
-          v.supervisorName === selectedSupervisor;
+        const selNorm = selectedSupervisor.trim().toUpperCase();
+        const supOpt = supervisorOptions.find(
+          (o) => o.id === selectedSupervisor || o.name.toUpperCase() === selNorm
+        );
+        const sMatch = supOpt
+          ? supOpt.ids.has(v.supervisorId) ||
+            supOpt.ids.has(v.createdBy) ||
+            supOpt.ids.has((v.supervisorName || '').trim()) ||
+            supOpt.ids.has((v.supervisorName || '').trim().toUpperCase())
+          : (
+            v.supervisorId === selectedSupervisor ||
+            v.createdBy === selectedSupervisor ||
+            (v.supervisorName || '').trim().toUpperCase() === selNorm
+          );
         if (!sMatch) {
           return false;
         }
@@ -658,7 +719,7 @@ export default function VisitLogsPage() {
                 <option value="">All Routes ({routeOptions.length})</option>
                 {routeOptions.map((r) => (
                   <option key={r.code} value={r.code}>
-                    {r.code} ({r.count})
+                    {r.code}{r.count > 0 ? ` (${r.count})` : ''}
                   </option>
                 ))}
               </select>
@@ -803,7 +864,7 @@ export default function VisitLogsPage() {
                 <option value="">All Supervisors ({supervisorOptions.length})</option>
                 {supervisorOptions.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} ({s.count})
+                    {s.name}{s.count > 0 ? ` (${s.count})` : ''}
                   </option>
                 ))}
               </select>

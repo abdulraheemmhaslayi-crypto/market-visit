@@ -132,6 +132,7 @@ export interface VisitPhoto {
   publicId: string;
   uploadedAt: string; // ISO string
   appName?: string;
+  comment?: string;
 }
 
 export interface NPDResponse {
@@ -221,12 +222,14 @@ export interface VisitWizardState {
   tempInRange?: boolean;
   actionRequired?: ActionRequiredType;
   observation?: string;
+  categoryComments?: Record<string, string>;
   photos: {
     photoId: string;
     category: "Dairy" | "Beverages" | "Ice Cream" | "Vegetables";
     cloudinaryUrl: string;
     publicId: string;
     uploadedAt: string;
+    comment?: string;
   }[];
   npdResponses: Record<string, NPDStatus>; // SKUCode -> NPDStatus
   powerSkuResults?: Record<string, NPDStatus>;
@@ -244,6 +247,8 @@ export interface VisitWizardState {
   brandingScope?: string;
   brandingNotes?: string;
   brandingPhotoUrl?: string;
+  brandingAssetType?: string;
+  brandingAssetModel?: string;
 }
 
 // Excel Import wizard status
