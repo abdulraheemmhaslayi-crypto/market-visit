@@ -56,6 +56,7 @@ function mapRowToPhoto(row: any): VisitPhoto {
     publicId: row.publicId || row.public_id || row.photoId || '',
     uploadedAt: uploadDate instanceof Date ? uploadDate.toISOString() : (uploadDate ? String(uploadDate) : new Date().toISOString()),
     appName: row.appName || row.app_name || row.application || 'Chrome',
+    comment: row.comment || row.observation || '',
   };
 }
 
@@ -366,6 +367,13 @@ async function ensureVisitPhotoTableSchema(connection?: any): Promise<void> {
         BEGIN
           ALTER TABLE [VisitPhoto] ADD [appName] NVARCHAR(191) NULL DEFAULT 'Chrome';
         END
+        IF NOT EXISTS (
+          SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+          WHERE TABLE_NAME = 'VisitPhoto' AND COLUMN_NAME = 'comment'
+        )
+        BEGIN
+          ALTER TABLE [VisitPhoto] ADD [comment] NVARCHAR(MAX) NULL;
+        END
       `);
     } catch (e) {}
     return;
@@ -380,6 +388,7 @@ async function ensureVisitPhotoTableSchema(connection?: any): Promise<void> {
         \`publicId\` VARCHAR(191) NOT NULL,
         \`uploadedAt\` DATETIME NOT NULL,
         \`appName\` VARCHAR(191) NULL DEFAULT 'Chrome',
+        comment TEXT NULL,
         INDEX \`idx_photo_visit\` (\`visitId\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
@@ -436,6 +445,14 @@ async function ensureVisitPhotoTableSchema(connection?: any): Promise<void> {
         await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `application` `appName` VARCHAR(191) NULL DEFAULT 'Chrome'");
       } else {
         await conn.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `appName` VARCHAR(191) NULL DEFAULT 'Chrome'");
+      }
+    }
+
+    if (!existingVpColumns.has('comment')) {
+      if (existingVpColumns.has('observation')) {
+        await conn.execute("ALTER TABLE `VisitPhoto` CHANGE COLUMN `observation` `comment` TEXT NULL");
+      } else {
+        await conn.execute("ALTER TABLE `VisitPhoto` ADD COLUMN `comment` TEXT NULL");
       }
     }
   } catch (e) {
@@ -843,19 +860,20 @@ export const visitRepository = {
       const uploadedAtVal = toMysqlDatetime(p.uploadedAt) || new Date();
       const appNameVal = p.appName || 'Chrome';
       const publicIdVal = p.publicId || p.photoId || '';
+      const commentVal = p.comment || null;
       try {
         await executor.execute(
-          `INSERT INTO \`VisitPhoto\` (\`photoId\`, \`visitId\`, \`category\`, \`cloudinaryUrl\`, \`publicId\`, \`uploadedAt\`, \`appName\`) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [p.photoId, p.visitId, p.category, p.cloudinaryUrl, publicIdVal, uploadedAtVal, appNameVal]
+          `INSERT INTO \`VisitPhoto\` (\`photoId\`, \`visitId\`, \`category\`, \`cloudinaryUrl\`, \`publicId\`, \`uploadedAt\`, \`appName\`, \`comment\`) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [p.photoId, p.visitId, p.category, p.cloudinaryUrl, publicIdVal, uploadedAtVal, appNameVal, commentVal]
         );
       } catch (err: any) {
         if (err.message && (err.message.includes('Unknown column') || err.message.includes('Invalid column name'))) {
           await ensureVisitPhotoTableSchema(executor);
           await executor.execute(
-            `INSERT INTO \`VisitPhoto\` (\`photoId\`, \`visitId\`, \`category\`, \`cloudinaryUrl\`, \`publicId\`, \`uploadedAt\`, \`appName\`) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [p.photoId, p.visitId, p.category, p.cloudinaryUrl, publicIdVal, uploadedAtVal, appNameVal]
+            `INSERT INTO \`VisitPhoto\` (\`photoId\`, \`visitId\`, \`category\`, \`cloudinaryUrl\`, \`publicId\`, \`uploadedAt\`, \`appName\`, \`comment\`) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [p.photoId, p.visitId, p.category, p.cloudinaryUrl, publicIdVal, uploadedAtVal, appNameVal, commentVal]
           );
         } else {
           throw err;

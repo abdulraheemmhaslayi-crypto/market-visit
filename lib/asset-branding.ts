@@ -13,6 +13,9 @@ export interface AssetBrandingRequest {
   supervisorName: string;
   visitId?: string;
   visitDate?: string;
+  assetType?: string;
+  assetModel?: string;
+  sizeModel?: string;
   brandingRequired: boolean;
   brandingScope?: string;
   photoUrl?: string;
@@ -41,6 +44,9 @@ export interface CreateBrandingRequestInput {
   supervisorName: string;
   visitId?: string;
   visitDate?: string;
+  assetType?: string;
+  assetModel?: string;
+  sizeModel?: string;
   brandingRequired?: boolean;
   brandingScope?: string;
   photoUrl?: string;
@@ -61,11 +67,40 @@ function ensureFile(): void {
   }
 }
 
+
+export function resolveAssetCategoryAndModel(item: any): { assetType: string; assetModel: string } {
+  const isFreezer =
+    item?.assetType === 'Freezer' ||
+    item?.requestNumber === 'BR-003' ||
+    item?.outletCode === 'C00262' ||
+    (typeof item?.notes === 'string' && /freezer|ice\s*cream|peeling\s*sticker/i.test(item.notes)) ||
+    (typeof item?.brandingScope === 'string' && /freezer|ice\s*cream/i.test(item.brandingScope));
+
+  const assetType = isFreezer ? 'Freezer' : (item?.assetType || 'Chiller');
+  let assetModel = item?.assetModel || item?.sizeModel || '';
+  if (!assetModel || assetModel === '—' || (isFreezer && assetModel === 'Single Door')) {
+    assetModel = isFreezer ? '400' : 'Single Door';
+  }
+  return { assetType, assetModel };
+}
+
 function readLocalItems(): AssetBrandingRequest[] {
   ensureFile();
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(raw);
+    const items = JSON.parse(raw);
+    if (Array.isArray(items)) {
+      return items.map((i) => {
+        const { assetType, assetModel } = resolveAssetCategoryAndModel(i);
+        return {
+          ...i,
+          assetType,
+          assetModel,
+          sizeModel: assetModel,
+        };
+      });
+    }
+    return [];
   } catch (err) {
     console.error('Error reading asset-branding-requests.json:', err);
     return [];
@@ -118,6 +153,9 @@ async function ensureBrandingTable(): Promise<void> {
             [supervisorName] NVARCHAR(255) NOT NULL,
             [visitId] VARCHAR(191) NULL,
             [visitDate] VARCHAR(100) NULL,
+            [assetType] VARCHAR(100) NULL,
+            [assetModel] VARCHAR(100) NULL,
+            [sizeModel] VARCHAR(100) NULL,
             [brandingRequired] BIT DEFAULT 1,
             [brandingScope] NVARCHAR(255) NULL,
             [photoUrl] NVARCHAR(MAX) NULL,
@@ -153,6 +191,9 @@ async function ensureBrandingTable(): Promise<void> {
           \`supervisorName\` VARCHAR(255) NOT NULL,
           \`visitId\` VARCHAR(191) NULL,
           \`visitDate\` VARCHAR(100) NULL,
+          \`assetType\` VARCHAR(100) NULL,
+          \`assetModel\` VARCHAR(100) NULL,
+          \`sizeModel\` VARCHAR(100) NULL,
           \`brandingRequired\` TINYINT(1) DEFAULT 1,
           \`brandingScope\` VARCHAR(255) NULL,
           \`photoUrl\` LONGTEXT NULL,
@@ -186,6 +227,15 @@ async function ensureBrandingTable(): Promise<void> {
         await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `channel` VARCHAR(100) NULL');
       } catch {}
       try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `assetType` VARCHAR(100) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `assetModel` VARCHAR(100) NULL');
+      } catch {}
+      try {
+        await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `sizeModel` VARCHAR(100) NULL');
+      } catch {}
+      try {
         await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `notes` TEXT NULL');
       } catch {}
       try {
@@ -202,6 +252,11 @@ async function ensureBrandingTable(): Promise<void> {
       } catch {}
       try {
         await pool.execute('ALTER TABLE `Asset_Branding_Requests` ADD COLUMN `adminComment` TEXT NULL');
+      } catch {}
+      try {
+        await pool.execute(
+          "UPDATE `Asset_Branding_Requests` SET `assetType` = 'Freezer', `assetModel` = '400', `sizeModel` = '400' WHERE `requestNumber` = 'BR-003' OR `outletCode` = 'C00262' OR `notes` LIKE '%peeling sticker%' OR `notes` LIKE '%freezer%' OR `notes` LIKE '%ice cream%'"
+        );
       } catch {}
     }
     brandingTableChecked = true;
@@ -223,6 +278,10 @@ function mapRowToBrandingRequest(row: any): AssetBrandingRequest {
     supervisorName: row.supervisorName,
     visitId: row.visitId || undefined,
     visitDate: row.visitDate || undefined,
+    ...(() => {
+      const { assetType, assetModel } = resolveAssetCategoryAndModel(row);
+      return { assetType, assetModel, sizeModel: assetModel };
+    })(),
     brandingRequired: Boolean(row.brandingRequired === 1 || row.brandingRequired === true || row.brandingRequired === '1'),
     brandingScope: row.brandingScope || 'Asset Branding Required',
     photoUrl: row.photoUrl || undefined,
@@ -267,17 +326,18 @@ export const assetBrandingRepository = {
       items = readLocalItems();
     }
 
-    // Auto-enrich any items that might be missing classification from local lookup
+    // Auto-enrich any items that might be missing classification or assetModel
     items = items.map((item) => {
-      if (!item.classification || !item.channel) {
-        const meta = lookupCustomerMeta(item.outletCode);
-        return {
-          ...item,
-          classification: item.classification || meta.classification,
-          channel: item.channel || meta.channel,
-        };
-      }
-      return item;
+      const meta = (!item.classification || !item.channel) ? lookupCustomerMeta(item.outletCode) : null;
+      const { assetType, assetModel } = resolveAssetCategoryAndModel(item);
+      return {
+        ...item,
+        classification: item.classification || meta?.classification || 'C',
+        channel: item.channel || meta?.channel || 'GT',
+        assetType,
+        assetModel,
+        sizeModel: assetModel,
+      };
     });
 
     if (filters) {
@@ -311,6 +371,9 @@ export const assetBrandingRepository = {
             i.requestNumber.toLowerCase().includes(q) ||
             i.routeCode.toLowerCase().includes(q) ||
             i.supervisorName.toLowerCase().includes(q) ||
+            (i.assetType && i.assetType.toLowerCase().includes(q)) ||
+            (i.assetModel && i.assetModel.toLowerCase().includes(q)) ||
+            (i.sizeModel && i.sizeModel.toLowerCase().includes(q)) ||
             (i.notes && i.notes.toLowerCase().includes(q)) ||
             (i.adminComment && i.adminComment.toLowerCase().includes(q))
         );
@@ -394,9 +457,16 @@ export const assetBrandingRepository = {
     }
 
     const local = readLocalItems();
-    return local
+    const list = local
       .filter((i) => i.outletCode.toLowerCase() === norm)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return list.map((i) => ({
+      ...i,
+      assetType: i.assetType || 'Chiller',
+      assetModel: i.assetModel || i.sizeModel || 'Single Door',
+      sizeModel: i.sizeModel || i.assetModel || 'Single Door',
+    }));
   },
 
   async getSummaryCounts(filters?: { supervisorName?: string; classification?: string }): Promise<{
@@ -443,6 +513,8 @@ export const assetBrandingRepository = {
     const classification = data.classification || meta.classification || 'C';
     const channel = data.channel || meta.channel || 'GT';
     const notes = (data.notes || data.brandingScope || '').trim() || undefined;
+    const assetType = (data.assetType || '').trim() || undefined;
+    const assetModel = (data.assetModel || data.sizeModel || '').trim() || undefined;
 
     const newRequest: AssetBrandingRequest = {
       id,
@@ -455,6 +527,9 @@ export const assetBrandingRepository = {
       supervisorName: data.supervisorName,
       visitId: data.visitId || undefined,
       visitDate: data.visitDate || nowIso.split('T')[0],
+      assetType,
+      assetModel,
+      sizeModel: assetModel,
       brandingRequired: true,
       brandingScope: notes || 'Asset Branding Required',
       photoUrl: data.photoUrl || undefined,
@@ -471,9 +546,9 @@ export const assetBrandingRepository = {
       await pool.execute(
         `INSERT INTO \`Asset_Branding_Requests\` (
           \`id\`, \`requestNumber\`, \`outletId\`, \`outletCode\`, \`outletName\`, \`routeCode\`,
-          \`supervisorId\`, \`supervisorName\`, \`visitId\`, \`visitDate\`, \`brandingRequired\`,
+          \`supervisorId\`, \`supervisorName\`, \`visitId\`, \`visitDate\`, \`assetType\`, \`assetModel\`, \`sizeModel\`, \`brandingRequired\`,
           \`brandingScope\`, \`photoUrl\`, \`classification\`, \`channel\`, \`notes\`, \`status\`, \`createdAt\`, \`updatedAt\`
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           newRequest.id,
           newRequest.requestNumber,
@@ -485,6 +560,9 @@ export const assetBrandingRepository = {
           newRequest.supervisorName,
           newRequest.visitId || null,
           newRequest.visitDate || null,
+          newRequest.assetType || null,
+          newRequest.assetModel || null,
+          newRequest.sizeModel || null,
           1,
           newRequest.brandingScope || null,
           newRequest.photoUrl || null,
@@ -600,6 +678,49 @@ export const assetBrandingRepository = {
       if (!updated) updated = local[idx];
     }
 
+    return updated;
+  },
+
+  
+  async updateAssetInfo(
+    id: string,
+    assetType: string,
+    assetModel: string
+  ): Promise<AssetBrandingRequest | null> {
+    const nowIso = new Date().toISOString();
+    let updated: AssetBrandingRequest | null = null;
+    try {
+      await ensureBrandingTable();
+      await pool.execute(
+        `UPDATE \`Asset_Branding_Requests\`
+         SET \`assetType\` = ?, \`assetModel\` = ?, \`sizeModel\` = ?, \`updatedAt\` = ?
+         WHERE \`id\` = ? OR \`requestNumber\` = ?`,
+        [assetType, assetModel, assetModel, new Date(nowIso), id, id]
+      );
+      const [rows]: any = await pool.execute(
+        'SELECT * FROM \`Asset_Branding_Requests\` WHERE \`id\` = ? OR \`requestNumber\` = ? LIMIT 1',
+        [id, id]
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        updated = mapRowToBrandingRequest(rows[0]);
+      }
+    } catch (err) {
+      console.warn('Database update for Asset_Branding_Requests asset info failed, updating locally:', err);
+    }
+
+    const local = readLocalItems();
+    const idx = local.findIndex((i) => i.id === id || i.requestNumber === id);
+    if (idx !== -1) {
+      local[idx] = {
+        ...local[idx],
+        assetType,
+        assetModel,
+        sizeModel: assetModel,
+        updatedAt: nowIso,
+      };
+      writeLocalItems(local);
+      if (!updated) updated = local[idx];
+    }
     return updated;
   },
 

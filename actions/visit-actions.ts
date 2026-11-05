@@ -223,6 +223,7 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
     cloudinaryUrl: p.cloudinaryUrl,
     publicId: p.publicId,
     uploadedAt: p.uploadedAt,
+    comment: (p as any).comment || '',
   }));
 
   // Convert Power SKU results
@@ -427,6 +428,7 @@ export async function submitVisitAction(data: VisitInput) {
     cloudinaryUrl: p.cloudinaryUrl,
     publicId: p.publicId,
     uploadedAt: p.uploadedAt,
+    comment: (p as any).comment || '',
   }));
 
   const cleanCust = customerCode.toUpperCase().trim();

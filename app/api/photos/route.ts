@@ -397,7 +397,21 @@ export async function GET(req: NextRequest) {
         route: cleanRoute || 'N/A',
         channel: ch,
         rtm: ch,
-        classification: cmCust?.classification || 'C',
+        classification: (() => {
+          let rawClass = cmCust?.classification || cmCust?.dairyClassification || cmCust?.iceCreamClassification || '';
+          if (!rawClass) {
+            const dbCust = visit
+              ? (customerMap?.get(visit.cust_rt_id || '') ||
+                 customerMap?.get(`${cleanCustCode}|${cleanRoute}`) ||
+                 customerCodeMap?.get(cleanCustCode) ||
+                 customerCodeMap?.get(unpaddedCustCode))
+              : null;
+            rawClass = dbCust?.classification || dbCust?.dairyClassification || dbCust?.iceCreamClassification || '';
+          }
+          const cleanClass = (rawClass || 'D').toUpperCase().trim();
+          return cleanClass.startsWith('CLASS') ? cleanClass : `Class ${cleanClass}`;
+        })(),
+        comment: (p.comment || p.observation || '').trim(),
         observation,
         observations: combinedObsList,
         assetObservations,
@@ -640,7 +654,10 @@ export async function GET(req: NextRequest) {
     // Filter by Classification
     if (classParam && classParam !== 'all') {
       const targetCls = classParam.trim().toUpperCase();
-      filtered = filtered.filter((p: any) => (p.classification || '').toUpperCase() === targetCls);
+      filtered = filtered.filter((p: any) => {
+        const pCls = (p.classification || '').toUpperCase();
+        return pCls === targetCls || pCls === `CLASS ${targetCls}` || pCls.replace('CLASS ', '') === targetCls;
+      });
     }
 
     // Filter by Application
