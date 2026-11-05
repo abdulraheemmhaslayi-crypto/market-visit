@@ -249,8 +249,8 @@
       <td class="meta-box" style="vertical-align: middle;">
         <div><strong>Recipient:</strong> General Manager (GM)</div>
         <div><strong>Author:</strong> Lead Field Platform Developer</div>
-        <div><strong>Reporting Period:</strong> Aug 27, 2026 – Oct 24, 2026 (9 Weeks / 59 Days)</div>
-        <div><strong>Status:</strong> v3.0 Enterprise Operational & Concurrency Hardened</div>
+        <div><strong>Reporting Period:</strong> Aug 27, 2026 – Nov 05, 2026 (11 Weeks / 71 Days)</div>
+        <div><strong>Status:</strong> v3.2 Enterprise Production & Asset Branding Ecosystem</div>
       </td>
     </tr>
   </table>
@@ -259,18 +259,18 @@
   <div class="summary-card">
     <h3>Executive Overview & Business Purpose</h3>
     <p>
-      This comprehensive report details the complete engineering lifecycle of the <strong>Field Visit & Market Execution Platform</strong> from architectural inception on <strong>August 27, 2026</strong> through enterprise release <strong>v3.0 on October 24, 2026</strong>. Over <strong>9 continuous weeks (59 calendar days / 34 dedicated active development days)</strong>, the platform evolved into a mission-critical operating system: integrating ERP/CUSTMASTER databases across 2,535 commercial outlets, eliminating MSSQL Deadlock 1205 & timeout errors via native T-SQL derived table batching with <code>WITH (HOLDLOCK)</code>, standardizing dual-engine failover (Azure SQL Server & MySQL), syncing all 20 canonical supervisors, calibrating Dairy classification denominators, deploying persistent Master File cache invalidation, and enforcing closed-loop GM directive tracking with visual photo proof.
+      This comprehensive report details the complete engineering lifecycle of the <strong>Field Visit & Market Execution Platform</strong> from architectural inception on <strong>August 27, 2026</strong> through enterprise release <strong>v3.2 on November 05, 2026</strong>. Over <strong>11 continuous weeks (71 calendar days / 42 dedicated active development days)</strong>, the platform evolved into a mission-critical operating system: integrating ERP/CUSTMASTER databases across 2,535 commercial outlets, deploying an end-to-end Asset Branding Request workflow with multi-format media exports (PowerPoint .pptx & Excel .xlsx with embedded condition photos), building 5-factor reactive slicers and fleet-wide supervisor scorecards, eliminating MSSQL Deadlock 1205 & timeout errors via native T-SQL derived table batching with <code>WITH (HOLDLOCK)</code>, standardizing dual-engine failover (Azure SQL Server & MySQL), syncing all canonical supervisors with intelligent deduplication, deploying persistent Master File cache invalidation, and enforcing closed-loop GM directive tracking with visual photo proof.
     </p>
   </div>
 
   <!-- KPI HIGHLIGHTS (6 CARDS) -->
   <div class="kpi-grid">
     <div class="kpi-box">
-      <div class="kpi-value">286 Hrs</div>
+      <div class="kpi-value">324 Hrs</div>
       <div class="kpi-label">Total Engineering Hours</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-value">164</div>
+      <div class="kpi-value">184</div>
       <div class="kpi-label">Production Commits</div>
     </div>
     <div class="kpi-box">
@@ -278,21 +278,21 @@
       <div class="kpi-label">Active Outlets Audited</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-value">20 Users</div>
+      <div class="kpi-value">28 Users</div>
       <div class="kpi-label">Field Supervisors Synced</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-value">218 Modules</div>
-      <div class="kpi-label">185,000+ Lines Code</div>
+      <div class="kpi-value">235 Modules</div>
+      <div class="kpi-label">198,000+ Lines Code</div>
     </div>
     <div class="kpi-box">
-      <div class="kpi-value">9 Weeks</div>
+      <div class="kpi-value">11 Weeks</div>
       <div class="kpi-label">Full Lifecycle Span</div>
     </div>
   </div>
 
   <!-- COMPLETE TIME & EFFORT ALLOCATION -->
-  <h2>1. Full Lifecycle Engineering Effort & Time Allocation <span class="badge-time">Total: 286 Hours across 7 Phases</span></h2>
+  <h2>1. Full Lifecycle Engineering Effort & Time Allocation <span class="badge-time">Total: 324 Hours across 8 Phases</span></h2>
   <table class="hours-table">
     <thead>
       <tr>
@@ -343,11 +343,17 @@
         <td><strong>Phase 7: Concurrency Hardening, Canonical Auth & Denominators</strong></td>
         <td>Oct 20 – Oct 24, 2026<br><span style="font-size: 7.0pt; color: #64748b;">(Week 9 · 43 Commits)</span></td>
         <td>MSSQL Deadlock 1205 & timeout 499 resolution via derived table chunking and <code>WITH (HOLDLOCK)</code>; elimination of duplicate parameter <code>@p0</code> in multi-statement transactions; directory-wide synchronization of all 20 canonical supervisors with REST API migration; recalibration of Dairy classification denominators (2,535 stores); Cold Chain data-visual alignment (97%/3%); supervisor directive acknowledgement date tracking; Near-Expiry channel exclusion; and Full-Page modal analytics.</td>
-        <td style="text-align: right; font-weight: 700; color: #1e3a8a;">44 Hours</td>
+        <td style="text-align: right; font-weight: 700;">44 Hours</td>
+      </tr>
+      <tr>
+        <td><strong>Phase 8: Asset Branding System, Slicers & Field UX</strong></td>
+        <td>Oct 25 – Nov 05, 2026<br><span style="font-size: 7.0pt; color: #64748b;">(Weeks 10–11 · 20 Commits)</span></td>
+        <td>End-to-end Asset Branding Request workflow (condition photo capture, dynamic chiller/freezer model selector, admin/supervisor decision engine with approval/rejection remarks); multi-format PowerPoint (.pptx) & Excel (.xlsx) exports with embedded asset condition photos; 5-factor reactive slicers (Dates, Route, Customer Code, Customer Name, Supervisor); supervisor dropdown deduplication and zero-count cleanup; complete fleet supervisor scorecard showing all 28 supervisors without cutoff; self-healing MSSQL schema migrations for <code>VisitAsset.sizeModel</code>; UTF-8 clean encoding & wizard Step 4 layout optimization (<code>+ Add Asset</code> repositioning).</td>
+        <td style="text-align: right; font-weight: 700; color: #1e3a8a;">38 Hours</td>
       </tr>
       <tr class="total-row">
         <td colspan="3"><strong>TOTAL CUMULATIVE ENGINEERING TIME INVESTED ACROSS LIFECYCLE</strong></td>
-        <td style="text-align: right; color: #1e3a8a;">286 Hours</td>
+        <td style="text-align: right; color: #1e3a8a;">324 Hours</td>
       </tr>
     </tbody>
   </table>
@@ -355,7 +361,7 @@
   <!-- FOOTER PAGE 1 -->
   <div class="footer-note">
     <span>Field Visit & Market Execution Platform — Comprehensive Lifecycle Engineering Report</span>
-    <span>Page 1 of 4 · Ref: DND-FVS-GM-LIFECYCLE-2026-v3.0</span>
+    <span>Page 1 of 4 · Ref: DND-FVS-GM-LIFECYCLE-2026-v3.2</span>
   </div>
 
 
@@ -374,6 +380,30 @@
       </tr>
     </thead>
     <tbody>
+      <tr>
+        <td><strong>Asset Branding Request System</strong></td>
+        <td>End-to-end workflow for field supervisors to submit refrigeration branding & maintenance requests with captured asset condition photo, outlet details, and remarks. Includes dedicated Admin decision portal with Approve/Reject modal, administrative remarks, and notifications.</td>
+        <td>Accelerates trade marketing asset repairs, door decal upgrades, and cooler branding compliance.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Nov 04, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>Multi-Format Media Export (PPTX & XLSX)</strong></td>
+        <td>High-resolution PowerPoint presentation (.pptx) and Excel spreadsheet (.xlsx) export engines with auto-embedded asset condition photos, branding remarks, and outlet classifications.</td>
+        <td>Enables executive presentation decks and vendor work orders to be generated in a single click.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Nov 04, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>5-Factor Slicers & Supervisor Sync</strong></td>
+        <td>Multi-criteria live reactive slicers (Dates, Route, Customer Code, Customer Name, Supervisor) with unified supervisor name/ID resolution, clean deduplication, and zero-count cleanup.</td>
+        <td>Surgical audit capabilities allowing GM and operations to cross-filter visits across all dimensions.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Nov 05, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>Fleet-Wide Supervisor Scorecard</strong></td>
+        <td>Expanded Supervisor Scorecard bar chart displaying all 28 field supervisors with adaptive typography, 45° rotation, and responsive container layout without truncation.</td>
+        <td>Full transparency over entire field supervisor team performance and visit execution volume.</td>
+        <td><span class="status-badge badge-success">Production</span><br>Nov 05, 2026</td>
+      </tr>
       <tr>
         <td><strong>High-Concurrency MSSQL Engine</strong></td>
         <td>Engineered derived table batching, table locking hints <code>WITH (HOLDLOCK)</code>, isolated <code>sql.Request</code> transaction scopes, and exponential backoff retry wrappers in <code>lib/db.ts</code>.</td>
@@ -470,7 +500,7 @@
   <!-- FOOTER PAGE 2 -->
   <div class="footer-note">
     <span>Field Visit & Market Execution Platform — Comprehensive Lifecycle Engineering Report</span>
-    <span>Page 2 of 4 · Ref: DND-FVS-GM-LIFECYCLE-2026-v3.0</span>
+    <span>Page 2 of 4 · Ref: DND-FVS-GM-LIFECYCLE-2026-v3.2</span>
   </div>
 
 
@@ -489,6 +519,24 @@
       </tr>
     </thead>
     <tbody>
+      <tr>
+        <td><strong>Supervisor Dropdown Duplication & Zeros</strong></td>
+        <td>Visit records indexed by database UUID while master supervisors indexed by name, creating duplicate entries with <code>(0)</code> count. <em>Remediated by unifying supervisor mapping by normalized name and hiding zero counts for inactive supervisors.</em></td>
+        <td>Guarantees clean, intuitive supervisor filtering without ghost duplicate records or confusing zeros.</td>
+        <td><span class="status-badge badge-success">Resolved</span><br>Nov 05, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>MSSQL <code>VisitAsset.sizeModel</code> Schema Drift</strong></td>
+        <td>Missing <code>sizeModel</code> column on legacy MSSQL database prevented visit asset audit submissions. <em>Remediated by implementing auto-detecting self-healing schema migration (<code>ALTER TABLE VisitAsset ADD sizeModel NVARCHAR(100)</code>).</em></td>
+        <td>Prevents mobile field submission failures and guarantees multi-asset data capture across all DB engines.</td>
+        <td><span class="status-badge badge-success">Resolved</span><br>Nov 04, 2026</td>
+      </tr>
+      <tr>
+        <td><strong>UTF-8 Character Encoding & Mojibake</strong></td>
+        <td>Corrupted legacy character byte sequences appeared in visit wizard steps (<code>âœ“</code>, <code>Â°C</code>, <code>â€“</code>). <em>Remediated by replacing with clean Lucide SVG icons and UTF-8 typography; relocated <code>+ Add Asset</code> to bottom of page.</em></td>
+        <td>Clean, professional visual interface for supervisors during high-speed in-store audits.</td>
+        <td><span class="status-badge badge-success">Resolved</span><br>Nov 05, 2026</td>
+      </tr>
       <tr>
         <td><strong>MSSQL Deadlock 1205 & Timeout 499</strong></td>
         <td>High concurrent customer/route master bulk ingestion caused lock escalation and deadlock collisions. <em>Remediated by implementing derived table chunking, table hints <code>WITH (HOLDLOCK)</code>, and exponential backoff retry wrappers in <code>lib/db.ts</code>.</em></td>
@@ -579,7 +627,7 @@
   <!-- FOOTER PAGE 3 -->
   <div class="footer-note">
     <span>Field Visit & Market Execution Platform — Comprehensive Lifecycle Engineering Report</span>
-    <span>Page 3 of 4 · Ref: DND-FVS-GM-LIFECYCLE-2026-v3.0</span>
+    <span>Page 3 of 4 · Ref: DND-FVS-GM-LIFECYCLE-2026-v3.2</span>
   </div>
 
 
@@ -637,10 +685,10 @@
   <!-- SECTION 5: EXECUTIVE CONCLUSION & RECOMMENDATION -->
   <h2>5. Conclusion & Operational Readiness</h2>
   <p style="font-size: 8.3pt; margin-bottom: 5px; line-height: 1.35;">
-    The Field Visit Management Platform has evolved from an initial mobile prototype into a hardened, enterprise-grade audit operating system. Across <strong>286 engineering hours, 164 production commits, and 9 continuous weeks of delivery</strong>, every operational directive specified by commercial management and executive leadership has been rigorously built, tested, and validated under peak concurrency.
+    The Field Visit Management Platform has evolved from an initial mobile prototype into a hardened, enterprise-grade audit operating system. Across <strong>324 engineering hours, 184 production commits, and 11 continuous weeks of delivery</strong>, every operational directive specified by commercial management and executive leadership has been rigorously built, tested, and validated under peak concurrency.
   </p>
   <p style="font-size: 8.3pt; margin-bottom: 10px; line-height: 1.35;">
-    The system is currently <strong>100% active, stable, and production-ready (v3.0)</strong> on <code>dandyapp.tech</code>, empowering the General Manager and executive leadership with real-time operational visibility into store execution, asset preservation, and field force accountability.
+    The system is currently <strong>100% active, stable, and production-ready (v3.2)</strong> on <code>dandyapp.tech</code>, empowering the General Manager and executive leadership with real-time operational visibility into store execution, asset preservation, and field force accountability.
   </p>
 
   <!-- SIGN OFF BLOCK -->
@@ -662,7 +710,7 @@
   <!-- FOOTER PAGE 4 -->
   <div class="footer-note">
     <span>Field Visit & Market Execution Platform — Comprehensive Lifecycle Engineering Report</span>
-    <span>Page 4 of 4 · Ref: DND-FVS-GM-LIFECYCLE-2026-v3.0 · Confidential</span>
+    <span>Page 4 of 4 · Ref: DND-FVS-GM-LIFECYCLE-2026-v3.2 · Confidential</span>
   </div>
 
 </body>
