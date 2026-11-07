@@ -1241,31 +1241,18 @@ export default function ImageLightboxModal({
           let displayNote = '';
           if (photoComment && photoComment !== '—') {
             displayNote = photoComment;
-          } else if (assetObsList.length > 0) {
+          } else if (assetObsList.length > 0 && (targetAssetType || catLower.includes('asset') || catLower.includes('vegetable') || catLower.includes('chiller') || catLower.includes('freezer'))) {
             displayNote = assetObsList.join('; ');
           } else if (visitObsRaw && visitObsRaw !== '—') {
-            const parts = visitObsRaw.split(';').map((p) => p.trim()).filter(Boolean);
-            const filteredParts = parts.filter((part) => {
-              if (otherAssetWord && part.toLowerCase().includes(otherAssetWord)) {
-                return false;
-              }
-              return true;
-            });
-            if (filteredParts.length > 0) {
-              displayNote = filteredParts.join('; ');
-            }
-          }
-
-          // Fallback: If displayNote is still empty, check if visitObsRaw has a segment specifically matching this category
-          if (!displayNote && visitObsRaw && visitObsRaw !== '—') {
+            // Category-specific extraction: ONLY extract the observation specifically mentioning this photo's category!
             const parts = visitObsRaw.split(';').map((p) => p.trim()).filter(Boolean);
             const catPrefix = (current.category || '').toLowerCase();
             const matchedPart = parts.find((pt) => {
               const ptLower = pt.toLowerCase();
-              if (catPrefix.includes('ice') && ptLower.includes('ice')) return true;
-              if (catPrefix.includes('beverage') && ptLower.includes('beverage')) return true;
-              if (catPrefix.includes('dairy') && ptLower.includes('dairy')) return true;
-              if ((catPrefix.includes('asset') || catPrefix.includes('vegetable')) && (ptLower.includes('asset') || ptLower.includes('chiller') || ptLower.includes('freezer'))) return true;
+              if (catPrefix.includes('ice') && (ptLower.includes('ice') || ptLower.includes('freezer'))) return true;
+              if (catPrefix.includes('beverage') && (ptLower.includes('beverage') || ptLower.includes('juice') || ptLower.includes('drink'))) return true;
+              if (catPrefix.includes('dairy') && (ptLower.includes('dairy') || ptLower.includes('milk') || ptLower.includes('cheese') || ptLower.includes('laban') || ptLower.includes('yogurt'))) return true;
+              if ((catPrefix.includes('asset') || catPrefix.includes('vegetable')) && (ptLower.includes('asset') || ptLower.includes('cooler') || ptLower.includes('chiller') || ptLower.includes('freezer'))) return true;
               return false;
             });
             if (matchedPart) {
@@ -2122,17 +2109,10 @@ export default function ImageLightboxModal({
                 <label className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
                   Outlet / Store
                 </label>
-                <div className="flex items-center justify-between gap-2 mt-0.5">
-                  <p className="text-sm font-semibold text-slate-100 truncate">
-                    {outletCode ? <span className="font-mono text-sky-400 font-bold mr-1.5">{outletCode} -</span> : null}
-                    {(current.outlet && current.outlet !== 'General Store') ? current.outlet : (currentAction?.outlet || current.outlet || 'Store Attachment')}
-                  </p>
-                  {(current.classification || (currentAction as any)?.classification) && (
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase tracking-wider flex-shrink-0">
-                      {current.classification || (currentAction as any)?.classification}
-                    </span>
-                  )}
-                </div>
+                <p className="text-sm font-semibold text-slate-100 truncate mt-0.5">
+                  {outletCode ? <span className="font-mono text-sky-400 font-bold mr-1.5">{outletCode} -</span> : null}
+                  {(current.outlet && current.outlet !== 'General Store') ? current.outlet : (currentAction?.outlet || current.outlet || 'Store Attachment')}
+                </p>
               </div>
 
               <div>

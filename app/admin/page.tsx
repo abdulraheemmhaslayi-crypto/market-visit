@@ -1306,24 +1306,24 @@ export default function AdminDashboardPage() {
           const label = formatLabel ? formatLabel(value, index) : `${value}`;
 
           ctx.save();
-          ctx.font = '800 12px Inter, sans-serif';
+          ctx.font = '700 8.5px Inter, -apple-system, sans-serif';
           const textWidth = ctx.measureText(label).width;
-          const badgeW = Math.max(textWidth + 14, 26);
-          const badgeH = 20;
+          const badgeW = Math.max(textWidth + 4, 16);
+          const badgeH = 13;
           const badgeX = bar.x - badgeW / 2;
-          const badgeY = Math.max(bar.y - badgeH - 6, 6);
+          const badgeY = Math.max(bar.y - badgeH - 3, 3);
 
           // Pill Background
           ctx.beginPath();
           if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
           } else {
             ctx.rect(badgeX, badgeY, badgeW, badgeH);
           }
           ctx.fillStyle = isDark ? '#1e293b' : '#ffffff';
           ctx.fill();
           ctx.strokeStyle = isDark ? '#475569' : '#cbd5e1';
-          ctx.lineWidth = 1.2;
+          ctx.lineWidth = 1;
           ctx.stroke();
 
           // Pill Text

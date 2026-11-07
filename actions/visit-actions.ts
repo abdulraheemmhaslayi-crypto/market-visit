@@ -279,8 +279,8 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
   // Attach customer classifications (dairy / ice-cream) and customerName if available
   try {
     const allCustomers = await customerRepository.getAllCustomers();
-    const matchedCust = allCustomers.find(c => 
-      c.cust_rt_id === visitRecord.cust_rt_id || 
+    const matchedCust = allCustomers.find(c =>
+      c.cust_rt_id === visitRecord.cust_rt_id ||
       (c.customerCode === customerCode && c.routeCode === routeCode) ||
       (customerCode && c.customerCode === customerCode)
     );
@@ -348,8 +348,8 @@ export async function submitVisitAction(data: VisitInput) {
   }
 
   const allCustomers = await customerRepository.getAllCustomers();
-  const matchedCust = allCustomers.find(c => 
-    c.cust_rt_id === input.cust_rt_id || 
+  const matchedCust = allCustomers.find(c =>
+    c.cust_rt_id === input.cust_rt_id ||
     (c.customerCode === customerCode && c.routeCode === routeCode) ||
     (customerCode && c.customerCode === customerCode)
   );

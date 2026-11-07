@@ -219,7 +219,7 @@ export default function SupervisorBrandingRequestsPage() {
         { header: 'Status', key: 'status' },
         { header: 'Acknowledged By', key: 'acknowledgedByName', formatter: (val) => val || 'Pending Review' },
         { header: 'Acknowledged Date', key: 'acknowledgedAt', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
-        { header: 'Admin Decision', key: 'decision', formatter: (val, row) => val || (row.status === 'Approved' ? 'Approved' : row.status === 'Rejected' ? 'Rejected' : row.status === 'Pending Acknowledgement' ? 'Pending' : 'Under Review') },
+        { header: 'Admin Decision', key: 'decision', formatter: (val, row) => (val === 'Approved' || row.status === 'Approved' ? 'Under Review' : val || (row.status === 'Rejected' ? 'Rejected' : row.status === 'Pending Acknowledgement' ? 'Pending' : 'Under Review')) },
         { header: 'Admin Comments / Reason', key: 'adminComment', formatter: (val) => val || '—' },
       ],
       data: requests,
@@ -351,13 +351,13 @@ export default function SupervisorBrandingRequestsPage() {
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[var(--surface)] border border-emerald-500/30 shadow-xs flex items-center justify-between">
+        <div className="p-4 rounded-2xl bg-[var(--surface)] border border-amber-500/30 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Approved</p>
-            <p className="text-2xl font-black text-emerald-500 mt-1">{counts.approved || 0}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Under Review</p>
+            <p className="text-2xl font-black text-amber-500 mt-1">{counts.approved || 0}</p>
           </div>
-          <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-            <CheckCircle2 className="h-4.5 w-4.5" />
+          <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <Clock className="h-4.5 w-4.5" />
           </div>
         </div>
 
@@ -416,12 +416,12 @@ export default function SupervisorBrandingRequestsPage() {
             onClick={() => setStatusFilter('approved')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               statusFilter === 'approved'
-                ? 'bg-emerald-600 text-white shadow-xs font-extrabold'
+                ? 'bg-amber-600 text-white shadow-xs font-extrabold'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
             }`}
           >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Approved ({counts.approved || 0})
+            <Clock className="h-3.5 w-3.5" />
+            Under Review ({counts.approved || 0})
           </button>
           <button
             type="button"
@@ -606,9 +606,9 @@ export default function SupervisorBrandingRequestsPage() {
                       </td>
                       <td className="py-3 px-4">
                         {isApproved ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Approved
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                            <Clock className="h-3 w-3" />
+                            Under Review
                           </span>
                         ) : isRejected ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/30">
@@ -647,12 +647,12 @@ export default function SupervisorBrandingRequestsPage() {
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
                                   r.decision === 'Approved'
-                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                                     : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                                 }`}
                               >
-                                {r.decision === 'Approved' ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                                {r.decision}
+                                {r.decision === 'Approved' ? <Clock className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                {r.decision === 'Approved' ? 'Under Review' : r.decision}
                               </span>
                             )}
                             {r.adminComment ? (
@@ -725,9 +725,9 @@ export default function SupervisorBrandingRequestsPage() {
 
               <div className="flex items-center gap-2">
                 {activeRequest.decision === 'Approved' || activeRequest.status === 'Approved' ? (
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Approved
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
+                    Under Review
                   </span>
                 ) : activeRequest.decision === 'Rejected' || activeRequest.status === 'Rejected' ? (
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1.5">
@@ -871,18 +871,18 @@ export default function SupervisorBrandingRequestsPage() {
                       <div
                         className={`p-3.5 rounded-xl border space-y-2 ${
                           activeRequest.decision === 'Approved'
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
                             : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold flex items-center gap-1.5 text-xs">
                             {activeRequest.decision === 'Approved' ? (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                              <Clock className="h-4 w-4 text-amber-400" />
                             ) : (
                               <XCircle className="h-4 w-4 text-rose-400" />
                             )}
-                            Decision: {activeRequest.decision.toUpperCase()}
+                            Decision: {activeRequest.decision === 'Approved' ? 'UNDER REVIEW' : activeRequest.decision.toUpperCase()}
                           </span>
                           <span className="text-[10px] opacity-80">
                             {activeRequest.decisionAt ? new Date(activeRequest.decisionAt).toLocaleDateString() : ''}
@@ -965,7 +965,7 @@ export default function SupervisorBrandingRequestsPage() {
                               <span
                                 className={
                                   h.decision === 'Approved' || h.status === 'Approved'
-                                    ? 'text-emerald-500 font-bold'
+                                    ? 'text-amber-500 font-bold'
                                     : h.decision === 'Rejected' || h.status === 'Rejected'
                                     ? 'text-rose-500 font-bold'
                                     : h.status === 'Acknowledged'
@@ -973,7 +973,7 @@ export default function SupervisorBrandingRequestsPage() {
                                     : 'text-amber-500 font-bold'
                                 }
                               >
-                                {h.decision || h.status}
+                                {h.decision === 'Approved' || h.status === 'Approved' ? 'Under Review' : (h.decision || h.status)}
                               </span>
                             </td>
                             <td className="py-2.5 px-3 truncate max-w-xs text-[var(--text-secondary)] italic">
