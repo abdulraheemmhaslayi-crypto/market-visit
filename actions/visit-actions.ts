@@ -223,7 +223,7 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
     cloudinaryUrl: p.cloudinaryUrl,
     publicId: p.publicId,
     uploadedAt: p.uploadedAt,
-    comment: (p as any).comment || '',
+    comment: (p as any).comment || (payload as any).categoryComments?.[p.category] || '',
   }));
 
   // Convert Power SKU results
@@ -428,7 +428,7 @@ export async function submitVisitAction(data: VisitInput) {
     cloudinaryUrl: p.cloudinaryUrl,
     publicId: p.publicId,
     uploadedAt: p.uploadedAt,
-    comment: (p as any).comment || '',
+    comment: (p as any).comment || (payload as any).categoryComments?.[p.category] || '',
   }));
 
   const cleanCust = customerCode.toUpperCase().trim();
@@ -469,7 +469,10 @@ export async function submitVisitAction(data: VisitInput) {
     visit_type: input.visit_type || 'Visit',
     reason_category: input.reason_category || '',
     reason: input.reason || '',
-    observation: input.observation || '',
+    observation: input.observation || Object.entries((payload as any).categoryComments || {})
+      .filter(([_, note]) => note && String(note).trim())
+      .map(([cat, note]) => `${cat === 'Vegetables' ? 'Assets' : cat}: ${String(note).trim()}`)
+      .join('; ') || '',
     latitude: input.latitude,
     longitude: input.longitude,
     accuracy: input.accuracy || 0,

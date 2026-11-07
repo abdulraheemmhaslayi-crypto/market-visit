@@ -411,7 +411,28 @@ export async function GET(req: NextRequest) {
           const cleanClass = (rawClass || 'D').toUpperCase().trim();
           return cleanClass.startsWith('CLASS') ? cleanClass : `Class ${cleanClass}`;
         })(),
-        comment: (p.comment || p.observation || '').trim(),
+        comment: (() => {
+          const direct = (p.comment || p.observation || '').trim();
+          if (direct && direct !== '—') return direct;
+          // Check if visit observation has a section for this category
+          const visitObsStr = (visit?.observation || '').trim();
+          if (visitObsStr && visitObsStr !== '—') {
+            const catLower = (p.category || '').toLowerCase();
+            const parts = visitObsStr.split(';').map((s: string) => s.trim()).filter(Boolean);
+            const matchedPart = parts.find((pt: string) => {
+              const ptLower = pt.toLowerCase();
+              if (catLower.includes('ice') && ptLower.includes('ice')) return true;
+              if (catLower.includes('beverage') && ptLower.includes('beverage')) return true;
+              if (catLower.includes('dairy') && ptLower.includes('dairy')) return true;
+              if ((catLower.includes('asset') || catLower.includes('vegetable')) && (ptLower.includes('asset') || ptLower.includes('chiller') || ptLower.includes('freezer'))) return true;
+              return false;
+            });
+            if (matchedPart) {
+              return matchedPart.replace(/^[^:]+:\s*/, '').trim();
+            }
+          }
+          return '';
+        })(),
         observation,
         observations: combinedObsList,
         assetObservations,

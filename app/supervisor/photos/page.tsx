@@ -826,6 +826,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
               minute: '2-digit',
             });
             const cardObs = (
+              photo.comment ||
               photo.observation ||
               photo.notes ||
               photo.visitObservation ||
@@ -934,11 +935,18 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     <span className="flex items-center gap-1 font-mono">
                       <Calendar className="h-3 w-3 text-accent" /> {formattedDate} {formattedTime}
                     </span>
-                    {(photo.rtm || photo.channel) && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                        RTM: {photo.rtm || photo.channel}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {photo.classification && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          {photo.classification}
+                        </span>
+                      )}
+                      {(photo.rtm || photo.channel) && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                          RTM: {photo.rtm || photo.channel}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
