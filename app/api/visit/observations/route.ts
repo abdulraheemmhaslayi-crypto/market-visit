@@ -26,6 +26,11 @@ export async function GET(req: NextRequest) {
       [visitId]
     ).catch(() => [[]]);
 
+    const [photoRows]: any = await pool.execute(
+      'SELECT `photoId`, `category`, `comment` FROM `VisitPhoto` WHERE `visitId` = ?',
+      [visitId]
+    ).catch(() => [[]]);
+
     const visit = (visitRows && visitRows[0]) || null;
 
     const assetObservations = (assetRows || []).map((ast: any) => ({
@@ -64,6 +69,11 @@ export async function GET(req: NextRequest) {
       visitObservation: visitObs,
       visitReason,
       notes: observation,
+      photos: (photoRows || []).map((p: any) => ({
+        photoId: p.photoId,
+        category: p.category,
+        comment: (p.comment || p.observation || '').trim(),
+      })),
     });
   } catch (err: any) {
     console.error('Error fetching visit observations:', err);

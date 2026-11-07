@@ -201,10 +201,10 @@ export async function PATCH(req: NextRequest) {
 
     // 1. Decision Action (Approved / Rejected with comments/reason)
     if (action === 'decision' || decision) {
-      const validDecision = decision === 'Approved' ? 'Approved' : decision === 'Rejected' ? 'Rejected' : null;
+      const validDecision = (decision === 'Approved' || decision === 'Under Review') ? 'Approved' : decision === 'Rejected' ? 'Rejected' : null;
       if (!validDecision) {
         return NextResponse.json(
-          { error: "Invalid decision. Must be either 'Approved' or 'Rejected'." },
+          { error: "Invalid decision. Must be either 'Under Review' or 'Rejected'." },
           { status: 400 }
         );
       }
@@ -235,7 +235,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({
         success: true,
         request: updated,
-        message: `Branding request marked as ${validDecision} successfully.`,
+        message: `Branding request marked as ${validDecision === 'Approved' ? 'Under Review' : 'Rejected'} successfully.`,
       });
     }
 

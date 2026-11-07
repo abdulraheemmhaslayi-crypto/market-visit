@@ -211,9 +211,10 @@ function transformMergeIntoForMysql(query: string): string {
     return `INSERT INTO \`AuditActionItem\` (
               \`id\`, \`photoId\`, \`visitId\`, \`outlet\`, \`outletCode\`, \`route\`, \`supervisor\`,
               \`manager\`, \`channel\`, \`category\`, \`originalPhotoUrl\`, \`gmComment\`, \`gmName\`,
-              \`priority\`, \`deadline\`, \`actionStatus\`, \`supervisorComment\`, \`proofPhotoUrl\`,
+              \`priority\`, \`deadline\`, \`acknowledged\`, \`acknowledgedAt\`, \`acknowledgedBy\`,
+              \`actionStatus\`, \`supervisorComment\`, \`proofPhotoUrl\`,
               \`actionTakenAt\`, \`gmVerifiedAt\`, \`gmResolutionNotes\`, \`createdAt\`, \`updatedAt\`
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
               \`photoId\` = VALUES(\`photoId\`),
               \`visitId\` = VALUES(\`visitId\`),
@@ -229,6 +230,9 @@ function transformMergeIntoForMysql(query: string): string {
               \`gmName\` = VALUES(\`gmName\`),
               \`priority\` = VALUES(\`priority\`),
               \`deadline\` = VALUES(\`deadline\`),
+              \`acknowledged\` = VALUES(\`acknowledged\`),
+              \`acknowledgedAt\` = VALUES(\`acknowledgedAt\`),
+              \`acknowledgedBy\` = VALUES(\`acknowledgedBy\`),
               \`actionStatus\` = VALUES(\`actionStatus\`),
               \`supervisorComment\` = VALUES(\`supervisorComment\`),
               \`proofPhotoUrl\` = VALUES(\`proofPhotoUrl\`),

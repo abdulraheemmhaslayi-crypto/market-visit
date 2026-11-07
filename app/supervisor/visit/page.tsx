@@ -459,6 +459,7 @@ function VisitWizardContent() {
               cloudinaryUrl: uploaded.secure_url || uploaded.url,
               publicId: uploaded.public_id,
               uploadedAt: new Date().toISOString(),
+              comment: categoryComments[category] || '',
             };
           } catch (err: any) {
             clearTimeout(timeoutId);
@@ -1885,6 +1886,21 @@ function VisitWizardContent() {
                       ))}
                     </div>
                   )}
+
+                  {/* Dedicated Comment Box after each category */}
+                  <div className="pt-2 border-t border-[var(--border-soft)] space-y-1.5">
+                    <label className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                      <MessageSquare className="h-3.5 w-3.5 text-indigo-500" />
+                      <span>{displayName} Observations / Concerns (Optional):</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={categoryComments[cat] || ''}
+                      onChange={(e) => handleCategoryCommentChange(cat, e.target.value)}
+                      placeholder={`Add any concerns or observations for ${displayName}...`}
+                      className="w-full text-xs p-2.5 rounded-xl bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)] transition-all resize-none shadow-2xs"
+                    />
+                  </div>
                 </div>
               );
             })}
