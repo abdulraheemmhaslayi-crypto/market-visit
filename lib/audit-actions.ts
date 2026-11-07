@@ -169,16 +169,24 @@ async function ensureAuditTable(): Promise<void> {
         MODIFY COLUMN \`originalPhotoUrl\` LONGTEXT NULL
       `).catch(() => {});
 
-      await pool.execute(`
-        ALTER TABLE \`AuditActionItem\`
-        ADD COLUMN IF NOT EXISTS \`acknowledged\` TINYINT(1) DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS \`acknowledgedAt\` VARCHAR(100) NULL,
-        ADD COLUMN IF NOT EXISTS \`acknowledgedBy\` VARCHAR(191) NULL
-      `).catch(async () => {
-        try { await pool.execute('ALTER TABLE `AuditActionItem` ADD COLUMN `acknowledged` TINYINT(1) DEFAULT 0'); } catch {}
-        try { await pool.execute('ALTER TABLE `AuditActionItem` ADD COLUMN `acknowledgedAt` VARCHAR(100) NULL'); } catch {}
-        try { await pool.execute('ALTER TABLE `AuditActionItem` ADD COLUMN `acknowledgedBy` VARCHAR(191) NULL'); } catch {}
-      });
+      // Ensure all required columns exist regardless of MySQL version
+      const colsToVerify = [
+        { name: 'acknowledged', type: 'TINYINT(1) DEFAULT 0' },
+        { name: 'acknowledgedAt', type: 'VARCHAR(100) NULL' },
+        { name: 'acknowledgedBy', type: 'VARCHAR(191) NULL' },
+        { name: 'outletCode', type: 'VARCHAR(100) NULL' },
+        { name: 'manager', type: 'VARCHAR(191) NULL' },
+        { name: 'channel', type: 'VARCHAR(100) NULL' },
+        { name: 'category', type: 'VARCHAR(100) NULL' },
+        { name: 'priority', type: 'VARCHAR(50) DEFAULT "Normal"' },
+        { name: 'deadline', type: 'VARCHAR(100) NULL' },
+        { name: 'gmResolutionNotes', type: 'TEXT NULL' },
+      ];
+      for (const col of colsToVerify) {
+        try {
+          await pool.execute(`ALTER TABLE \`AuditActionItem\` ADD COLUMN \`${col.name}\` ${col.type}`);
+        } catch {}
+      }
     }
     auditSchemaChecked = true;
   } catch (err: any) {

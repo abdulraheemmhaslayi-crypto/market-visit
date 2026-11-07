@@ -509,11 +509,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
             <button
               type="button"
               onClick={() => setActionFilter(actionFilter === 'PENDING' ? 'all' : 'PENDING')}
-              className={`text-xs font-extrabold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
-                actionFilter === 'PENDING'
+              className={`text-xs font-extrabold px-3 py-1.5 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${actionFilter === 'PENDING'
                   ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black'
                   : 'bg-white hover:bg-amber-100/70 text-amber-950 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40 dark:hover:bg-amber-500/30'
-              }`}
+                }`}
             >
               {actionFilter === 'PENDING' ? 'Show All Photos' : 'Filter Directives'}
             </button>
@@ -552,11 +551,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
               setToDate(y);
               setCurrentPage(1);
             }}
-            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
-              fromDate === getMinusOneDayStr() && toDate === getMinusOneDayStr()
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${fromDate === getMinusOneDayStr() && toDate === getMinusOneDayStr()
                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                 : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
-            }`}
+              }`}
           >
             ⚡ -1 Day (Yesterday)
           </button>
@@ -568,11 +566,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
               setToDate(t);
               setCurrentPage(1);
             }}
-            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
-              fromDate === getTodayStr() && toDate === getTodayStr()
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${fromDate === getTodayStr() && toDate === getTodayStr()
                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                 : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
-            }`}
+              }`}
           >
             Today
           </button>
@@ -583,11 +580,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
               setToDate(getTodayStr());
               setCurrentPage(1);
             }}
-            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
-              fromDate === getLast7DaysStr() && toDate === getTodayStr()
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${fromDate === getLast7DaysStr() && toDate === getTodayStr()
                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                 : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
-            }`}
+              }`}
           >
             Last 7 Days
           </button>
@@ -598,11 +594,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
               setToDate(getTodayStr());
               setCurrentPage(1);
             }}
-            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
-              fromDate === getFirstDayOfMonthStr() && toDate === getTodayStr()
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${fromDate === getFirstDayOfMonthStr() && toDate === getTodayStr()
                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                 : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
-            }`}
+              }`}
           >
             This Month
           </button>
@@ -613,11 +608,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
               setToDate('');
               setCurrentPage(1);
             }}
-            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
-              !fromDate && !toDate
+            className={`text-xs font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${!fromDate && !toDate
                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                 : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
-            }`}
+              }`}
           >
             All Dates
           </button>
@@ -768,11 +762,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
                 setToDate(getTodayStr());
                 setCurrentPage(1);
               }}
-              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
-                fromDate === getTodayStr() && toDate === getTodayStr()
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${fromDate === getTodayStr() && toDate === getTodayStr()
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                   : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
-              }`}
+                }`}
             >
               Today
             </button>
@@ -782,11 +775,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
                 setToDate('');
                 setCurrentPage(1);
               }}
-              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${
-                !fromDate && !toDate
+              className={`text-[11px] font-bold py-1 px-3 rounded-lg border transition-all cursor-pointer ${!fromDate && !toDate
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                   : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--border-soft)]'
-              }`}
+                }`}
             >
               All Dates
             </button>
@@ -826,6 +818,7 @@ export default function SupervisorAuditPhotoGalleryPage() {
               minute: '2-digit',
             });
             const cardObs = (
+              photo.comment ||
               photo.observation ||
               photo.notes ||
               photo.visitObservation ||
@@ -840,11 +833,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
                   const idx = displayedPhotos.findIndex((p) => p.photoId === photo.photoId);
                   setLightboxIndex(idx !== -1 ? idx : 0);
                 }}
-                className={`group relative rounded-xl border bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col ${
-                  actionItem?.actionStatus === 'PENDING'
+                className={`group relative rounded-xl border bg-[var(--surface)] overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col ${actionItem?.actionStatus === 'PENDING'
                     ? 'border-amber-500/60 ring-1 ring-amber-500/30'
                     : 'border-[var(--border)]'
-                }`}
+                  }`}
               >
                 {/* Image Frame */}
                 <div className="relative aspect-video w-full bg-slate-950 overflow-hidden">
@@ -858,20 +850,19 @@ export default function SupervisorAuditPhotoGalleryPage() {
                   {/* Management Directive Badge Overlay */}
                   {actionItem && (
                     <div
-                      className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9.5px] font-bold shadow-md flex items-center gap-1 z-10 ${
-                        actionItem.actionStatus === 'RESOLVED'
+                      className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9.5px] font-bold shadow-md flex items-center gap-1 z-10 ${actionItem.actionStatus === 'RESOLVED'
                           ? 'bg-emerald-500 text-white'
                           : actionItem.actionStatus === 'SUBMITTED'
-                          ? 'bg-sky-500 text-white'
-                          : 'bg-amber-500 text-black animate-pulse'
-                      }`}
+                            ? 'bg-sky-500 text-white'
+                            : 'bg-amber-500 text-black animate-pulse'
+                        }`}
                     >
                       <Flag className="h-3 w-3" />
                       {actionItem.actionStatus === 'RESOLVED'
                         ? 'Resolved'
                         : actionItem.actionStatus === 'SUBMITTED'
-                        ? 'Proof Sent'
-                        : 'Action Required'}
+                          ? 'Proof Sent'
+                          : 'Action Required'}
                     </div>
                   )}
 
@@ -934,11 +925,18 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     <span className="flex items-center gap-1 font-mono">
                       <Calendar className="h-3 w-3 text-accent" /> {formattedDate} {formattedTime}
                     </span>
-                    {(photo.rtm || photo.channel) && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
-                        RTM: {photo.rtm || photo.channel}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {photo.classification && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          {photo.classification}
+                        </span>
+                      )}
+                      {(photo.rtm || photo.channel) && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                          RTM: {photo.rtm || photo.channel}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1003,11 +1001,10 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     key={pNum}
                     type="button"
                     onClick={() => setCurrentPage(pNum)}
-                    className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                      isActive
+                    className={`h-8 min-w-[32px] px-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${isActive
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-105'
                         : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border-soft)] hover:text-[var(--text-primary)]'
-                    }`}
+                      }`}
                   >
                     {pNum}
                   </button>
@@ -1079,22 +1076,20 @@ export default function SupervisorAuditPhotoGalleryPage() {
                     Object.values(actionItemsMap).map((item) => (
                       <div
                         key={item.id}
-                        className={`p-4 rounded-xl border space-y-3 transition-all ${
-                          item.actionStatus === 'PENDING'
+                        className={`p-4 rounded-xl border space-y-3 transition-all ${item.actionStatus === 'PENDING'
                             ? 'bg-amber-500/5 border-amber-500/30'
                             : item.actionStatus === 'SUBMITTED'
-                            ? 'bg-sky-500/5 border-sky-500/30'
-                            : 'bg-emerald-500/5 border-emerald-500/30'
-                        }`}
+                              ? 'bg-sky-500/5 border-sky-500/30'
+                              : 'bg-emerald-500/5 border-emerald-500/30'
+                          }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                item.priority === 'Urgent'
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.priority === 'Urgent'
                                   ? 'bg-red-500/20 text-red-400 border border-red-500/30'
                                   : 'bg-slate-700/50 text-slate-300'
-                              }`}
+                                }`}
                             >
                               {item.priority} Priority
                             </span>
@@ -1106,19 +1101,18 @@ export default function SupervisorAuditPhotoGalleryPage() {
                             </p>
                           </div>
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              item.actionStatus === 'RESOLVED'
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.actionStatus === 'RESOLVED'
                                 ? 'bg-emerald-500 text-white'
                                 : item.actionStatus === 'SUBMITTED'
-                                ? 'bg-sky-500 text-white'
-                                : 'bg-amber-500 text-black font-extrabold animate-pulse'
-                            }`}
+                                  ? 'bg-sky-500 text-white'
+                                  : 'bg-amber-500 text-black font-extrabold animate-pulse'
+                              }`}
                           >
                             {item.actionStatus === 'RESOLVED'
                               ? 'Verified'
                               : item.actionStatus === 'SUBMITTED'
-                              ? 'Submitted'
-                              : 'Pending Action'}
+                                ? 'Submitted'
+                                : 'Pending Action'}
                           </span>
                         </div>
 

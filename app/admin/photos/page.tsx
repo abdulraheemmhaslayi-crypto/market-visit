@@ -905,6 +905,7 @@ export default function AuditPhotoGalleryPage() {
               minute: '2-digit',
             });
             const cardObs = (
+              photo.comment ||
               photo.observation ||
               photo.notes ||
               photo.visitObservation ||
@@ -1017,6 +1018,11 @@ export default function AuditPhotoGalleryPage() {
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" /> {photo.route || 'N/A'}
                       </span>
+                      {photo.classification && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-500 dark:text-emerald-300 border border-emerald-500/30">
+                          {photo.classification}
+                        </span>
+                      )}
                       {(photo.rtm || photo.channel) && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-500 dark:text-indigo-300 border border-indigo-500/30">
                           RTM: {photo.rtm || photo.channel}

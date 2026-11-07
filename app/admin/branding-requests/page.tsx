@@ -486,13 +486,13 @@ export default function AssetBrandingRequestsPage() {
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[var(--surface)] border border-emerald-500/30 shadow-xs flex items-center justify-between">
+        <div className="p-4 rounded-2xl bg-[var(--surface)] border border-amber-500/30 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Approved</p>
-            <p className="text-2xl font-black text-emerald-500 mt-1">{counts.approved || 0}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Under Review</p>
+            <p className="text-2xl font-black text-amber-500 mt-1">{counts.approved || 0}</p>
           </div>
-          <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-            <CheckCircle2 className="h-4.5 w-4.5" />
+          <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <Clock className="h-4.5 w-4.5" />
           </div>
         </div>
 
@@ -551,12 +551,12 @@ export default function AssetBrandingRequestsPage() {
             onClick={() => setStatusFilter('approved')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               statusFilter === 'approved'
-                ? 'bg-emerald-600 text-white shadow-xs font-extrabold'
+                ? 'bg-amber-600 text-white shadow-xs font-extrabold'
                 : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
             }`}
           >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Approved ({counts.approved || 0})
+            <Clock className="h-3.5 w-3.5" />
+            Under Review ({counts.approved || 0})
           </button>
           <button
             type="button"
@@ -763,9 +763,9 @@ export default function AssetBrandingRequestsPage() {
                       </td>
                       <td className="py-3 px-4">
                         {isApproved ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Approved
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                            <Clock className="h-3 w-3" />
+                            Under Review
                           </span>
                         ) : isRejected ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/30">
@@ -804,12 +804,12 @@ export default function AssetBrandingRequestsPage() {
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
                                   r.decision === 'Approved'
-                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                     : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                                 }`}
                               >
-                                {r.decision === 'Approved' ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                                {r.decision}
+                                {r.decision === 'Approved' ? <Clock className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                {r.decision === 'Approved' ? 'Under Review' : r.decision}
                               </span>
                             )}
                             {r.adminComment ? (
@@ -851,22 +851,16 @@ export default function AssetBrandingRequestsPage() {
                             </button>
                           )}
 
-                          {/* 3. Decision Button: Request Approved Or Rejected (Once acknowledged or to edit decision) */}
-                          {!isPending && canAcknowledge && (
+                          {/* 3. Decision Button: Only show if NOT yet decided */}
+                          {!isPending && !r.decision && r.status !== 'Approved' && r.status !== 'Rejected' && canAcknowledge && (
                             <button
                               type="button"
                               onClick={() => handleOpenDecisionModal(r)}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer ${
-                                r.decision === 'Approved'
-                                  ? 'bg-emerald-700/80 hover:bg-emerald-600 text-white'
-                                  : r.decision === 'Rejected'
-                                  ? 'bg-rose-700/80 hover:bg-rose-600 text-white'
-                                  : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                              }`}
-                              title="Request Approved Or Rejected"
+                              className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer bg-indigo-600 hover:bg-indigo-500 text-white"
+                              title="Take Management Decision"
                             >
                               <ShieldCheck className="h-3.5 w-3.5" />
-                              <span>{r.decision ? `${r.decision} (Edit)` : 'Approve / Reject'}</span>
+                              <span>Take Decision</span>
                             </button>
                           )}
 
@@ -931,9 +925,9 @@ export default function AssetBrandingRequestsPage() {
 
               <div className="flex items-center gap-2">
                 {activeRequest.decision === 'Approved' || activeRequest.status === 'Approved' ? (
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Approved
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
+                    Under Review
                   </span>
                 ) : activeRequest.decision === 'Rejected' || activeRequest.status === 'Rejected' ? (
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1.5">
@@ -1085,18 +1079,18 @@ export default function AssetBrandingRequestsPage() {
                       <div
                         className={`p-3.5 rounded-xl border space-y-2 ${
                           activeRequest.decision === 'Approved'
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                             : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold flex items-center gap-1.5 text-xs">
                             {activeRequest.decision === 'Approved' ? (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                              <Clock className="h-4 w-4 text-amber-400" />
                             ) : (
                               <XCircle className="h-4 w-4 text-rose-400" />
                             )}
-                            Decision: {activeRequest.decision.toUpperCase()}
+                            Decision: {activeRequest.decision === 'Approved' ? 'UNDER REVIEW' : 'REJECTED'}
                           </span>
                           <span className="text-[10px] opacity-80">
                             {activeRequest.decisionAt ? new Date(activeRequest.decisionAt).toLocaleString() : ''}
@@ -1252,20 +1246,14 @@ export default function AssetBrandingRequestsPage() {
                   </button>
                 )}
 
-                {activeRequest.status !== 'Pending Acknowledgement' && canAcknowledge && (
+                {activeRequest.status !== 'Pending Acknowledgement' && !activeRequest.decision && activeRequest.status !== 'Approved' && activeRequest.status !== 'Rejected' && canAcknowledge && (
                   <button
                     type="button"
                     onClick={() => handleOpenDecisionModal(activeRequest)}
-                    className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer text-white ${
-                      activeRequest.decision === 'Approved'
-                        ? 'bg-emerald-600 hover:bg-emerald-500'
-                        : activeRequest.decision === 'Rejected'
-                        ? 'bg-rose-600 hover:bg-rose-500'
-                        : 'bg-indigo-600 hover:bg-indigo-500'
-                    }`}
+                    className="px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer text-white bg-indigo-600 hover:bg-indigo-500"
                   >
                     <ShieldCheck className="h-4 w-4" />
-                    <span>Request Approved Or Rejected</span>
+                    <span>Take Management Decision</span>
                   </button>
                 )}
               </div>
@@ -1479,12 +1467,12 @@ export default function AssetBrandingRequestsPage() {
                         onClick={() => setDecisionType('Approved')}
                         className={`p-3.5 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
                           decisionType === 'Approved'
-                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md scale-[1.02]'
-                            : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-emerald-500/50'
+                            ? 'bg-amber-600 text-white border-amber-500 shadow-md scale-[1.02]'
+                            : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-amber-500/50'
                         }`}
                       >
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Approve Request</span>
+                        <Clock className="h-4 w-4" />
+                        <span>Move to Under Review</span>
                       </button>
                       <button
                         type="button"
@@ -1502,7 +1490,7 @@ export default function AssetBrandingRequestsPage() {
 
                     <p className="text-[11px] text-[var(--text-muted)] italic">
                       {decisionType === 'Approved'
-                        ? 'Approving marks this branding request as approved and notifies the supervisor with your remarks.'
+                        ? 'Marks this branding request as Under Review and notifies the supervisor with your remarks.'
                         : 'Rejecting requires a clear reason to explain why branding was declined (e.g. recent branding, relocation).'}
                     </p>
                   </div>
@@ -1542,11 +1530,11 @@ export default function AssetBrandingRequestsPage() {
                 disabled={isSubmittingDecision || (decisionType === 'Rejected' && !decisionComment.trim())}
                 onClick={handleSubmitDecision}
                 className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
-                  decisionType === 'Approved' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'
+                  decisionType === 'Approved' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-rose-600 hover:bg-rose-500'
                 }`}
               >
                 <Check className="h-4 w-4" />
-                <span>{isSubmittingDecision ? 'Submitting...' : `Confirm ${decisionType}`}</span>
+                <span>{isSubmittingDecision ? 'Submitting...' : decisionType === 'Approved' ? 'Confirm (Under Review)' : 'Confirm Rejection'}</span>
               </button>
             </div>
           </div>

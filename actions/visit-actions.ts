@@ -223,7 +223,7 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
     cloudinaryUrl: p.cloudinaryUrl,
     publicId: p.publicId,
     uploadedAt: p.uploadedAt,
-    comment: (p as any).comment || '',
+    comment: (p as any).comment || (payload as any).categoryComments?.[p.category] || '',
   }));
 
   // Convert Power SKU results
@@ -279,8 +279,8 @@ export async function saveVisitDraftAction(data: VisitDraftInput) {
   // Attach customer classifications (dairy / ice-cream) and customerName if available
   try {
     const allCustomers = await customerRepository.getAllCustomers();
-    const matchedCust = allCustomers.find(c => 
-      c.cust_rt_id === visitRecord.cust_rt_id || 
+    const matchedCust = allCustomers.find(c =>
+      c.cust_rt_id === visitRecord.cust_rt_id ||
       (c.customerCode === customerCode && c.routeCode === routeCode) ||
       (customerCode && c.customerCode === customerCode)
     );
@@ -348,8 +348,8 @@ export async function submitVisitAction(data: VisitInput) {
   }
 
   const allCustomers = await customerRepository.getAllCustomers();
-  const matchedCust = allCustomers.find(c => 
-    c.cust_rt_id === input.cust_rt_id || 
+  const matchedCust = allCustomers.find(c =>
+    c.cust_rt_id === input.cust_rt_id ||
     (c.customerCode === customerCode && c.routeCode === routeCode) ||
     (customerCode && c.customerCode === customerCode)
   );
@@ -428,7 +428,7 @@ export async function submitVisitAction(data: VisitInput) {
     cloudinaryUrl: p.cloudinaryUrl,
     publicId: p.publicId,
     uploadedAt: p.uploadedAt,
-    comment: (p as any).comment || '',
+    comment: (p as any).comment || (payload as any).categoryComments?.[p.category] || '',
   }));
 
   const cleanCust = customerCode.toUpperCase().trim();
@@ -469,7 +469,10 @@ export async function submitVisitAction(data: VisitInput) {
     visit_type: input.visit_type || 'Visit',
     reason_category: input.reason_category || '',
     reason: input.reason || '',
-    observation: input.observation || '',
+    observation: input.observation || Object.entries((payload as any).categoryComments || {})
+      .filter(([_, note]) => note && String(note).trim())
+      .map(([cat, note]) => `${cat === 'Vegetables' ? 'Assets' : cat}: ${String(note).trim()}`)
+      .join('; ') || '',
     latitude: input.latitude,
     longitude: input.longitude,
     accuracy: input.accuracy || 0,
