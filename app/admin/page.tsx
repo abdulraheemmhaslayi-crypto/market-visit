@@ -1291,7 +1291,7 @@ export default function AdminDashboardPage() {
       },
     });
 
-    const createBarValueLabelPlugin = () => ({
+    const createBarValueLabelPlugin = (formatLabel?: (value: number, index: number) => string) => ({
       id: 'barValueLabels',
       afterDatasetsDraw(chart: any) {
         const { ctx } = chart;
@@ -1303,7 +1303,7 @@ export default function AdminDashboardPage() {
         meta.data.forEach((bar: any, index: number) => {
           const value = dataset.data[index];
           if (typeof value !== 'number' || value <= 0) return;
-          const label = `${value}`;
+          const label = formatLabel ? formatLabel(value, index) : `${value}`;
 
           ctx.save();
           ctx.font = '800 12px Inter, sans-serif';
@@ -1688,11 +1688,25 @@ export default function AdminDashboardPage() {
       }
 
       const sc = countFreq(filtered, (r) => (r.sup || r.supervisor || '').toString().trim());
+      // Track active visit days per supervisor
+      const supDatesMap: Record<string, Set<string>> = {};
+      filtered.forEach((r: any) => {
+        const s = (r.sup || r.supervisor || "").toString().trim();
+        if (!s || s === "INTERNAL") return;
+        if (!supDatesMap[s]) supDatesMap[s] = new Set<string>();
+        const raw = r.createdAt || r.date || r.visit_datetime;
+        if (raw) {
+          const d = typeof raw === "string" && /^\d{4}-\d{2}-\d{2}/.test(raw.trim())
+            ? raw.trim().slice(0, 10)
+            : new Date(raw).toISOString().slice(0, 10);
+          if (d && d !== "1970-01-01") supDatesMap[s].add(d);
+        }
+      });
 
       // Include all supervisors without slicing or cutting off at 8
       const allSup = Array.from(supSet)
-        .map((name) => [name, sc[name] || 0] as [string, number])
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+        .map((name) => [name, sc[name] || 0, supDatesMap[name]?.size || 0] as [string, number, number])
+        .sort((a, b) => b[1] - a[1] || b[2] - a[2] || a[0].localeCompare(b[0]));
 
       const superTotal = filtered.length;
 
@@ -1713,7 +1727,7 @@ export default function AdminDashboardPage() {
             },
           ],
         },
-        plugins: [createBarValueLabelPlugin()],
+        plugins: [createBarValueLabelPlugin((val, idx) => { const days = allSup[idx]?.[2] || 0; return days > 0 ? `${val} (${days}d)` : `${val}`; })],
         options: {
           maintainAspectRatio: false,
           layout: {
@@ -1721,7 +1735,7 @@ export default function AdminDashboardPage() {
           },
           plugins: {
             legend: { display: false },
-            tooltip: { callbacks: { label: (ctx) => `${ctx.raw} visits (${superTotal ? Math.round(((ctx.raw as number) / superTotal) * 100) : 0}% of total)` } },
+            tooltip: { callbacks: { label: (ctx) => { const idx = ctx.dataIndex; const visits = (ctx.raw as number) || 0; const days = allSup[idx]?.[2] || 0; const pct = superTotal ? Math.round((visits / superTotal) * 100) : 0; const avgPerDay = days > 0 ? (visits / days).toFixed(1) : "0"; return [` Visits: ${visits} (${pct}% of total)`, ` Active Days: ${days} day${days === 1 ? "" : "s"}`, ` Avg / Day: ${avgPerDay} visits/day`]; } } },
           },
           onClick: (e, el, chart) => {
             if (el.length > 0) {
@@ -3108,8 +3122,13 @@ export default function AdminDashboardPage() {
           <div className="panel">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h3>Supervisor Scorecard</h3>
-                <div className="psub">Visits per supervisor (filtered)</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3>Supervisor Scorecard</h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                    {activeDaysCount} Active Day{activeDaysCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="psub">Visits & active days per supervisor ({activeDaysCount} day{activeDaysCount === 1 ? "" : "s"} in selected period)</div>
               </div>
               <ExportButton onClick={handleExportSupervisorChart} label="Export" variant="compact" />
             </div>
