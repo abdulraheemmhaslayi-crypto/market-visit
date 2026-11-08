@@ -128,7 +128,7 @@ async function ensureAuditTable(): Promise<void> {
           IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_audit_actionStatus' AND object_id = OBJECT_ID('AuditActionItem'))
             CREATE INDEX [idx_audit_actionStatus] ON [AuditActionItem] ([actionStatus]);
         `);
-      } catch {}
+      } catch { }
     } else {
       await pool.execute(`
         CREATE TABLE IF NOT EXISTS \`AuditActionItem\` (
@@ -167,7 +167,7 @@ async function ensureAuditTable(): Promise<void> {
         ALTER TABLE \`AuditActionItem\`
         MODIFY COLUMN \`proofPhotoUrl\` LONGTEXT NULL,
         MODIFY COLUMN \`originalPhotoUrl\` LONGTEXT NULL
-      `).catch(() => {});
+      `).catch(() => { });
 
       // Ensure all required columns exist regardless of MySQL version
       const colsToVerify = [
@@ -185,7 +185,7 @@ async function ensureAuditTable(): Promise<void> {
       for (const col of colsToVerify) {
         try {
           await pool.execute(`ALTER TABLE \`AuditActionItem\` ADD COLUMN \`${col.name}\` ${col.type}`);
-        } catch {}
+        } catch { }
       }
     }
     auditSchemaChecked = true;
@@ -325,8 +325,8 @@ export const auditActionRepository = {
   async clearAll(): Promise<void> {
     try {
       await ensureAuditTable();
-      await pool.execute('DELETE FROM `AuditActionItem`').catch(() => {});
-    } catch {}
+      await pool.execute('DELETE FROM `AuditActionItem`').catch(() => { });
+    } catch { }
     writeLocalItems([]);
   },
 
@@ -353,7 +353,7 @@ export const auditActionRepository = {
       if (Array.isArray(rows) && rows.length > 0) {
         return rows.map(mapRowToAuditAction);
       }
-    } catch (err) {}
+    } catch (err) { }
     const all = readLocalItems();
     return all.filter((i) => i.photoId === photoId);
   },
@@ -365,7 +365,7 @@ export const auditActionRepository = {
       if (Array.isArray(rows) && rows.length > 0) {
         return mapRowToAuditAction(rows[0]);
       }
-    } catch (err) {}
+    } catch (err) { }
     const all = readLocalItems();
     return all.find((i) => i.id === id || i.photoId === id) || null;
   },
@@ -440,7 +440,7 @@ export const auditActionRepository = {
         if (Array.isArray(rows) && rows.length > 0) {
           dbItem = rows[0] as AuditActionItem;
         }
-      } catch (err) {}
+      } catch (err) { }
 
       if (dbItem) {
         baseItem = dbItem;
@@ -489,7 +489,7 @@ export const auditActionRepository = {
     try {
       await ensureAuditTable();
       await pool.execute('DELETE FROM `AuditActionItem` WHERE `id` = ?', [id]);
-    } catch (err) {}
+    } catch (err) { }
     const items = readLocalItems();
     const filtered = items.filter((i) => i.id !== id);
     if (filtered.length === items.length) return false;
