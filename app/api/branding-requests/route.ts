@@ -185,7 +185,7 @@ export async function PATCH(req: NextRequest) {
     const adminId = (session.user as any).id || (session.user as any).employeeCode || 'ADMIN';
     const adminName = session.user.name || 'Administrator';
 
-    
+
     // Asset Type & Model Update
     if (action === 'update_asset' || (assetType && assetModel && !decision && action !== 'acknowledge')) {
       const updated = await assetBrandingRepository.updateAssetInfo(id, assetType, assetModel);
@@ -279,7 +279,7 @@ export async function DELETE(req: NextRequest) {
       try {
         const body = await req.json();
         id = body?.id || body?.requestId || '';
-      } catch {}
+      } catch { }
     }
 
     if (!id) {

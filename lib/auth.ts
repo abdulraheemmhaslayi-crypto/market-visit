@@ -4,7 +4,13 @@ import bcrypt from 'bcryptjs';
 import { authConfig } from '@/auth.config';
 import { userRepository, CANONICAL_USERS } from '@/repositories/user-repository';
 
-if (process.env.AUTH_URL) {
+const CANONICAL_DOMAIN = 'dclfvs.cypherone.qa';
+const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.WEBSITE_HOSTNAME);
+
+if (isProd && (!process.env.AUTH_URL || process.env.AUTH_URL.includes('azurewebsites.net') || process.env.AUTH_URL.includes('dandyapp.tech'))) {
+  process.env.AUTH_URL = `https://${CANONICAL_DOMAIN}`;
+  process.env.NEXTAUTH_URL = `https://${CANONICAL_DOMAIN}`;
+} else if (process.env.AUTH_URL) {
   process.env.NEXTAUTH_URL = process.env.AUTH_URL;
 } else if (process.env.NEXTAUTH_URL) {
   process.env.AUTH_URL = process.env.NEXTAUTH_URL;
@@ -60,7 +66,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
             isValid = await bcrypt.compare(trimmedPass, user.passwordHash);
           }
 
-          // Fallback credential check for canonical passwords matching https://dandyapp.tech/admin/supervisors
+          // Fallback credential check for canonical passwords matching https://dclfvs.cypherone.qa/admin/supervisors
           if (!isValid) {
             const uName = (user.name || '').toLowerCase().trim();
             const uRole = user.role;

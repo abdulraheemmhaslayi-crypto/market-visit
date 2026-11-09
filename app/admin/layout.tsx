@@ -179,7 +179,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleSignOut = async () => {
     try {
-      await signOut({ callbackUrl: '/login', redirect: true });
+      const loginUrl = `${window.location.origin}/login`;
+      await signOut({ callbackUrl: loginUrl, redirect: false });
+      window.location.href = loginUrl;
     } catch {
       window.location.href = '/login';
     }
