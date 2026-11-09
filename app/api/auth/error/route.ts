@@ -2,17 +2,20 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const CANONICAL_DOMAIN = 'dclfvs.cypherone.qa';
+
 function getPublicOrigin(request: Request): string {
   let host =
     request.headers.get('x-forwarded-host') ||
+    request.headers.get('x-original-host') ||
     request.headers.get('host') ||
-    'dandyapp.tech';
+    CANONICAL_DOMAIN;
 
   if (host && host.includes(',')) {
     host = host.split(',')[0].trim();
   }
-  if (host && host.includes('azurewebsites.net')) {
-    host = 'dandyapp.tech';
+  if (host && (host.includes('azurewebsites.net') || host.includes('dandyapp.tech'))) {
+    host = CANONICAL_DOMAIN;
   }
 
   const proto =

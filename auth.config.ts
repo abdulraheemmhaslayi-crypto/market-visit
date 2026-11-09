@@ -1,7 +1,13 @@
 import type { NextAuthConfig } from 'next-auth';
 import { canAccessAdminRoute, canAccessSupervisorRoute, isFullAccessRole, isSupervisorRole } from '@/lib/roles';
 
-if (process.env.AUTH_URL) {
+const CANONICAL_DOMAIN = 'dclfvs.cypherone.qa';
+const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.WEBSITE_HOSTNAME);
+
+if (isProd && (!process.env.AUTH_URL || process.env.AUTH_URL.includes('azurewebsites.net') || process.env.AUTH_URL.includes('dandyapp.tech'))) {
+  process.env.AUTH_URL = `https://${CANONICAL_DOMAIN}`;
+  process.env.NEXTAUTH_URL = `https://${CANONICAL_DOMAIN}`;
+} else if (process.env.AUTH_URL) {
   process.env.NEXTAUTH_URL = process.env.AUTH_URL;
 } else if (process.env.NEXTAUTH_URL) {
   process.env.AUTH_URL = process.env.NEXTAUTH_URL;
@@ -18,14 +24,15 @@ process.env.AUTH_TRUST_HOST = 'true';
 function getTargetUrl(path: string, nextUrl: URL, request?: any) {
   let host =
     request?.headers?.get?.('x-forwarded-host') ||
+    request?.headers?.get?.('x-original-host') ||
     request?.headers?.get?.('host') ||
     nextUrl?.host ||
-    'dandyapp.tech';
+    CANONICAL_DOMAIN;
   if (host && host.includes(',')) {
     host = host.split(',')[0].trim();
   }
-  if (host && host.includes('azurewebsites.net')) {
-    host = 'dandyapp.tech';
+  if (host && (host.includes('azurewebsites.net') || host.includes('dandyapp.tech'))) {
+    host = CANONICAL_DOMAIN;
   }
   let proto =
     request?.headers?.get?.('x-forwarded-proto') ||
@@ -44,6 +51,30 @@ export const authConfig = {
     error: '/login',
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // 1. If relative URL, prepend canonical domain or baseUrl
+      if (url.startsWith('/')) {
+        const base = baseUrl.includes('azurewebsites.net') || baseUrl.includes('dandyapp.tech')
+          ? `https://${CANONICAL_DOMAIN}`
+          : baseUrl;
+        return `${base}${url}`;
+      }
+
+      // 2. If url has azurewebsites.net or dandyapp.tech, rewrite to canonical domain
+      try {
+        const parsed = new URL(url);
+        if (parsed.host.includes('azurewebsites.net') || parsed.host.includes('dandyapp.tech')) {
+          parsed.protocol = 'https:';
+          parsed.host = CANONICAL_DOMAIN;
+          return parsed.toString();
+        }
+        if (parsed.origin === baseUrl || parsed.host === CANONICAL_DOMAIN || parsed.host.includes('localhost')) {
+          return url;
+        }
+      } catch {}
+
+      return `https://${CANONICAL_DOMAIN}`;
+    },
     authorized({ auth, request }) {
       const nextUrl = request.nextUrl;
       const isLoggedIn = !!auth?.user;
